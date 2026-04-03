@@ -1,0 +1,13 @@
+{
+  "name": "@agent-memory/types",
+  "version": "0.1.0",
+  "description": "Shared TypeScript types for agent-memory",
+  "main": "index.ts",
+  "types": "index.ts",
+  "scripts": {
+    "build": "echo 'No build needed - types only'"
+  },
+  "keywords": ["types", "schema"],
+  "author": "",
+  "license": "MIT"
+}
