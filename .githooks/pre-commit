@@ -1,0 +1,17 @@
+#!/bin/bash
+# .githooks/pre-commit
+
+echo "🔍 Checking generated types..."
+
+# Run type generation
+./scripts/sync-types.sh
+
+# Check if generated files changed
+if [[ -n $(git status --porcelain shared/types/generated/) ]]; then
+    echo "⚠️  Generated types out of sync with schemas!"
+    echo "    Run: ./scripts/sync-types.sh"
+    echo "    Then: git add shared/types/generated/"
+    exit 1
+fi
+
+echo "✅ Types are in sync"
