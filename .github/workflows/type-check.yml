@@ -1,0 +1,36 @@
+name: Type Check
+
+on: [push, pull_request]
+
+jobs:
+  check-types:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      - name: Install Python dependencies
+        run: pip install datamodel-code-generator
+
+      - name: Generate types
+        run: ./scripts/sync-types.sh
+
+      - name: Check for uncommitted changes
+        run: |
+          if [[ -n $(git status --porcelain shared/types/generated/) ]]; then
+            echo "Generated types not committed!"
+            git status shared/types/generated/
+            exit 1
+          fi
+
+      - name: Success
+        run: echo "✅ All generated types are up to date"
