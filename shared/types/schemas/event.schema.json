@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://remembr.dev/schemas/event.json",
+  "type": "object",
+  "title": "Event",
+  "description": "Base event structure for Redis Streams",
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Event ID (ULID or UUID)"
+    },
+    "type": {
+      "type": "string",
+      "description": "Event type (trade.opened, memory.created, etc.)"
+    },
+    "version": {
+      "type": "string",
+      "default": "1.0",
+      "description": "Event schema version"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source": {
+      "type": "string",
+      "enum": ["memory-api", "trading-engine"],
+      "description": "Service that published the event"
+    },
+    "payload": {
+      "type": "object",
+      "description": "Event-specific data"
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "correlation_id": {
+          "type": "string",
+          "description": "Request trace ID"
+        },
+        "causation_id": {
+          "type": "string",
+          "description": "Parent event ID that caused this"
+        }
+      }
+    }
+  },
+  "required": ["id", "type", "version", "timestamp", "source", "payload"],
+  "additionalProperties": false
+}

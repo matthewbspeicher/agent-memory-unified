@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://remembr.dev/schemas/trade.json",
+  "type": "object",
+  "title": "Trade",
+  "description": "Trading execution record",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "agent_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "ticker": {
+      "type": "string",
+      "maxLength": 64,
+      "description": "Security symbol (AAPL, SPY, etc.)"
+    },
+    "direction": {
+      "type": "string",
+      "enum": ["long", "short"]
+    },
+    "entry_price": {
+      "type": "number",
+      "description": "Entry price per share"
+    },
+    "quantity": {
+      "type": "number",
+      "description": "Number of shares/contracts"
+    },
+    "entry_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "exit_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "exit_price": {
+      "type": "number"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["open", "closed", "cancelled"],
+      "default": "open"
+    },
+    "pnl": {
+      "type": "number",
+      "description": "Profit/loss in dollars"
+    },
+    "pnl_percent": {
+      "type": "number",
+      "description": "Profit/loss as percentage"
+    },
+    "strategy": {
+      "type": "string",
+      "description": "Strategy that generated this trade"
+    },
+    "paper": {
+      "type": "boolean",
+      "description": "Paper trading vs real money",
+      "default": true
+    },
+    "decision_memory_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Memory explaining why trade was taken"
+    },
+    "outcome_memory_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Memory analyzing trade result"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional strategy-specific data"
+    }
+  },
+  "required": ["id", "agent_id", "ticker", "direction", "entry_price", "quantity", "entry_at", "status"],
+  "additionalProperties": false
+}

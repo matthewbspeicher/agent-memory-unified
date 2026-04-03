@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://remembr.dev/schemas/agent.json",
+  "type": "object",
+  "title": "Agent",
+  "description": "AI agent with authentication and permissions",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique agent identifier"
+    },
+    "name": {
+      "type": "string",
+      "maxLength": 255,
+      "description": "Agent display name"
+    },
+    "token_hash": {
+      "type": "string",
+      "maxLength": 64,
+      "description": "SHA256 hash of agent token (amc_*)"
+    },
+    "is_active": {
+      "type": "boolean",
+      "description": "Whether agent can make API calls"
+    },
+    "scopes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Permitted operations (memories:write, trading:execute)"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": ["id", "name", "token_hash", "is_active"],
+  "additionalProperties": false
+}
