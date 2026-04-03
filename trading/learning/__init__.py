@@ -1,0 +1,27 @@
+"""Learning modules for strategy analysis and optimization."""
+
+from learning.correlation_monitor import (
+    CorrelationConfig,
+    CorrelationMonitor,
+    CorrelationPair,
+    CorrelationSnapshot,
+)
+from learning.ensemble_optimizer import (
+    AgentWeight,
+    EnsembleConfig,
+    EnsembleMethod,
+    EnsembleOptimizer,
+    EnsembleSignal,
+)
+
+__all__ = [
+    "CorrelationConfig",
+    "CorrelationMonitor",
+    "CorrelationPair",
+    "CorrelationSnapshot",
+    "AgentWeight",
+    "EnsembleConfig",
+    "EnsembleMethod",
+    "EnsembleOptimizer",
+    "EnsembleSignal",
+]

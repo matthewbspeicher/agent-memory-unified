@@ -1,0 +1,161 @@
+agents:
+  - name: rsi_scanner
+    strategy: rsi
+    schedule: continuous
+    interval: 300
+    action_level: notify
+    universe: ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA"]
+    parameters:
+      rsi_threshold: 30
+      lookback_period: 14
+      confidence_floor: 0.6
+
+  - name: volume_spike
+    strategy: volume_spike
+    schedule: continuous
+    interval: 600
+    action_level: notify
+    universe: ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA"]
+    parameters:
+      volume_multiplier: 2.0
+      lookback_bars: 20
+
+  - name: kalshi_news_arb
+    strategy: kalshi_news_arb
+    schedule: cron
+    cron: "*/15 * * * *"
+    action_level: suggest_trade
+    parameters:
+      categories: ["economics", "politics", "climate"]
+      threshold_cents: 15
+      max_markets_per_scan: 30
+      min_volume: 200
+      min_confidence: 60
+      min_days_to_close: 1
+
+  - name: kalshi_calibration
+    strategy: kalshi_calibration
+    schedule: cron
+    cron: "0 */6 * * *"
+    action_level: suggest_trade
+    parameters:
+      threshold_cents: 10
+      min_volume: 100
+      max_markets: 50
+
+  - name: kalshi_theta
+    strategy: kalshi_time_decay
+    schedule: cron
+    cron: "0 9,17 * * *"
+    action_level: suggest_trade
+    parameters:
+      max_days_to_close: 3
+      max_price_cents: 8
+      min_volume: 300
+      categories: ["economics", "politics"]
+
+  - name: polymarket_news_arb
+    strategy: polymarket_news_arb
+    schedule: cron
+    cron: "*/15 * * * *"
+    action_level: suggest_trade
+    parameters:
+      tags: ["politics", "crypto", "sports"]
+      threshold_cents: 15
+      max_markets_per_scan: 30
+      min_volume: 500
+      min_confidence: 60
+      min_days_to_close: 1
+
+  - name: polymarket_calibration
+    strategy: polymarket_calibration
+    schedule: cron
+    cron: "0 */6 * * *"
+    action_level: suggest_trade
+    parameters:
+      threshold_cents: 10
+      tags: ["science", "technology", "economics"]
+      min_match_similarity: 0.7
+      max_markets_per_scan: 20
+
+  - name: polymarket_theta
+    strategy: polymarket_time_decay
+    schedule: cron
+    cron: "0 9,17 * * *"
+    action_level: suggest_trade
+    parameters:
+      max_days_to_close: 3
+      max_price_cents: 5
+      min_volume: 500
+      max_markets_per_scan: 50
+
+  - name: cross_platform_arb
+    strategy: cross_platform_arb
+    schedule: cron
+    cron: "*/30 * * * *"
+    action_level: suggest_trade
+    parameters:
+      threshold_cents: 8
+      min_match_similarity: 0.35
+      alert_on_spread: true
+      kalshi_categories: ["economics", "politics", "climate"]
+      polymarket_tags: ["politics", "crypto", "climate"]
+      max_markets_per_platform: 50
+
+  - name: bittensor_btc_5m
+    strategy: bittensor_signal
+    schedule: continuous
+    interval: 60
+    action_level: notify
+    trust_level: monitored
+    parameters:
+      symbol: BTCUSD
+      timeframe: 5m
+      max_signal_age_seconds: 600
+      min_responses_for_opportunity: 3
+      min_agreement_ratio: 0.65
+      min_abs_direction: 0.20
+      min_expected_return: 0.002
+      max_weighting_divergence: 0.25
+      use_weighted_view: false
+      allow_short_signals: true
+
+  - name: bittensor_eth_5m
+    strategy: bittensor_signal
+    schedule: continuous
+    interval: 60
+    action_level: notify
+    trust_level: monitored
+    parameters:
+      symbol: ETHUSD
+      timeframe: 5m
+      max_signal_age_seconds: 600
+      min_responses_for_opportunity: 3
+      min_agreement_ratio: 0.65
+      min_abs_direction: 0.20
+      min_expected_return: 0.002
+      max_weighting_divergence: 0.25
+      use_weighted_view: false
+      allow_short_signals: true
+
+  - name: meta_agent
+    strategy: meta_agent
+    schedule: continuous
+    interval: 30
+    action_level: notify
+    parameters:
+      confidence_boost_amount: 0.15
+      confidence_decay_factor: 0.95
+      signal_adapters:
+        - name: twitter
+          enabled: true
+          parameters:
+            sentiment_threshold: 3
+        - name: news
+          enabled: true
+          parameters:
+            relevance_threshold: 0.7
+        - name: prediction_market
+          enabled: true
+          parameters:
+            volume_spike_multiplier: 2.5

@@ -1,0 +1,213 @@
+"""
+AdaptiveTuner — evaluates agent performance and adjusts parameters.
+
+Uses a fallback-chain LLM client (Anthropic → Groq → Ollama → rule-based)
+for generating recommendations and parameter variants.
+"""
+
+import json
+import logging
+from typing import TYPE_CHECKING, Any, Optional
+
+from llm.client import LLMClient
+
+if TYPE_CHECKING:
+    from agents.runner import AgentRunner
+    from storage.trades import TradeStore
+    from storage.opportunities import OpportunityStore
+
+logger = logging.getLogger(__name__)
+
+MIN_SAMPLE_SIZE = 20
+
+
+class AdaptiveTuner:
+    """
+    Periodically evaluates agent performance and
+    adjusts runtime parameters (execution-rate-based threshold adjustment).
+    """
+
+    def __init__(
+        self,
+        runner: "AgentRunner",
+        opp_store: "OpportunityStore",
+        trade_store: "TradeStore",
+        trade_reflector_factory: Any | None = None,
+        anthropic_key: str | None = None,
+        groq_key: str | None = None,
+        ollama_url: str = "http://localhost:11434",
+    ) -> None:
+        self._runner = runner
+        self._opp_store = opp_store
+        self._trade_store = trade_store
+        self._reflector_factory = trade_reflector_factory
+
+        # Unified LLM client with fallback chain
+        self._llm = LLMClient(
+            anthropic_key=anthropic_key,
+            groq_key=groq_key,
+            ollama_url=ollama_url,
+        )
+
+    async def get_agent_execution_rate(self, agent_name: str) -> tuple[float, int]:
+        """
+        Calculate the ratio of executed vs rejected opportunities.
+        Note: this measures filter pass-through rate, NOT trade profitability.
+        Returns (rate, sample_count).
+        """
+        opps = await self._opp_store.list(agent_name=agent_name, limit=100)
+        if not opps:
+            return 0.5, 0
+
+        executed = sum(1 for o in opps if o["status"] == "executed")
+        rejected = sum(1 for o in opps if o["status"] == "rejected")
+        total = executed + rejected
+        if total == 0:
+            return 0.5, 0
+
+        return executed / total, total
+
+    async def tune_agent(self, agent_name: str) -> None:
+        execution_rate, sample_count = await self.get_agent_execution_rate(agent_name)
+
+        if sample_count < MIN_SAMPLE_SIZE:
+            logger.debug(
+                "Skipping tuning for %s: only %d samples (need %d)",
+                agent_name,
+                sample_count,
+                MIN_SAMPLE_SIZE,
+            )
+            return
+
+        agent_info = self._runner.get_agent_info(agent_name)
+        if not agent_info:
+            return
+
+        config = agent_info.config
+        confidence_threshold = config.parameters.get("confidence_threshold", 0.7)
+        current_threshold = config.runtime_overrides.get(
+            "confidence_threshold", confidence_threshold
+        )
+
+        overrides = config.runtime_overrides.copy()
+
+        if execution_rate >= 0.6:
+            new_threshold = max(0.1, current_threshold - 0.05)
+            overrides["confidence_threshold"] = round(new_threshold, 2)
+            logger.info(
+                "Tuning %s: exec_rate=%.2f. Lowering threshold to %.2f",
+                agent_name,
+                execution_rate,
+                new_threshold,
+            )
+        elif execution_rate <= 0.4:
+            new_threshold = min(0.95, current_threshold + 0.05)
+            overrides["confidence_threshold"] = round(new_threshold, 2)
+            logger.info(
+                "Tuning %s: exec_rate=%.2f. Raising threshold to %.2f",
+                agent_name,
+                execution_rate,
+                new_threshold,
+            )
+
+        config.runtime_overrides = overrides
+
+    async def generate_recommendations(
+        self,
+        agent_name: str,
+        perf_snapshot: dict,
+    ) -> str:
+        execution_rate = perf_snapshot.get(
+            "execution_rate", perf_snapshot.get("win_rate", 0.5)
+        )
+
+        # --- Qualitative Memory Retrieval ---
+        reflections: list[str] = []
+        if self._reflector_factory:
+            try:
+                reflector = self._reflector_factory(agent_name)
+                memories = await reflector.query(
+                    symbol="",
+                    context="deep_reflection lessons",
+                    agent_name=agent_name,
+                    top_k=10,
+                )
+                reflections = [
+                    m.get("value", "")
+                    for m in memories
+                    if "Key lesson" in m.get("value", "")
+                ]
+            except Exception as e:
+                logger.warning(
+                    "Failed to fetch reflections for tuning %s: %s", agent_name, e
+                )
+
+        metrics_summary = ", ".join(f"{k}={v}" for k, v in perf_snapshot.items())
+
+        memory_context = ""
+        if reflections:
+            memory_context = "\n\nPast Qualitative Lessons Learned:\n- " + "\n- ".join(
+                reflections[:5]
+            )
+
+        prompt = (
+            f"Agent '{agent_name}' has the following performance metrics: {metrics_summary}."
+            f"{memory_context}\n\n"
+            "Based on both the quantitative metrics and the qualitative lessons from past trades, "
+            "please provide 2-3 concise, actionable recommendations for improving this agent's "
+            "strategy parameters (e.g., confidence_threshold, RSI periods, stop-loss levels) "
+            "to increase profitability and reduce risk."
+        )
+
+        try:
+            result = await self._llm.complete(prompt, max_tokens=500)
+            if result.text:
+                return result.text
+        except Exception:
+            pass
+
+        # Rule-based fallback
+        if execution_rate < 0.5:
+            return "Execution rate below threshold: consider tightening confidence_threshold."
+        return "Performance within acceptable range: monitor metrics and consider loosening confidence_threshold if execution rate improves."
+
+    async def generate_parameter_variants(
+        self,
+        agent_name: str,
+        strategy: str,
+        base_params: dict,
+        perf_snapshot: dict,
+    ) -> list[dict]:
+        """Generate parameter variants using fallback-chain LLM, returning JSON list of dicts."""
+        metrics_summary = ", ".join(f"{k}={v}" for k, v in perf_snapshot.items())
+
+        prompt = (
+            f"Agent '{agent_name}' using strategy '{strategy}' has metrics: {metrics_summary}.\n"
+            f"Its current parameters are: {json.dumps(base_params)}\n\n"
+            "I want to explore new parameters to improve Sharpe ratio and profitability.\n"
+            "Provide exactly 3 different variant configurations. Return ONLY a valid JSON array of 3 objects.\n"
+            "Do not include any markdown formatting, backticks, or explanations, just the JSON array of objects."
+        )
+
+        try:
+            result = await self._llm.complete(prompt, max_tokens=600)
+            text_resp = result.text.strip()
+            if text_resp.startswith("```"):
+                lines = text_resp.split("\n")
+                if lines[0].startswith("```"):
+                    lines = lines[1:]
+                if lines[-1].startswith("```"):
+                    lines = lines[:-1]
+                text_resp = "\n".join(lines).strip()
+
+            variants = json.loads(text_resp)
+            if isinstance(variants, list) and len(variants) > 0:
+                return variants
+        except Exception as e:
+            logger.warning("Failed to generate LLM variants for %s: %s", agent_name, e)
+
+        return []
+
+    async def run_tuning_cycle(self) -> None:
+        for agent_info in self._runner.list_agents():
+            await self.tune_agent(agent_info.name)

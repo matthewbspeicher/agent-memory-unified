@@ -1,0 +1,143 @@
+# Paper Trading Agent Configuration
+# Load with STA_AGENTS_CONFIG=agents.paper.yaml
+
+agents:
+  - name: rsi_scanner
+    strategy: rsi
+    schedule: cron
+    cron: "*/5 * * * *"
+    action_level: auto_execute
+    trust_level: assisted
+    broker: alpaca
+    universe: ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA", "NVDA", "META"]
+    parameters:
+      oversold: 30
+      overbought: 70
+      period: 14
+
+  - name: volume_spike
+    strategy: volume_spike
+    schedule: cron
+    cron: "*/5 * * * *"
+    action_level: auto_execute
+    trust_level: assisted
+    broker: alpaca
+    universe: ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA"]
+    parameters:
+      volume_threshold: 2.0
+
+  - name: kalshi_news_arb
+    strategy: kalshi_news_arb
+    schedule: cron
+    cron: "*/15 * * * *"
+    action_level: suggest_trade
+    trust_level: monitored
+    parameters:
+      categories: ["economics", "climate"]
+      threshold_cents: 15
+      min_confidence: 60
+      max_markets_per_scan: 10
+
+  - name: polymarket_news_arb
+    strategy: polymarket_news_arb
+    schedule: cron
+    cron: "*/15 * * * *"
+    action_level: suggest_trade
+    trust_level: monitored
+    parameters:
+      tags: ["politics", "crypto"]
+      threshold_cents: 15
+      min_confidence: 60
+      max_markets_per_scan: 10
+
+  - name: exit_monitor
+    strategy: exit_monitor
+    schedule: cron
+    cron: "* * * * *"
+    action_level: auto_execute
+    trust_level: autonomous
+
+  - name: bittensor_btc_5m
+    strategy: bittensor_signal
+    schedule: continuous
+    interval: 60
+    action_level: notify
+    trust_level: monitored
+    parameters:
+      symbol: BTCUSD
+      timeframe: 5m
+      max_signal_age_seconds: 600
+      min_responses_for_opportunity: 3
+      min_agreement_ratio: 0.65
+      min_abs_direction: 0.20
+      min_expected_return: 0.002
+      max_weighting_divergence: 0.25
+      use_weighted_view: false
+      allow_short_signals: true
+
+  - name: bittensor_eth_5m
+    strategy: bittensor_signal
+    schedule: continuous
+    interval: 60
+    action_level: notify
+    trust_level: monitored
+    parameters:
+      symbol: ETHUSD
+      timeframe: 5m
+      max_signal_age_seconds: 600
+      min_responses_for_opportunity: 3
+      min_agreement_ratio: 0.65
+      min_abs_direction: 0.20
+      min_expected_return: 0.002
+      max_weighting_divergence: 0.25
+      use_weighted_view: false
+      allow_short_signals: true
+
+  - name: momentum_scanner
+    strategy: momentum
+    schedule: cron
+    cron: "*/5 * * * *"
+    action_level: notify
+    trust_level: monitored
+    universe: ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA", "NVDA", "META"]
+    parameters:
+      lookback_days: 20
+      volume_threshold: 1.5
+      cooldown_hours: 24
+
+  - name: mean_reversion
+    strategy: mean_reversion
+    schedule: cron
+    cron: "*/5 * * * *"
+    action_level: notify
+    trust_level: monitored
+    universe: ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA", "NVDA", "META"]
+    parameters:
+      bb_period: 20
+      bb_std: 2.0
+      rsi_threshold: 35
+      rsi_period: 14
+
+  - name: breakout_scanner
+    strategy: breakout
+    schedule: cron
+    cron: "*/5 * * * *"
+    action_level: notify
+    trust_level: monitored
+    universe: ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA", "NVDA", "META"]
+    parameters:
+      lookback_days: 50
+      volume_threshold: 2.0
+
+  - name: multi_factor
+    strategy: multi_factor
+    schedule: cron
+    cron: "*/5 * * * *"
+    action_level: notify
+    trust_level: monitored
+    universe: ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA", "NVDA", "META"]
+    parameters:
+      composite_threshold: 0.6
+      rsi_weight: 0.4
+      macd_weight: 0.3
+      volume_weight: 0.3

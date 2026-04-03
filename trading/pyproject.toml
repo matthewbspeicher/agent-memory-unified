@@ -1,0 +1,12 @@
+[project]
+name = "stock-trading-api"
+version = "0.1.0"
+description = "Broker-agnostic trading API with IBKR adapter"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+markers = [
+    "integration: requires IB Gateway running with paper account",
+]

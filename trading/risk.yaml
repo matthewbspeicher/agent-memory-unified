@@ -1,0 +1,23 @@
+rules:
+  - type: max_position_size
+    params:
+      max_dollars: 10000
+      max_shares: 500
+  - type: max_prediction_exposure
+    params:
+      max_dollars: 50.0
+  - type: max_portfolio_exposure
+    params:
+      max_percent: 25.0
+  - type: max_daily_loss
+    params:
+      max_dollars: 2000
+  - type: max_open_positions
+    params:
+      max_count: 5
+  - type: max_daily_trades
+    params:
+      max_count: 10
+
+kill_switch:
+  enabled: false  # Set to true to halt all auto-execution
