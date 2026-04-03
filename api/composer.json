@@ -5,7 +5,14 @@
     "description": "The skeleton application for the Laravel framework.",
     "keywords": ["laravel", "framework"],
     "license": "MIT",
+    "repositories": [
+        {
+            "type": "path",
+            "url": "../shared/types/generated/php"
+        }
+    ],
     "require": {
+        "agent-memory/shared-types": "@dev",
         "php": "^8.2",
         "aws/aws-sdk-php": "^3.376",
         "inertiajs/inertia-laravel": "^2.0",

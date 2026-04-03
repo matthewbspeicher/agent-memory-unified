@@ -3,6 +3,13 @@ name = "stock-trading-api"
 version = "0.1.0"
 description = "Broker-agnostic trading API with IBKR adapter"
 requires-python = ">=3.12"
+dependencies = [
+    "agent-memory-types @ {path = '../shared/types/generated/python', editable = true}",
+    "fastapi>=0.109.0",
+    "uvicorn>=0.27.0",
+    "asyncpg>=0.29.0",
+    "redis>=5.0.1",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
