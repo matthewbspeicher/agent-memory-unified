@@ -1,0 +1,15 @@
+{
+  "name": "remembr-discord-bot",
+  "version": "1.0.0",
+  "description": "Discord bot that posts Remembr.dev commons stream updates",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.14.1",
+    "dotenv": "^16.4.5",
+    "eventsource": "^2.0.2"
+  }
+}

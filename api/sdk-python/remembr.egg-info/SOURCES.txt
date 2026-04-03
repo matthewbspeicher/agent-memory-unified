@@ -1,0 +1,10 @@
+README.md
+pyproject.toml
+remembr/__init__.py
+remembr/client.py
+remembr/exceptions.py
+remembr.egg-info/PKG-INFO
+remembr.egg-info/SOURCES.txt
+remembr.egg-info/dependency_links.txt
+remembr.egg-info/requires.txt
+remembr.egg-info/top_level.txt

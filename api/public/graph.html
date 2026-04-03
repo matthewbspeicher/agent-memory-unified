@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Memory Graph — Agent Memory Commons</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --border: #334155;
+    --accent: #6366f1;
+    --accent2: #8b5cf6;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --mono: 'Space Mono', monospace;
+    --sans: 'Syne', sans-serif;
+  }
+
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+  }
+
+  /* Subtle grid texture */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(99,102,241,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(99,102,241,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+  }
+
+  /* ---- Top-left: Agent info + back link ---- */
+  .top-left {
+    position: fixed;
+    top: 24px;
+    left: 28px;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .back-link {
+    font-size: 12px;
+    color: var(--muted);
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: color 0.2s;
+  }
+
+  .back-link:hover { color: var(--accent); }
+
+  .back-link svg {
+    position: static;
+    width: 14px;
+    height: 14px;
+  }
+
+  .agent-header {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .agent-name {
+    font-family: var(--sans);
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--text);
+    letter-spacing: -0.5px;
+  }
+
+  .agent-name span { color: var(--accent); }
+
+  .agent-sub {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+  }
+
+  /* ---- Top-right: Legend ---- */
+  .legend {
+    position: fixed;
+    top: 24px;
+    right: 28px;
+    z-index: 20;
+    background: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 160px;
+  }
+
+  .legend-title {
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 4px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+    color: var(--text);
+  }
+
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    box-shadow: 0 0 6px currentColor;
+  }
+
+  /* ---- Bottom-right: Controls ---- */
+  .controls {
+    position: fixed;
+    bottom: 28px;
+    right: 28px;
+    z-index: 20;
+    display: flex;
+    gap: 8px;
+  }
+
+  .ctrl-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(12px);
+    color: var(--muted);
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    font-family: var(--mono);
+  }
+
+  .ctrl-btn:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: rgba(99, 102, 241, 0.08);
+  }
+
+  /* ---- Tooltip ---- */
+  .tooltip {
+    position: fixed;
+    z-index: 30;
+    background: rgba(15, 23, 42, 0.95);
+    backdrop-filter: blur(16px);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 18px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+    max-width: 320px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .tooltip.show { opacity: 1; }
+
+  .tooltip-summary {
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.5;
+  }
+
+  .tooltip-meta {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .tooltip-tag {
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-weight: 700;
+    border: 1px solid;
+  }
+
+  /* ---- Detail Card Overlay ---- */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .overlay.show { display: flex; }
+
+  .detail-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px;
+    max-width: 480px;
+    width: 90vw;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    animation: cardIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @keyframes cardIn {
+    from { opacity: 0; transform: scale(0.95) translateY(10px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  .detail-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .detail-type {
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 6px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 700;
+    border: 1px solid;
+  }
+
+  .detail-close {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    font-family: var(--mono);
+  }
+
+  .detail-close:hover {
+    color: var(--text);
+    border-color: var(--text);
+  }
+
+  .detail-summary {
+    font-size: 15px;
+    line-height: 1.7;
+    color: var(--text);
+  }
+
+  .detail-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--muted);
+    padding: 6px 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .detail-row strong {
+    color: var(--text);
+    font-weight: 400;
+  }
+
+  /* ---- Empty state ---- */
+  .empty-state {
+    position: fixed;
+    inset: 0;
+    z-index: 10;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+  }
+
+  .empty-state.show { display: flex; }
+
+  .empty-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    opacity: 0.5;
+  }
+
+  .empty-title {
+    font-family: var(--sans);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--muted);
+  }
+
+  .empty-sub {
+    font-size: 12px;
+    color: var(--muted);
+    opacity: 0.7;
+    max-width: 300px;
+    text-align: center;
+    line-height: 1.6;
+  }
+
+  /* ---- Loading state ---- */
+  .loading {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    background: var(--bg);
+  }
+
+  .loading.hide { display: none; }
+
+  .spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .loading-text {
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  /* ---- Error state ---- */
+  .error-state {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    background: var(--bg);
+  }
+
+  .error-state.show { display: flex; }
+
+  .error-title {
+    font-family: var(--sans);
+    font-size: 18px;
+    font-weight: 700;
+    color: #ef4444;
+  }
+
+  .error-sub {
+    font-size: 12px;
+    color: var(--muted);
+    max-width: 400px;
+    text-align: center;
+    line-height: 1.6;
+  }
+
+  /* ---- Edge label styling ---- */
+  .edge-label {
+    font-size: 9px;
+    fill: #64748b;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  /* ---- Bottom-left: Stats ---- */
+  .stats {
+    position: fixed;
+    bottom: 28px;
+    left: 28px;
+    z-index: 20;
+    font-size: 11px;
+    color: var(--muted);
+    display: flex;
+    gap: 16px;
+  }
+
+  .stats span strong {
+    color: var(--accent);
+    font-weight: 400;
+  }
+
+  /* Responsive */
+  @media (max-width: 640px) {
+    .legend { display: none; }
+    .top-left { top: 16px; left: 16px; }
+    .controls { bottom: 16px; right: 16px; }
+    .stats { bottom: 16px; left: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Loading -->
+<div class="loading" id="loading">
+  <div class="spinner"></div>
+  <div class="loading-text">Loading memory graph...</div>
+</div>
+
+<!-- Error state -->
+<div class="error-state" id="error-state">
+  <div class="error-title">Could not load graph</div>
+  <div class="error-sub" id="error-message">An unexpected error occurred.</div>
+  <a href="/" class="back-link" style="margin-top:8px">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z" clip-rule="evenodd"/></svg>
+    Back to home
+  </a>
+</div>
+
+<!-- Empty state -->
+<div class="empty-state" id="empty-state">
+  <div class="empty-icon">&#x1f9e0;</div>
+  <div class="empty-title">No memories yet</div>
+  <div class="empty-sub">This agent hasn't stored any public memories. Memories will appear here as nodes once they exist.</div>
+  <a href="/" class="back-link" style="margin-top:8px">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z" clip-rule="evenodd"/></svg>
+    Back to home
+  </a>
+</div>
+
+<!-- Top-left: branding + back link -->
+<div class="top-left" id="top-left" style="display:none">
+  <a href="/" class="back-link">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z" clip-rule="evenodd"/></svg>
+    Back to home
+  </a>
+  <div class="agent-header">
+    <div class="agent-name" id="agent-display-name">Memory <span>Graph</span></div>
+    <div class="agent-sub" id="agent-display-sub">Knowledge network visualization</div>
+  </div>
+</div>
+
+<!-- Top-right: Legend -->
+<div class="legend" id="legend" style="display:none">
+  <div class="legend-title">Memory Types</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#3b82f6;color:#3b82f6"></div> fact</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#22c55e;color:#22c55e"></div> preference</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#f97316;color:#f97316"></div> procedure</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#a855f7;color:#a855f7"></div> lesson</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#ef4444;color:#ef4444"></div> error_fix</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#06b6d4;color:#06b6d4"></div> tool_tip</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#6b7280;color:#6b7280"></div> context</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#eab308;color:#eab308"></div> note</div>
+</div>
+
+<!-- Bottom-left: Stats -->
+<div class="stats" id="stats" style="display:none">
+  <span><strong id="node-count">0</strong> nodes</span>
+  <span><strong id="edge-count">0</strong> edges</span>
+</div>
+
+<!-- Bottom-right: Controls -->
+<div class="controls" id="controls" style="display:none">
+  <button class="ctrl-btn" id="btn-zoom-in" title="Zoom in">+</button>
+  <button class="ctrl-btn" id="btn-zoom-out" title="Zoom out">-</button>
+  <button class="ctrl-btn" id="btn-reset" title="Reset view">&#x21ba;</button>
+</div>
+
+<!-- Tooltip -->
+<div class="tooltip" id="tooltip">
+  <div class="tooltip-meta" id="tooltip-meta"></div>
+  <div class="tooltip-summary" id="tooltip-summary"></div>
+</div>
+
+<!-- Detail overlay -->
+<div class="overlay" id="overlay">
+  <div class="detail-card" id="detail-card">
+    <div class="detail-header">
+      <div class="detail-type" id="detail-type"></div>
+      <button class="detail-close" id="detail-close">&times;</button>
+    </div>
+    <div class="detail-summary" id="detail-summary"></div>
+    <div id="detail-rows"></div>
+  </div>
+</div>
+
+<!-- SVG canvas injected by D3 -->
+
+<script>
+// ---------------------------------------------------------------------------
+// Config
+// ---------------------------------------------------------------------------
+var API_BASE = window.location.origin + '/api/v1';
+
+var TYPE_COLORS = {
+  fact:       '#3b82f6',
+  preference: '#22c55e',
+  procedure:  '#f97316',
+  lesson:     '#a855f7',
+  error_fix:  '#ef4444',
+  tool_tip:   '#06b6d4',
+  context:    '#6b7280',
+  note:       '#eab308'
+};
+
+var DEFAULT_COLOR = '#6b7280';
+
+// ---------------------------------------------------------------------------
+// Utility: safe DOM helpers (no innerHTML with untrusted data)
+// ---------------------------------------------------------------------------
+function clearChildren(el) {
+  while (el.firstChild) {
+    el.removeChild(el.firstChild);
+  }
+}
+
+function createTag(text, color, borderColor, bgColor) {
+  var tag = document.createElement('span');
+  tag.className = 'tooltip-tag';
+  tag.style.color = color;
+  tag.style.borderColor = borderColor;
+  tag.style.background = bgColor;
+  tag.textContent = text;
+  return tag;
+}
+
+function createDetailRow(label, value) {
+  var row = document.createElement('div');
+  row.className = 'detail-row';
+  row.appendChild(document.createTextNode(label));
+  var strong = document.createElement('strong');
+  strong.textContent = value;
+  row.appendChild(strong);
+  return row;
+}
+
+function getColor(type) {
+  return TYPE_COLORS[type] || DEFAULT_COLOR;
+}
+
+function nodeRadius(importance) {
+  return 8 + ((importance || 0) * 2);
+}
+
+function truncate(str, len) {
+  if (!str) return '';
+  return str.length > len ? str.slice(0, len) + '...' : str;
+}
+
+function formatDate(iso) {
+  try {
+    return new Date(iso).toLocaleString();
+  } catch (e) {
+    return iso || '';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Parse agent ID from URL
+// ---------------------------------------------------------------------------
+var params = new URLSearchParams(window.location.search);
+var agentId = params.get('agent');
+
+if (!agentId) {
+  document.getElementById('loading').classList.add('hide');
+  document.getElementById('error-message').textContent =
+    'No agent ID provided. Use ?agent={uuid} in the URL.';
+  document.getElementById('error-state').classList.add('show');
+}
+
+// ---------------------------------------------------------------------------
+// Fetch graph data
+// ---------------------------------------------------------------------------
+async function loadGraph() {
+  if (!agentId) return;
+
+  try {
+    var res = await fetch(API_BASE + '/agents/' + encodeURIComponent(agentId) + '/graph');
+
+    if (!res.ok) {
+      throw new Error('API returned ' + res.status + ' ' + res.statusText);
+    }
+
+    var data = await res.json();
+    document.getElementById('loading').classList.add('hide');
+
+    if (!data.nodes || data.nodes.length === 0) {
+      document.getElementById('empty-state').classList.add('show');
+      return;
+    }
+
+    // Set agent name safely via textContent/DOM
+    var agentName = (data.agent && data.agent.name) ? data.agent.name : ('Agent ' + agentId.slice(0, 8));
+    var nameEl = document.getElementById('agent-display-name');
+    clearChildren(nameEl);
+    nameEl.appendChild(document.createTextNode(agentName + ' '));
+    var accentSpan = document.createElement('span');
+    accentSpan.textContent = 'Graph';
+    nameEl.appendChild(accentSpan);
+    document.getElementById('agent-display-sub').textContent =
+      data.nodes.length + ' memories \u00b7 ' + (data.edges ? data.edges.length : 0) + ' connections';
+
+    // Show chrome
+    document.getElementById('top-left').style.display = 'flex';
+    document.getElementById('legend').style.display = 'flex';
+    document.getElementById('stats').style.display = 'flex';
+    document.getElementById('controls').style.display = 'flex';
+    document.getElementById('node-count').textContent = data.nodes.length;
+    document.getElementById('edge-count').textContent = data.edges ? data.edges.length : 0;
+
+    renderGraph(data.nodes, data.edges || []);
+
+  } catch (err) {
+    document.getElementById('loading').classList.add('hide');
+    document.getElementById('error-message').textContent = err.message;
+    document.getElementById('error-state').classList.add('show');
+  }
+}
+
+// ---------------------------------------------------------------------------
+// D3 force-directed graph
+// ---------------------------------------------------------------------------
+function renderGraph(nodes, edges) {
+  var width = window.innerWidth;
+  var height = window.innerHeight;
+
+  // Build lookup for fast access
+  var nodeById = new Map();
+  nodes.forEach(function(n) { nodeById.set(n.id, n); });
+
+  // Filter edges to only include valid source/target
+  var validEdges = edges.filter(function(e) {
+    return nodeById.has(e.source) && nodeById.has(e.target);
+  });
+
+  // Create SVG
+  var svg = d3.select('body')
+    .append('svg')
+    .attr('width', width)
+    .attr('height', height);
+
+  // Glow filter for nodes
+  var defs = svg.append('defs');
+
+  var filter = defs.append('filter')
+    .attr('id', 'glow')
+    .attr('x', '-50%')
+    .attr('y', '-50%')
+    .attr('width', '200%')
+    .attr('height', '200%');
+
+  filter.append('feGaussianBlur')
+    .attr('stdDeviation', '3')
+    .attr('result', 'coloredBlur');
+
+  var feMerge = filter.append('feMerge');
+  feMerge.append('feMergeNode').attr('in', 'coloredBlur');
+  feMerge.append('feMergeNode').attr('in', 'SourceGraphic');
+
+  // Container for zoom/pan
+  var g = svg.append('g');
+
+  // Zoom behavior
+  var zoom = d3.zoom()
+    .scaleExtent([0.1, 6])
+    .on('zoom', function(event) {
+      g.attr('transform', event.transform);
+    });
+
+  svg.call(zoom);
+
+  // Set initial zoom to center the graph
+  var initialTransform = d3.zoomIdentity.translate(width / 2, height / 2).scale(0.8);
+  svg.call(zoom.transform, initialTransform);
+
+  // Zoom controls
+  document.getElementById('btn-zoom-in').addEventListener('click', function() {
+    svg.transition().duration(300).call(zoom.scaleBy, 1.4);
+  });
+  document.getElementById('btn-zoom-out').addEventListener('click', function() {
+    svg.transition().duration(300).call(zoom.scaleBy, 0.7);
+  });
+  document.getElementById('btn-reset').addEventListener('click', function() {
+    svg.transition().duration(500).call(
+      zoom.transform,
+      d3.zoomIdentity.translate(width / 2, height / 2).scale(0.8)
+    );
+  });
+
+  // Force simulation
+  var simulation = d3.forceSimulation(nodes)
+    .force('link', d3.forceLink(validEdges)
+      .id(function(d) { return d.id; })
+      .distance(120)
+    )
+    .force('charge', d3.forceManyBody()
+      .strength(-200)
+      .distanceMax(400)
+    )
+    .force('center', d3.forceCenter(0, 0))
+    .force('collision', d3.forceCollide().radius(function(d) {
+      return nodeRadius(d.importance) + 4;
+    }))
+    .force('x', d3.forceX(0).strength(0.04))
+    .force('y', d3.forceY(0).strength(0.04));
+
+  // Draw edges
+  var linkGroup = g.append('g').attr('class', 'links');
+
+  var link = linkGroup.selectAll('line')
+    .data(validEdges)
+    .join('line')
+    .attr('stroke', function(d) {
+      return d.relation === 'contradicts' ? '#ef4444' : '#475569';
+    })
+    .attr('stroke-width', function(d) {
+      return d.relation === 'contradicts' ? 1.5 : 1;
+    })
+    .attr('stroke-dasharray', function(d) {
+      return d.relation === 'contradicts' ? '6,4' : 'none';
+    })
+    .attr('stroke-opacity', function(d) {
+      return d.relation === 'contradicts' ? 0.8 : 0.35;
+    });
+
+  // Animated dash offset for "contradicts" edges
+  linkGroup.selectAll('line')
+    .filter(function(d) { return d.relation === 'contradicts'; })
+    .each(function() {
+      var el = d3.select(this);
+      (function animateDash() {
+        el.attr('stroke-dashoffset', 0)
+          .transition()
+          .duration(1000)
+          .ease(d3.easeLinear)
+          .attr('stroke-dashoffset', -20)
+          .on('end', animateDash);
+      })();
+    });
+
+  // Edge labels
+  var edgeLabel = linkGroup.selectAll('text')
+    .data(validEdges)
+    .join('text')
+    .attr('class', 'edge-label')
+    .attr('text-anchor', 'middle')
+    .attr('dy', -4)
+    .text(function(d) { return d.relation || ''; });
+
+  // Draw nodes
+  var nodeGroup = g.append('g').attr('class', 'nodes');
+
+  var node = nodeGroup.selectAll('g')
+    .data(nodes)
+    .join('g')
+    .style('cursor', 'pointer');
+
+  // Outer glow ring
+  node.append('circle')
+    .attr('r', function(d) { return nodeRadius(d.importance) + 3; })
+    .attr('fill', 'none')
+    .attr('stroke', function(d) { return getColor(d.type); })
+    .attr('stroke-width', 1)
+    .attr('stroke-opacity', 0.2);
+
+  // Main circle
+  node.append('circle')
+    .attr('r', function(d) { return nodeRadius(d.importance); })
+    .attr('fill', function(d) { return getColor(d.type); })
+    .attr('fill-opacity', 0.8)
+    .attr('stroke', function(d) { return getColor(d.type); })
+    .attr('stroke-width', 1.5)
+    .attr('stroke-opacity', 0.5)
+    .style('filter', 'url(#glow)');
+
+  // Inner highlight
+  node.append('circle')
+    .attr('r', function(d) { return nodeRadius(d.importance) * 0.4; })
+    .attr('fill', 'white')
+    .attr('fill-opacity', 0.15);
+
+  // Node labels (key or truncated summary) - safe d3 text elements
+  node.append('text')
+    .text(function(d) { return truncate(d.key || d.summary, 18); })
+    .attr('text-anchor', 'middle')
+    .attr('dy', function(d) { return nodeRadius(d.importance) + 14; })
+    .attr('fill', '#94a3b8')
+    .attr('font-size', '9px')
+    .attr('font-family', "'Space Mono', monospace")
+    .attr('pointer-events', 'none');
+
+  // Drag behavior
+  node.call(d3.drag()
+    .on('start', function(event, d) {
+      if (!event.active) simulation.alphaTarget(0.3).restart();
+      d.fx = d.x;
+      d.fy = d.y;
+    })
+    .on('drag', function(event, d) {
+      d.fx = event.x;
+      d.fy = event.y;
+    })
+    .on('end', function(event, d) {
+      if (!event.active) simulation.alphaTarget(0);
+      d.fx = null;
+      d.fy = null;
+    })
+  );
+
+  // Tooltip
+  var tooltipEl = document.getElementById('tooltip');
+  var tooltipMeta = document.getElementById('tooltip-meta');
+  var tooltipSummary = document.getElementById('tooltip-summary');
+
+  node.on('mouseenter', function(event, d) {
+    clearChildren(tooltipMeta);
+    tooltipSummary.textContent = '';
+
+    // Type tag
+    tooltipMeta.appendChild(
+      createTag(d.type || 'unknown', getColor(d.type), getColor(d.type), getColor(d.type) + '18')
+    );
+
+    // Category tag
+    if (d.category) {
+      tooltipMeta.appendChild(
+        createTag(d.category, '#94a3b8', '#475569', 'rgba(71,85,105,0.2)')
+      );
+    }
+
+    // Importance tag
+    if (d.importance != null) {
+      tooltipMeta.appendChild(
+        createTag('importance: ' + d.importance, '#eab308', '#eab308', 'rgba(234,179,8,0.1)')
+      );
+    }
+
+    tooltipSummary.textContent = d.summary || '(no summary)';
+    tooltipEl.classList.add('show');
+  });
+
+  node.on('mousemove', function(event) {
+    var tx = event.clientX + 16;
+    var ty = event.clientY + 16;
+    // Prevent overflow on right edge
+    if (tx + 320 > window.innerWidth) tx = event.clientX - 336;
+    if (ty + 160 > window.innerHeight) ty = event.clientY - 170;
+    tooltipEl.style.left = tx + 'px';
+    tooltipEl.style.top = ty + 'px';
+  });
+
+  node.on('mouseleave', function() {
+    tooltipEl.classList.remove('show');
+  });
+
+  // Click: detail overlay
+  var overlay = document.getElementById('overlay');
+  var detailType = document.getElementById('detail-type');
+  var detailSummary = document.getElementById('detail-summary');
+  var detailRows = document.getElementById('detail-rows');
+
+  node.on('click', function(event, d) {
+    event.stopPropagation();
+    tooltipEl.classList.remove('show');
+
+    // Type badge
+    detailType.textContent = d.type || 'unknown';
+    detailType.style.color = getColor(d.type);
+    detailType.style.borderColor = getColor(d.type);
+    detailType.style.background = getColor(d.type) + '18';
+
+    // Summary
+    detailSummary.textContent = d.summary || '(no summary)';
+
+    // Detail rows - built with safe DOM methods
+    clearChildren(detailRows);
+
+    var rows = [
+      ['Key', d.key || '(auto)'],
+      ['Category', d.category || '-'],
+      ['Importance', d.importance != null ? String(d.importance) : '-'],
+      ['Created', formatDate(d.created_at)],
+      ['Node ID', d.id]
+    ];
+
+    rows.forEach(function(pair) {
+      detailRows.appendChild(createDetailRow(pair[0], pair[1]));
+    });
+
+    // Find connections
+    var connections = validEdges.filter(function(e) {
+      var srcId = typeof e.source === 'object' ? e.source.id : e.source;
+      var tgtId = typeof e.target === 'object' ? e.target.id : e.target;
+      return srcId === d.id || tgtId === d.id;
+    });
+
+    if (connections.length > 0) {
+      var connHeader = createDetailRow('Connections', connections.length + ' edge' + (connections.length !== 1 ? 's' : ''));
+      connHeader.style.marginTop = '4px';
+      connHeader.style.fontWeight = '700';
+      detailRows.appendChild(connHeader);
+
+      connections.slice(0, 8).forEach(function(e) {
+        var srcId = typeof e.source === 'object' ? e.source.id : e.source;
+        var tgtId = typeof e.target === 'object' ? e.target.id : e.target;
+        var otherId = srcId === d.id ? tgtId : srcId;
+        var otherNode = nodeById.get(otherId);
+        var targetLabel = otherNode ? truncate(otherNode.key || otherNode.summary, 30) : otherId.slice(0, 8);
+        detailRows.appendChild(createDetailRow(e.relation || 'related', targetLabel));
+      });
+    }
+
+    overlay.classList.add('show');
+  });
+
+  // Close overlay
+  document.getElementById('detail-close').addEventListener('click', function() {
+    overlay.classList.remove('show');
+  });
+
+  overlay.addEventListener('click', function(event) {
+    if (event.target === overlay) {
+      overlay.classList.remove('show');
+    }
+  });
+
+  document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+      overlay.classList.remove('show');
+    }
+  });
+
+  // Tick: update positions
+  simulation.on('tick', function() {
+    link
+      .attr('x1', function(d) { return d.source.x; })
+      .attr('y1', function(d) { return d.source.y; })
+      .attr('x2', function(d) { return d.target.x; })
+      .attr('y2', function(d) { return d.target.y; });
+
+    edgeLabel
+      .attr('x', function(d) { return (d.source.x + d.target.x) / 2; })
+      .attr('y', function(d) { return (d.source.y + d.target.y) / 2; });
+
+    node.attr('transform', function(d) {
+      return 'translate(' + d.x + ',' + d.y + ')';
+    });
+  });
+
+  // Gentle warm-up then cool down
+  simulation.alpha(1).restart();
+
+  // On resize
+  window.addEventListener('resize', function() {
+    var w = window.innerWidth;
+    var h = window.innerHeight;
+    svg.attr('width', w).attr('height', h);
+  });
+
+  // Highlight connected nodes on hover
+  node.on('mouseenter.highlight', function(event, d) {
+    var connectedIds = new Set();
+    connectedIds.add(d.id);
+    validEdges.forEach(function(e) {
+      var srcId = typeof e.source === 'object' ? e.source.id : e.source;
+      var tgtId = typeof e.target === 'object' ? e.target.id : e.target;
+      if (srcId === d.id) connectedIds.add(tgtId);
+      if (tgtId === d.id) connectedIds.add(srcId);
+    });
+
+    node.style('opacity', function(n) {
+      return connectedIds.has(n.id) ? 1 : 0.15;
+    });
+
+    link.style('opacity', function(e) {
+      var srcId = typeof e.source === 'object' ? e.source.id : e.source;
+      var tgtId = typeof e.target === 'object' ? e.target.id : e.target;
+      return (srcId === d.id || tgtId === d.id) ? 0.8 : 0.05;
+    });
+
+    edgeLabel.style('opacity', function(e) {
+      var srcId = typeof e.source === 'object' ? e.source.id : e.source;
+      var tgtId = typeof e.target === 'object' ? e.target.id : e.target;
+      return (srcId === d.id || tgtId === d.id) ? 1 : 0.05;
+    });
+  });
+
+  node.on('mouseleave.highlight', function() {
+    node.style('opacity', 1);
+    link.style('opacity', function(d) {
+      return d.relation === 'contradicts' ? 0.8 : 0.35;
+    });
+    edgeLabel.style('opacity', 1);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Boot
+// ---------------------------------------------------------------------------
+if (agentId) {
+  loadGraph();
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,41 @@
+{
+  "name": "@remembr/sdk",
+  "version": "0.1.0",
+  "description": "JavaScript/TypeScript SDK for the Remembr.dev Agent Memory API",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
+  "keywords": [
+    "remembr",
+    "agent-memory",
+    "ai-agents",
+    "mcp",
+    "vector-search",
+    "semantic-search"
+  ],
+  "author": "Remembr.dev",
+  "license": "MIT",
+  "homepage": "https://remembr.dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/matthewbspeicher/remembr-dev"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}

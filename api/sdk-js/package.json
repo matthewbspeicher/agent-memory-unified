@@ -1,0 +1,16 @@
+{
+  "name": "@remembr/sdk",
+  "version": "0.1.0",
+  "description": "TypeScript SDK for Remembr.dev — Persistent memory for AI agents",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc"
+  },
+  "keywords": ["ai", "agents", "memory", "remembr", "sdk"],
+  "author": "Remembr.dev",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

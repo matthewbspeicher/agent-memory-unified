@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Memory Demo</title>
+    <style>
+        body {
+            background-color: #0f172a; /* Slate 900 */
+            color: #f8fafc; /* Slate 50 */
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        .terminal-container {
+            width: 800px;
+            height: 500px;
+            background-color: #1e293b; /* Slate 800 */
+            border-radius: 12px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border: 1px solid #334155;
+        }
+
+        .terminal-header {
+            height: 32px;
+            background-color: #334155; /* Slate 700 */
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            border-bottom: 1px solid #0f172a;
+        }
+
+        .dots {
+            display: flex;
+            gap: 8px;
+        }
+
+        .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .dot.red { background-color: #ef4444; }
+        .dot.yellow { background-color: #eab308; }
+        .dot.green { background-color: #22c55e; }
+
+        .terminal-title {
+            flex-grow: 1;
+            text-align: center;
+            font-size: 13px;
+            color: #94a3b8;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-weight: 500;
+        }
+
+        .terminal-body {
+            flex-grow: 1;
+            padding: 24px;
+            overflow-y: auto;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+
+        .prompt {
+            color: #22c55e; /* Green */
+            font-weight: bold;
+        }
+
+        .command {
+            color: #f8fafc;
+        }
+
+        .output {
+            color: #94a3b8; /* Slate 400 */
+            margin-top: 4px;
+            margin-bottom: 12px;
+        }
+
+        .output.success {
+            color: #38bdf8; /* Sky 400 */
+        }
+        
+        .output.ai {
+            color: #a855f7; /* Purple 500 */
+            font-style: italic;
+        }
+
+        .cursor {
+            display: inline-block;
+            width: 8px;
+            height: 18px;
+            background-color: #f8fafc;
+            animation: blink 1s step-end infinite;
+            vertical-align: text-bottom;
+            margin-left: 2px;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        .line {
+            display: none; /* Hidden by default, shown by JS */
+        }
+        
+        .line.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+<div class="terminal-container">
+    <div class="terminal-header">
+        <div class="dots">
+            <div class="dot red"></div>
+            <div class="dot yellow"></div>
+            <div class="dot green"></div>
+        </div>
+        <div class="terminal-title">agent-memory — bash — 80x24</div>
+    </div>
+    <div class="terminal-body" id="terminal">
+        <!-- Lines will be injected here -->
+    </div>
+</div>
+
+<script>
+    const script = [
+        { type: 'input', text: 'mcp add agent-memory' },
+        { type: 'delay', ms: 600 },
+        { type: 'output', text: 'Downloading package...' },
+        { type: 'delay', ms: 400 },
+        { type: 'output text-success', text: '✅ Server installed and configured in ~/.mcp/servers.json' },
+        { type: 'delay', ms: 1200 },
+        
+        { type: 'input', text: 'memory store "The staging db password is \'hunter2\' and we migrate on Tuesdays."' },
+        { type: 'delay', ms: 800 },
+        { type: 'output', text: 'Connecting to local memory bank...' },
+        { type: 'delay', ms: 500 },
+        { type: 'output', text: 'Generating vector embeddings (1536 dims)...' },
+        { type: 'delay', ms: 700 },
+        { type: 'output text-success', text: '✅ Memory stored and indexed (ID: mem_01hgf...)' },
+        { type: 'delay', ms: 2000 },
+        
+        { type: 'clear' },
+        { type: 'delay', ms: 500 },
+        
+        { type: 'input', text: 'memory search "What day do we do staging migrations?"' },
+        { type: 'delay', ms: 1000 },
+        { type: 'output', text: 'Searching semantic index for nearest neighbors...' },
+        { type: 'delay', ms: 1200 },
+        { type: 'output text-ai', text: '🧠 Based on your memory, migrations happen on Tuesdays.' },
+        { type: 'delay', ms: 4000 }
+    ];
+
+    const terminal = document.getElementById('terminal');
+    let cursorElement = null;
+
+    function createCursor() {
+        if (cursorElement) cursorElement.remove();
+        cursorElement = document.createElement('span');
+        cursorElement.className = 'cursor';
+        return cursorElement;
+    }
+
+    async function typeText(element, text, speed = 40) {
+        element.appendChild(createCursor());
+        for (let i = 0; i < text.length; i++) {
+            // Insert character right before the cursor
+            element.insertBefore(document.createTextNode(text.charAt(i)), cursorElement);
+            // Randomize typing speed slightly for realism
+            let randSpeed = speed + (Math.random() * 20 - 10);
+            await new Promise(r => setTimeout(r, randSpeed));
+        }
+    }
+
+    async function runTerminal() {
+        // Initial delay
+        await new Promise(r => setTimeout(r, 1000));
+        
+        let currentPromptLine = null;
+
+        for (const step of script) {
+            if (step.type === 'clear') {
+                 terminal.innerHTML = '';
+                 currentPromptLine = null;
+                 continue;
+            }
+
+            if (step.type === 'delay') {
+                await new Promise(r => setTimeout(r, step.ms));
+                continue;
+            }
+
+            if (step.type === 'input') {
+                if (cursorElement) cursorElement.remove(); // Remove old cursor
+                
+                const line = document.createElement('div');
+                line.className = 'line active';
+                
+                const prompt = document.createElement('span');
+                prompt.className = 'prompt';
+                prompt.textContent = '~/project $ ';
+                
+                const cmd = document.createElement('span');
+                cmd.className = 'command';
+                
+                line.appendChild(prompt);
+                line.appendChild(cmd);
+                terminal.appendChild(line);
+                
+                await typeText(cmd, step.text);
+            }
+
+            if (step.type.startsWith('output')) {
+                if (cursorElement) cursorElement.remove(); // Remove cursor from previous line
+                
+                const line = document.createElement('div');
+                let className = 'line active output';
+                if (step.type.includes('success')) className += ' success';
+                if (step.type.includes('ai')) className += ' ai';
+                
+                line.className = className;
+                line.textContent = step.text;
+                terminal.appendChild(line);
+            }
+            
+            // Auto-scroll to bottom
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+        
+        // Add final blinking cursor state
+        if (cursorElement) cursorElement.remove();
+        const finalLine = document.createElement('div');
+        finalLine.className = 'line active';
+        const finalPrompt = document.createElement('span');
+        finalPrompt.className = 'prompt';
+        finalPrompt.textContent = '~/project $ ';
+        finalLine.appendChild(finalPrompt);
+        finalLine.appendChild(createCursor());
+        terminal.appendChild(finalLine);
+    }
+
+    // Start
+    runTerminal();
+</script>
+
+</body>
+</html>
