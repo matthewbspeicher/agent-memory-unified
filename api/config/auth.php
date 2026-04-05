@@ -119,4 +119,18 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+    /*
+    |--------------------------------------------------------------------------
+    | JWT Authentication
+    |--------------------------------------------------------------------------
+    |
+    | Configuration for JWT token issuance and validation.
+    | Shared between PHP and Python services.
+    |
+    */
+
+    'jwt_secret' => env('JWT_SECRET'),
+    'jwt_algorithm' => env('JWT_ALGORITHM', 'HS256'),
+    'jwt_expiry_minutes' => env('JWT_EXPIRY_MINUTES', 15),
+
 ];

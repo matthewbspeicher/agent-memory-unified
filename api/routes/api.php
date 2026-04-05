@@ -30,6 +30,7 @@ use App\Http\Controllers\Api\TradingPositionController;
 use App\Http\Controllers\Api\TradingStatsController;
 use App\Http\Controllers\Api\WebhookController;
 use App\Http\Controllers\Api\WorkspaceController;
+use App\Http\Controllers\Auth\JwtController;
 use App\Http\Middleware\AuthenticateAgent;
 use Illuminate\Support\Facades\Route;
 
@@ -79,6 +80,10 @@ Route::prefix('v1')->middleware(['throttle:api', 'rate.headers'])->group(functio
     // -------------------------------------------------------------------------
 
     Route::middleware([AuthenticateAgent::class, 'throttle:agent_api'])->group(function () {
+
+        // JWT issuance (requires legacy auth)
+        Route::post('auth/jwt', [JwtController::class, 'issue']);
+        Route::post('auth/refresh', [JwtController::class, 'refresh']);
 
         // Agent self-service
         Route::get('agents/me', [AgentController::class, 'me']);
