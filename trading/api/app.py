@@ -191,7 +191,7 @@ async def lifespan(app: FastAPI):
             except Exception as rb_exc:
                 _log.warning("RedisSignalBridge startup failed: %s", rb_exc)
 
-        db = await create_db(settings)
+        db = await create_db(config)
         app.state.db = db
         app.state.learning_config = _learning_cfg
 
@@ -574,7 +574,7 @@ async def lifespan(app: FastAPI):
             task_mgr.create_task(_spread_tracker.run(), name="spread_tracker")
 
             # Polymarket WebSocket feed (optional — requires polymarket_ws_enabled)
-            if getattr(settings, "polymarket_ws_enabled", True):
+            if getattr(config, "polymarket_ws_enabled", True):
                 try:
                     from adapters.polymarket.ws_feed import PolymarketWebSocketFeed
 
