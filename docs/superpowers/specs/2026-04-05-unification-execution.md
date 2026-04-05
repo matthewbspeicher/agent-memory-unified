@@ -192,10 +192,17 @@ location /api/v1/trades { proxy_pass http://python:8080; }
 
 **Goal:** Set up unified repo structure with shared types. Prove tooling works, no production changes.
 
-### 1.1: Create monorepo structure
+**✅ PARTIAL SCAFFOLD:** Some directories already exist (`shared/types/`, `pyproject.toml` workspace). Verify + complete.
+
+### 1.1: Verify/create monorepo structure
 
 ```bash
 cd /opt/homebrew/var/www/agent-memory-unified
+
+# Verify existing
+ls -la shared/types/  # Should exist
+
+# Create missing subdirectories
 mkdir -p shared/types/schemas
 mkdir -p shared/types/generated/{python,typescript,php}
 mkdir -p shared/types/scripts
@@ -252,6 +259,7 @@ mkdir -p shared/types/scripts
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "title": "Trade",
+  "description": "Simplified DTO for API responses. NOT a 1:1 mapping of tracked_positions table (which has 19 columns). Use for cross-service communication.",
   "properties": {
     "id": {"type": "integer"},
     "agent_name": {"type": "string"},
@@ -266,6 +274,8 @@ mkdir -p shared/types/scripts
   "required": ["id", "agent_name", "symbol", "side", "entry_price", "entry_quantity", "status", "entry_time"]
 }
 ```
+
+**Note:** Shared types are **intentional subsets** of full table schemas — designed for API boundaries, not ORM models.
 
 **shared/types/schemas/event.schema.json:**
 ```json
@@ -326,13 +336,16 @@ Make executable:
 chmod +x shared/types/scripts/generate-types.sh
 ```
 
-### 1.4: Configure Python workspace
+### 1.4: Verify/configure Python workspace
 
-**pyproject.toml (root):**
-```toml
-[tool.uv.workspace]
-members = ["trading", "shared/types-py"]
+**pyproject.toml (root) — verify existing:**
+```bash
+cd /opt/homebrew/var/www/agent-memory-unified
+grep -A2 "\[tool.uv.workspace\]" pyproject.toml
+# Should show: members = ["trading", "shared/types-py"]
 ```
+
+If missing, add:
 
 **shared/types-py/pyproject.toml:**
 ```toml
@@ -406,17 +419,33 @@ chmod +x .git/hooks/pre-commit
 
 **Goal:** Move Python tables to PostgreSQL. **Keep existing table names** to avoid refactor.
 
-### Week 2 (April 13-19): Schema Audit
+**⚠️ DISCOVERY:** Python already has a complete PostgreSQL migration system at `trading/storage/migrations.py` (803 lines, 45 tables). This changes the approach from "generate from SQLite" to "reconcile drift + transfer ownership".
 
-**CRITICAL:** The Laravel migration MUST be generated from this audit, not written from memory.
+### Week 2 (April 13-19): Schema Reconciliation
 
-**2.1: Extract Python's actual schema**
+**CRITICAL:** Python has **two DDL sources** with schema drift between them:
+- `db.py` (SQLite, 43 tables) — used in dev/test
+- `migrations.py` (PostgreSQL, 45 tables) — used in production
+
+**Known drift (will cause data loss if not fixed):**
+1. `arb_spread_observations`: SQLite has `is_claimed`, `claimed_at`, `claimed_by` columns (migration 015), Postgres base table doesn't
+2. `arb_trades`: SQLite has `sequencing` column, Postgres doesn't
+3. JSON columns: Some use `TEXT` in SQLite, `JSONB` in Postgres
+
+**2.0: Reconcile migrations.py with db.py**
+
+Before any Laravel migration work, ensure migrations.py includes ALL columns from db.py + numbered migrations:
+
 ```bash
-cd /opt/homebrew/var/www/agent-memory-unified/trading
-grep -A 100 "CREATE TABLE" storage/db.py > ../docs/python-schema-audit.sql
+# Run numbered migrations against Postgres to get full schema
+cd trading/storage/migrations
+for f in *.py; do python3 "$f"; done
+
+# Capture final Postgres schema
+pg_dump --schema-only $DATABASE_URL > ../../../docs/python-postgres-actual-schema.sql
 ```
 
-**Example of actual Python schema (from storage/db.py lines 129-149, 378-397):**
+**2.1: Generate Laravel migration from migrations.py (NOT db.py)**
 
 ```sql
 -- tracked_positions: ACTUAL schema from db.py
@@ -465,22 +494,34 @@ CREATE TABLE IF NOT EXISTS agent_registry (
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
--- Also audit these 28+ tables:
--- trust_events, agent_overrides, backtest_results, tournament_rounds,
--- tournament_variants, llm_lessons, llm_prompt_versions, tournament_audit_log,
--- opportunities, execution_quality, shadow_executions, arb_spreads,
--- signal_features, trade_analytics, performance_snapshots,
--- bittensor_* (4 tables), consensus_*, ...
+-- Also reconcile these 41 remaining tables (43 total in db.py + 2 extra in migrations.py):
+-- opportunities, trades, risk_events, performance_snapshots, opportunity_snapshots,
+-- whatsapp_sessions, trust_events, agent_overrides, backtest_results,
+-- tournament_rounds, tournament_variants, llm_lessons, llm_prompt_versions,
+-- tournament_audit_log, agent_stages, external_positions, external_balances,
+-- consensus_votes, leaderboard_cache, agent_remembr_map, trade_autopsies,
+-- daily_briefs, convergence_syntheses, execution_quality, shadow_executions,
+-- agent_registry, position_exit_rules, arb_legs, bittensor_raw_forecasts,
+-- bittensor_derived_views, bittensor_realized_windows, bittensor_accuracy_records,
+-- bittensor_miner_rankings, execution_cost_events, execution_cost_stats,
+-- trade_analytics, strategy_confidence_calibration, strategy_health,
+-- strategy_health_events, signal_features
 ```
 
-**2.2: Generate Laravel migration from audit**
+**2.2: Generate Laravel migration from migrations.py**
 
-**scripts/generate-migration-from-python.py:**
+**scripts/postgres-to-laravel.py:**
 ```python
+"""
+Generate Laravel migration from Python's migrations.py (Postgres DDL).
+
+IMPORTANT: Use migrations.py, NOT db.py, as it's already PostgreSQL-compatible
+and includes production-tested type conversions (SERIAL, JSONB, TIMESTAMPTZ).
+"""
 import re
 
-def sqlite_to_laravel(ddl: str) -> str:
-    """Convert Python's SQLite DDL to Laravel migration syntax"""
+def postgres_to_laravel(ddl: str) -> str:
+    """Convert Python's Postgres DDL from migrations.py to Laravel Blueprint"""
 
     # Parse CREATE TABLE
     match = re.search(r'CREATE TABLE.*?(\w+)\s*\((.*?)\);', ddl, re.DOTALL)
@@ -557,24 +598,45 @@ print("    }\n};")
 **Run:**
 ```bash
 cd /opt/homebrew/var/www/agent-memory-unified
-python3 scripts/generate-migration-from-python.py > api/database/migrations/2026_04_13_create_python_tables.php
+# Read from migrations.py, not db.py
+python3 scripts/postgres-to-laravel.py trading/storage/migrations.py > api/database/migrations/2026_04_13_create_python_tables.php
 ```
 
 **Manual review:**
-- Verify types are correct (TEXT might need `->string()` with length)
-- Add indexes from `CREATE INDEX` statements
-- Add `down()` method to drop tables
+- Verify all 45 tables from migrations.py are included
+- Verify indexes match (migrations.py has explicit CREATE INDEX after each table)
+- Verify JSONB columns preserved (shadow_executions.snapshots, agent_registry JSON fields)
+- Add `down()` method to drop tables in reverse dependency order
 
-### Week 3 (April 20-26): PostgreSQL Setup
+### Week 3 (April 20-26): Laravel Takes DDL Ownership
 
-**2.3: Verify PostgreSQL support (already exists)**
+**2.3: Disable Python's run_migrations()**
 
-Python already has PostgreSQL support at `trading/storage/db.py` lines 9-76:
-- `DatabaseConnection` class with asyncpg
-- Auto-detects based on `config.database_url`
-- ✅ No code changes needed
+Python's `DatabaseConnection.connect()` auto-creates tables via `run_migrations()`. After transferring DDL to Laravel, this must be disabled:
 
-**2.4: Configure PostgreSQL connection**
+**trading/storage/db.py (modify connect()):**
+```python
+async def connect(self):
+    if self.config.database_url:
+        # PostgreSQL mode
+        import asyncpg
+        from .postgres import PostgresDB
+        pool = await asyncpg.create_pool(self.config.database_url, ssl=ssl_ctx)
+        self.connection = PostgresDB(pool)
+
+        # REMOVED: await run_migrations(self.connection)
+        # Laravel now owns all DDL — Python is read/write only
+    else:
+        # SQLite mode (dev/test only)
+        self.connection = await aiosqlite.connect(self.config.db_path)
+        await init_db(self.connection)  # Keep for SQLite
+```
+
+**2.4: Verify PostgreSQL support (already exists)**
+
+✅ No additional work needed — `DatabaseConnection` already has full asyncpg support
+
+**2.5: Configure PostgreSQL connection**
 
 **trading/.env:**
 ```bash
@@ -591,7 +653,7 @@ DB_USERNAME=laravel_app
 DB_PASSWORD=PASSWORD
 ```
 
-**2.5: Test PostgreSQL connection**
+**2.6: Test PostgreSQL connection**
 
 ```bash
 cd trading
@@ -611,7 +673,7 @@ asyncio.run(test())
 "
 ```
 
-**2.6: Run Laravel migration**
+**2.7: Run Laravel migration**
 
 ```bash
 cd api
@@ -623,11 +685,15 @@ Verify:
 php artisan tinker
 >>> Schema::hasTable('tracked_positions')  # true
 >>> Schema::hasTable('agent_registry')  # true
+
+# Verify all 45 tables exist
+>>> $tables = DB::select("SELECT tablename FROM pg_tables WHERE schemaname = 'public'");
+>>> count(array_filter($tables, fn($t) => !str_starts_with($t->tablename, 'migrations')))  # Should be 45 + Laravel's tables
 ```
 
 ### Week 4-5 (April 27-May 10): Data Migration
 
-**2.7: Migrate data from SQLite to PostgreSQL**
+**2.8: Migrate data from SQLite to PostgreSQL**
 
 **scripts/migrate-trading-data.py:**
 ```python
@@ -717,8 +783,8 @@ async def migrate():
 
     print(f"  ✅ Migrated {len(rows)} rows")
 
-    # Repeat for all 28 remaining tables (explicit column access)
-    # trust_events, agent_overrides, backtest_results, ...
+    # Repeat for all 41 remaining tables (explicit column access per table schema)
+    # See full table list in reconciliation step (2.0) above
 
     await sqlite.close()
     await pg.close()
@@ -734,7 +800,7 @@ cd /opt/homebrew/var/www/agent-memory-unified
 python3 scripts/migrate-trading-data.py
 ```
 
-**2.8: Verify all data migrated**
+**2.9: Verify all data migrated**
 
 ```python
 # Compare counts
@@ -742,7 +808,24 @@ async def verify():
     sqlite = await aiosqlite.connect('trading/data.db')
     pg = await asyncpg.connect(os.getenv("DATABASE_URL"))
 
-    tables = ['tracked_positions', 'agent_registry', 'trading_stats', ...]
+    # All 43 tables from db.py (migrations.py has 2 extra but they're likely empty in SQLite)
+    tables = [
+        'opportunities', 'trades', 'risk_events', 'performance_snapshots',
+        'opportunity_snapshots', 'whatsapp_sessions', 'tracked_positions',
+        'trust_events', 'agent_overrides', 'backtest_results', 'tournament_rounds',
+        'tournament_variants', 'llm_lessons', 'llm_prompt_versions',
+        'tournament_audit_log', 'agent_stages', 'external_positions',
+        'external_balances', 'consensus_votes', 'leaderboard_cache',
+        'agent_remembr_map', 'trade_autopsies', 'daily_briefs',
+        'convergence_syntheses', 'execution_quality', 'shadow_executions',
+        'agent_registry', 'position_exit_rules', 'arb_spread_observations',
+        'arb_trades', 'arb_legs', 'bittensor_raw_forecasts',
+        'bittensor_derived_views', 'bittensor_realized_windows',
+        'bittensor_accuracy_records', 'bittensor_miner_rankings',
+        'execution_cost_events', 'execution_cost_stats', 'trade_analytics',
+        'strategy_confidence_calibration', 'strategy_health',
+        'strategy_health_events', 'signal_features',
+    ]
     for table in tables:
         cursor = await sqlite.execute(f"SELECT COUNT(*) FROM {table}")
         sqlite_count = (await cursor.fetchone())[0]
@@ -755,11 +838,19 @@ async def verify():
     print("✅ All row counts match")
 ```
 
-**2.9: Switch Python to PostgreSQL**
+**2.10: Switch Python to PostgreSQL**
 
 Already configured! `DatabaseConnection` class auto-detects based on `config.database_url`.
 
-**2.10: Run tests**
+**2.11: Archive migrations.py**
+
+```bash
+# Keep for reference but mark as deprecated
+mv trading/storage/migrations.py trading/storage/migrations.py.deprecated
+echo "# DEPRECATED: Laravel now owns all DDL via api/database/migrations/" > trading/storage/migrations.py
+```
+
+**2.12: Run tests**
 
 ```bash
 cd trading
@@ -769,13 +860,14 @@ python3 -m pytest tests/ -x
 
 ### Acceptance Criteria (Phase 2)
 
-- ✅ Schema audit complete (`docs/python-schema-audit.sql` exists)
-- ✅ Laravel migration generated from audit (not hand-written)
-- ✅ All 30+ tables exist in PostgreSQL with **exact** schema match
+- ✅ Schema drift reconciled (`docs/python-postgres-actual-schema.sql` captured)
+- ✅ Laravel migration generated from migrations.py (PostgreSQL source)
+- ✅ All 45 tables exist in PostgreSQL with **exact** schema match (including drift columns)
 - ✅ Data migration uses explicit column access (no dict unpacking)
-- ✅ Row counts match between SQLite and PostgreSQL
+- ✅ Row counts match between SQLite and PostgreSQL for all 43 migrated tables
+- ✅ Python's `run_migrations()` disabled (Laravel owns DDL)
 - ✅ Python code unchanged (table/column names preserved)
-- ✅ Tests still pass
+- ✅ Tests still pass (SQLite mode unaffected)
 
 **Deliverable:** Commit "feat: consolidate database to PostgreSQL"
 
@@ -783,9 +875,13 @@ python3 -m pytest tests/ -x
 
 ## Phase 3: Redis Streams Event Bus (Week 6, May 11-17)
 
-**Status:** Python consumer already exists at `trading/events/consumer.py` ✅
+**Status:** Python consumer **skeleton** exists at `trading/events/consumer.py` but uses **Pub/Sub** (fire-and-forget), not Streams.
 
-**Goal:** Laravel publishes events, Python consumes them via reliable event bus.
+**Goal:** Upgrade consumer to Redis Streams for reliability (persistence, consumer groups, DLQ). Laravel publishes, Python consumes.
+
+**⚠️ DISCOVERY:** Current consumer uses `redis.pubsub()` + `subscribe()` — no persistence, no retries, no DLQ. Must be rewritten to use `XADD`/`XREADGROUP` primitives.
+
+**Estimated effort:** +2-3 days within Phase 3 week for consumer rewrite.
 
 ### 3.1: Deploy Redis (if not already running)
 
@@ -811,7 +907,7 @@ use Illuminate\Support\Str;
 
 class EventPublisher
 {
-    public function __construct(private \Redis $redis) {}
+    public function __construct(private \Redis|\Predis\Client $redis) {}  // Support both drivers
 
     public function publish(string $type, array $payload, array $metadata = []): void
     {
@@ -839,7 +935,14 @@ use AgentMemory\SharedEvents\EventPublisher;
 use Illuminate\Support\Facades\Redis;
 
 $this->app->singleton(EventPublisher::class, function () {
-    return new EventPublisher(Redis::connection()->client());
+    // IMPORTANT: Verify REDIS_CLIENT=phpredis in .env (xadd signature differs in Predis)
+    $client = Redis::connection()->client();
+
+    if (!$client instanceof \Redis) {
+        throw new \RuntimeException("EventPublisher requires phpredis driver (REDIS_CLIENT=phpredis)");
+    }
+
+    return new EventPublisher($client);
 });
 ```
 
@@ -863,10 +966,10 @@ class TradeObserver
         $this->publisher->publish('trade.opened', [
             'trade_id' => $trade->id,
             'agent_id' => $trade->agent_id,
-            'ticker' => $trade->ticker,
-            'direction' => $trade->direction,
+            'symbol' => $trade->symbol,  // Keep Python column names (Decision 1)
+            'side' => $trade->side,      // 'side' not 'direction'
             'entry_price' => $trade->entry_price,
-            'quantity' => $trade->quantity,
+            'entry_quantity' => $trade->entry_quantity,  // 'entry_quantity' not 'quantity'
             'paper' => $trade->paper,
         ]);
     }
@@ -891,37 +994,133 @@ class TradeObserver
 Trade::observe(TradeObserver::class);
 ```
 
-### 3.5: Consume events in Python (already exists)
+### 3.5: Rewrite Python consumer for Redis Streams
 
-**Verify existing consumer at trading/events/consumer.py:**
+**trading/events/consumer_streams.py:**
 ```python
-from events.consumer import EventConsumer
+"""Redis Streams consumer with consumer groups, retries, and DLQ."""
+import asyncio
+import json
+import logging
+from typing import Callable, Dict
+from redis.asyncio import Redis
 
-consumer = EventConsumer(redis, channel="events", group="trading-service")
+logger = logging.getLogger(__name__)
 
-@consumer.register("memory.created")
-async def on_memory_created(payload: dict):
-    # Index memory in local journal
-    await journal_indexer.add(
-        memory_id=payload["memory_id"],
-        text=payload["value"],
-        tags=payload.get("tags", [])
-    )
+class StreamsEventConsumer:
+    """
+    Consume events from Redis Streams with reliability guarantees.
+
+    Example:
+        consumer = StreamsEventConsumer(redis, stream="events", group="trading-service")
+        consumer.register("AgentDeactivated", handle_agent_deactivated)
+        await consumer.start()
+    """
+
+    def __init__(self, redis: Redis, stream: str = "events", group: str = "trading-service", consumer_name: str = "worker-1"):
+        self.redis = redis
+        self.stream = stream
+        self.group = group
+        self.consumer_name = consumer_name
+        self.handlers: Dict[str, Callable] = {}
+        self._running = False
+        self.max_retries = 3
+
+    def register(self, event_type: str, handler: Callable):
+        """Register handler for event type."""
+        self.handlers[event_type] = handler
+        logger.info(f"Registered handler: {event_type}")
+
+    async def start(self):
+        """Start consuming from stream."""
+        # Create consumer group (idempotent)
+        try:
+            await self.redis.xgroup_create(self.stream, self.group, id='0', mkstream=True)
+        except Exception as e:
+            if "BUSYGROUP" not in str(e):
+                raise
+
+        self._running = True
+        logger.info(f"Streams consumer started: {self.stream}/{self.group}")
+
+        while self._running:
+            try:
+                # Read new messages
+                messages = await self.redis.xreadgroup(
+                    self.group, self.consumer_name,
+                    {self.stream: '>'}, count=10, block=1000
+                )
+
+                for stream, msgs in messages:
+                    for msg_id, data in msgs:
+                        await self._handle_message(msg_id, data)
+
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"Consumer loop error: {e}", exc_info=True)
+                await asyncio.sleep(1)
+
+    async def stop(self):
+        """Stop consumer."""
+        self._running = False
+
+    async def _handle_message(self, msg_id: bytes, data: dict):
+        """Process message with retries and DLQ."""
+        try:
+            payload = json.loads(data[b'data'])
+            event_type = payload.get('type')
+
+            if event_type in self.handlers:
+                handler = self.handlers[event_type]
+                await handler(payload.get('payload', {}))
+
+            # ACK message
+            await self.redis.xack(self.stream, self.group, msg_id)
+
+        except Exception as e:
+            logger.error(f"Handler failed for {msg_id}: {e}")
+
+            # Check retry count
+            pending = await self.redis.xpending_range(
+                self.stream, self.group, min=msg_id, max=msg_id, count=1
+            )
+
+            if pending and pending[0]['times_delivered'] >= self.max_retries:
+                # Move to DLQ
+                await self.redis.xadd(f"{self.stream}:dlq", data)
+                await self.redis.xack(self.stream, self.group, msg_id)
+                logger.warning(f"Moved {msg_id} to DLQ after {self.max_retries} retries")
+            # Else: leave in pending, will be retried by another worker or PEL scan
+
+
+# Usage in app.py
+consumer = StreamsEventConsumer(redis, stream="events", group="trading-service")
+consumer.register("AgentDeactivated", handle_agent_deactivated)
 ```
 
 ### 3.6: Start consumer in FastAPI
 
 **trading/api/app.py (add to lifespan):**
 ```python
+from events.consumer_streams import StreamsEventConsumer
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Start event consumer
+    # Initialize Redis
+    redis = Redis.from_url(config.redis_url)
+
+    # Start Streams consumer
+    consumer = StreamsEventConsumer(redis, stream="events", group="trading-service")
+    consumer.register("AgentDeactivated", handle_agent_deactivated)
     consumer_task = asyncio.create_task(consumer.start())
 
     yield
 
     # Cleanup
+    await consumer.stop()
     consumer_task.cancel()
+    await redis.aclose()
 ```
 
 ### 3.7: Deploy DLQ monitor
@@ -943,10 +1142,13 @@ Add to cron: `*/5 * * * * /app/scripts/monitor-dlq.sh`
 
 ### Acceptance Criteria (Phase 3)
 
-- ✅ Events flow Laravel → Python
+- ✅ PHP publisher uses `XADD` with `MAXLEN ~ 10000`
+- ✅ Python consumer uses `XREADGROUP` with consumer group
+- ✅ Events persist in stream (survives Redis restart)
 - ✅ Failed events move to DLQ after 3 retries
-- ✅ No Redis OOM (MAXLEN caps stream at 10k)
-- ✅ Monitor dashboard shows event lag < 1 second
+- ✅ No Redis OOM (MAXLEN caps stream)
+- ✅ Monitor shows event lag < 1 second
+- ✅ Old Pub/Sub consumer archived/deleted
 
 **Deliverable:** Commit "feat: implement Redis Streams event bus"
 
