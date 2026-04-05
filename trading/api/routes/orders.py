@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 
-from api.auth import verify_api_key
+from api.dependencies import get_current_user, require_scope
 from api.deps import get_broker
 from api.schemas import OrderRequestSchema, OrderResultSchema
 from broker.interfaces import Broker
@@ -45,9 +45,13 @@ def _build_order(req: OrderRequestSchema):
 @router.post("", response_model=OrderResultSchema)
 async def place_order(
     req: OrderRequestSchema,
-    _: str = Depends(verify_api_key),
+    user: dict = Depends(require_scope("trading:execute")),
     broker: Broker = Depends(get_broker),
 ):
+    """Place a new order.
+
+    Requires trading:execute scope for authentication.
+    """
     order = _build_order(req)
     return await broker.orders.place_order(req.account_id, order)
 
@@ -56,26 +60,38 @@ async def place_order(
 async def modify_order(
     order_id: str,
     changes: dict,
-    _: str = Depends(verify_api_key),
+    user: dict = Depends(get_current_user),
     broker: Broker = Depends(get_broker),
 ):
+    """Modify an existing order.
+
+    Requires authentication via JWT or legacy token.
+    """
     return await broker.orders.modify_order(order_id, changes)
 
 
 @router.delete("/{order_id}", response_model=OrderResultSchema)
 async def cancel_order(
     order_id: str,
-    _: str = Depends(verify_api_key),
+    user: dict = Depends(get_current_user),
     broker: Broker = Depends(get_broker),
 ):
+    """Cancel an existing order.
+
+    Requires authentication via JWT or legacy token.
+    """
     return await broker.orders.cancel_order(order_id)
 
 
 @router.get("/{order_id}")
 async def get_order_status(
     order_id: str,
-    _: str = Depends(verify_api_key),
+    user: dict = Depends(get_current_user),
     broker: Broker = Depends(get_broker),
 ):
+    """Get the status of an order.
+
+    Requires authentication via JWT or legacy token.
+    """
     status = await broker.orders.get_order_status(order_id)
     return {"order_id": order_id, "status": status.value}

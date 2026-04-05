@@ -24,6 +24,7 @@ from api.routes import (
     accounts,
     market_data,
     orders,
+    trades,
     agents,
     opportunities,
     risk,
@@ -159,6 +160,18 @@ async def lifespan(app: FastAPI):
         signal_bus = SignalBus()
         set_event_bus(event_bus)
         app.state.event_bus = event_bus
+
+        # --- Redis Connection (for hybrid authentication and caching) ---
+        if config.redis_url:
+            try:
+                from redis.asyncio import from_url as redis_from_url
+                redis = await redis_from_url(config.redis_url, decode_responses=True)
+                app.state.redis = redis
+                _log.info("Redis connected for authentication")
+            except ImportError:
+                _log.warning("redis-py not installed — authentication will fail")
+            except Exception as redis_exc:
+                _log.warning("Redis connection failed: %s", redis_exc)
 
         # --- Redis Signal Bridge (Track 20) ---
         if config.redis_url:
@@ -1299,6 +1312,11 @@ async def lifespan(app: FastAPI):
     if obs:
         obs.stop()
 
+    # Redis connection (for authentication)
+    redis = getattr(app.state, "redis", None)
+    if redis:
+        await redis.aclose()
+
     # Redis bridge
     rb = getattr(app.state, "redis_bridge", None)
     if rb:
@@ -1322,6 +1340,7 @@ def create_app(
     app.include_router(accounts.router)
     app.include_router(market_data.router)
     app.include_router(orders.router)
+    app.include_router(trades.router)
     app.include_router(agents.router)
     app.include_router(opportunities.router)
     app.include_router(risk.router)
