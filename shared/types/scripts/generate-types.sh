@@ -31,9 +31,15 @@ done
 
 # Copy generated Python files into shared_types package
 # This avoids fragile sys.path hacks and bare imports
+# Skip __init__.py to preserve custom re-exports
 if [ -d "$PY_PKG" ]; then
   echo "→ Copying Python types into shared_types package..."
-  cp "$OUT_PY"/*.py "$PY_PKG/"
+  for file in "$OUT_PY"/*.py; do
+    filename=$(basename "$file")
+    if [ "$filename" != "__init__.py" ]; then
+      cp "$file" "$PY_PKG/"
+    fi
+  done
 fi
 
 # Generate TypeScript
