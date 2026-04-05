@@ -25,6 +25,19 @@ class RevokeAgentTokens
             // This matches all tokens for this agent (JWT and legacy)
             $redis->sadd("revoked_tokens:{$agentId}", '*');
 
+            // Optional: Publish event to Redis pub/sub for Python consumer
+            // (Currently not needed since shared Redis blacklist is immediate)
+            if (config('app.enable_event_bridge', false)) {
+                $redis->publish('laravel-events', json_encode([
+                    'type' => 'AgentDeactivated',
+                    'data' => [
+                        'agent_id' => $agentId,
+                        'agent_name' => $event->agent->name,
+                        'timestamp' => now()->toIso8601String(),
+                    ],
+                ]));
+            }
+
             Log::info("Revoked all tokens for agent", [
                 'agent_id' => $agentId,
                 'agent_name' => $event->agent->name,
