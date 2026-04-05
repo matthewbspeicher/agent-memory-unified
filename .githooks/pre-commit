@@ -1,17 +1,13 @@
 #!/bin/bash
-# .githooks/pre-commit
+# Pre-commit hook: Auto-generate types from JSON Schemas
 
-echo "🔍 Checking generated types..."
+echo "🔧 Regenerating types from JSON Schemas..."
 
-# Run type generation
-./scripts/sync-types.sh
+# Run generator
+./shared/types/scripts/generate-types.sh
 
-# Check if generated files changed
-if [[ -n $(git status --porcelain shared/types/generated/) ]]; then
-    echo "⚠️  Generated types out of sync with schemas!"
-    echo "    Run: ./scripts/sync-types.sh"
-    echo "    Then: git add shared/types/generated/"
-    exit 1
-fi
+# Stage generated files (both generated/ and copied package files)
+git add shared/types/generated/
+git add shared/types-py/shared_types/
 
-echo "✅ Types are in sync"
+echo "✅ Types regenerated and staged"

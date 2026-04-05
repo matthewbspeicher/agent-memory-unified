@@ -26,33 +26,63 @@ cd frontend && npm run dev            # http://localhost:3000
 
 ## Development Workflow
 
-**1. Edit JSON Schema:**
+**1. Setup (one-time after clone):**
+```bash
+git config core.hooksPath .githooks
+```
+
+**2. Edit JSON Schema:**
 ```bash
 # Modify shared/types/schemas/agent.schema.json
 ```
 
-**2. Regenerate types:**
+**3. Regenerate types:**
 ```bash
-./scripts/sync-types.sh
+./shared/types/scripts/generate-types.sh
 ```
 
-**3. Use in services:**
+Types are **auto-regenerated** on commit by the pre-commit hook. Manual generation is optional.
+
+**4. Use in services:**
 ```python
 # Python
-from agent_memory_types import Agent, Trade
+from shared_types import Agent, Memory
 
 # PHP
 use AgentMemory\SharedTypes\Agent;
 
 # TypeScript
-import { Agent, Trade } from '@agent-memory/types';
+import { Agent, Memory } from '@/types';
 ```
 
-**4. Commit:**
+**5. Commit:**
 ```bash
 git add shared/types/
 git commit -m "feat: add new field to Agent schema"
+# → Pre-commit hook auto-regenerates and stages types
 ```
+
+## Type Generation
+
+Types are auto-generated from JSON Schemas in `shared/types/schemas/`.
+
+**Setup (one-time after clone):**
+```bash
+git config core.hooksPath .githooks
+```
+
+**Manual generation:**
+```bash
+./shared/types/scripts/generate-types.sh
+```
+
+**Auto-generation:**
+Pre-commit hook automatically regenerates types when schemas change.
+
+**Usage:**
+- Python: `from shared_types import Agent, Memory`
+- TypeScript: `import { Agent, Memory } from '@/types'`
+- PHP: `use AgentMemory\SharedTypes\Agent;`
 
 ## Architecture
 
