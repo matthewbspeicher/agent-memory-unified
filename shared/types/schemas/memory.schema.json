@@ -15,6 +15,8 @@
     },
     "value": {
       "type": "string",
+      "minLength": 1,
+      "maxLength": 50000,
       "description": "Memory content"
     },
     "type": {
@@ -49,6 +51,8 @@
       "items": {
         "type": "number"
       },
+      "minItems": 1536,
+      "maxItems": 1536,
       "description": "1536-dim vector (optional in DTOs)"
     },
     "created_at": {

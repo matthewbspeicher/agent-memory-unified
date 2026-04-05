@@ -12,6 +12,7 @@
     },
     "type": {
       "type": "string",
+      "pattern": "^[a-z]+\\.[a-z]+$",
       "description": "Event type (trade.opened, memory.created, etc.)"
     },
     "version": {

@@ -20,6 +20,7 @@
     },
     "symbol": {
       "type": "string",
+      "minLength": 1,
       "maxLength": 64,
       "description": "Trading symbol (AAPL, BTC, etc.)"
     },
@@ -29,6 +30,7 @@
     },
     "entry_price": {
       "type": "string",
+      "pattern": "^[0-9]+(\\.[0-9]+)?$",
       "description": "Stored as TEXT in DB for precision"
     },
     "entry_quantity": {
@@ -50,6 +52,7 @@
     },
     "exit_price": {
       "type": ["string", "null"],
+      "pattern": "^[0-9]+(\\.[0-9]+)?$",
       "description": "Exit price (TEXT for precision)"
     },
     "pnl": {
@@ -62,6 +65,7 @@
     },
     "strategy": {
       "type": "string",
+      "maxLength": 255,
       "description": "Strategy that generated this trade"
     },
     "paper": {

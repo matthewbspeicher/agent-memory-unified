@@ -23,6 +23,7 @@
     },
     "token_hash": {
       "type": "string",
+      "minLength": 64,
       "maxLength": 64,
       "description": "SHA256 hash of agent token (amc_*)"
     },
@@ -33,7 +34,8 @@
     "scopes": {
       "type": "array",
       "items": {
-        "type": "string"
+        "type": "string",
+        "pattern": "^[a-z]+:(read|write|execute)$"
       },
       "description": "Permitted operations (memories:write, trading:execute)"
     },
