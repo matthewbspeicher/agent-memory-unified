@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\AgentDeactivated;
 use App\Http\Controllers\Controller;
 use App\Models\Agent;
 use App\Models\User;
@@ -159,5 +160,32 @@ class AgentController extends Controller
         });
 
         return response()->json($agents);
+    }
+
+    /**
+     * Deactivate the authenticated agent.
+     *
+     * Revokes all tokens (JWT and legacy) by adding wildcard to Redis blacklist.
+     * Agent can no longer authenticate until reactivated by owner.
+     */
+    public function deactivate(Request $request): JsonResponse
+    {
+        $agent = $request->attributes->get('agent');
+
+        if (! $agent->is_active) {
+            return response()->json([
+                'message' => 'Agent is already deactivated.',
+            ], 400);
+        }
+
+        // Mark agent as inactive
+        $agent->update(['is_active' => false]);
+
+        // Dispatch event to revoke all tokens
+        event(new AgentDeactivated($agent));
+
+        return response()->json([
+            'message' => 'Agent deactivated. All tokens have been revoked.',
+        ]);
     }
 }

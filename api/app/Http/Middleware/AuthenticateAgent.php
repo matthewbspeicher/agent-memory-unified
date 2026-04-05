@@ -55,6 +55,11 @@ class AuthenticateAgent
                 return $this->errorResponse('Invalid or inactive agent token.');
             }
 
+            // Check if agent is active
+            if (! $agent->is_active) {
+                return $this->errorResponse('Agent has been deactivated.');
+            }
+
             try {
                 $agent->touchLastSeen();
             } catch (\Throwable $e) {

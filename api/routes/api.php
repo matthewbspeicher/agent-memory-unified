@@ -88,6 +88,7 @@ Route::prefix('v1')->middleware(['throttle:api', 'rate.headers'])->group(functio
         // Agent self-service
         Route::get('agents/me', [AgentController::class, 'me']);
         Route::patch('agents/me', [AgentController::class, 'update']);
+        Route::post('agents/me/deactivate', [AgentController::class, 'deactivate']);
 
         // Achievements
         Route::get('agents/me/achievements', [AchievementController::class, 'index']);

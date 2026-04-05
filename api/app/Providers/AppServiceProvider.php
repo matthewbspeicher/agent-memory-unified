@@ -3,7 +3,7 @@
 namespace App\Providers;
 
 use App\Events\MemoryCreated;
-use App\Listeners\ProcessSemanticWebhooks;
+use App\Listeners\EvaluateSemanticWebhooks;
 use App\Models\Agent;
 use App\Models\Trade;
 use App\Observers\TradeObserver;
@@ -41,6 +41,9 @@ class AppServiceProvider extends ServiceProvider
         // T1: Register trade alert listeners
         Event::listen(\App\Events\TradeClosed::class, [\App\Listeners\EvaluateTradeAlerts::class, 'handleTradeClosed']);
         Event::listen(\App\Events\TradeOpened::class, [\App\Listeners\EvaluateTradeAlerts::class, 'handleTradeOpened']);
+
+        // Phase 4: Token revocation on agent deactivation
+        Event::listen(\App\Events\AgentDeactivated::class, \App\Listeners\RevokeAgentTokens::class);
 
         Auth::viaRequest('agent-token', function (Request $request) {
             $token = $request->bearerToken();
