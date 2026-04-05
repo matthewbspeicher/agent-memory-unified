@@ -1,0 +1,5 @@
+# Generated code is committed (source of truth after generation)
+# But ignore temp files from generators
+*.pyc
+__pycache__/
+.DS_Store
