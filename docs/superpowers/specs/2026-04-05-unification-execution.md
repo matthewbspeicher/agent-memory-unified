@@ -598,8 +598,8 @@ print("    }\n};")
 **Run:**
 ```bash
 cd /opt/homebrew/var/www/agent-memory-unified
-# Read from migrations.py, not db.py
-python3 scripts/postgres-to-laravel.py trading/storage/migrations.py > api/database/migrations/2026_04_13_create_python_tables.php
+# Read from migrations.py (Postgres source), not db.py (SQLite)
+python3 scripts/postgres-to-laravel.py > api/database/migrations/2026_04_13_create_python_tables.php
 ```
 
 **Manual review:**
