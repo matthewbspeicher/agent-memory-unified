@@ -29,8 +29,8 @@ return new class extends Migration
             $table->index(['symbol', 'created_at']);
         });
 
-        // Trades
-        Schema::create('trades', function (Blueprint $table) {
+        // Trade Executions (opportunity-linked, distinct from AMC paper trades table)
+        Schema::create('trade_executions', function (Blueprint $table) {
             $table->id();
             $table->string('opportunity_id')->nullable();
             $table->string('agent_name')->nullable();
@@ -294,7 +294,7 @@ return new class extends Migration
         Schema::dropIfExists('external_balances');
         Schema::dropIfExists('external_positions');
         Schema::dropIfExists('tracked_positions');
-        Schema::dropIfExists('trades');
+        Schema::dropIfExists('trade_executions');
         Schema::dropIfExists('opportunities');
     }
 };

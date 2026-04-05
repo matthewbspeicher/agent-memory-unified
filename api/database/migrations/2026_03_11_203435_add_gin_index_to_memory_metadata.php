@@ -8,7 +8,7 @@ return new class extends Migration
     public function up(): void
     {
         if (DB::getDriverName() === 'pgsql') {
-            DB::statement("CREATE INDEX memories_tags_gin_idx ON memories USING GIN ((metadata->'tags'));");
+            DB::statement("CREATE INDEX memories_tags_gin_idx ON memories USING GIN ((metadata::jsonb->'tags'));");
         }
     }
 

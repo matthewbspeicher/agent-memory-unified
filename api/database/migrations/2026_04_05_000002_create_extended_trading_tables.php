@@ -328,7 +328,7 @@ return new class extends Migration
 
         // Leaderboard Cache
         Schema::create('leaderboard_cache', function (Blueprint $table) {
-            $table->id()->default(1);
+            $table->id();
             $table->jsonb('rankings_json');
             $table->timestamp('last_processed_snapshot_at');
             $table->string('source')->default('live');

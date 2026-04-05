@@ -17,18 +17,19 @@ return new class extends Migration
         });
 
         // Data migration: move personality_tags['trading_score'] to column (PostgreSQL only)
+        // Note: cast json→jsonb for the ?? operator (PDO uses ?? to escape a literal ?)
         if (DB::connection()->getDriverName() === 'pgsql') {
             DB::statement("
                 UPDATE arena_profiles
                 SET trading_score = CAST(personality_tags->>'trading_score' AS DECIMAL)
-                WHERE personality_tags ? 'trading_score'
+                WHERE personality_tags::jsonb ?? 'trading_score'
             ");
 
             // Remove key from JSON
             DB::statement("
                 UPDATE arena_profiles
-                SET personality_tags = personality_tags - 'trading_score'
-                WHERE personality_tags ? 'trading_score'
+                SET personality_tags = (personality_tags::jsonb - 'trading_score')::json
+                WHERE personality_tags::jsonb ?? 'trading_score'
             ");
         }
     }

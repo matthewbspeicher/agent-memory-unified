@@ -10,7 +10,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('trades', function (Blueprint $table) {
-            $table->json('tags')->nullable()->after('metadata');
+            $table->jsonb('tags')->nullable()->after('metadata');
         });
 
         if (DB::getDriverName() === 'pgsql') {

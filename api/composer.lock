@@ -4,8 +4,30 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "89d134f9865fb870b1e1ef97f1954c6e",
+    "content-hash": "53dab82c38906558d173946c836c4515",
     "packages": [
+        {
+            "name": "agent-memory/shared-types",
+            "version": "dev-main",
+            "dist": {
+                "type": "path",
+                "url": "../shared/types/generated/php",
+                "reference": "c810e04ae94a056abba1ff9ab25062e840dc5f72"
+            },
+            "require": {
+                "php": ">=8.3"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "AgentMemory\\SharedTypes\\": ""
+                }
+            },
+            "description": "Shared PHP types for agent-memory",
+            "transport-options": {
+                "relative": true
+            }
+        },
         {
             "name": "aws/aws-crt-php",
             "version": "v1.2.7",
@@ -10662,7 +10684,9 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": {},
+    "stability-flags": {
+        "agent-memory/shared-types": 20
+    },
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {
