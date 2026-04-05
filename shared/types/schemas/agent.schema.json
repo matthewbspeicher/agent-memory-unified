@@ -12,8 +12,14 @@
     },
     "name": {
       "type": "string",
+      "minLength": 1,
       "maxLength": 255,
       "description": "Agent display name"
+    },
+    "owner_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "User who owns this agent"
     },
     "token_hash": {
       "type": "string",
@@ -40,6 +46,6 @@
       "format": "date-time"
     }
   },
-  "required": ["id", "name", "token_hash", "is_active"],
+  "required": ["id", "name", "owner_id", "is_active"],
   "additionalProperties": false
 }

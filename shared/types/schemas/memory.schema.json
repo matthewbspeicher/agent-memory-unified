@@ -44,11 +44,18 @@
       "maximum": 10,
       "default": 5
     },
+    "embedding": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "description": "1536-dim vector (optional in DTOs)"
+    },
     "created_at": {
       "type": "string",
       "format": "date-time"
     }
   },
-  "required": ["id", "agent_id", "value", "type"],
+  "required": ["id", "agent_id", "value", "visibility"],
   "additionalProperties": false
 }

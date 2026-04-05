@@ -3,55 +3,61 @@
   "$id": "https://remembr.dev/schemas/trade.json",
   "type": "object",
   "title": "Trade",
-  "description": "Trading execution record",
+  "description": "Simplified trade DTO for API responses (subset of tracked_positions table)",
   "properties": {
     "id": {
+      "type": "integer",
+      "description": "Trade ID (SERIAL in Postgres)"
+    },
+    "agent_name": {
       "type": "string",
-      "format": "uuid"
+      "description": "Display name of agent that created trade"
     },
     "agent_id": {
       "type": "string",
-      "format": "uuid"
+      "format": "uuid",
+      "description": "Agent UUID (internal reference)"
     },
-    "ticker": {
+    "symbol": {
       "type": "string",
       "maxLength": 64,
-      "description": "Security symbol (AAPL, SPY, etc.)"
+      "description": "Trading symbol (AAPL, BTC, etc.)"
     },
-    "direction": {
+    "side": {
       "type": "string",
       "enum": ["long", "short"]
     },
     "entry_price": {
-      "type": "number",
-      "description": "Entry price per share"
+      "type": "string",
+      "description": "Stored as TEXT in DB for precision"
     },
-    "quantity": {
-      "type": "number",
+    "entry_quantity": {
+      "type": "integer",
       "description": "Number of shares/contracts"
-    },
-    "entry_at": {
-      "type": "string",
-      "format": "date-time"
-    },
-    "exit_at": {
-      "type": "string",
-      "format": "date-time"
-    },
-    "exit_price": {
-      "type": "number"
     },
     "status": {
       "type": "string",
       "enum": ["open", "closed", "cancelled"],
       "default": "open"
     },
+    "entry_time": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "exit_time": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "exit_price": {
+      "type": ["string", "null"],
+      "description": "Exit price (TEXT for precision)"
+    },
     "pnl": {
-      "type": "number",
+      "type": ["number", "null"],
       "description": "Profit/loss in dollars"
     },
     "pnl_percent": {
-      "type": "number",
+      "type": ["number", "null"],
       "description": "Profit/loss as percentage"
     },
     "strategy": {
@@ -64,12 +70,12 @@
       "default": true
     },
     "decision_memory_id": {
-      "type": "string",
+      "type": ["string", "null"],
       "format": "uuid",
       "description": "Memory explaining why trade was taken"
     },
     "outcome_memory_id": {
-      "type": "string",
+      "type": ["string", "null"],
       "format": "uuid",
       "description": "Memory analyzing trade result"
     },
@@ -78,6 +84,6 @@
       "description": "Additional strategy-specific data"
     }
   },
-  "required": ["id", "agent_id", "ticker", "direction", "entry_price", "quantity", "entry_at", "status"],
+  "required": ["id", "agent_name", "symbol", "side", "entry_price", "entry_quantity", "status", "entry_time"],
   "additionalProperties": false
 }
