@@ -4,15 +4,15 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "919525a4590cd6f1cd8cc8fd3d1e08fc",
+    "content-hash": "9327b2d81cbf9e052533d012f70e0256",
     "packages": [
         {
             "name": "agent-memory/shared-types",
             "version": "dev-main",
             "dist": {
                 "type": "path",
-                "url": "../shared/types/generated/php",
-                "reference": "c810e04ae94a056abba1ff9ab25062e840dc5f72"
+                "url": "../shared/types-php",
+                "reference": "79b0f10e6173786e8bb3972346c11f9effc667e3"
             },
             "require": {
                 "php": ">=8.3"
@@ -20,10 +20,10 @@
             "type": "library",
             "autoload": {
                 "psr-4": {
-                    "AgentMemory\\SharedTypes\\": ""
+                    "AgentMemory\\SharedTypes\\": "src/"
                 }
             },
-            "description": "Shared PHP types for agent-memory",
+            "description": "Shared type definitions (manual for now, auto-gen later)",
             "transport-options": {
                 "relative": true
             }

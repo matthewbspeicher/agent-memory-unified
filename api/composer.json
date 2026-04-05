@@ -8,7 +8,7 @@
     "repositories": [
         {
             "type": "path",
-            "url": "../shared/types/generated/php"
+            "url": "../shared/types-php"
         }
     ],
     "require": {

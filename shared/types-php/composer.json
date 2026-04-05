@@ -1,0 +1,13 @@
+{
+  "name": "agent-memory/shared-types",
+  "description": "Shared type definitions (manual for now, auto-gen later)",
+  "type": "library",
+  "autoload": {
+    "psr-4": {
+      "AgentMemory\\SharedTypes\\": "src/"
+    }
+  },
+  "require": {
+    "php": ">=8.3"
+  }
+}
