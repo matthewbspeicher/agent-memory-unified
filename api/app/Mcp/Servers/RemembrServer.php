@@ -53,7 +53,8 @@ class RemembrServer extends Server
         if (! $agent) {
             $token = env('REMEMBR_AGENT_TOKEN');
             if ($token) {
-                $agent = Agent::where('api_token', $token)
+                $tokenHash = hash('sha256', $token);
+                $agent = Agent::where('token_hash', $tokenHash)
                     ->where('is_active', true)
                     ->first();
             }

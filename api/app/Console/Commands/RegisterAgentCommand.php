@@ -25,7 +25,8 @@ class RegisterAgentCommand extends Command
             return self::FAILURE;
         }
 
-        $owner = User::where('api_token', $ownerToken)->first();
+        $tokenHash = hash('sha256', $ownerToken);
+        $owner = User::where('api_token_hash', $tokenHash)->first();
 
         if (! $owner) {
             $this->error('Invalid owner token.');
@@ -39,7 +40,7 @@ class RegisterAgentCommand extends Command
             'owner_id' => $owner->id,
             'name' => $this->argument('name'),
             'description' => $this->option('description'),
-            'api_token' => $token,
+            'token_hash' => hash('sha256', $token),
         ]);
 
         $this->info('Agent registered!');

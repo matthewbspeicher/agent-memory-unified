@@ -27,7 +27,6 @@ class Agent extends Model implements AuthenticatableContract
     ];
 
     protected $hidden = [
-        'api_token',
         'token_hash',
     ];
 

@@ -23,7 +23,6 @@ class Workspace extends Model
     ];
 
     protected $hidden = [
-        'api_token',
         'api_token_hash',
     ];
 
