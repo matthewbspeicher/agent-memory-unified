@@ -13,7 +13,7 @@
     "name": {
       "type": "string",
       "minLength": 1,
-      "maxLength": 300,
+      "maxLength": 255,
       "description": "Agent display name"
     },
     "owner_id": {
@@ -48,11 +48,6 @@
       "format": "date-time"
     }
   },
-  "required": [
-    "id",
-    "name",
-    "owner_id",
-    "is_active"
-  ],
+  "required": ["id", "name", "owner_id", "is_active"],
   "additionalProperties": false
 }
