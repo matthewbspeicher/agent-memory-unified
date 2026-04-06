@@ -694,7 +694,10 @@ _STATEMENTS: list[str] = [
         gap_cents INTEGER NOT NULL,
         kalshi_volume DOUBLE PRECISION NOT NULL DEFAULT 0,
         poly_volume DOUBLE PRECISION NOT NULL DEFAULT 0,
-        observed_at TEXT NOT NULL DEFAULT NOW()
+        observed_at TEXT NOT NULL DEFAULT NOW(),
+        is_claimed BOOLEAN NOT NULL DEFAULT FALSE,
+        claimed_at TEXT,
+        claimed_by TEXT
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_arb_spread_pair ON arb_spread_observations(kalshi_ticker, poly_ticker, observed_at)",
@@ -708,6 +711,7 @@ _STATEMENTS: list[str] = [
         symbol_a TEXT NOT NULL,
         symbol_b TEXT NOT NULL,
         expected_profit_bps INTEGER NOT NULL,
+        sequencing TEXT NOT NULL,
         state TEXT NOT NULL,
         error_message TEXT,
         created_at TEXT NOT NULL DEFAULT NOW(),
