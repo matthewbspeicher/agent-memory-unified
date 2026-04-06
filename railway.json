@@ -19,10 +19,9 @@
     },
     {
       "name": "trading",
-      "rootDirectory": "trading",
       "build": {
-        "builder": "NIXPACKS",
-        "buildCommand": "pip install -e ."
+        "builder": "DOCKERFILE",
+        "dockerfilePath": "Dockerfile.trading"
       },
       "deploy": {
         "region": "us-east-1",
