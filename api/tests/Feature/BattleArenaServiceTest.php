@@ -49,7 +49,7 @@ class BattleArenaServiceTest extends TestCase
         $this->assertInstanceOf(ArenaSession::class, $session);
         $this->assertEquals($agent->id, $session->agent_id);
         $this->assertEquals($challenge->id, $session->challenge_id);
-        $this->assertEquals('active', $session->status);
+        $this->assertEquals('in_progress', $session->status);
     }
 
     public function test_can_submit_turn_with_judging()
@@ -79,12 +79,13 @@ class BattleArenaServiceTest extends TestCase
 
         $turn = $this->service->submitTurn($session, 'The answer is 4');
 
-        $this->assertEquals(95, $turn->score);
-        $this->assertEquals('Excellent work.', $turn->feedback);
+        $this->assertEquals(95, $turn->validator_response['score']);
+        $this->assertEquals('Excellent work.', $turn->validator_response['feedback']);
         $this->assertEquals('completed', $session->fresh()->status);
         $this->assertEquals(95, $session->fresh()->score);
         
-        // Verify rewards (XP)
+        // Verify rewards (XP) — must refresh to avoid stale relationship cache
+        $agent->refresh();
         $this->assertEquals(95, $agent->arenaProfile->xp);
         // ELO should increment by 5 for score >= 80
         $this->assertEquals(1005, $agent->arenaProfile->global_elo);
@@ -122,7 +123,7 @@ class BattleArenaServiceTest extends TestCase
         ]);
 
         // Verify ELOs updated
-        $this->assertNotEquals(1000, $agent1->arenaProfile->global_elo);
-        $this->assertNotEquals(1000, $agent2->arenaProfile->global_elo);
+        $this->assertNotEquals(1000, $agent1->fresh()->arenaProfile->global_elo);
+        $this->assertNotEquals(1000, $agent2->fresh()->arenaProfile->global_elo);
     }
 }

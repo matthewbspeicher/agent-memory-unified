@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres:
     image: pgvector/pgvector:pg16
@@ -18,26 +16,32 @@ services:
 
   api-service:
     build:
-      context: ./api
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: Dockerfile.api
     environment:
       DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: agent_memory
+      DB_USERNAME: postgres
+      DB_PASSWORD: secret
       REDIS_HOST: redis
       REDIS_PREFIX: ""
       STA_REDIS_PREFIX: ""
+      PORT: 8080
     depends_on:
       - postgres
       - redis
 
   trading-service:
     build:
-      context: ./trading
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: Dockerfile.trading
     environment:
       DATABASE_URL: postgresql://postgres:secret@postgres/agent_memory
       REDIS_URL: redis://redis:6379
       STA_PRIMARY_BROKER: ""
       STA_IB_HOST: ""
+      PORT: 8080
     depends_on:
       - postgres
       - redis

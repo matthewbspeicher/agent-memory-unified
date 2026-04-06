@@ -269,9 +269,6 @@ class BattleArenaService
 
     private function callJudge(string $prompt): string
     {
-        // Reuse SummarizationService's Gemini logic for judging
-        $method = new \ReflectionMethod($this->llm, 'callGemini');
-        $method->setAccessible(true);
-        return $method->invoke($this->llm, $prompt, 0.1);
+        return $this->llm->callGemini($prompt, 0.1);
     }
 }
