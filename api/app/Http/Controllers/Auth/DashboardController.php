@@ -30,7 +30,7 @@ class DashboardController extends Controller
         $avgMemories = $agentCount > 0 ? (int) $agents->avg('memories_count') : 0;
 
         return response()->json([
-            'apiToken' => $user->api_token,
+            'hasApiToken' => (bool) $user->api_token_hash,
             'actingAgentId' => $actingAgent?->id,
             'agents' => $agents->map(fn ($a) => [
                 'id' => $a->id,
@@ -149,7 +149,6 @@ class DashboardController extends Controller
         $request->user()->agents()->create([
             'name' => $request->name,
             'description' => $request->description,
-            'api_token' => $token,
             'token_hash' => hash('sha256', $token),
         ]);
 
@@ -176,7 +175,6 @@ class DashboardController extends Controller
         $token = Agent::generateToken();
 
         $agent->update([
-            'api_token' => $token,
             'token_hash' => hash('sha256', $token),
         ]);
 
@@ -186,10 +184,10 @@ class DashboardController extends Controller
     public function rotateOwnerToken(Request $request)
     {
         $user = $request->user();
-        $user->api_token = User::generateToken();
-        $user->api_token_hash = hash('sha256', $user->api_token);
+        $token = User::generateToken();
+        $user->api_token_hash = hash('sha256', $token);
         $user->save();
 
-        return back()->with('message', "Owner API token rotated! New Token: {$user->api_token}");
+        return back()->with('message', "Owner API token rotated! New Token: {$token}");
     }
 }

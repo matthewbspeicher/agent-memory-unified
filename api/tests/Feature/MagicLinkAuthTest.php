@@ -93,8 +93,8 @@ test('dashboard requires authentication', function () {
         ->assertRedirect('/login');
 });
 
-test('dashboard shows api token and agents', function () {
-    $user = User::factory()->create(['api_token' => 'own_test_token_123']);
+test('dashboard shows agents', function () {
+    $user = makeOwner();
     Agent::factory()->create([
         'owner_id' => $user->id,
         'name' => 'TestBot',
@@ -103,10 +103,10 @@ test('dashboard shows api token and agents', function () {
     $this->actingAs($user)
         ->get('/dashboard')
         ->assertOk()
-        ->assertInertia(fn ($page) => $page
-            ->component('Dashboard')
-            ->where('apiToken', 'own_test_token_123')
+        ->assertJson(fn ($json) => $json
+            ->where('hasApiToken', true)
             ->has('agents', 1)
+            ->etc()
         );
 });
 
@@ -134,13 +134,13 @@ test('login validates required fields', function () {
         ->assertSessionHasErrors(['name', 'email']);
 });
 
-test('ensureApiToken generates token on login if missing', function () {
-    $user = User::factory()->create(['api_token' => null]);
+test('ensureApiToken generates token hash on login if missing', function () {
+    $user = User::factory()->create(['api_token_hash' => null]);
     $token = $user->generateMagicLink();
 
     $this->get("/auth/verify/{$token}")
         ->assertRedirect('/dashboard');
 
     $user->refresh();
-    expect($user->api_token)->toStartWith('own_');
+    expect($user->api_token_hash)->not->toBeNull();
 });

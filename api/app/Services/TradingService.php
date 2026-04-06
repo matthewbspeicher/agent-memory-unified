@@ -89,6 +89,12 @@ class TradingService
             }
 
             $parent->updateQuietly($parentUpdate);
+
+            // If the parent was fully closed, dispatch the event manually
+            // since updateQuietly bypasses the Observer
+            if (isset($parentUpdate['status']) && $parentUpdate['status'] === 'closed') {
+                event(new \App\Events\TradeClosed($parent->fresh()));
+            }
         });
     }
 
@@ -254,11 +260,7 @@ class TradingService
                 $sr = (float) ($stats->sharpe_ratio ?? 0);
                 
                 $tradingScore = ($pf * 10) + ($wr * 100) + ($sr * 50);
-                
-                // We use the existing global_elo column for the score if we're in a Trading Gym
-                // Or we could have a dedicated column. For now, let's just update the profile's
-                // T4: Use dedicated column instead of personality_tags hack
-                $tradingScore = ($profitFactor * 10) + ($winRate * 100) + ($sharpeRatio * 50);
+
                 $profile->update(['trading_score' => round($tradingScore, 2)]);
             }
         }

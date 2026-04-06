@@ -30,7 +30,6 @@ class MagicLinkController extends Controller
             [
                 'name' => $request->name,
                 'password' => bcrypt(Str::random(32)),
-                'api_token' => $apiToken,
                 'api_token_hash' => hash('sha256', $apiToken),
             ],
         );
@@ -56,7 +55,6 @@ class MagicLinkController extends Controller
     {
         $tokenHash = hash('sha256', $token);
         $user = User::where('magic_link_token_hash', $tokenHash)
-            ->orWhere('magic_link_token', $token)
             ->first();
 
         if (! $user || ! $user->hasValidMagicLink($token)) {

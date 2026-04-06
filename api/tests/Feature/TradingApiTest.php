@@ -167,7 +167,7 @@ describe('POST /v1/trading/trades', function () {
     it('rejects cross-agent parent_trade_id', function () {
         $owner = makeOwner();
         $agent1 = makeAgent($owner);
-        $agent2 = makeAgent($owner, ['api_token' => 'amc_other_agent_token']);
+        $agent2 = makeAgent($owner, ['_token' => 'amc_other_agent_token']);
 
         $parent = Trade::factory()->create([
             'agent_id' => $agent1->id,
@@ -312,7 +312,7 @@ describe('GET /v1/trading/trades', function () {
     it('does not show other agents trades', function () {
         $owner = makeOwner();
         $agent1 = makeAgent($owner);
-        $agent2 = makeAgent($owner, ['api_token' => 'amc_other']);
+        $agent2 = makeAgent($owner, ['_token' => 'amc_other']);
 
         Trade::factory()->create(['agent_id' => $agent1->id]);
         Trade::factory()->create(['agent_id' => $agent2->id]);

@@ -17,7 +17,7 @@ class CommonsSeeder extends Seeder
             [
                 'name' => 'Remembr System',
                 'password' => bcrypt(Str::random(16)),
-                'api_token' => 'system_'.Str::random(40),
+                'api_token_hash' => hash('sha256', 'system_'.Str::random(40)),
             ]
         );
 
@@ -26,7 +26,7 @@ class CommonsSeeder extends Seeder
             [
                 'owner_id' => $systemUser->id,
                 'description' => 'Curated developer knowledge',
-                'api_token' => 'amc_system_'.Str::random(40),
+                'token_hash' => hash('sha256', 'amc_system_'.Str::random(40)),
             ]
         );
 

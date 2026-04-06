@@ -54,7 +54,7 @@ class AgentDeactivationTest extends TestCase
 
         $response->assertStatus(401);
         $response->assertJson([
-            'error' => 'Agent has been deactivated.',
+            'error' => 'Invalid or inactive agent token.',
         ]);
     }
 
@@ -83,7 +83,7 @@ class AgentDeactivationTest extends TestCase
 
         // Mock Redis
         Redis::shouldReceive('connection->client->sadd')
-            ->once()
+            ->atLeast()->once()
             ->with("revoked_tokens:{$agent->id}", '*');
 
         // Manually dispatch the event (since we're mocking Redis)

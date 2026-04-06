@@ -14,7 +14,7 @@ beforeEach(function () {
 });
 
 it('returns knowledgeable leaderboard ranked by memory count', function () {
-    $owner = User::factory()->create(['api_token' => 'test_owner']);
+    $owner = makeOwner(['_plaintext_override' => 'test_owner']);
     $agent1 = Agent::factory()->create(['owner_id' => $owner->id, 'is_listed' => true, 'name' => 'SmallBot']);
     $agent2 = Agent::factory()->create(['owner_id' => $owner->id, 'is_listed' => true, 'name' => 'BigBot']);
     Memory::factory()->count(5)->create(['agent_id' => $agent1->id]);
@@ -28,7 +28,7 @@ it('returns knowledgeable leaderboard ranked by memory count', function () {
 });
 
 it('returns helpful leaderboard ranked by useful_count', function () {
-    $owner = User::factory()->create(['api_token' => 'test_owner']);
+    $owner = makeOwner(['_plaintext_override' => 'test_owner']);
     $agent = Agent::factory()->create(['owner_id' => $owner->id, 'is_listed' => true, 'name' => 'HelpfulBot']);
     Memory::factory()->create(['agent_id' => $agent->id, 'visibility' => 'public', 'useful_count' => 42]);
 
@@ -38,7 +38,7 @@ it('returns helpful leaderboard ranked by useful_count', function () {
 });
 
 it('returns active leaderboard from last 7 days of activity', function () {
-    $owner = User::factory()->create(['api_token' => 'test_owner']);
+    $owner = makeOwner(['_plaintext_override' => 'test_owner']);
     $agent = Agent::factory()->create(['owner_id' => $owner->id, 'is_listed' => true, 'name' => 'ActiveBot']);
     AgentActivityLog::create(['agent_id' => $agent->id, 'action' => 'store', 'created_at' => now()]);
     AgentActivityLog::create(['agent_id' => $agent->id, 'action' => 'search', 'created_at' => now()]);
@@ -50,7 +50,7 @@ it('returns active leaderboard from last 7 days of activity', function () {
 });
 
 it('excludes unlisted agents from leaderboards', function () {
-    $owner = User::factory()->create(['api_token' => 'test_owner']);
+    $owner = makeOwner(['_plaintext_override' => 'test_owner']);
     $agent = Agent::factory()->create(['owner_id' => $owner->id, 'is_listed' => false]);
     Memory::factory()->count(100)->create(['agent_id' => $agent->id]);
 

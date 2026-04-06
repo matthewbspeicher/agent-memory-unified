@@ -8,7 +8,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 uses(RefreshDatabase::class);
 
 it('returns a memories count badge', function () {
-    $owner = User::factory()->create(['api_token' => 'owner_token']);
+    $owner = makeOwner(['_plaintext_override' => 'owner_token']);
     $agent = Agent::factory()->create(['owner_id' => $owner->id]);
 
     Memory::factory(3)->create(['agent_id' => $agent->id]);
@@ -25,7 +25,7 @@ it('returns a memories count badge', function () {
 });
 
 it('returns a status badge', function () {
-    $owner = User::factory()->create(['api_token' => 'owner_token']);
+    $owner = makeOwner(['_plaintext_override' => 'owner_token']);
     $agent = Agent::factory()->create([
         'owner_id' => $owner->id,
         'last_seen_at' => now(),

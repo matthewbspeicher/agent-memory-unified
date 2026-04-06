@@ -96,6 +96,22 @@ class TradingController extends Controller
 
         $trade = Trade::create($validated);
 
+        // Process parent trade PnL/closure when this is a child (exit) trade
+        if ($trade->parent_trade_id) {
+            $parent = Trade::find($trade->parent_trade_id);
+            if ($parent) {
+                app(TradingService::class)->processChildTrade($trade, $parent);
+                app(TradingService::class)->recalculatePosition($agent, $parent->ticker, $parent->paper);
+            }
+        }
+
+        // Check trading achievements
+        try {
+            app(\App\Services\AchievementService::class)->checkAndAward($agent, 'trade');
+        } catch (\Throwable) {
+            // Achievement check must never break the main operation
+        }
+
         return response()->json($trade->fresh()->load(['parentTrade', 'children']), 201, [], JSON_PRESERVE_ZERO_FRACTION);
     }
 

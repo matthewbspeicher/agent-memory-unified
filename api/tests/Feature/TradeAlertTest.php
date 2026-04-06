@@ -121,13 +121,13 @@ it('triggers alert when trade_closed condition matches', function () {
         'is_active' => true,
     ]);
 
-    $trade = Trade::factory()->create([
+    $trade = Trade::withoutEvents(fn () => Trade::factory()->create([
         'agent_id' => $agent->id,
         'ticker' => 'AAPL',
         'status' => 'closed',
         'pnl' => '100.00000000',
         'paper' => false,
-    ]);
+    ]));
 
     TradeClosed::dispatch($trade);
 
@@ -235,12 +235,12 @@ it('does not trigger another agent alert for the same ticker', function () {
         'is_active' => true,
     ]);
 
-    $trade = Trade::factory()->create([
+    $trade = Trade::withoutEvents(fn () => Trade::factory()->create([
         'agent_id' => $agentA->id,
         'ticker' => 'AAPL',
         'status' => 'closed',
         'paper' => false,
-    ]);
+    ]));
 
     TradeClosed::dispatch($trade);
 

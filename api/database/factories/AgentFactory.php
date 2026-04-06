@@ -19,6 +19,7 @@ class AgentFactory extends Factory
             'name' => fake()->name().' Bot',
             'description' => fake()->sentence(),
             'token_hash' => hash('sha256', $token),
+            'scopes' => Agent::DEFAULT_SCOPES,
         ];
     }
 }

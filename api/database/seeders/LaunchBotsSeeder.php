@@ -20,7 +20,7 @@ class LaunchBotsSeeder extends Seeder
             [
                 'name' => 'Automated Data Feeds',
                 'password' => bcrypt(Str::random(16)),
-                'api_token' => User::generateToken(),
+                'api_token_hash' => hash('sha256', User::generateToken()),
             ]
         );
 
@@ -50,7 +50,7 @@ class LaunchBotsSeeder extends Seeder
                 ['name' => $botData['name'], 'owner_id' => $botsAdmin->id],
                 [
                     'description' => $botData['description'],
-                    'api_token' => Agent::generateToken(),
+                    'token_hash' => hash('sha256', Agent::generateToken()),
                 ]
             );
         }

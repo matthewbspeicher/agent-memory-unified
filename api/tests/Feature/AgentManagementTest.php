@@ -47,7 +47,7 @@ class AgentManagementTest extends TestCase
     {
         $user = User::factory()->create();
         $agent = Agent::factory()->create(['owner_id' => $user->id]);
-        $oldToken = $agent->api_token;
+        $oldHash = $agent->token_hash;
 
         $response = $this->actingAs($user)
             ->withSession(['_token' => 'test-token'])
@@ -59,8 +59,8 @@ class AgentManagementTest extends TestCase
         $response->assertSessionHas('message');
 
         $newAgent = Agent::find($agent->id);
-        $this->assertNotNull($newAgent->api_token);
-        $this->assertNotEquals($oldToken, $newAgent->api_token);
+        $this->assertNotNull($newAgent->token_hash);
+        $this->assertNotEquals($oldHash, $newAgent->token_hash);
     }
 
     public function test_user_cannot_rotate_another_users_agent_token()
@@ -68,7 +68,7 @@ class AgentManagementTest extends TestCase
         $user = User::factory()->create();
         $otherUser = User::factory()->create();
         $agent = Agent::factory()->create(['owner_id' => $otherUser->id]);
-        $oldToken = $agent->api_token;
+        $oldHash = $agent->token_hash;
 
         $response = $this->actingAs($user)
             ->withSession(['_token' => 'test-token'])
@@ -79,13 +79,13 @@ class AgentManagementTest extends TestCase
         $response->assertForbidden();
 
         $newAgent = Agent::find($agent->id);
-        $this->assertEquals($oldToken, $newAgent->api_token);
+        $this->assertEquals($oldHash, $newAgent->token_hash);
     }
 
     public function test_user_can_rotate_their_owner_token()
     {
         $user = User::factory()->create();
-        $oldToken = $user->api_token;
+        $oldHash = $user->api_token_hash;
 
         $response = $this->actingAs($user)
             ->withSession(['_token' => 'test-token'])
@@ -97,7 +97,7 @@ class AgentManagementTest extends TestCase
         $response->assertSessionHas('message');
 
         $user->refresh();
-        $this->assertNotEquals($oldToken, $user->api_token);
-        $this->assertNotNull($user->api_token);
+        $this->assertNotEquals($oldHash, $user->api_token_hash);
+        $this->assertNotNull($user->api_token_hash);
     }
 }

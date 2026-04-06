@@ -22,7 +22,7 @@ class WorkspaceFactory extends Factory
             'name' => fake()->company(),
             'description' => fake()->sentence(),
             'owner_id' => User::factory(),
-            'api_token' => Workspace::generateToken(),
+            'api_token_hash' => hash('sha256', Workspace::generateToken()),
         ];
     }
 }

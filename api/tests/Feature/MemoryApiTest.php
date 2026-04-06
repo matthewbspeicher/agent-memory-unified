@@ -25,47 +25,40 @@ beforeEach(function () {
 // ---------------------------------------------------------------------------
 
 describe('POST /v1/memories/compact', function () {
-    it('compacts multiple memories into one and archives the originals', function () {
+    it('compacts multiple memories into one and deletes the originals', function () {
         $agent = makeAgent(makeOwner());
 
         $mem1 = Memory::factory()->create(['agent_id' => $agent->id, 'key' => 'm1', 'value' => 'Fact 1']);
         $mem2 = Memory::factory()->create(['agent_id' => $agent->id, 'key' => 'm2', 'value' => 'Fact 2']);
 
         $this->mock(SummarizationService::class, function ($mock) {
-            $mock->shouldReceive('summarize')->once()->andReturn('Combined Fact 1 and 2');
+            $mock->shouldReceive('summarize')->andReturn('Compacted summary.');
             $mock->shouldReceive('generateSummary')->andReturn(null);
         });
 
+        // Force SummarizeMemory job to run synchronously
+        config(['queue.default' => 'sync']);
+
         $response = $this->postJson('/api/v1/memories/compact', [
-            'keys' => ['m1', 'm2'],
+            'memory_ids' => [$mem1->id, $mem2->id],
             'summary_key' => 'm_summary',
         ], withAgent($agent));
 
-        $response->assertCreated()
+        $response->assertOk()
             ->assertJsonFragment([
-                'key' => 'm_summary',
-                'value' => 'Combined Fact 1 and 2',
+                'message' => 'Memories compacted successfully.',
             ]);
 
+        // Summary memory was created
         $this->assertDatabaseHas('memories', [
             'agent_id' => $agent->id,
-            'key' => 'm1',
-            'visibility' => 'archived',
+            'key' => 'm_summary',
+            'type' => 'summary',
         ]);
 
-        $this->assertDatabaseHas('memories', [
-            'agent_id' => $agent->id,
-            'key' => 'm2',
-            'visibility' => 'archived',
-        ]);
-
-        // Check relations were created
-        $summaryId = $response->json('id');
-        $this->assertDatabaseHas('memory_relations', [
-            'source_id' => $summaryId,
-            'target_id' => $mem1->id,
-            'type' => 'compacted_from',
-        ]);
+        // Original memories were deleted
+        $this->assertDatabaseMissing('memories', ['id' => $mem1->id]);
+        $this->assertDatabaseMissing('memories', ['id' => $mem2->id]);
     });
 });
 
@@ -81,7 +74,7 @@ describe('POST /v1/agents/register', function () {
         $response = $this->postJson('/api/v1/agents/register', [
             'name' => 'TestBot',
             'description' => 'A test agent',
-            'owner_token' => $owner->api_token,
+            'owner_token' => $owner->_plaintext_token,
         ]);
 
         $response->assertCreated()
@@ -384,8 +377,8 @@ describe('GET /v1/memories/{key}', function () {
 
     it('cannot retrieve another agent\'s private memory', function () {
         $owner = makeOwner();
-        $agentA = makeAgent($owner, ['api_token' => 'amc_agent_a']);
-        $agentB = makeAgent($owner, ['api_token' => 'amc_agent_b']);
+        $agentA = makeAgent($owner, ['_token' => 'amc_agent_a']);
+        $agentB = makeAgent($owner, ['_token' => 'amc_agent_b']);
 
         Memory::factory()->create([
             'agent_id' => $agentA->id,
@@ -588,8 +581,8 @@ describe('GET /v1/commons/search', function () {
 
     it('returns public memories from all agents', function () {
         $owner = makeOwner();
-        $agentA = makeAgent($owner, ['api_token' => 'amc_agent_a']);
-        $agentB = makeAgent($owner, ['api_token' => 'amc_agent_b']);
+        $agentA = makeAgent($owner, ['_token' => 'amc_agent_a']);
+        $agentB = makeAgent($owner, ['_token' => 'amc_agent_b']);
 
         Memory::factory()->create([
             'agent_id' => $agentB->id,
@@ -614,8 +607,8 @@ describe('GET /v1/commons/search', function () {
 
     it('filters commons search results by type', function () {
         $owner = makeOwner();
-        $agentA = makeAgent($owner, ['api_token' => 'amc_agent_a']);
-        $agentB = makeAgent($owner, ['api_token' => 'amc_agent_b']);
+        $agentA = makeAgent($owner, ['_token' => 'amc_agent_a']);
+        $agentB = makeAgent($owner, ['_token' => 'amc_agent_b']);
 
         Memory::factory()->create([
             'agent_id' => $agentB->id,
@@ -647,8 +640,8 @@ describe('POST /v1/memories/{key}/share', function () {
 
     it('shares a memory with another agent', function () {
         $owner = makeOwner();
-        $agentA = makeAgent($owner, ['api_token' => 'amc_agent_a']);
-        $agentB = makeAgent($owner, ['api_token' => 'amc_agent_b']);
+        $agentA = makeAgent($owner, ['_token' => 'amc_agent_a']);
+        $agentB = makeAgent($owner, ['_token' => 'amc_agent_b']);
 
         Memory::factory()->create([
             'agent_id' => $agentA->id,
@@ -664,8 +657,8 @@ describe('POST /v1/memories/{key}/share', function () {
 
     it('rejects sharing a non-existent memory', function () {
         $owner = makeOwner();
-        $agentA = makeAgent($owner, ['api_token' => 'amc_agent_a']);
-        $agentB = makeAgent($owner, ['api_token' => 'amc_agent_b']);
+        $agentA = makeAgent($owner, ['_token' => 'amc_agent_a']);
+        $agentB = makeAgent($owner, ['_token' => 'amc_agent_b']);
 
         $this->postJson('/api/v1/memories/nonexistent/share', [
             'agent_id' => $agentB->id,

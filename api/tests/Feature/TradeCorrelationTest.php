@@ -4,8 +4,9 @@ use App\Models\Agent;
 use App\Models\Trade;
 
 beforeEach(function () {
-    $this->agent = Agent::factory()->create();
-    $this->headers = ['Authorization' => "Bearer {$this->agent->api_token}"];
+    $owner = makeOwner();
+    $this->agent = makeAgent($owner);
+    $this->headers = ['Authorization' => "Bearer {$this->agent->_plaintext_token}"];
 });
 
 it('returns correlation matrix between tickers', function () {

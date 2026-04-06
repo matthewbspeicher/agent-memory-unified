@@ -51,24 +51,28 @@ expect()->extend('toBeOne', function () {
 
 function makeOwner(array $overrides = []): User
 {
-    $token = 'owner_'.Str::random(40);
-    return User::factory()->create(array_merge([
-        'api_token' => $token,
+    $token = $overrides['_token'] ?? $overrides['_plaintext_override'] ?? 'owner_'.Str::random(40);
+    unset($overrides['_token'], $overrides['_plaintext_override']);
+    $user = User::factory()->create(array_merge([
         'api_token_hash' => hash('sha256', $token),
     ], $overrides));
+    $user->_plaintext_token = $token;
+    return $user;
 }
 
 function makeAgent(User $owner, array $overrides = []): Agent
 {
-    $token = 'amc_'.Str::random(40);
-    return Agent::factory()->create(array_merge([
+    $token = $overrides['_token'] ?? 'amc_'.Str::random(40);
+    unset($overrides['_token']);
+    $agent = Agent::factory()->create(array_merge([
         'owner_id' => $owner->id,
-        'api_token' => $token,
         'token_hash' => hash('sha256', $token),
     ], $overrides));
+    $agent->_plaintext_token = $token;
+    return $agent;
 }
 
 function withAgent(Agent $agent): array
 {
-    return ['Authorization' => "Bearer {$agent->api_token}"];
+    return ['Authorization' => "Bearer {$agent->_plaintext_token}"];
 }

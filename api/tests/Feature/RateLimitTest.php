@@ -17,11 +17,8 @@ beforeEach(function () {
             ->andReturn([array_fill(0, 1536, 0.1)]);
     });
 
-    $this->owner = User::factory()->create(['api_token' => 'owner_test_token']);
-    $this->agent = Agent::factory()->create([
-        'owner_id' => $this->owner->id,
-        'api_token' => 'amc_rate_limit_test',
-    ]);
+    $this->owner = makeOwner(['_plaintext_override' => 'owner_test_token']);
+    $this->agent = makeAgent($this->owner, ['_token' => 'amc_rate_limit_test']);
 });
 
 it('returns rate limit headers on API responses', function () {

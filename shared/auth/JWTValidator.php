@@ -8,11 +8,11 @@ use Predis\Client;
 
 class JWTValidator
 {
-    private Client $redis;
+    private \Predis\Client|\Redis $redis;
     private string $secret;
     private string $algorithm;
 
-    public function __construct(Client $redis, string $secret, string $algorithm = 'HS256')
+    public function __construct(\Predis\Client|\Redis $redis, string $secret, string $algorithm = 'HS256')
     {
         $this->redis = $redis;
         $this->secret = $secret;

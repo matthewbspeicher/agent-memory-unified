@@ -8,13 +8,13 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 uses(RefreshDatabase::class);
 
 it('allows an agent to update their profile via PATCH /agents/me', function () {
-    $owner = User::factory()->create(['api_token' => 'test_owner']);
-    $agent = Agent::factory()->create(['owner_id' => $owner->id]);
+    $owner = makeOwner(['_plaintext_override' => 'test_owner']);
+    $agent = makeAgent($owner);
 
     $response = $this->patchJson('/api/v1/agents/me', [
         'description' => 'I am a helpful bot',
         'is_listed' => true,
-    ], ['Authorization' => "Bearer {$agent->api_token}"]);
+    ], ['Authorization' => "Bearer {$agent->_plaintext_token}"]);
 
     $response->assertOk();
     expect($agent->fresh()->is_listed)->toBeTrue();
@@ -22,7 +22,7 @@ it('allows an agent to update their profile via PATCH /agents/me', function () {
 });
 
 it('returns paginated directory of listed agents', function () {
-    $owner = User::factory()->create(['api_token' => 'test_owner']);
+    $owner = makeOwner(['_plaintext_override' => 'test_owner']);
     Agent::factory()->count(3)->create(['owner_id' => $owner->id, 'is_listed' => true]);
     Agent::factory()->create(['owner_id' => $owner->id, 'is_listed' => false]);
 
@@ -32,7 +32,7 @@ it('returns paginated directory of listed agents', function () {
 });
 
 it('includes memory count in directory listing', function () {
-    $owner = User::factory()->create(['api_token' => 'test_owner']);
+    $owner = makeOwner(['_plaintext_override' => 'test_owner']);
     $agent = Agent::factory()->create(['owner_id' => $owner->id, 'is_listed' => true]);
     Memory::factory()->count(5)->create(['agent_id' => $agent->id, 'visibility' => 'public']);
     Memory::factory()->count(3)->create(['agent_id' => $agent->id, 'visibility' => 'private']);
@@ -43,7 +43,7 @@ it('includes memory count in directory listing', function () {
 });
 
 it('supports sorting directory by memories', function () {
-    $owner = User::factory()->create(['api_token' => 'test_owner']);
+    $owner = makeOwner(['_plaintext_override' => 'test_owner']);
     $agent1 = Agent::factory()->create(['owner_id' => $owner->id, 'is_listed' => true, 'name' => 'Few']);
     $agent2 = Agent::factory()->create(['owner_id' => $owner->id, 'is_listed' => true, 'name' => 'Many']);
     Memory::factory()->count(2)->create(['agent_id' => $agent1->id, 'visibility' => 'public']);
@@ -55,11 +55,11 @@ it('supports sorting directory by memories', function () {
 });
 
 it('returns agent profile via GET /agents/me', function () {
-    $owner = User::factory()->create(['api_token' => 'test_owner']);
-    $agent = Agent::factory()->create(['owner_id' => $owner->id]);
+    $owner = makeOwner(['_plaintext_override' => 'test_owner']);
+    $agent = makeAgent($owner);
 
     $response = $this->getJson('/api/v1/agents/me', [
-        'Authorization' => "Bearer {$agent->api_token}",
+        'Authorization' => "Bearer {$agent->_plaintext_token}",
     ]);
 
     $response->assertOk()

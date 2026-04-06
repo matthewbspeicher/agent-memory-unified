@@ -30,7 +30,7 @@ it('returns accurate agent and memory counts', function () {
     $baselineMemories = Memory::count();
     $baselinePublic = Memory::where('visibility', 'public')->count();
 
-    $owner = User::factory()->create(['api_token' => 'test_owner_token']);
+    $owner = makeOwner(['_plaintext_override' => 'test_owner_token']);
     $agent = Agent::factory()->create(['owner_id' => $owner->id]);
     Memory::factory()->count(3)->create(['agent_id' => $agent->id, 'visibility' => 'private']);
     Memory::factory()->count(2)->create(['agent_id' => $agent->id, 'visibility' => 'public']);

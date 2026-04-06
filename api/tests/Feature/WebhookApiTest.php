@@ -17,18 +17,15 @@ use Illuminate\Support\Facades\Queue;
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
-    $this->owner = User::factory()->create(['api_token' => 'owner_token']);
-    $this->agent = Agent::factory()->create([
-        'owner_id' => $this->owner->id,
-        'api_token' => 'amc_webhook_agent',
-    ]);
+    $this->owner = makeOwner(['_plaintext_override' => 'owner_token']);
+    $this->agent = makeAgent($this->owner, ['_token' => 'amc_webhook_agent']);
 });
 
 it('can register a webhook', function () {
     $response = $this->postJson('/api/v1/webhooks', [
         'url' => 'https://example.com/webhook',
         'events' => ['memory.shared'],
-    ], ['Authorization' => 'Bearer '.$this->agent->api_token]);
+    ], ['Authorization' => 'Bearer '.$this->agent->_plaintext_token]);
 
     $response->assertCreated();
     $response->assertJsonFragment([
@@ -47,7 +44,7 @@ it('can register a semantic webhook', function () {
         'url' => 'https://example.com/webhook',
         'events' => ['memory.semantic_match'],
         'semantic_query' => 'I want to know about Laravel Octane',
-    ], ['Authorization' => 'Bearer '.$this->agent->api_token]);
+    ], ['Authorization' => 'Bearer '.$this->agent->_plaintext_token]);
 
     $response->assertCreated();
     $response->assertJsonFragment([
@@ -66,7 +63,7 @@ it('validates semantic_query is present when event is memory.semantic_match', fu
     $this->postJson('/api/v1/webhooks', [
         'url' => 'https://example.com/webhook',
         'events' => ['memory.semantic_match'],
-    ], ['Authorization' => 'Bearer '.$this->agent->api_token])
+    ], ['Authorization' => 'Bearer '.$this->agent->_plaintext_token])
         ->assertUnprocessable()
         ->assertJsonValidationErrors(['semantic_query']);
 });
@@ -75,7 +72,7 @@ it('validates webhook url is https', function () {
     $this->postJson('/api/v1/webhooks', [
         'url' => 'http://example.com/webhook',
         'events' => ['memory.shared'],
-    ], ['Authorization' => 'Bearer '.$this->agent->api_token])
+    ], ['Authorization' => 'Bearer '.$this->agent->_plaintext_token])
         ->assertUnprocessable()
         ->assertJsonValidationErrors(['url']);
 });
@@ -88,7 +85,7 @@ it('limits an agent to 5 webhooks', function () {
     $response = $this->postJson('/api/v1/webhooks', [
         'url' => 'https://example.com/webhook',
         'events' => ['memory.shared'],
-    ], ['Authorization' => 'Bearer '.$this->agent->api_token]);
+    ], ['Authorization' => 'Bearer '.$this->agent->_plaintext_token]);
 
     $response->assertUnprocessable();
     $response->assertJsonFragment(['error' => 'Webhook limit reached. Maximum 5 webhooks per agent.']);
@@ -103,7 +100,7 @@ it('can list webhooks', function () {
     ]);
 
     $response = $this->getJson('/api/v1/webhooks', [
-        'Authorization' => 'Bearer '.$this->agent->api_token,
+        'Authorization' => 'Bearer '.$this->agent->_plaintext_token,
     ]);
 
     $response->assertOk();
@@ -119,7 +116,7 @@ it('can delete a webhook', function () {
     ]);
 
     $this->deleteJson('/api/v1/webhooks/'.$webhook->id, [], [
-        'Authorization' => 'Bearer '.$this->agent->api_token,
+        'Authorization' => 'Bearer '.$this->agent->_plaintext_token,
     ])->assertOk();
 
     expect(WebhookSubscription::count())->toBe(0);

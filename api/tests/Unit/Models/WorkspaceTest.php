@@ -13,15 +13,15 @@ class WorkspaceTest extends TestCase
 
     public function test_it_can_create_a_workspace(): void
     {
+        $owner = makeOwner();
         $workspace = Workspace::create([
             'name' => 'Project Alpha',
             'description' => 'A test workspace for project alpha.',
-            'slug' => Str::slug('Project Alpha'),
+            'owner_id' => $owner->id,
         ]);
 
         $this->assertDatabaseHas('workspaces', [
             'name' => 'Project Alpha',
-            'slug' => 'project-alpha',
         ]);
 
         $this->assertInstanceOf(Workspace::class, $workspace);

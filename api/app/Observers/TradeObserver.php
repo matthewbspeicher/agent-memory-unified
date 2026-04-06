@@ -2,6 +2,8 @@
 
 namespace App\Observers;
 
+use App\Events\TradeOpened;
+use App\Events\TradeClosed;
 use App\Models\Trade;
 use AgentMemory\SharedEvents\EventPublisher;
 use Illuminate\Support\Facades\Redis;
@@ -34,6 +36,9 @@ class TradeObserver
             'status' => $trade->status,
             'paper' => $trade->paper,
         ]);
+
+        // Dispatch Laravel event for internal listeners (webhooks, alerts)
+        TradeOpened::dispatch($trade);
     }
 
     /**
@@ -55,6 +60,9 @@ class TradeObserver
                 'pnl_percent' => (string) $trade->pnl_percent,
                 'status' => $trade->status,
             ]);
+
+            // Dispatch Laravel event for internal listeners (webhooks, alerts)
+            TradeClosed::dispatch($trade);
         }
     }
 }

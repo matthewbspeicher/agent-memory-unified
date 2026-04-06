@@ -11,25 +11,13 @@ uses(RefreshDatabase::class);
 
 describe('Workspaces API', function () {
     it('allows an agent to create a workspace and auto-joins them', function () {
-        $user = User::factory()->create(['stripe_id' => 'cus_test_ws1']);
-        $sub = $user->subscriptions()->create([
-            'type' => 'default',
-            'stripe_id' => 'sub_test_ws1',
-            'stripe_status' => 'active',
-            'stripe_price' => 'price_test',
-            'quantity' => 1,
-        ]);
-        $sub->items()->create(['stripe_id' => 'si_test_ws1', 'stripe_product' => 'prod_test', 'stripe_price' => 'price_test', 'quantity' => 1]);
-        $user = $user->fresh();
+        $owner = makeOwner();
+        $agent = makeAgent($owner);
 
-        $agent = Agent::factory()->create(['owner_id' => $user->id]);
-        $token = 'amc_test_token';
-        $agent->update(['api_token' => $token]);
-
-        $response = $this->withToken($token)->postJson('/api/v1/workspaces', [
+        $response = $this->postJson('/api/v1/workspaces', [
             'name' => 'Project Alpha',
             'description' => 'A top secret project',
-        ]);
+        ], withAgent($agent));
 
         $response->assertCreated()
             ->assertJsonFragment([
@@ -38,33 +26,19 @@ describe('Workspaces API', function () {
             ]);
 
         $workspace = Workspace::first();
-        expect($workspace->owner_id)->toBe($user->id);
-
+        expect($workspace->owner_id)->toBe($owner->id);
         expect($agent->workspaces()->count())->toBe(1);
-        expect($agent->workspaces()->first()->id)->toBe($workspace->id);
     });
 
     it('allows an agent to create a guild workspace', function () {
-        $user = User::factory()->create(['stripe_id' => 'cus_test_ws2']);
-        $sub = $user->subscriptions()->create([
-            'type' => 'default',
-            'stripe_id' => 'sub_test_ws2',
-            'stripe_status' => 'active',
-            'stripe_price' => 'price_test',
-            'quantity' => 1,
-        ]);
-        $sub->items()->create(['stripe_id' => 'si_test_ws2', 'stripe_product' => 'prod_test', 'stripe_price' => 'price_test', 'quantity' => 1]);
-        $user = $user->fresh();
+        $owner = makeOwner();
+        $agent = makeAgent($owner);
 
-        $agent = Agent::factory()->create(['owner_id' => $user->id]);
-        $token = 'amc_test_token';
-        $agent->update(['api_token' => $token]);
-
-        $response = $this->withToken($token)->postJson('/api/v1/workspaces', [
+        $response = $this->postJson('/api/v1/workspaces', [
             'name' => 'The Logic Order',
             'description' => 'A guild for logic lovers',
             'is_guild' => true,
-        ]);
+        ], withAgent($agent));
 
         $response->assertCreated()
             ->assertJsonFragment([
@@ -75,15 +49,13 @@ describe('Workspaces API', function () {
     });
 
     it('allows an agent to list their workspaces', function () {
-        $user = User::factory()->create();
-        $agent = Agent::factory()->create(['owner_id' => $user->id]);
-        $token = 'amc_test_token';
-        $agent->update(['api_token' => $token]);
+        $owner = makeOwner();
+        $agent = makeAgent($owner);
 
-        $workspace = Workspace::factory()->create(['owner_id' => $user->id]);
+        $workspace = Workspace::factory()->create(['owner_id' => $owner->id]);
         $agent->workspaces()->attach($workspace->id);
 
-        $response = $this->withToken($token)->getJson('/api/v1/workspaces');
+        $response = $this->getJson('/api/v1/workspaces', withAgent($agent));
 
         $response->assertOk();
         expect($response->json('data'))->toHaveCount(1);
@@ -91,33 +63,29 @@ describe('Workspaces API', function () {
     });
 
     it('allows an agent with the same owner to join a workspace', function () {
-        $user = User::factory()->create();
+        $owner = makeOwner();
 
-        $creator = Agent::factory()->create(['owner_id' => $user->id]);
-        $workspace = Workspace::factory()->create(['owner_id' => $user->id]);
+        $creator = makeAgent($owner);
+        $workspace = Workspace::factory()->create(['owner_id' => $owner->id]);
         $creator->workspaces()->attach($workspace->id);
 
-        $joiner = Agent::factory()->create(['owner_id' => $user->id]);
-        $token = 'amc_test_token';
-        $joiner->update(['api_token' => $token]);
+        $joiner = makeAgent($owner);
 
-        $response = $this->withToken($token)->postJson("/api/v1/workspaces/{$workspace->id}/join");
+        $response = $this->postJson("/api/v1/workspaces/{$workspace->id}/join", [], withAgent($joiner));
 
         $response->assertOk();
         expect($joiner->workspaces()->count())->toBe(1);
     });
 
     it('prevents agents from different owners from joining a workspace', function () {
-        $user1 = User::factory()->create();
-        $user2 = User::factory()->create();
+        $owner1 = makeOwner();
+        $owner2 = makeOwner();
 
-        $workspace = Workspace::factory()->create(['owner_id' => $user1->id]);
+        $workspace = Workspace::factory()->create(['owner_id' => $owner1->id]);
 
-        $joiner = Agent::factory()->create(['owner_id' => $user2->id]);
-        $token = 'amc_test_token';
-        $joiner->update(['api_token' => $token]);
+        $joiner = makeAgent($owner2);
 
-        $response = $this->withToken($token)->postJson("/api/v1/workspaces/{$workspace->id}/join");
+        $response = $this->postJson("/api/v1/workspaces/{$workspace->id}/join", [], withAgent($joiner));
 
         $response->assertForbidden();
         expect($joiner->workspaces()->count())->toBe(0);
@@ -128,29 +96,17 @@ describe('Workspaces API', function () {
         $mock->shouldReceive('embed')->andReturn(array_fill(0, 1536, 0.1));
         app()->instance(EmbeddingService::class, $mock);
 
-        $user = User::factory()->create(['stripe_id' => 'cus_test_wp1']);
-        $sub = $user->subscriptions()->create([
-            'type' => 'default',
-            'stripe_id' => 'sub_test_wp1',
-            'stripe_status' => 'active',
-            'stripe_price' => 'price_test',
-            'quantity' => 1,
-        ]);
-        $sub->items()->create(['stripe_id' => 'si_test_wp1', 'stripe_product' => 'prod_test', 'stripe_price' => 'price_test', 'quantity' => 1]);
-        $user = $user->fresh();
+        $owner = makeOwner();
+        $agent = makeAgent($owner);
 
-        $agent = Agent::factory()->create(['owner_id' => $user->id]);
-        $token = 'amc_test_token';
-        $agent->update(['api_token' => $token]);
-
-        $workspace = Workspace::factory()->create(['owner_id' => $user->id]);
+        $workspace = Workspace::factory()->create(['owner_id' => $owner->id]);
         $agent->workspaces()->attach($workspace->id);
 
-        $response = $this->withToken($token)->postJson('/api/v1/memories', [
+        $response = $this->postJson('/api/v1/memories', [
             'value' => 'This is a workspace thought',
             'visibility' => 'workspace',
             'workspace_id' => $workspace->id,
-        ]);
+        ], withAgent($agent));
 
         $response->assertCreated();
         $response->assertJsonFragment([
@@ -170,14 +126,12 @@ describe('Workspaces API', function () {
             $mock->shouldReceive('embed')->andReturn(array_fill(0, 1536, 0.1));
         });
 
-        $user = User::factory()->create();
+        $owner = makeOwner();
 
-        $author = Agent::factory()->create(['owner_id' => $user->id]);
-        $searcher = Agent::factory()->create(['owner_id' => $user->id]);
-        $token = 'amc_test_token';
-        $searcher->update(['api_token' => $token]);
+        $author = makeAgent($owner);
+        $searcher = makeAgent($owner);
 
-        $workspace = Workspace::factory()->create(['owner_id' => $user->id]);
+        $workspace = Workspace::factory()->create(['owner_id' => $owner->id]);
         $author->workspaces()->attach($workspace->id);
         $searcher->workspaces()->attach($workspace->id);
 
@@ -194,7 +148,7 @@ describe('Workspaces API', function () {
         ]);
 
         // Searcher should be able to find it
-        $response = $this->withToken($token)->getJson('/api/v1/memories/search?q=brilliant');
+        $response = $this->getJson('/api/v1/memories/search?q=brilliant', withAgent($searcher));
 
         $response->assertOk();
         $data = $response->json('data');

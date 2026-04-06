@@ -14,36 +14,37 @@ beforeEach(function () {
 });
 
 describe('POST /v1/memories/compact error paths', function () {
-    it('returns 422 when fewer than 2 matching memories', function () {
+    it('returns 422 when memory_ids validation fails', function () {
         $agent = makeAgent(makeOwner());
 
-        Memory::factory()->create(['agent_id' => $agent->id, 'key' => 'm1']);
-
-        $this->mock(SummarizationService::class);
-
         $this->postJson('/api/v1/memories/compact', [
-            'keys' => ['m1', 'nonexistent'],
+            'memory_ids' => ['nonexistent-uuid'],
             'summary_key' => 'summary',
         ], withAgent($agent))
-            ->assertStatus(422)
-            ->assertJsonFragment(['error' => 'Not enough valid memories found to compact.']);
+            ->assertStatus(422);
     });
 
-    it('returns 500 when summarization fails', function () {
+    it('returns 422 when fewer than 2 memory_ids provided', function () {
         $agent = makeAgent(makeOwner());
-
-        Memory::factory()->create(['agent_id' => $agent->id, 'key' => 'm1', 'value' => 'Fact 1']);
-        Memory::factory()->create(['agent_id' => $agent->id, 'key' => 'm2', 'value' => 'Fact 2']);
-
-        $this->mock(SummarizationService::class, function ($mock) {
-            $mock->shouldReceive('summarize')->once()->andThrow(new RuntimeException('API error'));
-        });
+        $m1 = Memory::factory()->create(['agent_id' => $agent->id, 'key' => 'm1']);
 
         $this->postJson('/api/v1/memories/compact', [
-            'keys' => ['m1', 'm2'],
+            'memory_ids' => [$m1->id],
             'summary_key' => 'summary',
         ], withAgent($agent))
-            ->assertStatus(500)
-            ->assertJsonFragment(['error' => 'Failed to generate summary. Please try again later.']);
+            ->assertStatus(422);
+    });
+
+    it('returns 422 when summary_key is missing', function () {
+        $agent = makeAgent(makeOwner());
+
+        $m1 = Memory::factory()->create(['agent_id' => $agent->id, 'key' => 'm1', 'value' => 'Fact 1']);
+        $m2 = Memory::factory()->create(['agent_id' => $agent->id, 'key' => 'm2', 'value' => 'Fact 2']);
+
+        $this->postJson('/api/v1/memories/compact', [
+            'memory_ids' => [$m1->id, $m2->id],
+        ], withAgent($agent))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['summary_key']);
     });
 });

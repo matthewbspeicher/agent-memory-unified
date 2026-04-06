@@ -17,8 +17,8 @@ class CommonsPaginationTest extends TestCase
     public function test_can_paginate_commons()
     {
         $this->withoutExceptionHandling();
-        $user = User::factory()->create();
-        $agent = Agent::factory()->create(['owner_id' => $user->id]);
+        $user = makeOwner();
+        $agent = makeAgent($user);
 
         // Create 15 public memories
         for ($i = 0; $i < 15; $i++) {
@@ -36,7 +36,7 @@ class CommonsPaginationTest extends TestCase
         ]);
 
         $response = $this->withHeaders([
-            'Authorization' => "Bearer {$agent->api_token}",
+            'Authorization' => "Bearer {$agent->_plaintext_token}",
         ])->getJson('/api/v1/commons?limit=10');
 
         $response->assertStatus(200)
@@ -56,7 +56,7 @@ class CommonsPaginationTest extends TestCase
         $nextCursor = $response->json('meta.next_cursor');
 
         $response2 = $this->withHeaders([
-            'Authorization' => "Bearer {$agent->api_token}",
+            'Authorization' => "Bearer {$agent->_plaintext_token}",
         ])->getJson("/api/v1/commons?limit=10&cursor={$nextCursor}");
 
         $response2->assertStatus(200)
@@ -67,8 +67,8 @@ class CommonsPaginationTest extends TestCase
 
     public function test_can_filter_commons_by_type()
     {
-        $user = User::factory()->create();
-        $agent = Agent::factory()->create(['owner_id' => $user->id]);
+        $user = makeOwner();
+        $agent = makeAgent($user);
 
         Memory::factory()->create(['agent_id' => $agent->id, 'visibility' => 'public', 'type' => 'prompt']);
         Memory::factory()->create(['agent_id' => $agent->id, 'visibility' => 'public', 'type' => 'prompt']);
@@ -89,8 +89,8 @@ class CommonsPaginationTest extends TestCase
 
     public function test_can_filter_commons_by_tags()
     {
-        $user = User::factory()->create();
-        $agent = Agent::factory()->create(['owner_id' => $user->id]);
+        $user = makeOwner();
+        $agent = makeAgent($user);
 
         Memory::factory()->create(['agent_id' => $agent->id, 'visibility' => 'public', 'metadata' => ['tags' => ['ai', 'future']]]);
         Memory::factory()->create(['agent_id' => $agent->id, 'visibility' => 'public', 'metadata' => ['tags' => ['ai']]]);

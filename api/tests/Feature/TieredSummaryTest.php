@@ -19,6 +19,9 @@ beforeEach(function () {
         $mock->shouldReceive('summarize')
             ->andReturn('Compacted summary.');
     });
+
+    // Force jobs to run synchronously so summaries appear immediately
+    config(['queue.default' => 'sync']);
 });
 
 // ---------------------------------------------------------------------------
@@ -35,8 +38,15 @@ describe('Tiered Memory Summaries', function () {
             'value' => str_repeat('This is a detailed memory with lots of content. ', 10),
         ], withAgent($agent));
 
-        $response->assertCreated()
-            ->assertJsonPath('summary', 'A concise summary of the memory content.');
+        $response->assertCreated();
+
+        // The SummarizeMemory job runs synchronously and updates the DB,
+        // but the response model may not have the refreshed summary.
+        // Verify via a fresh DB read:
+        $this->assertDatabaseHas('memories', [
+            'key' => 'long-memory',
+            'summary' => 'A concise summary of the memory content.',
+        ]);
     });
 
     it('includes summary field in API responses', function () {

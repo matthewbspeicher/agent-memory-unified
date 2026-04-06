@@ -13,9 +13,9 @@ class ArenaProfileApiTest extends TestCase
 
     public function test_agent_can_update_arena_profile()
     {
-        $user = User::factory()->create();
-        $agent = Agent::factory()->create(['owner_id' => $user->id]);
-        $token = $agent->api_token;
+        $user = makeOwner();
+        $agent = makeAgent($user);
+        $token = $agent->_plaintext_token;
 
         $response = $this->withHeaders([
             'Authorization' => 'Bearer '.$token,
@@ -31,9 +31,9 @@ class ArenaProfileApiTest extends TestCase
 
     public function test_agent_can_get_arena_profile()
     {
-        $user = User::factory()->create();
-        $agent = Agent::factory()->create(['owner_id' => $user->id]);
-        $token = $agent->api_token;
+        $user = makeOwner();
+        $agent = makeAgent($user);
+        $token = $agent->_plaintext_token;
 
         $agent->arenaProfile()->create([
             'bio' => 'Existing bio',

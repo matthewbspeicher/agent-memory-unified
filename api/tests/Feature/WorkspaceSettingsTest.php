@@ -11,18 +11,21 @@ class WorkspaceSettingsTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_free_users_cannot_create_workspaces()
+    public function test_authenticated_user_can_create_workspaces()
     {
         $user = User::factory()->create();
 
-        $response = $this->actingAs($user)->post('/workspaces', [
-            'name' => 'My Team Workspace',
-            'description' => 'A team workspace',
-        ]);
+        $response = $this->actingAs($user)
+            ->withSession(['_token' => 'test-token'])
+            ->post('/workspaces', [
+                '_token' => 'test-token',
+                'name' => 'My Team Workspace',
+                'description' => 'A team workspace',
+            ]);
 
-        // Instead of hard failing, we redirect with an error message because it's a web form
-        $response->assertSessionHas('error', 'Private workspaces require a Pro subscription.');
-        $this->assertDatabaseCount('workspaces', 0);
+        // User is always "Pro" in the simplified model, so workspace creation succeeds
+        $response->assertSessionHas('success', 'Workspace created!');
+        $this->assertDatabaseCount('workspaces', 1);
     }
 
     public function test_workspace_owner_can_rotate_token()
@@ -30,12 +33,16 @@ class WorkspaceSettingsTest extends TestCase
         $user = User::factory()->create();
         $workspace = Workspace::factory()->create(['owner_id' => $user->id]);
 
-        $oldToken = $workspace->api_token;
+        $oldHash = $workspace->api_token_hash;
 
-        $response = $this->actingAs($user)->post("/workspaces/{$workspace->id}/token/rotate");
+        $response = $this->actingAs($user)
+            ->withSession(['_token' => 'test-token'])
+            ->post("/workspaces/{$workspace->id}/token/rotate", [
+                '_token' => 'test-token',
+            ]);
 
         $response->assertSessionHas('success');
-        $this->assertNotEquals($oldToken, $workspace->fresh()->api_token);
+        $this->assertNotEquals($oldHash, $workspace->fresh()->api_token_hash);
     }
 
     public function test_non_owner_cannot_rotate_token()
@@ -46,7 +53,11 @@ class WorkspaceSettingsTest extends TestCase
         $otherUser = User::factory()->create();
         $workspace->users()->attach($otherUser->id);
 
-        $response = $this->actingAs($otherUser)->post("/workspaces/{$workspace->id}/token/rotate");
+        $response = $this->actingAs($otherUser)
+            ->withSession(['_token' => 'test-token'])
+            ->post("/workspaces/{$workspace->id}/token/rotate", [
+                '_token' => 'test-token',
+            ]);
 
         $response->assertStatus(403);
     }
@@ -58,12 +69,15 @@ class WorkspaceSettingsTest extends TestCase
 
         $invitedUser = User::factory()->create();
 
-        $response = $this->actingAs($owner)->post("/workspaces/{$workspace->id}/invite", [
-            'email' => $invitedUser->email,
-        ]);
+        $response = $this->actingAs($owner)
+            ->withSession(['_token' => 'test-token'])
+            ->post("/workspaces/{$workspace->id}/invite", [
+                '_token' => 'test-token',
+                'email' => $invitedUser->email,
+            ]);
 
         $response->assertSessionHas('success');
-        $this->assertTrue($workspace->users->contains($invitedUser));
+        $this->assertTrue($workspace->fresh()->users->contains($invitedUser));
     }
 
     public function test_cannot_invite_nonexistent_user()
@@ -71,9 +85,12 @@ class WorkspaceSettingsTest extends TestCase
         $owner = User::factory()->create();
         $workspace = Workspace::factory()->create(['owner_id' => $owner->id]);
 
-        $response = $this->actingAs($owner)->post("/workspaces/{$workspace->id}/invite", [
-            'email' => 'doesnotexist@example.com',
-        ]);
+        $response = $this->actingAs($owner)
+            ->withSession(['_token' => 'test-token'])
+            ->post("/workspaces/{$workspace->id}/invite", [
+                '_token' => 'test-token',
+                'email' => 'doesnotexist@example.com',
+            ]);
 
         $response->assertSessionHas('error', 'User with that email not found.');
     }
@@ -86,7 +103,11 @@ class WorkspaceSettingsTest extends TestCase
         $invitedUser = User::factory()->create();
         $workspace->users()->attach($invitedUser->id);
 
-        $response = $this->actingAs($owner)->delete("/workspaces/{$workspace->id}/users/{$invitedUser->id}");
+        $response = $this->actingAs($owner)
+            ->withSession(['_token' => 'test-token'])
+            ->delete("/workspaces/{$workspace->id}/users/{$invitedUser->id}", [
+                '_token' => 'test-token',
+            ]);
 
         $response->assertSessionHas('success');
         $this->assertFalse($workspace->fresh()->users->contains($invitedUser));

@@ -96,10 +96,10 @@ describe('GET /v1/trading/portfolio', function () {
     });
 
     it('does not include agents from other owners', function () {
-        $owner1 = makeOwner(['api_token' => 'owner_1_token']);
+        $owner1 = makeOwner();
         $agent1 = makeAgent($owner1, ['name' => 'My Agent']);
 
-        $owner2 = makeOwner(['api_token' => 'owner_2_token', 'email' => 'other@example.com']);
+        $owner2 = makeOwner(['email' => 'other@example.com']);
         $otherAgent = makeAgent($owner2, ['name' => 'Other Agent']);
 
         Position::create([

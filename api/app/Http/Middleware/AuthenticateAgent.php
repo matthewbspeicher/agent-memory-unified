@@ -17,10 +17,16 @@ class AuthenticateAgent
             $token = $request->bearerToken();
 
             if (! $token) {
-                return response()->json([
-                    'error' => 'No agent token provided.',
-                    'hint' => 'Include your agent token as: Authorization: Bearer amc_...',
-                ], 401);
+                // On API routes, a bearer token is required.
+                // On web routes, it's optional (session auth handles it).
+                if ($request->is('api/*')) {
+                    return response()->json([
+                        'error' => 'No agent token provided.',
+                        'hint' => 'Include your agent token as: Authorization: Bearer amc_...',
+                    ], 401);
+                }
+
+                return $next($request);
             }
 
             // Workspace token authentication

@@ -15,7 +15,6 @@ class WorkspaceSettingsController extends Controller
         }
 
         $workspace->load(['users', 'agents']);
-        $workspace->makeVisible('api_token');
 
         return response()->json([
             'workspace' => $workspace,
@@ -88,8 +87,9 @@ class WorkspaceSettingsController extends Controller
             abort(403);
         }
 
-        $workspace->update(['api_token' => Workspace::generateToken()]);
+        $token = Workspace::generateToken();
+        $workspace->update(['api_token_hash' => hash('sha256', $token)]);
 
-        return back()->with('success', 'API Token rotated successfully.');
+        return back()->with('success', "API Token rotated! New Token: {$token}");
     }
 }

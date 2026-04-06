@@ -29,7 +29,7 @@ it('summarizes a collection of memories', function () {
         ], 200),
     ]);
 
-    $service = new SummarizationService;
+    $service = app(SummarizationService::class);
     $summary = $service->summarize($memories, $agent);
 
     expect($summary)->toBe('The user loves dogs, specifically golden retrievers, and has one named Max.');

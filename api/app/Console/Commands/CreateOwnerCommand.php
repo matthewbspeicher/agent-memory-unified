@@ -30,7 +30,7 @@ class CreateOwnerCommand extends Command
             'name' => $this->option('name') ?? Str::before($email, '@'),
             'email' => $email,
             'password' => bcrypt(Str::random(32)),
-            'api_token' => $token,
+            'api_token_hash' => hash('sha256', $token),
         ]);
 
         $this->info('Owner created!');

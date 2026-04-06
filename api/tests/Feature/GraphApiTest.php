@@ -15,14 +15,14 @@ beforeEach(function () {
 });
 
 it('returns authenticated agent graph with nodes and edges', function () {
-    $owner = User::factory()->create(['api_token' => 'test_owner']);
-    $agent = Agent::factory()->create(['owner_id' => $owner->id]);
+    $owner = makeOwner(['_plaintext_override' => 'test_owner']);
+    $agent = makeAgent($owner);
     $m1 = Memory::factory()->create(['agent_id' => $agent->id, 'key' => 'mem1', 'type' => 'fact']);
     $m2 = Memory::factory()->create(['agent_id' => $agent->id, 'key' => 'mem2', 'type' => 'preference']);
     $m1->relatedTo()->attach($m2->id, ['type' => 'relates_to']);
 
     $response = $this->getJson('/api/v1/agents/me/graph', [
-        'Authorization' => "Bearer {$agent->api_token}",
+        'Authorization' => "Bearer {$agent->_plaintext_token}",
     ]);
 
     $response->assertOk()->assertJsonStructure(['nodes', 'edges']);
@@ -32,8 +32,8 @@ it('returns authenticated agent graph with nodes and edges', function () {
 });
 
 it('returns public graph with only public memories', function () {
-    $owner = User::factory()->create(['api_token' => 'test_owner']);
-    $agent = Agent::factory()->create(['owner_id' => $owner->id]);
+    $owner = makeOwner(['_plaintext_override' => 'test_owner']);
+    $agent = makeAgent($owner);
     Memory::factory()->create(['agent_id' => $agent->id, 'visibility' => 'public']);
     Memory::factory()->create(['agent_id' => $agent->id, 'visibility' => 'private']);
 
@@ -43,12 +43,12 @@ it('returns public graph with only public memories', function () {
 });
 
 it('limits graph to 200 nodes', function () {
-    $owner = User::factory()->create(['api_token' => 'test_owner']);
-    $agent = Agent::factory()->create(['owner_id' => $owner->id]);
+    $owner = makeOwner(['_plaintext_override' => 'test_owner']);
+    $agent = makeAgent($owner);
     Memory::factory()->count(210)->create(['agent_id' => $agent->id]);
 
     $response = $this->getJson('/api/v1/agents/me/graph', [
-        'Authorization' => "Bearer {$agent->api_token}",
+        'Authorization' => "Bearer {$agent->_plaintext_token}",
     ]);
     $response->assertOk();
     expect(count($response->json('nodes')))->toBeLessThanOrEqual(200);

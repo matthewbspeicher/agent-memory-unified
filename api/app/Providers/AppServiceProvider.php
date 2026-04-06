@@ -38,9 +38,8 @@ class AppServiceProvider extends ServiceProvider
             EvaluateSemanticWebhooks::class,
         );
 
-        // T1: Register trade alert listeners
-        Event::listen(\App\Events\TradeClosed::class, [\App\Listeners\EvaluateTradeAlerts::class, 'handleTradeClosed']);
-        Event::listen(\App\Events\TradeOpened::class, [\App\Listeners\EvaluateTradeAlerts::class, 'handleTradeOpened']);
+
+        // Trade alert listeners are auto-discovered via handleTradeClosed/handleTradeOpened
 
         // Phase 4: Token revocation on agent deactivation
         Event::listen(\App\Events\AgentDeactivated::class, \App\Listeners\RevokeAgentTokens::class);

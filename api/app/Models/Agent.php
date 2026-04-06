@@ -21,6 +21,8 @@ class Agent extends Model implements AuthenticatableContract
         'owner_id',
         'name',
         'description',
+        'token_hash',
+        'scopes',
         'is_listed',
         'is_active',
         'broadcasts_signals',
