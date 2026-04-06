@@ -61,3 +61,8 @@ asyncio_mode = "auto"
 markers = [
     "integration: requires IB Gateway running with paper account",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest-timeout>=2.4.0",
+]
