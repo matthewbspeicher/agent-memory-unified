@@ -1,15 +1,69 @@
-import { useQuery } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { memoryApi } from '../lib/api/memory';
 import { MemoryCard } from '../components/MemoryCard';
 import { GlassCard } from '../components/GlassCard';
 
 export default function Dashboard() {
+  const queryClient = useQueryClient();
+  const [wsStatus, setWsStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
+
   const { data: memories, isLoading } = useQuery({
     queryKey: ['memories'],
     queryFn: async () => {
       return await memoryApi.list();
     },
   });
+
+  useEffect(() => {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/api/trading-direct/ws/public`;
+    let ws: WebSocket | null = null;
+    let reconnectTimeout: ReturnType<typeof setTimeout>;
+
+    const connect = () => {
+      setWsStatus('connecting');
+      ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        console.log('Neural Mesh WebSocket connected');
+        setWsStatus('connected');
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          // If this is a new memory event from Redis Streams
+          if (data?.type === 'MemoryCreated' && data?.payload?.memory) {
+            queryClient.setQueryData(['memories'], (old: any) => {
+              if (!old) return [data.payload.memory];
+              // Avoid duplicates
+              if (old.some((m: any) => m.id === data.payload.memory.id)) return old;
+              return [data.payload.memory, ...old].slice(0, 50); // Keep last 50
+            });
+          }
+        } catch (e) {
+          console.error('Error parsing WS message', e);
+        }
+      };
+
+      ws.onclose = () => {
+        console.log('Neural Mesh WebSocket disconnected');
+        setWsStatus('disconnected');
+        // Try to reconnect
+        reconnectTimeout = setTimeout(connect, 3000);
+      };
+    };
+
+    connect();
+
+    return () => {
+      clearTimeout(reconnectTimeout);
+      if (ws) {
+        ws.close();
+      }
+    };
+  }, [queryClient]);
 
   // Mocking agents count/trades since they were hardcoded to "-" previously
   const activeAgents = 42; 
@@ -27,8 +81,10 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)] animate-pulse" />
-          <span className="text-emerald-500 font-mono text-xs uppercase tracking-widest">System Operational</span>
+          <div className={`w-2 h-2 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.8)] ${wsStatus === 'connected' ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
+          <span className={`font-mono text-xs uppercase tracking-widest ${wsStatus === 'connected' ? 'text-emerald-500' : 'text-red-500'}`}>
+            {wsStatus === 'connected' ? 'System Operational' : 'Offline / Reconnecting'}
+          </span>
         </div>
       </header>
 
@@ -42,7 +98,7 @@ export default function Dashboard() {
             {isLoading ? '...' : memories?.length || 0}
           </dd>
           <div className="mt-4 h-1 w-full bg-gray-900 rounded-full overflow-hidden">
-            <div className="h-full bg-cyan-500 w-3/4 shadow-[0_0_10px_rgba(34,211,238,0.5)]"></div>
+            <div className={`h-full bg-cyan-500 w-3/4 ${wsStatus === 'connected' ? 'shadow-[0_0_10px_rgba(34,211,238,0.5)]' : ''}`}></div>
           </div>
         </GlassCard>
 
@@ -54,7 +110,7 @@ export default function Dashboard() {
             {activeAgents}
           </dd>
           <div className="mt-4 h-1 w-full bg-gray-900 rounded-full overflow-hidden">
-            <div className="h-full bg-violet-500 w-1/2 shadow-[0_0_10px_rgba(167,139,250,0.5)]"></div>
+            <div className={`h-full bg-violet-500 w-1/2 ${wsStatus === 'connected' ? 'shadow-[0_0_10px_rgba(167,139,250,0.5)]' : ''}`}></div>
           </div>
         </GlassCard>
 
@@ -66,7 +122,7 @@ export default function Dashboard() {
             {activeTrades}
           </dd>
           <div className="mt-4 h-1 w-full bg-gray-900 rounded-full overflow-hidden">
-            <div className="h-full bg-emerald-500 w-full shadow-[0_0_10px_rgba(16,185,129,0.5)] animate-pulse"></div>
+            <div className={`h-full bg-emerald-500 w-full ${wsStatus === 'connected' ? 'shadow-[0_0_10px_rgba(16,185,129,0.5)] animate-pulse' : ''}`}></div>
           </div>
         </GlassCard>
       </div>
@@ -78,6 +134,12 @@ export default function Dashboard() {
             <span className="w-4 h-px bg-cyan-500"></span>
             Neural Activity Feed
           </h3>
+          {wsStatus === 'connected' && (
+             <span className="flex items-center gap-2 text-cyan-400 font-mono text-[10px] uppercase tracking-widest border border-cyan-500/20 px-3 py-1 rounded-full bg-cyan-500/10">
+               <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping"></span>
+               Live Sync
+             </span>
+          )}
         </div>
 
         {isLoading && (
