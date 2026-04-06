@@ -3,10 +3,9 @@
   "experimentalServices": [
     {
       "name": "api",
-      "rootDirectory": "api",
       "build": {
         "builder": "DOCKERFILE",
-        "dockerfilePath": "Dockerfile"
+        "dockerfilePath": "Dockerfile.api"
       },
       "deploy": {
         "region": "us-east-1",
