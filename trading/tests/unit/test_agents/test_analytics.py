@@ -19,6 +19,24 @@ async def db():
     conn = await aiosqlite.connect(":memory:")
     conn.row_factory = aiosqlite.Row
     await init_db(conn)
+    # Create tables needed by this test (init_db is a no-op since Laravel owns DDL)
+    await conn.execute("""
+        CREATE TABLE IF NOT EXISTS opportunities (
+            id TEXT PRIMARY KEY,
+            agent_name TEXT NOT NULL,
+            symbol TEXT NOT NULL,
+            signal TEXT NOT NULL,
+            confidence REAL NOT NULL,
+            reasoning TEXT NOT NULL,
+            suggested_trade TEXT,
+            status TEXT NOT NULL DEFAULT 'pending',
+            expires_at TEXT,
+            data TEXT,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        )
+    """)
+    await conn.commit()
     yield conn
     await conn.close()
 
