@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
@@ -31,6 +32,389 @@ from storage.agent_registry import AgentStore
 from learning.pnl import TradeTracker
 from learning.prompt_store import SqlPromptStore
 from api.routes.learning import create_learning_router
+
+
+async def _setup_trade_reflectors(
+    *,
+    config: Config,
+    learning_cfg,
+    learning_data,
+    llm_client,
+    remembr_sync,
+    logger: logging.Logger,
+):
+    trade_reflector_factory = None
+    global_reflector = None
+
+    if not (
+        (config.remembr_api_key or config.remembr_owner_token)
+        and config.remembr_shared_api_key
+        and learning_data.get("memory", {}).get("enabled", False)
+    ):
+        return trade_reflector_factory, global_reflector
+
+    try:
+        from remembr.client import AsyncRemembrClient
+        from learning.memory_client import TradingMemoryClient
+        from learning.trade_reflector import TradeReflector
+        from api.routes.memory import register_shared_client
+
+        mem_cfg = learning_cfg.memory
+        shared_remembr = AsyncRemembrClient(
+            agent_token=config.remembr_shared_api_key,
+            base_url=config.remembr_base_url,
+        )
+
+        async def make_reflector(agent_name: str) -> TradeReflector:
+            agent_token = config.remembr_api_key
+
+            if remembr_sync and agent_name != "_global":
+                try:
+                    await remembr_sync.ensure_agents_registered([agent_name])
+                    tokens = await remembr_sync.get_agent_tokens()
+                    if agent_name in tokens:
+                        agent_token = tokens[agent_name]
+                        logger.debug("Using autonomous token for agent %s", agent_name)
+                except Exception as exc:
+                    logger.warning(
+                        "Failed to get autonomous token for %s, falling back: %s",
+                        agent_name,
+                        exc,
+                    )
+
+            private_client = AsyncRemembrClient(
+                agent_token=agent_token,
+                base_url=config.remembr_base_url,
+            )
+            memory_client = TradingMemoryClient(
+                private_client=private_client,
+                shared_client=shared_remembr,
+                ttl_days=mem_cfg.ttl_days,
+            )
+
+            return TradeReflector(
+                memory_client=memory_client,
+                deep_reflection_pnl_multiplier=mem_cfg.deep_reflection.pnl_multiplier,
+                deep_reflection_loss_multiplier=mem_cfg.deep_reflection.loss_multiplier,
+                llm=llm_client,
+            )
+
+        trade_reflector_factory = make_reflector
+
+        shared_memory_client = TradingMemoryClient(
+            private_client=shared_remembr,
+            shared_client=shared_remembr,
+            ttl_days=mem_cfg.ttl_days,
+        )
+        register_shared_client(shared_memory_client)
+        logger.info("Agent memory system enabled (remembr.dev)")
+    except Exception as exc:
+        logger.warning("Memory system setup failed (continuing without it): %s", exc)
+        return trade_reflector_factory, global_reflector
+
+    if trade_reflector_factory:
+        global_reflector = await trade_reflector_factory("_global")
+
+    return trade_reflector_factory, global_reflector
+
+
+def _setup_agent_runtime(
+    *,
+    app: FastAPI,
+    config: Config,
+    db,
+    perf_store,
+    agent_store,
+    opp_store,
+    notifier,
+    risk_engine,
+    broker,
+    brokers,
+    trade_store,
+    data_bus,
+    event_bus,
+    signal_bus,
+    emitter,
+    trade_tracker,
+    sizing_engine,
+    exit_manager,
+    exec_tracker,
+    regime_filter,
+    slippage_loop,
+    global_reflector,
+    signal_feature_capture,
+    exec_cost_store,
+    confidence_calibration_store,
+    confidence_calibration_config,
+    shadow_executor,
+    journal_manager,
+    trade_reflector_factory,
+):
+    from learning.strategy_health import StrategyHealthEngine
+    from learning.strategy_health import StrategyHealthConfig as StrategyHealthConfig
+    from storage.strategy_health import StrategyHealthStore as StrategyHealthStore
+    from agents.router import OpportunityRouter, ConsensusRouter
+    from agents.runner import AgentRunner
+    from experiments.ab_test import get_experiment_manager
+
+    health_store = StrategyHealthStore(db)
+    health_config = StrategyHealthConfig.from_learning_config(
+        getattr(app.state.learning_config, "strategy_health", None)
+    )
+    health_engine = StrategyHealthEngine(
+        health_store=health_store,
+        perf_store=perf_store,
+        config=health_config,
+    )
+    app.state.health_engine = health_engine
+
+    router = OpportunityRouter(
+        store=opp_store,
+        notifier=notifier,
+        risk_engine=risk_engine,
+        broker=broker,
+        brokers=brokers,
+        broker_routing=config.broker_routing,
+        trade_store=trade_store,
+        data_bus=data_bus,
+        event_bus=event_bus,
+        experiment_manager=get_experiment_manager(),
+        trade_tracker=trade_tracker,
+        sizing_engine=sizing_engine,
+        exit_manager=exit_manager,
+        execution_tracker=exec_tracker,
+        regime_filter=regime_filter,
+        slippage_loop=slippage_loop,
+        trade_reflector=global_reflector,
+        health_engine=health_engine,
+        signal_feature_capture=signal_feature_capture,
+        execution_cost_store=exec_cost_store,
+        confidence_calibration_store=confidence_calibration_store,
+        confidence_calibration_config=confidence_calibration_config,
+        shadow_executor=shadow_executor,
+        journal_manager=journal_manager,
+    )
+
+    if config.consensus_threshold > 1:
+        from storage.consensus import ConsensusStore
+
+        consensus_store = ConsensusStore(db)
+        router = ConsensusRouter(
+            target_router=router,
+            threshold=config.consensus_threshold,
+            window_minutes=config.consensus_window_minutes,
+            consensus_store=consensus_store,
+        )
+
+    runner = AgentRunner(
+        data_bus,
+        router,
+        event_bus,
+        emitter=emitter,
+        signal_bus=signal_bus,
+        health_engine=health_engine,
+        trade_reflector_factory=trade_reflector_factory,
+        agent_store=agent_store,
+    )
+    set_agent_runner(runner)
+    app.state.agent_runner = runner
+
+    base_router = router._target if hasattr(router, "_target") else router
+    if hasattr(base_router, "_runner"):
+        base_router._runner = runner
+
+    return health_engine, router, runner
+
+
+async def _setup_operator_services(
+    *,
+    app: FastAPI,
+    config: Config,
+    db,
+    perf_store,
+    runner,
+    remembr_sync,
+    task_mgr,
+    logger: logging.Logger,
+    pnl_store,
+    opp_store,
+    llm_client,
+    journal_manager,
+):
+    from leaderboard.engine import LeaderboardEngine
+    from journal.autopsy import AutopsyGenerator
+    from journal.service import JournalService
+    from brief.generator import BriefGenerator
+    from warroom.engine import WarRoomEngine
+
+    leaderboard_engine = LeaderboardEngine(
+        perf_store=perf_store,
+        runner=runner,
+        db=db,
+        remembr_sync=remembr_sync,
+    )
+
+    if remembr_sync and config.remembr_owner_token:
+
+        async def _setup_remembr_team():
+            try:
+                agent_names = [a.name for a in runner.list_agents()]
+                await remembr_sync.ensure_team_setup("stock-trading-api", agent_names)
+            except Exception as exc:
+                logger.warning("Autonomous team setup failed: %s", exc)
+
+        task_mgr.create_task(_setup_remembr_team(), name="remembr_team_setup")
+
+    app.state.leaderboard_engine = leaderboard_engine
+
+    try:
+        agent_names = [a.name for a in runner.list_agents()]
+        seeded = await perf_store.seed_if_empty(agent_names)
+        if seeded:
+            logger.info(
+                "Seeded %d agents with zero-state performance snapshots", seeded
+            )
+    except Exception as exc:
+        logger.warning("Failed to seed performance snapshots: %s", exc)
+
+    autopsy_gen = AutopsyGenerator(
+        db=db,
+        opp_store=opp_store,
+        llm=llm_client,
+        journal_manager=journal_manager,
+    )
+    journal_service = JournalService(
+        pnl_store=pnl_store,
+        opp_store=opp_store,
+        autopsy=autopsy_gen,
+    )
+    app.state.journal_service = journal_service
+
+    brief_generator = BriefGenerator(
+        db=db,
+        llm=llm_client,
+    )
+    app.state.brief_generator = brief_generator
+
+    warroom_engine = WarRoomEngine(
+        db=db,
+        llm=llm_client,
+    )
+    app.state.warroom_engine = warroom_engine
+
+    return leaderboard_engine, journal_service, brief_generator, warroom_engine
+
+
+def _setup_tournament_engine(
+    *,
+    app: FastAPI,
+    db,
+    perf_store,
+    notifier,
+    runner,
+    learning_cfg,
+    llm_client,
+):
+    if not learning_cfg.tournament.enabled:
+        return None
+
+    from tournament.engine import TournamentEngine
+    from tournament.store import TournamentStore
+    from api.routes.tournament import create_tournament_router
+
+    tournament_store = TournamentStore(db)
+    tournament_engine = TournamentEngine(
+        store=tournament_store,
+        perf_store=perf_store,
+        notifier=notifier,
+        runner=runner,
+        config=learning_cfg.tournament,
+        llm=llm_client,
+    )
+    app.state.tournament_engine = tournament_engine
+    app.include_router(create_tournament_router(tournament_engine))
+
+    return tournament_engine
+
+
+def _setup_whatsapp_routes(
+    *,
+    app: FastAPI,
+    config: Config,
+    wa_client,
+    wa_numbers,
+    broker,
+    runner,
+    opp_store,
+    risk_engine,
+    llm_client,
+    ext_store,
+    data_bus,
+    leaderboard_engine,
+    journal_service,
+    brief_generator,
+    warroom_engine,
+    db,
+    agent_store,
+    logger: logging.Logger,
+):
+    from api.routes.test import create_test_router
+
+    if not wa_client:
+        app.include_router(create_test_router(wa_client=None, allowed_numbers=None))
+        return
+
+    from whatsapp.assistant import WhatsAppAssistant
+    from whatsapp.webhook import create_webhook_router
+
+    wa_remembr = None
+    if config.remembr_api_key:
+        try:
+            from remembr.client import AsyncRemembrClient
+
+            wa_remembr = AsyncRemembrClient(
+                agent_token=config.remembr_api_key,
+                base_url=config.remembr_base_url,
+            )
+            logger.info("WhatsApp assistant memory enabled via remembr.dev")
+        except Exception as exc:
+            logger.warning("Failed to init remembr.dev for WhatsApp: %s", exc)
+
+    wa_assistant = WhatsAppAssistant(
+        client=wa_client,
+        broker=broker,
+        runner=runner,
+        opp_store=opp_store,
+        risk_engine=risk_engine,
+        llm_client=llm_client,
+        external_store=ext_store,
+        data_bus=data_bus,
+        leaderboard_engine=leaderboard_engine,
+        journal_service=journal_service,
+        brief_generator=brief_generator,
+        warroom_engine=warroom_engine,
+        paper_broker=broker if config.paper_trading else None,
+        tournament_engine=getattr(app.state, "tournament_engine", None),
+        db=db,
+        remembr_client=wa_remembr,
+        agent_store=agent_store,
+    )
+
+    wa_webhook = create_webhook_router(
+        assistant=wa_assistant,
+        verify_token=config.whatsapp_verify_token or "",
+        app_secret=config.whatsapp_app_secret or "",
+        allowed_numbers=config.whatsapp_allowed_numbers or "",
+    )
+    app.include_router(wa_webhook)
+    wa_assistant.start_proactive(wa_numbers)
+
+    app.include_router(
+        create_test_router(
+            wa_client=wa_client,
+            allowed_numbers=config.whatsapp_allowed_numbers,
+        )
+    )
 
 
 @asynccontextmanager
@@ -671,223 +1055,66 @@ async def lifespan(app: FastAPI):
                 timeout=config.remembr_timeout,
             )
 
-        # Agent Memory System (optional — only if remembr keys are configured)
-        _trade_reflector_factory = None
-        if (
-            (config.remembr_api_key or config.remembr_owner_token)
-            and config.remembr_shared_api_key
-            and _learning_data.get("memory", {}).get("enabled", False)
-        ):
-            try:
-                from remembr.client import AsyncRemembrClient
-                from learning.memory_client import TradingMemoryClient
-                from learning.trade_reflector import TradeReflector
-
-                _mem_cfg = _learning_cfg.memory
-                _shared_remembr = AsyncRemembrClient(
-                    agent_token=config.remembr_shared_api_key,
-                    base_url=config.remembr_base_url,
-                )
-
-                async def _make_reflector(agent_name: str) -> TradeReflector:
-                    agent_token = config.remembr_api_key
-
-                    # Try to get or register agent-specific token
-                    if remembr_sync and agent_name != "_global":
-                        try:
-                            # ensure_agents_registered ensures they exist and stores tokens in DB
-                            await remembr_sync.ensure_agents_registered([agent_name])
-                            tokens = await remembr_sync.get_agent_tokens()
-                            if agent_name in tokens:
-                                agent_token = tokens[agent_name]
-                                _log.debug(
-                                    f"Using autonomous token for agent {agent_name}"
-                                )
-                        except Exception as e:
-                            _log.warning(
-                                f"Failed to get autonomous token for {agent_name}, falling back: {e}"
-                            )
-
-                    _private = AsyncRemembrClient(
-                        agent_token=agent_token,
-                        base_url=config.remembr_base_url,
-                    )
-                    _mc = TradingMemoryClient(
-                        private_client=_private,
-                        shared_client=_shared_remembr,
-                        ttl_days=_mem_cfg.ttl_days,
-                    )
-                    return TradeReflector(
-                        memory_client=_mc,
-                        deep_reflection_pnl_multiplier=_mem_cfg.deep_reflection.pnl_multiplier,
-                        deep_reflection_loss_multiplier=_mem_cfg.deep_reflection.loss_multiplier,
-                        llm=llm_client,
-                    )
-
-                _trade_reflector_factory = _make_reflector
-
-                # Register shared memory client for API endpoints
-                from api.routes.memory import register_shared_client
-
-                _shared_mc = TradingMemoryClient(
-                    private_client=_shared_remembr,
-                    shared_client=_shared_remembr,
-                    ttl_days=_mem_cfg.ttl_days,
-                )
-                register_shared_client(_shared_mc)
-                _log.info("Agent memory system enabled (remembr.dev)")
-            except Exception as _mem_exc:
-                _log.warning(
-                    "Memory system setup failed (continuing without it): %s", _mem_exc
-                )
-
-        _global_reflector = None
-        if _trade_reflector_factory:
-            # Note: _global_reflector init is now async, but we can't await here easily if it's used synchronously
-            # However, OpportunityRouter takes it. We'll pre-initialize it.
-            _global_reflector = await _trade_reflector_factory("_global")
-
-        # Strategy Health Engine (always wired — optional execution enforcement)
-        from learning.strategy_health import StrategyHealthEngine
-        from learning.strategy_health import StrategyHealthConfig as _SHConfig
-        from storage.strategy_health import StrategyHealthStore as _SHStore
-
-        _sh_store = _SHStore(db)
-        _sh_cfg = _SHConfig.from_learning_config(
-            getattr(_learning_cfg, "strategy_health", None)
+        _trade_reflector_factory, _global_reflector = await _setup_trade_reflectors(
+            config=config,
+            learning_cfg=_learning_cfg,
+            learning_data=_learning_data,
+            llm_client=llm_client,
+            remembr_sync=remembr_sync,
+            logger=_log,
         )
-        health_engine = StrategyHealthEngine(
-            health_store=_sh_store,
+
+        health_engine, router, runner = _setup_agent_runtime(
+            app=app,
+            config=config,
+            db=db,
             perf_store=perf_store,
-            config=_sh_cfg,
-        )
-        app.state.health_engine = health_engine
-
-        router = OpportunityRouter(
-            store=opp_store,
+            agent_store=agent_store,
+            opp_store=opp_store,
             notifier=notifier,
             risk_engine=risk_engine,
             broker=broker,
             brokers=_brokers,
-            broker_routing=config.broker_routing,
             trade_store=trade_store,
             data_bus=data_bus,
             event_bus=event_bus,
-            experiment_manager=get_experiment_manager(),
+            signal_bus=signal_bus,
+            emitter=_emitter,
             trade_tracker=trade_tracker,
             sizing_engine=sizing_engine,
             exit_manager=exit_manager,
-            execution_tracker=exec_tracker,
+            exec_tracker=exec_tracker,
             regime_filter=regime_filter,
             slippage_loop=slippage_loop,
-            trade_reflector=_global_reflector,
-            health_engine=health_engine,
+            global_reflector=_global_reflector,
             signal_feature_capture=_sf_capture,
-            execution_cost_store=exec_cost_store,
+            exec_cost_store=exec_cost_store,
             confidence_calibration_store=_cc_store,
             confidence_calibration_config=_cc_cfg,
             shadow_executor=shadow_executor,
             journal_manager=journal_manager,
-        )
-
-        if config.consensus_threshold > 1:
-            from storage.consensus import ConsensusStore
-
-            consensus_store = ConsensusStore(db)
-            router = ConsensusRouter(
-                target_router=router,
-                threshold=config.consensus_threshold,
-                window_minutes=config.consensus_window_minutes,
-                consensus_store=consensus_store,
-            )
-        runner = AgentRunner(
-            data_bus,
-            router,
-            event_bus,
-            emitter=_emitter,
-            signal_bus=signal_bus,
-            health_engine=health_engine,
             trade_reflector_factory=_trade_reflector_factory,
-            agent_store=agent_store,
         )
-        set_agent_runner(runner)
-        app.state.agent_runner = runner
-        # Back-wire runner into router so _check_regime_policy() can look up per-agent config.
-        _base_router = router._target if hasattr(router, "_target") else router
-        if hasattr(_base_router, "_runner"):
-            _base_router._runner = runner
 
-        # Leaderboard (optional — only if runner + perf_store exist)
-        from leaderboard.engine import LeaderboardEngine
-
-        # remembr_sync already initialized above
-        leaderboard_engine = LeaderboardEngine(
+        (
+            leaderboard_engine,
+            journal_service,
+            brief_generator,
+            warroom_engine,
+        ) = await _setup_operator_services(
+            app=app,
+            config=config,
+            db=db,
             perf_store=perf_store,
             runner=runner,
-            db=db,
             remembr_sync=remembr_sync,
-        )
-
-        # Autonomous Team Setup (requires owner token)
-        if remembr_sync and config.remembr_owner_token:
-
-            async def _setup_remembr_team():
-                try:
-                    agent_names = [a.name for a in runner.list_agents()]
-                    await remembr_sync.ensure_team_setup(
-                        "stock-trading-api", agent_names
-                    )
-                except Exception as e:
-                    _log.warning(f"Autonomous team setup failed: {e}")
-
-            task_mgr.create_task(_setup_remembr_team(), name="remembr_team_setup")
-        app.state.leaderboard_engine = leaderboard_engine
-
-        # Seed zero-state performance snapshots so leaderboard isn't empty on cold start
-        try:
-            agent_names = [a.name for a in runner.list_agents()]
-            seeded = await perf_store.seed_if_empty(agent_names)
-            if seeded:
-                _log.info(
-                    "Seeded %d agents with zero-state performance snapshots", seeded
-                )
-        except Exception as _seed_exc:
-            _log.warning("Failed to seed performance snapshots: %s", _seed_exc)
-
-        # Trade Journal (optional — requires pnl_store + opp_store)
-        from journal.autopsy import AutopsyGenerator
-        from journal.service import JournalService
-
-        autopsy_gen = AutopsyGenerator(
-            db=db,
-            opp_store=opp_store,
-            llm=llm_client,
-            journal_manager=journal_manager,
-        )
-        journal_service = JournalService(
+            task_mgr=task_mgr,
+            logger=_log,
             pnl_store=pnl_store,
             opp_store=opp_store,
-            autopsy=autopsy_gen,
+            llm_client=llm_client,
+            journal_manager=journal_manager,
         )
-        app.state.journal_service = journal_service
-
-        # Morning Brief
-        from brief.generator import BriefGenerator
-
-        brief_generator = BriefGenerator(
-            db=db,
-            llm=llm_client,
-        )
-        app.state.brief_generator = brief_generator
-
-        # Agent War Room
-        from warroom.engine import WarRoomEngine
-
-        warroom_engine = WarRoomEngine(
-            db=db,
-            llm=llm_client,
-        )
-        app.state.warroom_engine = warroom_engine
 
         # Tournament Engine (optional — only if learning config has tournament.enabled)
         from datetime import datetime, timezone
