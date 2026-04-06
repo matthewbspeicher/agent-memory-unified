@@ -5,10 +5,71 @@ import os
 os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
 
 import pytest
+import aiosqlite
 from unittest.mock import AsyncMock, MagicMock
 from fastapi.testclient import TestClient
 
 from broker.models import BrokerCapabilities
+
+# Minimal DDL for all tables used by unit tests.
+# Since init_db() is a no-op (Laravel owns DDL), tests using in-memory
+# SQLite need table DDL provided explicitly.
+_TEST_DDL = [
+    """CREATE TABLE IF NOT EXISTS opportunities (
+        id TEXT PRIMARY KEY, agent_name TEXT NOT NULL, symbol TEXT NOT NULL,
+        signal TEXT NOT NULL, confidence REAL NOT NULL, reasoning TEXT NOT NULL,
+        suggested_trade TEXT, status TEXT NOT NULL DEFAULT 'pending',
+        expires_at TEXT, data TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )""",
+    """CREATE TABLE IF NOT EXISTS trades (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, opportunity_id TEXT,
+        order_result TEXT NOT NULL, risk_evaluation TEXT, agent_name TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )""",
+    """CREATE TABLE IF NOT EXISTS performance_snapshots (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, agent_name TEXT NOT NULL,
+        timestamp TEXT NOT NULL DEFAULT (datetime('now')),
+        opportunities_generated INTEGER DEFAULT 0,
+        opportunities_executed INTEGER DEFAULT 0,
+        win_rate REAL DEFAULT 0, total_pnl TEXT DEFAULT '0',
+        daily_pnl TEXT DEFAULT '0', daily_pnl_pct REAL DEFAULT 0,
+        sharpe_ratio REAL, max_drawdown REAL,
+        avg_win TEXT DEFAULT '0', avg_loss TEXT DEFAULT '0',
+        profit_factor REAL, total_trades INTEGER DEFAULT 0,
+        open_positions INTEGER DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )""",
+    """CREATE TABLE IF NOT EXISTS tracked_positions (
+        id TEXT PRIMARY KEY, opportunity_id TEXT, agent_name TEXT,
+        symbol TEXT, side TEXT, quantity REAL, entry_price REAL,
+        exit_price REAL, pnl REAL, status TEXT DEFAULT 'open',
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        closed_at TEXT
+    )""",
+    """CREATE TABLE IF NOT EXISTS agent_registry (
+        agent_name TEXT PRIMARY KEY, strategy TEXT, enabled INTEGER DEFAULT 1,
+        config TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )""",
+    """CREATE TABLE IF NOT EXISTS risk_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, event_type TEXT NOT NULL,
+        details TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )""",
+]
+
+
+@pytest.fixture
+async def test_db():
+    """In-memory SQLite database with all test tables pre-created."""
+    conn = await aiosqlite.connect(":memory:")
+    conn.row_factory = aiosqlite.Row
+    for ddl in _TEST_DDL:
+        await conn.execute(ddl)
+    await conn.commit()
+    yield conn
+    await conn.close()
 
 
 @pytest.fixture

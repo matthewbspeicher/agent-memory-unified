@@ -1,8 +1,6 @@
 import pytest
 from datetime import datetime, timezone
-import aiosqlite
 
-from storage.db import init_db
 from storage.performance import PerformanceStore
 from storage.opportunities import OpportunityStore
 from agents.runner import AgentRunner
@@ -14,42 +12,15 @@ from broker.paper import PaperBroker
 from notifications.log_notifier import LogNotifier
 
 
-@pytest.fixture
-async def db():
-    conn = await aiosqlite.connect(":memory:")
-    conn.row_factory = aiosqlite.Row
-    await init_db(conn)
-    # Create tables needed by this test (init_db is a no-op since Laravel owns DDL)
-    await conn.execute("""
-        CREATE TABLE IF NOT EXISTS opportunities (
-            id TEXT PRIMARY KEY,
-            agent_name TEXT NOT NULL,
-            symbol TEXT NOT NULL,
-            signal TEXT NOT NULL,
-            confidence REAL NOT NULL,
-            reasoning TEXT NOT NULL,
-            suggested_trade TEXT,
-            status TEXT NOT NULL DEFAULT 'pending',
-            expires_at TEXT,
-            data TEXT,
-            created_at TEXT NOT NULL DEFAULT (datetime('now')),
-            updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-        )
-    """)
-    await conn.commit()
-    yield conn
-    await conn.close()
-
-
 @pytest.mark.asyncio
-async def test_analytics_agent(db):
+async def test_analytics_agent(test_db):  # noqa: F811
     # Setup dependencies
-    opp_store = OpportunityStore(db)
-    perf_store = PerformanceStore(db)
+    opp_store = OpportunityStore(test_db)
+    perf_store = PerformanceStore(test_db)
     from tests.unit.test_broker.test_paper import MockBroker
     from storage.paper import PaperStore
 
-    broker = PaperBroker(MockBroker(), PaperStore(db))
+    broker = PaperBroker(MockBroker(), PaperStore(test_db))
     await broker._store.init_tables()
     data_bus = DataBus()
     router = OpportunityRouter(opp_store, LogNotifier(), None, broker, None, data_bus)
@@ -129,7 +100,7 @@ async def test_analytics_agent(db):
         runner=runner,
         opp_store=opp_store,
         perf_store=perf_store,
-        trade_store=TradeStore(db),
+        trade_store=TradeStore(test_db),
     )
     await analytics.scan(data_bus)
 
@@ -142,7 +113,7 @@ async def test_analytics_agent(db):
     assert history[0].win_rate == 0.5
 
 
-async def _setup_analytics_env(db):
+async def _setup_analytics_env(test_db):
     """Helper that wires up runner + analytics agent for the given db."""
     from agents.analytics import AnalyticsAgent
     from agents.base import Agent
@@ -157,10 +128,10 @@ async def _setup_analytics_env(db):
     from storage.trades import TradeStore
     from tests.unit.test_broker.test_paper import MockBroker
 
-    opp_store = OpportunityStore(db)
-    perf_store = PerformanceStore(db)
-    trade_store = TradeStore(db)
-    broker = PaperBroker(MockBroker(), PaperStore(db))
+    opp_store = OpportunityStore(test_db)
+    perf_store = PerformanceStore(test_db)
+    trade_store = TradeStore(test_db)
+    broker = PaperBroker(MockBroker(), PaperStore(test_db))
     await broker._store.init_tables()
     data_bus = DataBus()
     router = OpportunityRouter(opp_store, LogNotifier(), None, broker, None, data_bus)
@@ -207,8 +178,8 @@ async def _setup_analytics_env(db):
 
 
 @pytest.mark.asyncio
-async def test_analytics_sharpe_ratio_computed(db):
-    analytics, perf_store, trade_store, data_bus = await _setup_analytics_env(db)
+async def test_analytics_sharpe_ratio_computed(test_db):
+    analytics, perf_store, trade_store, data_bus = await _setup_analytics_env(test_db)
 
     # Insert 5 sell trades for "TradeAgent" with varying P&L to produce non-zero returns
     sell_prices = [110.0, 105.0, 115.0, 108.0, 120.0]
@@ -235,8 +206,8 @@ async def test_analytics_sharpe_ratio_computed(db):
 
 
 @pytest.mark.asyncio
-async def test_analytics_max_drawdown_computed(db):
-    analytics, perf_store, trade_store, data_bus = await _setup_analytics_env(db)
+async def test_analytics_max_drawdown_computed(test_db):
+    analytics, perf_store, trade_store, data_bus = await _setup_analytics_env(test_db)
 
     # Simulate a drawdown: gains then a big loss then recovery
     # SELL trades: price * qty = gross P&L for sells

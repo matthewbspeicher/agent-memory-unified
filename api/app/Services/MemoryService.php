@@ -24,6 +24,16 @@ class MemoryService
     // Write
     // -------------------------------------------------------------------------
 
+    private function syncRelations(Memory $memory, array $relations): void
+    {
+        $syncData = [];
+        foreach ($relations as $relation) {
+            $syncData[$relation['id']] = ['type' => $relation['type'] ?? 'related'];
+        }
+        $memory->relatedTo()->sync($syncData);
+        $memory->load('relatedTo');
+    }
+
     public function store(Agent $agent, array $data): Memory
     {
         if (isset($data['ttl'])) {
@@ -73,12 +83,7 @@ class MemoryService
             );
 
             if (isset($data['relations'])) {
-                $syncData = [];
-                foreach ($data['relations'] as $relation) {
-                    $syncData[$relation['id']] = ['type' => $relation['type'] ?? 'related'];
-                }
-                $memory->relatedTo()->sync($syncData);
-                $memory->load('relatedTo');
+                $this->syncRelations($memory, $data['relations']);
             }
 
             return $memory;
@@ -131,11 +136,7 @@ class MemoryService
 
         return DB::transaction(function () use ($memory, $data) {
             if (isset($data['relations'])) {
-                $syncData = [];
-                foreach ($data['relations'] as $relation) {
-                    $syncData[$relation['id']] = ['type' => $relation['type'] ?? 'related'];
-                }
-                $memory->relatedTo()->sync($syncData);
+                $this->syncRelations($memory, $data['relations']);
                 unset($data['relations']);
             }
 

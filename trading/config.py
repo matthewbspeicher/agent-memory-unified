@@ -13,6 +13,28 @@ from typing import Any, get_origin, get_args, Union
 
 
 @dataclass
+class BrokerConfig:
+    ib_host: str = "127.0.0.1"
+    ib_port: int | None = None
+    ib_client_id: int = 1
+    ib_readonly: bool = False
+    mode: str = "paper"
+    primary_broker: str | None = None
+    routing: dict[str, str] = field(default_factory=dict)
+    
+    tradier_token: str | None = None
+    tradier_account_id: str | None = None
+    tradier_sandbox: bool = True
+    tradier_streaming: bool = False
+
+    alpaca_api_key: str | None = None
+    alpaca_secret_key: str | None = None
+    alpaca_paper: bool = True
+    alpaca_data_feed: str = "iex"
+    alpaca_streaming: bool = False
+
+
+@dataclass
 class BittensorConfig:
     """Bittensor Subnet 8 (Taoshi PTN) configuration."""
 
@@ -41,14 +63,26 @@ class BittensorConfig:
 
 
 @dataclass
+class LLMConfig:
+    anthropic_api_key: str | None = None
+    groq_api_key: str | None = None
+    ollama_base_url: str = "http://localhost:11434"
+    bedrock_region: str | None = None
+    bedrock_access_key_id: str | None = None
+    bedrock_secret_access_key: str | None = None
+    bedrock_model: str = "anthropic.claude-3-haiku-20240307-v1:0"
+    fallback_chain: list[str] = field(
+        default_factory=lambda: ["anthropic", "bedrock", "groq", "ollama", "rule-based"]
+    )
+
+
+@dataclass
 class Config:
     """Application configuration with sensible defaults"""
 
-    # IBKR connection
-    ib_host: str = "127.0.0.1"
-    ib_port: int | None = None
-    ib_client_id: int = 1
-    ib_readonly: bool = False
+    broker: BrokerConfig = field(default_factory=BrokerConfig)
+    bittensor: BittensorConfig = field(default_factory=BittensorConfig)
+    llm: LLMConfig = field(default_factory=LLMConfig)
 
     # Node Role
     worker_mode: bool = False
@@ -68,7 +102,6 @@ class Config:
     database_url: str | None = None
     database_ssl: bool = True
     database_ssl_verify: bool = True
-    broker_mode: str = "paper"
     slack_webhook_url: str | None = None
     slack_signing_secret: str | None = None
     consensus_threshold: int = 1
@@ -81,21 +114,6 @@ class Config:
     whatsapp_verify_token: str | None = None
     whatsapp_app_secret: str | None = None
     whatsapp_allowed_numbers: str | None = None
-
-    # LLM
-    anthropic_api_key: str | None = None
-    groq_api_key: str | None = None
-    ollama_base_url: str = "http://localhost:11434"
-
-    # AWS Bedrock LLM
-    bedrock_region: str | None = None
-    bedrock_access_key_id: str | None = None
-    bedrock_secret_access_key: str | None = None
-    bedrock_model: str = "anthropic.claude-3-haiku-20240307-v1:0"
-
-    llm_fallback_chain: list[str] = field(
-        default_factory=lambda: ["anthropic", "bedrock", "groq", "ollama", "rule-based"]
-    )
 
     # Kalshi prediction markets
     kalshi_key_id: str | None = None
@@ -167,42 +185,11 @@ class Config:
     coingecko_api_key: str | None = None
     massive_key: str | None = None
     tradercongress_api_key: str | None = None
-    tradier_token: str | None = None
-    tradier_account_id: str | None = None
-    tradier_sandbox: bool = True
-
-    # Alpaca
-    alpaca_api_key: str | None = None
-    alpaca_secret_key: str | None = None
-    alpaca_paper: bool = True
-    alpaca_data_feed: str = "iex"
-
-    alpaca_streaming: bool = False
-    tradier_streaming: bool = False
-
-    # Multi-broker routing
-    primary_broker: str | None = None
-    broker_routing: dict[str, str] = field(default_factory=dict)
 
     # Distributed Intelligence
     redis_url: str = "redis://localhost:6379/0"
 
     quiverquant_api_key: str | None = None
-
-    # Bittensor Subnet 8 (nested config)
-    bittensor: BittensorConfig = field(default_factory=BittensorConfig)
-
-    def __getattr__(self, name: str):
-        """Backward-compat: config.bittensor_enabled -> config.bittensor.enabled"""
-        if name.startswith("bittensor_"):
-            nested_name = name[len("bittensor_") :]
-            try:
-                bt = object.__getattribute__(self, "bittensor")
-                if hasattr(bt, nested_name):
-                    return getattr(bt, nested_name)
-            except AttributeError:
-                pass
-        raise AttributeError(f"'Config' object has no attribute '{name}'")
 
     # Sovereign Arbitrageur & Capital Governor
     enable_arbitrage: bool = False
@@ -229,6 +216,40 @@ class Config:
     backtest_default_hold_bars: int = 10
     backtest_slippage_pct: float = 0.001
     backtest_fee_per_trade: float = 1.00
+
+
+    def __getattr__(self, name: str):
+        """Backward-compat: config.bittensor_enabled -> config.bittensor.enabled"""
+        # Map old flat names to nested paths
+        prefixes = {
+            'bittensor_': ('bittensor', 'bittensor_'),
+            'ib_': ('broker', 'ib_'),
+        }
+        for prefix, (group, strip) in prefixes.items():
+            if name.startswith(prefix):
+                nested_name = name[len(strip):]
+                group_obj = object.__getattribute__(self, group)
+                if hasattr(group_obj, nested_name):
+                    return getattr(group_obj, nested_name)
+                # Try with prefix kept (e.g., ib_host -> broker.ib_host)
+                if hasattr(group_obj, name):
+                    return getattr(group_obj, name)
+
+        renames = {
+            'broker_mode': ('broker', 'mode'),
+            'broker_routing': ('broker', 'routing'),
+            'llm_fallback_chain': ('llm', 'fallback_chain'),
+        }
+        if name in renames:
+            group, nested_name = renames[name]
+            return getattr(object.__getattribute__(self, group), nested_name)
+            
+        for group in ('broker', 'llm'):
+            group_obj = object.__getattribute__(self, group)
+            if hasattr(group_obj, name):
+                return getattr(group_obj, name)
+
+        raise AttributeError(f"Config has no attribute '{name}'")
 
 
 _KNOWN_BROKERS = {"ibkr", "alpaca", "tradier", "kalshi", "polymarket"}
@@ -281,6 +302,17 @@ def _load_dotenv(env_file: str) -> dict[str, str]:
     return env_vars
 
 
+def _set_nested(obj: Any, field_name: str, raw_value: str, field_type: Any) -> None:
+    origin = get_origin(field_type)
+    if origin is Union:
+        args = get_args(field_type)
+        field_type = args[0] if args[0] is not type(None) else args[1]
+    try:
+        setattr(obj, field_name, _parse_value(raw_value, field_type))
+    except (ValueError, json.JSONDecodeError) as e:
+        raise ValueError(f"Invalid value for {type(obj).__name__}.{field_name}: {raw_value}") from e
+
+
 def load_config(env_file: str = ".env") -> Config:
     """
     Load configuration from environment variables and .env file
@@ -318,27 +350,35 @@ def load_config(env_file: str = ".env") -> Config:
     config = Config()
     annotations = Config.__annotations__  # Get annotations from class, not instance
 
-    # Route nested config fields
     bt_annotations = BittensorConfig.__annotations__
+    broker_annotations = BrokerConfig.__annotations__
+    llm_annotations = LLMConfig.__annotations__
 
     for field_name, raw_value in config_dict.items():
-        # Route bittensor_* fields to nested BittensorConfig
         if field_name.startswith("bittensor_"):
             nested_name = field_name[len("bittensor_") :]
             if nested_name in bt_annotations:
-                ft = bt_annotations[nested_name]
-                origin = get_origin(ft)
-                if origin is Union:
-                    args = get_args(ft)
-                    ft = args[0] if args[0] is not type(None) else args[1]
-                try:
-                    setattr(config.bittensor, nested_name, _parse_value(raw_value, ft))
-                except (ValueError, json.JSONDecodeError) as e:
-                    raise ValueError(
-                        f"Invalid value for bittensor.{nested_name}: {raw_value}"
-                    ) from e
+                _set_nested(config.bittensor, nested_name, raw_value, bt_annotations[nested_name])
                 continue
 
+        if field_name == "broker_mode":
+            _set_nested(config.broker, "mode", raw_value, broker_annotations["mode"])
+            continue
+        elif field_name == "broker_routing":
+            _set_nested(config.broker, "routing", raw_value, broker_annotations["routing"])
+            continue
+        elif field_name == "llm_fallback_chain":
+            _set_nested(config.llm, "fallback_chain", raw_value, llm_annotations["fallback_chain"])
+            continue
+
+        if field_name in broker_annotations:
+            _set_nested(config.broker, field_name, raw_value, broker_annotations[field_name])
+            continue
+            
+        if field_name in llm_annotations:
+            _set_nested(config.llm, field_name, raw_value, llm_annotations[field_name])
+            continue
+            
         if not hasattr(config, field_name):
             continue  # Ignore unknown fields
 
@@ -347,14 +387,11 @@ def load_config(env_file: str = ".env") -> Config:
         if field_type is None:
             continue
 
-        # Handle Optional[T] types (T | None)
         origin = get_origin(field_type)
-        if origin is Union:  # This is a Union type
+        if origin is Union:
             args = get_args(field_type)
-            # Extract non-None type
             field_type = args[0] if args[0] is not type(None) else args[1]
 
-        # Parse and set value
         try:
             parsed_value = _parse_value(raw_value, field_type)
             setattr(config, field_name, parsed_value)
@@ -371,13 +408,13 @@ def load_config(env_file: str = ".env") -> Config:
 
 def _validate_brokers(config: Config) -> None:
     """Validate broker names"""
-    if config.primary_broker and config.primary_broker not in _KNOWN_BROKERS:
+    if config.broker.primary_broker and config.broker.primary_broker not in _KNOWN_BROKERS:
         raise ValueError(
-            f"Unknown primary_broker: '{config.primary_broker}'. "
+            f"Unknown primary_broker: '{config.broker.primary_broker}'. "
             f"Known: {sorted(_KNOWN_BROKERS)}"
         )
 
-    for asset_type, broker in config.broker_routing.items():
+    for asset_type, broker in config.broker.routing.items():
         if broker not in _KNOWN_BROKERS:
             raise ValueError(
                 f"Unknown broker '{broker}' in broker_routing[{asset_type}]. "
@@ -387,16 +424,16 @@ def _validate_brokers(config: Config) -> None:
 
 def _apply_ib_port_default(config: Config) -> None:
     """Apply IB port default based on broker_mode"""
-    if config.ib_port is None:
-        config.ib_port = 4002 if config.broker_mode == "paper" else 4001
+    if config.broker.ib_port is None:
+        config.broker.ib_port = 4002 if config.broker.mode == "paper" else 4001
 
 
 def _check_live_mode_api_key(config: Config) -> None:
     """Check API key requirements for live mode"""
-    if config.broker_mode == "live" and not config.api_key:
+    if config.broker.mode == "live" and not config.api_key:
         raise ValueError("STA_API_KEY must be set in live mode")
 
-    if config.broker_mode == "paper" and not config.api_key:
+    if config.broker.mode == "paper" and not config.api_key:
         warnings.warn(
             "Running in paper mode without STA_API_KEY — API is unauthenticated",
             UserWarning,
