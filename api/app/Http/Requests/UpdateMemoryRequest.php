@@ -26,7 +26,7 @@ class UpdateMemoryRequest extends FormRequest
             'confidence' => ['sometimes', 'numeric', 'min:0', 'max:1'],
             'expires_at' => ['sometimes', 'nullable', 'date', 'after:now', 'prohibits:ttl'],
             'ttl' => ['sometimes', 'nullable', 'string', 'regex:/^\d+[hmd]$/', 'prohibits:expires_at'],
-            'tags' => ['sometimes', 'array'],
+            'tags' => ['sometimes', 'array', 'max:10'],
             'tags.*' => ['string', 'max:50'],
         ];
     }

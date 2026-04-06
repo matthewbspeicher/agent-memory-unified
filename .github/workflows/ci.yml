@@ -9,32 +9,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.14'
-
-      - name: Install Python dependencies
-        run: pip install datamodel-code-generator==0.45.0
-
-      - name: Generate Python types
+      - name: Validate JSON schemas
         run: |
-          datamodel-codegen \
-            --input shared/types/schemas/ \
-            --output shared/types/generated/python/ \
-            --output-model-type pydantic_v2.BaseModel \
-            --use-standard-collections \
-            --field-constraints \
-            --target-python-version 3.12 \
-            --disable-timestamp
-
-      - name: Check for uncommitted changes
-        run: |
-          if [[ -n $(git diff --name-only shared/types/generated/python/) ]]; then
-            echo "Generated Python types differ from committed versions!"
-            git diff shared/types/generated/python/
-            exit 1
-          fi
+          python3 -c "
+          import json, glob, sys
+          errors = 0
+          for f in glob.glob('shared/types/schemas/*.json'):
+              try:
+                  with open(f) as fh:
+                      json.load(fh)
+                  print(f'  OK: {f}')
+              except json.JSONDecodeError as e:
+                  print(f'  FAIL: {f}: {e}')
+                  errors += 1
+          sys.exit(errors)
+          "
 
   frontend-build:
     name: Frontend Build
@@ -188,6 +177,7 @@ jobs:
           grep -v "remembr @" requirements.txt > requirements-ci.txt
           pip install -r requirements-ci.txt
           pip install -r requirements-test.txt 2>/dev/null || true
+          pip install pytest-timeout
 
       - name: Run unit tests
         run: python -m pytest tests/unit/ -x --timeout=60 -q

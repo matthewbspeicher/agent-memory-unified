@@ -2,6 +2,9 @@
 
 use App\Models\Agent;
 use App\Models\Trade;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+
+uses(RefreshDatabase::class);
 
 beforeEach(function () {
     $owner = makeOwner();

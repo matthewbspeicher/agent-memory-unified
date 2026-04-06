@@ -28,7 +28,7 @@ class StoreMemoryRequest extends FormRequest
             'confidence' => ['nullable', 'numeric', 'min:0', 'max:1'],
             'expires_at' => ['nullable', 'date', 'after:now', 'prohibits:ttl'],
             'ttl' => ['nullable', 'string', 'regex:/^\d+[hmd]$/', 'prohibits:expires_at'],
-            'tags' => ['nullable', 'array'],
+            'tags' => ['nullable', 'array', 'max:10'],
             'tags.*' => ['string', 'max:50'],
         ];
     }

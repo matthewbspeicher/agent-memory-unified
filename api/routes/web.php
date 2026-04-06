@@ -11,3 +11,15 @@ Route::get('/docs', function () {
     return view('docs');
 });
 
+// -------------------------------------------------------------------------
+// Dashboard routes (authenticated via session)
+// -------------------------------------------------------------------------
+
+Route::middleware(['auth'])->group(function () {
+    Route::get('/dashboard', [DashboardController::class, 'show'])->name('dashboard');
+
+    Route::delete('/dashboard/agents/{agent}', [DashboardController::class, 'destroy'])->name('dashboard.agents.destroy');
+    Route::post('/dashboard/agents/{agent}/rotate', [DashboardController::class, 'rotateToken'])->name('dashboard.agents.rotate');
+    Route::post('/dashboard/token/rotate', [DashboardController::class, 'rotateOwnerToken'])->name('dashboard.token.rotate');
+});
+

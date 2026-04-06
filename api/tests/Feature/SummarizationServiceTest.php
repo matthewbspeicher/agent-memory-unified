@@ -3,8 +3,11 @@
 use App\Models\Agent;
 use App\Models\Memory;
 use App\Services\SummarizationService;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+
+uses(RefreshDatabase::class);
 
 it('summarizes a collection of memories', function () {
     $agent = Agent::factory()->make(['name' => 'TestAgent']);
