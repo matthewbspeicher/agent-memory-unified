@@ -624,7 +624,7 @@ async def lifespan(app: FastAPI):
                 tournament=None,
                 perf_store=perf_store,
                 agent_store=agent_store,
-                config=config,
+                settings=config,
                 journal_manager=journal_manager,
             )
 

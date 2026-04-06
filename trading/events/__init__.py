@@ -1,4 +1,4 @@
 # trading/events/__init__.py
-from .consumer import EventConsumer, handle_agent_deactivated
+from .consumer_streams import StreamsEventConsumer
 
-__all__ = ["EventConsumer", "handle_agent_deactivated"]
+__all__ = ["StreamsEventConsumer"]
