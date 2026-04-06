@@ -1,7 +1,10 @@
 FROM python:3.13-slim
 
+# Use uv for extremely fast dependency installation
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
 # Install build dependencies for hnswlib and other compiled packages
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     g++ \
     python3-dev \
@@ -9,18 +12,25 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Copy shared directory (auth, types-py, etc.)
-COPY shared /app/shared
-
-# Copy shared types package (required dependency)
+# Copy shared types package first
 COPY shared/types-py /app/shared-types
 
-# Copy trading service
+# Copy trading dependencies and vendored packages to leverage Docker layer caching
+COPY trading/requirements.txt /app/trading/
+COPY trading/pyproject.toml /app/trading/
+COPY trading/vendor/ /app/trading/vendor/
+
+# Install dependencies using uv (this layer caches until requirements change)
+WORKDIR /app/trading
+RUN uv pip install --no-cache --system -r requirements.txt
+RUN uv pip install --no-cache --system -e /app/shared-types
+
+# Now copy the rest of the application code
+COPY shared /app/shared
 COPY trading /app/trading
 
-# Install shared-types first, then trading package
-RUN pip install -e /app/shared-types && \
-    pip install -e /app/trading
+# Install trading package itself
+RUN uv pip install --no-cache --system -e .
 
 # Set PYTHONPATH to include /app so 'import shared' works
 ENV PYTHONPATH=/app:$PYTHONPATH
@@ -28,9 +38,6 @@ ENV PYTHONPATH=/app:$PYTHONPATH
 # Copy the entrypoint script
 COPY trading/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
-
-# Set working directory to trading service
-WORKDIR /app/trading
 
 # Start command via entrypoint
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
