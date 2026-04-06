@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from enum import StrEnum
-from typing import Any
+from typing import Any, Optional
 from uuid import UUID
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
@@ -27,7 +27,9 @@ class Trade(BaseModel):
     )
     id: int = Field(..., description='Trade ID (SERIAL in Postgres)')
     agent_name: str = Field(..., description='Display name of agent that created trade')
-    agent_id: UUID | None = Field(None, description='Agent UUID (internal reference)')
+    agent_id: Optional[UUID] = Field(
+        None, description='Agent UUID (internal reference)'
+    )
     symbol: str = Field(
         ..., description='Trading symbol (AAPL, BTC, etc.)', max_length=64, min_length=1
     )
@@ -40,24 +42,24 @@ class Trade(BaseModel):
     entry_quantity: int = Field(..., description='Number of shares/contracts')
     status: Status
     entry_time: AwareDatetime
-    exit_time: AwareDatetime | None = None
-    exit_price: str | None = Field(
+    exit_time: Optional[AwareDatetime] = None
+    exit_price: Optional[str] = Field(
         None,
         description='Exit price (TEXT for precision)',
         pattern='^[0-9]+(\\.[0-9]+)?$',
     )
-    pnl: float | None = Field(None, description='Profit/loss in dollars')
-    pnl_percent: float | None = Field(None, description='Profit/loss as percentage')
-    strategy: str | None = Field(
+    pnl: Optional[float] = Field(None, description='Profit/loss in dollars')
+    pnl_percent: Optional[float] = Field(None, description='Profit/loss as percentage')
+    strategy: Optional[str] = Field(
         None, description='Strategy that generated this trade', max_length=255
     )
-    paper: bool | None = Field(True, description='Paper trading vs real money')
-    decision_memory_id: UUID | None = Field(
+    paper: Optional[bool] = Field(True, description='Paper trading vs real money')
+    decision_memory_id: Optional[UUID] = Field(
         None, description='Memory explaining why trade was taken'
     )
-    outcome_memory_id: UUID | None = Field(
+    outcome_memory_id: Optional[UUID] = Field(
         None, description='Memory analyzing trade result'
     )
-    metadata: dict[str, Any] | None = Field(
+    metadata: Optional[dict[str, Any]] = Field(
         None, description='Additional strategy-specific data'
     )

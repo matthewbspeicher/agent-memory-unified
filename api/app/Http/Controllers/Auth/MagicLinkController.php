@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class MagicLinkController extends Controller
 {
@@ -32,12 +33,16 @@ class MagicLinkController extends Controller
         if (! $existingUser) {
             // New users require a valid invite code
             if (! $request->invite_code) {
-                return back()->withErrors(['invite_code' => 'An invite code is required to create a new account.']);
+                throw ValidationException::withMessages([
+                    'invite_code' => 'An invite code is required to create a new account.'
+                ]);
             }
 
             $invite = InviteCode::findByCode($request->invite_code);
             if (! $invite || ! $invite->isValid()) {
-                return back()->withErrors(['invite_code' => 'Invalid or expired invite code.']);
+                throw ValidationException::withMessages([
+                    'invite_code' => 'Invalid or expired invite code.'
+                ]);
             }
         }
 
@@ -62,7 +67,10 @@ class MagicLinkController extends Controller
 
         Mail::to($user->email)->send(new MagicLinkMail($url));
 
-        return redirect()->route('auth.check-email')->with('email', $user->email);
+        return response()->json([
+            'message' => 'Check your email for the magic link.',
+            'email' => $user->email,
+        ]);
     }
 
     public function checkEmail(Request $request)

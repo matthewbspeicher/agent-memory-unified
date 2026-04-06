@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from enum import StrEnum
+from typing import Optional
 from uuid import UUID
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
@@ -31,17 +32,17 @@ class Memory(BaseModel):
     value: str = Field(
         ..., description='Memory content', max_length=50000, min_length=1
     )
-    type: Type | None = Field(None, description='Memory classification')
-    summary: str | None = Field(
+    type: Optional[Type] = Field(None, description='Memory classification')
+    summary: Optional[str] = Field(
         None, description='Short summary for quick scanning', max_length=500
     )
-    tags: list[str] | None = None
+    tags: Optional[list[str]] = None
     visibility: Visibility
-    importance: int | None = Field(5, ge=1, le=10)
-    embedding: list[float] | None = Field(
+    importance: Optional[int] = Field(5, ge=1, le=10)
+    embedding: Optional[list[float]] = Field(
         None,
         description='1536-dim vector (optional in DTOs)',
         max_length=1536,
         min_length=1536,
     )
-    created_at: AwareDatetime | None = None
+    created_at: Optional[AwareDatetime] = None

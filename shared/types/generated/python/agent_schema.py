@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from typing import Optional
 from uuid import UUID
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, RootModel
@@ -21,22 +22,24 @@ class Agent(BaseModel):
         ..., description='Agent display name', max_length=255, min_length=1
     )
     owner_id: UUID = Field(..., description='User who owns this agent')
-    token_hash: str | None = Field(
+    token_hash: Optional[str] = Field(
         None,
         description='SHA256 hash of agent token (amc_*)',
         max_length=64,
         min_length=64,
     )
     is_active: bool = Field(..., description='Whether agent can make API calls')
-    scopes: list[Scope] | None = Field(
+    scopes: Optional[list[Scope]] = Field(
         None, description='Permitted operations (memories:write, trading:execute)'
     )
-    description: str | None = Field(
+    description: Optional[str] = Field(
         None, description='Agent description / neural manifest'
     )
-    creator: str | None = Field(None, description='Name of the creating user or system')
-    last_seen_at: AwareDatetime | None = Field(
+    creator: Optional[str] = Field(
+        None, description='Name of the creating user or system'
+    )
+    last_seen_at: Optional[AwareDatetime] = Field(
         None, description='Last activity timestamp'
     )
-    created_at: AwareDatetime | None = None
-    updated_at: AwareDatetime | None = None
+    created_at: Optional[AwareDatetime] = None
+    updated_at: Optional[AwareDatetime] = None
