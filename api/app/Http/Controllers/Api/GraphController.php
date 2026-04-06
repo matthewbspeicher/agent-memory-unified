@@ -5,12 +5,15 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Agent;
 use App\Models\Memory;
+use App\Traits\ResolvesAgent;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class GraphController extends Controller
 {
+    use ResolvesAgent;
     public function index(Request $request)
     {
         $user = $request->user();
@@ -26,9 +29,12 @@ class GraphController extends Controller
         ]);
     }
 
-    public function me(Request $request)
+    public function me(Request $request): JsonResponse
     {
-        $agent = $request->attributes->get('agent');
+        $agent = $this->resolveAgent($request);
+        if ($agent instanceof JsonResponse) {
+            return $agent;
+        }
 
         return response()->json($this->buildGraph(
             $agent->memories()->latest()->limit(200)->get()

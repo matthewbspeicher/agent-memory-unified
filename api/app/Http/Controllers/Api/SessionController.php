@@ -82,11 +82,7 @@ class SessionController extends Controller
             }
         }
 
-        try {
-            app(AchievementService::class)->checkAndAward($agent, 'extract');
-        } catch (\Throwable $e) {
-            // Achievement check must never break the main operation
-        }
+        app(AchievementService::class)->checkAndAward($agent, 'extract');
 
         return response()->json([
             'data' => $created,

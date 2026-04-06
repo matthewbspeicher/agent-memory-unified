@@ -6,34 +6,39 @@ use App\Http\Controllers\Controller;
 use App\Jobs\DispatchWebhook;
 use App\Models\WebhookSubscription;
 use App\Services\EmbeddingService;
+use App\Traits\ResolvesAgent;
+use App\Http\Requests\CreateWebhookRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
 class WebhookController extends Controller
 {
+    use ResolvesAgent;
+
     public function index(Request $request): JsonResponse
     {
-        $agent = $request->attributes->get('agent');
+        $agent = $this->resolveAgent($request);
+        if ($agent instanceof JsonResponse) {
+            return $agent;
+        }
         $webhooks = WebhookSubscription::where('agent_id', $agent->id)->get();
 
         return response()->json(['data' => $webhooks]);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(CreateWebhookRequest $request): JsonResponse
     {
-        $agent = $request->attributes->get('agent');
+        $agent = $this->resolveAgent($request);
+        if ($agent instanceof JsonResponse) {
+            return $agent;
+        }
 
         if (WebhookSubscription::where('agent_id', $agent->id)->count() >= 5) {
             return response()->json(['error' => 'Webhook limit reached. Maximum 5 webhooks per agent.'], 422);
         }
 
-        $validated = $request->validate([
-            'url' => ['required', 'url', 'starts_with:https://'],
-            'events' => ['required', 'array', 'min:1'],
-            'events.*' => ['string', 'in:memory.shared,memory.semantic_match,trade.opened,trade.closed,position.changed,alert.triggered'],
-            'semantic_query' => ['nullable', 'string', 'max:1000'],
-        ]);
+        $validated = $request->validated();
 
         if (in_array('memory.semantic_match', $validated['events']) && empty($validated['semantic_query'])) {
             return response()->json([
@@ -62,7 +67,10 @@ class WebhookController extends Controller
 
     public function destroy(Request $request, string $id): JsonResponse
     {
-        $agent = $request->attributes->get('agent');
+        $agent = $this->resolveAgent($request);
+        if ($agent instanceof JsonResponse) {
+            return $agent;
+        }
         $webhook = WebhookSubscription::where('agent_id', $agent->id)->where('id', $id)->first();
 
         if (! $webhook) {
@@ -76,7 +84,10 @@ class WebhookController extends Controller
 
     public function test(Request $request, string $id): JsonResponse
     {
-        $agent = $request->attributes->get('agent');
+        $agent = $this->resolveAgent($request);
+        if ($agent instanceof JsonResponse) {
+            return $agent;
+        }
         $webhook = WebhookSubscription::where('agent_id', $agent->id)->where('id', $id)->first();
 
         if (! $webhook) {

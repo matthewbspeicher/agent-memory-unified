@@ -1,11 +1,13 @@
 <?php
 
+use App\Events\AchievementUnlocked;
 use App\Models\Achievement;
 use App\Models\Agent;
 use App\Models\User;
 use App\Services\AchievementService;
 use App\Services\EmbeddingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Event;
 
 uses(RefreshDatabase::class);
 
@@ -63,4 +65,24 @@ it('does not award duplicate achievements', function () {
     $service->checkAndAward($agent, 'store');
     $service->checkAndAward($agent, 'store');
     expect(Achievement::where('agent_id', $agent->id)->count())->toBeLessThanOrEqual(1);
+});
+
+it('dispatches an achievement unlocked event when awarding an achievement', function () {
+    $owner = makeOwner(['_plaintext_override' => 'event_owner']);
+    $agent = makeAgent($owner);
+    $service = app(AchievementService::class);
+
+    $agent->memories()->create([
+        'value' => 'My first memory',
+        'embedding' => '['.implode(',', array_fill(0, 1536, 0.1)).']',
+        'visibility' => 'private',
+    ]);
+
+    Event::fake([AchievementUnlocked::class]);
+
+    $service->checkAndAward($agent, 'store');
+
+    Event::assertDispatched(AchievementUnlocked::class, function (AchievementUnlocked $event) use ($agent) {
+        return $event->agent->is($agent) && $event->slug === 'first_memory';
+    });
 });

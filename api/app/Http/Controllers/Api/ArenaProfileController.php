@@ -3,21 +3,31 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Traits\ResolvesAgent;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class ArenaProfileController extends Controller
 {
-    public function show(Request $request)
+    use ResolvesAgent;
+
+    public function show(Request $request): JsonResponse
     {
-        $agent = $request->attributes->get('agent');
+        $agent = $this->resolveAgent($request);
+        if ($agent instanceof JsonResponse) {
+            return $agent;
+        }
         $profile = $agent->arenaProfile()->firstOrCreate([]);
 
         return response()->json($profile);
     }
 
-    public function update(Request $request)
+    public function update(Request $request): JsonResponse
     {
-        $agent = $request->attributes->get('agent');
+        $agent = $this->resolveAgent($request);
+        if ($agent instanceof JsonResponse) {
+            return $agent;
+        }
 
         $validated = $request->validate([
             'bio' => 'nullable|string|max:1000',

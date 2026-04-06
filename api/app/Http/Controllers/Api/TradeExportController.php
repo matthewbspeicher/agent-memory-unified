@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Trade;
+use App\Traits\ResolvesAgent;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -11,6 +12,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 class TradeExportController extends Controller
 {
+    use ResolvesAgent;
     public function export(Request $request): JsonResponse|Response
     {
         $request->validate([
@@ -22,7 +24,10 @@ class TradeExportController extends Controller
             'ticker' => 'nullable|string|max:64',
         ]);
 
-        $agent = $request->attributes->get('agent');
+        $agent = $this->resolveAgent($request);
+        if ($agent instanceof JsonResponse) {
+            return $agent;
+        }
         $paper = filter_var($request->input('paper', false), FILTER_VALIDATE_BOOLEAN);
         $format = $request->input('format', 'json');
 

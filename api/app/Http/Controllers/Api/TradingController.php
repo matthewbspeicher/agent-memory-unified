@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreTradeRequest;
 use App\Http\Requests\UpdateTradeRequest;
 use App\Models\Trade;
+use App\Services\AchievementService;
 use App\Services\TradingService;
+use App\Traits\ResolvesAgent;
 use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,9 +16,14 @@ use Illuminate\Validation\Rule;
 
 class TradingController extends Controller
 {
-    public function store(StoreTradeRequest $request): JsonResponse
+    use ResolvesAgent;
+    public function store(StoreTradeRequest $request, TradingService $tradingService, AchievementService $achievementService): JsonResponse
     {
-        $agent = $request->attributes->get('agent');
+        $agent = $this->resolveAgent($request);
+        if ($agent instanceof JsonResponse) {
+            return $agent;
+        }
+
         $validated = $request->validated();
 
         $validated['agent_id'] = $agent->id;
@@ -29,24 +36,22 @@ class TradingController extends Controller
         if ($trade->parent_trade_id) {
             $parent = Trade::find($trade->parent_trade_id);
             if ($parent) {
-                app(TradingService::class)->processChildTrade($trade, $parent);
-                app(TradingService::class)->recalculatePosition($agent, $parent->ticker, $parent->paper);
+                $tradingService->processChildTrade($trade, $parent);
+                $tradingService->recalculatePosition($agent, $parent->ticker, $parent->paper);
             }
         }
 
-        // Check trading achievements
-        try {
-            app(\App\Services\AchievementService::class)->checkAndAward($agent, 'trade');
-        } catch (\Throwable) {
-            // Achievement check must never break the main operation
-        }
+        $achievementService->checkAndAward($agent, 'trade');
 
         return response()->json($trade->fresh()->load(['parentTrade', 'children']), 201, [], JSON_PRESERVE_ZERO_FRACTION);
     }
 
     public function index(Request $request): JsonResponse
     {
-        $agent = $request->attributes->get('agent');
+        $agent = $this->resolveAgent($request);
+        if ($agent instanceof JsonResponse) {
+            return $agent;
+        }
 
         $query = Trade::forAgent($agent)->parentsOnly();
 
@@ -99,7 +104,10 @@ class TradingController extends Controller
 
     public function show(Request $request, string $id): JsonResponse
     {
-        $agent = $request->attributes->get('agent');
+        $agent = $this->resolveAgent($request);
+        if ($agent instanceof JsonResponse) {
+            return $agent;
+        }
 
         $trade = Trade::forAgent($agent)
             ->with(['children', 'decisionMemory', 'outcomeMemory', 'parentTrade'])
@@ -110,7 +118,10 @@ class TradingController extends Controller
 
     public function update(UpdateTradeRequest $request, string $id): JsonResponse
     {
-        $agent = $request->attributes->get('agent');
+        $agent = $this->resolveAgent($request);
+        if ($agent instanceof JsonResponse) {
+            return $agent;
+        }
         $trade = Trade::forAgent($agent)->findOrFail($id);
 
         $immutable = ['ticker', 'direction', 'entry_price', 'quantity', 'fees', 'entry_at', 'parent_trade_id', 'paper'];
@@ -137,9 +148,12 @@ class TradingController extends Controller
         return response()->json($trade->fresh(), 200, [], JSON_PRESERVE_ZERO_FRACTION);
     }
 
-    public function destroy(Request $request, string $id): JsonResponse
+    public function destroy(Request $request, string $id, TradingService $tradingService): JsonResponse
     {
-        $agent = $request->attributes->get('agent');
+        $agent = $this->resolveAgent($request);
+        if ($agent instanceof JsonResponse) {
+            return $agent;
+        }
         $trade = Trade::forAgent($agent)->findOrFail($id);
 
         if ($trade->status === 'closed') {
@@ -159,7 +173,7 @@ class TradingController extends Controller
         $trade->delete();
 
         // Recalculate position after removing the trade to ensure denormalized state is corrected
-        app(TradingService::class)->recalculatePosition(
+        $tradingService->recalculatePosition(
             $agent,
             $trade->ticker,
             $trade->paper

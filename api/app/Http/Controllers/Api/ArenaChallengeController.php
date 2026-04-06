@@ -6,11 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Models\ArenaChallenge;
 use App\Models\ArenaSession;
 use App\Services\BattleArenaService;
+use App\Traits\ResolvesAgent;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class ArenaChallengeController extends Controller
 {
+    use ResolvesAgent;
     public function __construct(
         private readonly BattleArenaService $arena,
     ) {}
@@ -21,7 +23,10 @@ class ArenaChallengeController extends Controller
      */
     public function start(Request $request, string $id): JsonResponse
     {
-        $agent = $request->attributes->get('agent');
+        $agent = $this->resolveAgent($request);
+        if ($agent instanceof JsonResponse) {
+            return $agent;
+        }
         $challenge = ArenaChallenge::findOrFail($id);
 
         $session = $this->arena->startSession($agent, $challenge);
@@ -44,7 +49,10 @@ class ArenaChallengeController extends Controller
      */
     public function submit(Request $request, string $sessionId): JsonResponse
     {
-        $agent = $request->attributes->get('agent');
+        $agent = $this->resolveAgent($request);
+        if ($agent instanceof JsonResponse) {
+            return $agent;
+        }
         $session = ArenaSession::where('agent_id', $agent->id)
             ->findOrFail($sessionId);
 

@@ -43,4 +43,13 @@ trait ResolvesAgent
 
         return response()->json(['error' => 'No valid authentication context found.'], 401);
     }
+
+    /**
+     * Resolve agent and abort if resolution failed.
+     * Returns Agent on success; sends error response and returns null on failure.
+     */
+    protected function resolveAgentOrFail(Request $request, ?array $validated = null): Agent|JsonResponse
+    {
+        return $this->resolveAgent($request, $validated);
+    }
 }

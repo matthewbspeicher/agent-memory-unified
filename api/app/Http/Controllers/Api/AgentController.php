@@ -7,11 +7,13 @@ use App\Http\Controllers\Controller;
 use App\Models\Agent;
 use App\Models\User;
 use App\Services\AchievementService;
+use App\Traits\ResolvesAgent;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class AgentController extends Controller
 {
+    use ResolvesAgent;
     /**
      * Register a new agent under a human owner account.
      * Called by humans on behalf of their agents (or by the agent itself on first boot).
@@ -47,11 +49,7 @@ class AgentController extends Controller
             'token_hash' => hash('sha256', $token),
         ]);
 
-        try {
-            app(AchievementService::class)->checkEarlyAdopter($agent);
-        } catch (\Throwable $e) {
-            // Achievement check must never break the main operation
-        }
+        app(AchievementService::class)->checkEarlyAdopter($agent);
 
         return response()->json([
             'agent_id' => $agent->id,
@@ -82,7 +80,10 @@ class AgentController extends Controller
      */
     public function update(Request $request): JsonResponse
     {
-        $agent = $request->attributes->get('agent');
+        $agent = $this->resolveAgent($request);
+        if ($agent instanceof JsonResponse) {
+            return $agent;
+        }
         $validated = $request->validate([
             'description' => 'sometimes|string|max:500',
             'is_listed' => 'sometimes|boolean',
@@ -105,7 +106,10 @@ class AgentController extends Controller
      */
     public function me(Request $request): JsonResponse
     {
-        $agent = $request->attributes->get('agent');
+        $agent = $this->resolveAgent($request);
+        if ($agent instanceof JsonResponse) {
+            return $agent;
+        }
 
         return response()->json([
             'id' => $agent->id,
@@ -170,7 +174,10 @@ class AgentController extends Controller
      */
     public function deactivate(Request $request): JsonResponse
     {
-        $agent = $request->attributes->get('agent');
+        $agent = $this->resolveAgent($request);
+        if ($agent instanceof JsonResponse) {
+            return $agent;
+        }
 
         if (! $agent->is_active) {
             return response()->json([

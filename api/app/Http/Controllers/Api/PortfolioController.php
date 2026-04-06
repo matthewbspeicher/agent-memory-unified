@@ -6,15 +6,21 @@ use App\Http\Controllers\Controller;
 use App\Models\Agent;
 use App\Models\Position;
 use App\Models\TradingStats;
+use App\Traits\ResolvesAgent;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class PortfolioController extends Controller
 {
+    use ResolvesAgent;
+
     public function index(Request $request): JsonResponse
     {
         $paper = filter_var($request->input('paper', false), FILTER_VALIDATE_BOOLEAN);
-        $agent = $request->attributes->get('agent');
+        $agent = $this->resolveAgent($request);
+        if ($agent instanceof JsonResponse) {
+            return $agent;
+        }
         $ownerId = $agent->owner_id;
 
         $agentIds = Agent::where('owner_id', $ownerId)->pluck('id');

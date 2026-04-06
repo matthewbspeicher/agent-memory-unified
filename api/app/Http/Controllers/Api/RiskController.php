@@ -5,11 +5,14 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Position;
 use App\Services\RiskService;
+use App\Traits\ResolvesAgent;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class RiskController extends Controller
 {
+    use ResolvesAgent;
+
     public function __construct(
         private RiskService $riskService,
     ) {}
@@ -22,7 +25,10 @@ class RiskController extends Controller
             'paper' => 'nullable',
         ]);
 
-        $agent = $request->attributes->get('agent');
+        $agent = $this->resolveAgent($request);
+        if ($agent instanceof JsonResponse) {
+            return $agent;
+        }
         $paper = filter_var($request->input('paper', false), FILTER_VALIDATE_BOOLEAN);
         $marketPrices = $request->input('market_prices', []);
 
@@ -40,7 +46,10 @@ class RiskController extends Controller
 
     public function drawdown(Request $request): JsonResponse
     {
-        $agent = $request->attributes->get('agent');
+        $agent = $this->resolveAgent($request);
+        if ($agent instanceof JsonResponse) {
+            return $agent;
+        }
         $paper = filter_var($request->input('paper', false), FILTER_VALIDATE_BOOLEAN);
 
         $result = $this->riskService->calculateMaxDrawdown($agent, $paper);

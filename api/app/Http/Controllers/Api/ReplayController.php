@@ -4,11 +4,13 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Services\ReplayService;
+use App\Traits\ResolvesAgent;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class ReplayController extends Controller
 {
+    use ResolvesAgent;
     public function __construct(
         private ReplayService $replayService,
     ) {}
@@ -22,7 +24,10 @@ class ReplayController extends Controller
             'exit_offset_pct' => 'nullable|numeric|between:-100,1000',
         ]);
 
-        $agent = $request->attributes->get('agent');
+        $agent = $this->resolveAgent($request);
+        if ($agent instanceof JsonResponse) {
+            return $agent;
+        }
         $paper = filter_var($request->input('paper', false), FILTER_VALIDATE_BOOLEAN);
 
         $result = $this->replayService->replay(

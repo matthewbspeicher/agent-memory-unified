@@ -6,11 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Models\ArenaChallenge;
 use App\Models\ArenaMatch;
 use App\Services\BattleArenaService;
+use App\Traits\ResolvesAgent;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class ArenaMatchController extends Controller
 {
+    use ResolvesAgent;
     public function __construct(
         private readonly BattleArenaService $arena,
     ) {}
@@ -21,8 +23,11 @@ class ArenaMatchController extends Controller
      */
     public function requestMatch(Request $request): JsonResponse
     {
-        $agent = $request->attributes->get('agent');
-        
+        $agent = $this->resolveAgent($request);
+        if ($agent instanceof JsonResponse) {
+            return $agent;
+        }
+
         $opponent = $this->arena->findOpponent($agent);
         
         if (!$opponent) {

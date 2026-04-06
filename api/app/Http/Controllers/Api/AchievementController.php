@@ -3,13 +3,20 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Traits\ResolvesAgent;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class AchievementController extends Controller
 {
-    public function index(Request $request)
+    use ResolvesAgent;
+
+    public function index(Request $request): JsonResponse
     {
-        $agent = $request->attributes->get('agent');
+        $agent = $this->resolveAgent($request);
+        if ($agent instanceof JsonResponse) {
+            return $agent;
+        }
 
         return response()->json($agent->achievements()->orderByDesc('earned_at')->get());
     }

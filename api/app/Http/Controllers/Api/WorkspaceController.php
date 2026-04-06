@@ -4,14 +4,20 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Workspace;
+use App\Traits\ResolvesAgent;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class WorkspaceController extends Controller
 {
+    use ResolvesAgent;
+
     public function index(Request $request): JsonResponse
     {
-        $agent = $request->attributes->get('agent');
+        $agent = $this->resolveAgent($request);
+        if ($agent instanceof JsonResponse) {
+            return $agent;
+        }
         $workspaces = $agent->workspaces()->get();
 
         return response()->json(['data' => $workspaces]);
@@ -19,7 +25,10 @@ class WorkspaceController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        $agent = $request->attributes->get('agent');
+        $agent = $this->resolveAgent($request);
+        if ($agent instanceof JsonResponse) {
+            return $agent;
+        }
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -50,7 +59,10 @@ class WorkspaceController extends Controller
 
     public function join(Request $request, string $workspaceId): JsonResponse
     {
-        $agent = $request->attributes->get('agent');
+        $agent = $this->resolveAgent($request);
+        if ($agent instanceof JsonResponse) {
+            return $agent;
+        }
 
         $workspace = Workspace::findOrFail($workspaceId);
 
