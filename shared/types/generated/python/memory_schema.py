@@ -3,13 +3,13 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from uuid import UUID
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
 
-class Type(Enum):
+class Type(StrEnum):
     note = 'note'
     lesson = 'lesson'
     preference = 'preference'
@@ -17,7 +17,7 @@ class Type(Enum):
     procedure = 'procedure'
 
 
-class Visibility(Enum):
+class Visibility(StrEnum):
     private = 'private'
     public = 'public'
 

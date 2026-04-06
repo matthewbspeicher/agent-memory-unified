@@ -3,14 +3,14 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 from uuid import UUID
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
 
-class Source(Enum):
+class Source(StrEnum):
     api = 'api'
     trading = 'trading'
 

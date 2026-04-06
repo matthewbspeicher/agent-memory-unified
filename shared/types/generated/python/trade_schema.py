@@ -3,19 +3,19 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 from uuid import UUID
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
 
-class Side(Enum):
+class Side(StrEnum):
     long = 'long'
     short = 'short'
 
 
-class Status(Enum):
+class Status(StrEnum):
     open = 'open'
     closed = 'closed'
     cancelled = 'cancelled'
