@@ -53,6 +53,8 @@ services:
       dockerfile: Dockerfile.trading
     ports:
       - "8080:8080"
+    env_file:
+      - ./trading/.env
     environment:
       DATABASE_URL: postgresql://postgres:secret@postgres/agent_memory
       REDIS_URL: redis://redis:6379
@@ -62,7 +64,8 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - ./trading:/app
+      - ./trading:/app/trading
+      - ./shared:/app/shared
 
   frontend:
     build:

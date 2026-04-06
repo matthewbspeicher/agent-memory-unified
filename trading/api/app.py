@@ -664,22 +664,6 @@ def _setup_tournament_cron(task_mgr, tournament_engine):
         "Tournament cron job started with schedule: %s",
         _learning_cfg.tournament.evaluate_cron,
     )
-    await stream_manager.start()
-
-    all_symbols: set[str] = set()
-    for agent in agent_configs:
-        universe = getattr(agent.config, "universe", [])
-        if isinstance(universe, list):
-            all_symbols.update(universe)
-    if all_symbols:
-        await stream_manager.subscribe(list(all_symbols))
-
-    app.state.stream_manager = stream_manager
-    logger.info(
-        "StreamManager started with %d streams, %d symbols",
-        len(streams),
-        len(all_symbols),
-    )
 
 
 def _setup_resolution_tracker(
@@ -1088,10 +1072,6 @@ async def lifespan(app: FastAPI):
         # Local SQLite prompt store — authoritative for all prompt state.
         # Optional remembr mirror can be added later but must fail open to local-only.
         prompt_store = SqlPromptStore(db)
-
-        # Register all routes
-        _register_api_routes(app)
-        _register_web_routes(app)
 
         # Learning API routes
         learning_router = create_learning_router(
@@ -1702,12 +1682,8 @@ def create_app(
     app.include_router(journal_route.router)
     from api.routes import markets_browser, portfolio as portfolio_route
 
-
-def _register_api_routes(app):
-    """Register all API routes for the trading engine."""
-    # Register all routes (called in lifespan())
-    _register_api_routes(app)
-    _register_web_routes(app)
+    app.include_router(markets_browser.router)
+    app.include_router(portfolio_route.router)
 
     from api.startup.error_handlers import register_error_handlers
 
