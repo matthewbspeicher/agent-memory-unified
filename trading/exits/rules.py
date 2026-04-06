@@ -379,6 +379,53 @@ class ConvictionExitRule(ExitRule):
             "side": self.side,
         }
 
+@dataclass
+class StagnationExitRule(ExitRule):
+    """Exit if the position does not reach a minimum profit percentage within a certain time frame."""
+
+    entry_time: datetime
+    max_stagnation_minutes: int
+    min_profit_pct: Decimal
+    entry_price: Decimal
+    side: str = "BUY"
+
+    @property
+    def name(self) -> str:
+        return "stagnation_exit"
+
+    def should_exit(
+        self,
+        current_price: Decimal,
+        current_time: datetime | None = None,
+        **kwargs: Any,
+    ) -> bool:
+        now = current_time or datetime.now(timezone.utc)
+        if now.tzinfo is None:
+            now = now.replace(tzinfo=timezone.utc)
+        entry = self.entry_time
+        if entry.tzinfo is None:
+            entry = entry.replace(tzinfo=timezone.utc)
+
+        minutes_elapsed = (now - entry).total_seconds() / 60.0
+        if minutes_elapsed < self.max_stagnation_minutes:
+            return False
+
+        if self.side == "BUY":
+            profit_pct = (current_price - self.entry_price) / self.entry_price
+        else:
+            profit_pct = (self.entry_price - current_price) / self.entry_price
+
+        return profit_pct < self.min_profit_pct
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "type": "stagnation_exit",
+            "entry_time": self.entry_time.isoformat(),
+            "max_stagnation_minutes": self.max_stagnation_minutes,
+            "min_profit_pct": str(self.min_profit_pct),
+            "entry_price": str(self.entry_price),
+            "side": self.side,
+        }
 
 def parse_rule(d: dict[str, Any]) -> ExitRule | None:
     """Reconstruct an ExitRule from a dictionary."""
@@ -406,6 +453,14 @@ def parse_rule(d: dict[str, Any]) -> ExitRule | None:
             entry_price=Decimal(d["entry_price"]),
             divergence_threshold=d["divergence_threshold"],
             agent_name=d["agent_name"],
+            side=d.get("side", "BUY"),
+        )
+    elif t == "stagnation_exit":
+        return StagnationExitRule(
+            entry_time=datetime.fromisoformat(d["entry_time"]),
+            max_stagnation_minutes=d["max_stagnation_minutes"],
+            min_profit_pct=Decimal(d["min_profit_pct"]),
+            entry_price=Decimal(d["entry_price"]),
             side=d.get("side", "BUY"),
         )
     elif t == "pre_expiry_exit":
