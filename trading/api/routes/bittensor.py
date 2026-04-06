@@ -5,12 +5,19 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, Request
 
 from api.auth import verify_api_key
+from api.routes.bittensor_schemas import (
+    BittensorMetricsResponse,
+    BittensorRankingsResponse,
+    BittensorSignalsResponse,
+    BittensorStatusResponse,
+    MinerAccuracyResponse,
+)
 from integrations.bittensor.scheduler import next_hash_window
 
 router = APIRouter()
 
 
-@router.get("/api/bittensor/status")
+@router.get("/api/bittensor/status", response_model=BittensorStatusResponse, response_model_exclude_none=True)
 async def bittensor_status(
     request: Request,
     _: str = Depends(verify_api_key),
@@ -110,7 +117,7 @@ async def bittensor_status(
     }
 
 
-@router.get("/api/bittensor/rankings")
+@router.get("/api/bittensor/rankings", response_model=BittensorRankingsResponse, response_model_exclude_none=True)
 async def bittensor_rankings(
     request: Request,
     limit: int = 50,
@@ -141,7 +148,7 @@ async def bittensor_rankings(
     }
 
 
-@router.get("/api/bittensor/miners/{hotkey}/accuracy")
+@router.get("/api/bittensor/miners/{hotkey}/accuracy", response_model=MinerAccuracyResponse, response_model_exclude_none=True)
 async def bittensor_miner_accuracy(
     hotkey: str,
     request: Request,
@@ -173,7 +180,7 @@ async def bittensor_miner_accuracy(
     }
 
 
-@router.get("/api/bittensor/metrics")
+@router.get("/api/bittensor/metrics", response_model=BittensorMetricsResponse, response_model_exclude_none=True)
 async def bittensor_metrics(
     request: Request,
     _: str = Depends(verify_api_key),
@@ -222,7 +229,7 @@ async def bittensor_metrics(
     return result
 
 
-@router.get("/api/bittensor/signals")
+@router.get("/api/bittensor/signals", response_model=BittensorSignalsResponse, response_model_exclude_none=True)
 async def bittensor_signals(
     request: Request,
     symbol: str = "BTCUSD",
