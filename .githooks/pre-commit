@@ -1,12 +1,25 @@
 #!/bin/bash
+set -euo pipefail
 # Pre-commit hook: Auto-generate types from JSON Schemas
 
 echo "🔧 Regenerating types from JSON Schemas..."
 
-# Run generator
-./shared/types/scripts/generate-types.sh
+# Check required tools
+if ! command -v datamodel-codegen &>/dev/null; then
+    echo "⚠️  datamodel-codegen not installed — skipping type generation"
+    echo "   Install: pip install datamodel-code-generator"
+    exit 0
+fi
 
-# Stage generated files (both generated/ and copied package files)
+if ! command -v npx &>/dev/null; then
+    echo "⚠️  npx not available — skipping type generation"
+    exit 0
+fi
+
+# Run unified generator
+./scripts/sync-types.sh || { echo "❌ Type generation failed"; exit 1; }
+
+# Stage generated files
 git add shared/types/generated/
 git add shared/types-py/shared_types/
 
