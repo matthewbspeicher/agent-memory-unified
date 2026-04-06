@@ -2,59 +2,59 @@
 
 namespace App\Observers;
 
-use App\Events\PositionChanged;
-use App\Events\TradeClosed;
-use App\Events\TradeOpened;
-use App\Jobs\RecalculateTradingStats;
 use App\Models\Trade;
-use App\Services\AchievementService;
-use App\Services\TradingService;
+use AgentMemory\SharedEvents\EventPublisher;
+use Illuminate\Support\Facades\Redis;
 
 class TradeObserver
 {
-    public function __construct(
-        private readonly TradingService $tradingService,
-        private readonly AchievementService $achievements,
-    ) {}
+    private EventPublisher $publisher;
 
-    public function created(Trade $trade): void
+    public function __construct()
     {
-        if ($trade->parent_trade_id) {
-            $parent = $trade->parentTrade;
-            $this->tradingService->processChildTrade($trade, $parent);
-            RecalculateTradingStats::dispatch($trade->agent, $trade->paper);
-
-            // Fire TradeClosed if parent is now closed
-            $parent->refresh();
-            if ($parent->status === 'closed') {
-                TradeClosed::dispatch($parent);
-            }
-        } else {
-            // New parent entry trade
-            TradeOpened::dispatch($trade);
-        }
-
-        $this->tradingService->recalculatePosition(
-            $trade->agent,
-            $trade->ticker,
-            $trade->paper,
+        // Initialize EventPublisher with Redis connection
+        $this->publisher = new EventPublisher(
+            Redis::connection()->client(),
+            'events'
         );
-
-        PositionChanged::dispatch($trade->agent, $trade->ticker, $trade->paper);
-
-        $this->achievements->checkAndAward($trade->agent, 'trade');
     }
 
+    /**
+     * Handle the Trade "created" event.
+     */
+    public function created(Trade $trade): void
+    {
+        $this->publisher->publish('TradeOpened', [
+            'trade_id' => $trade->id,
+            'agent_id' => $trade->agent_id,
+            'ticker' => $trade->ticker,
+            'direction' => $trade->direction,
+            'entry_price' => (string) $trade->entry_price,
+            'quantity' => (string) $trade->quantity,
+            'status' => $trade->status,
+            'paper' => $trade->paper,
+        ]);
+    }
+
+    /**
+     * Handle the Trade "updated" event.
+     */
     public function updated(Trade $trade): void
     {
-        if ($trade->wasChanged('status') && $trade->status === 'cancelled') {
-            $this->tradingService->recalculatePosition(
-                $trade->agent,
-                $trade->ticker,
-                $trade->paper,
-            );
-
-            RecalculateTradingStats::dispatch($trade->agent, $trade->paper);
+        // Only publish if trade was closed
+        if ($trade->wasChanged('status') && $trade->status === 'closed') {
+            $this->publisher->publish('TradeClosed', [
+                'trade_id' => $trade->id,
+                'agent_id' => $trade->agent_id,
+                'ticker' => $trade->ticker,
+                'direction' => $trade->direction,
+                'entry_price' => (string) $trade->entry_price,
+                'exit_price' => (string) $trade->exit_price,
+                'quantity' => (string) $trade->quantity,
+                'pnl' => (string) $trade->pnl,
+                'pnl_percent' => (string) $trade->pnl_percent,
+                'status' => $trade->status,
+            ]);
         }
     }
 }

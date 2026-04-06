@@ -38,6 +38,11 @@
 
 **Purpose:** Automated E2E tests for critical user flows.
 
+> **IMPORTANT:** These tests reference UI elements (`button:has-text("Submit")`,
+> `[name=symbol]`, `.memory-card`, etc.) that only exist after Phase 5 components
+> are fully implemented. Write these tests **after** completing Phase 5's component
+> port (Task 4), not while pages are still placeholders.
+
 - [ ] **Step 1: Install Playwright**
 
 ```bash

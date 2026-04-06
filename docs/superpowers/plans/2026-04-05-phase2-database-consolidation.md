@@ -437,7 +437,19 @@ Expected columns:
 - entry_price (TEXT → text())
 - entry_quantity (INTEGER → integer())
 
-- [ ] **Step 5: Add missing indexes manually**
+- [ ] **Step 5: Manual review — CRITICAL parser limitations**
+
+The regex-based converter is a **draft**. It will silently miss:
+- Composite PRIMARY KEYs (e.g., `PRIMARY KEY (symbol, side, agent_name)`)
+- UNIQUE constraints (e.g., `UNIQUE(window_id, miner_hotkey)`)
+- CHECK constraints (e.g., `CHECK (id = 1)` on `leaderboard_cache`)
+- Foreign key columns (any line with `REFERENCES` is skipped entirely)
+
+For each generated `Schema::create()` block:
+1. Open the corresponding table in `migrations.py`
+2. Verify all columns are present (no dropped FK columns)
+3. Manually add composite PKs, UNIQUE, and CHECK constraints
+4. Verify indexes match (the script outputs CREATE INDEX as comments)
 
 Edit migration file, add after all tables:
 
@@ -458,7 +470,7 @@ Edit migration file, add after all tables:
             $table->index(['gap_cents', 'observed_at']);
         });
 
-        // Add remaining indexes from grep output
+        // Add remaining indexes + UNIQUE/FK constraints from migrations.py
 ```
 
 - [ ] **Step 6: Commit generated migration**
@@ -591,14 +603,31 @@ cat >> docs/schema-drift-audit.md << 'EOF'
 
 EOF
 
-git add api/.env trading/.env docs/schema-drift-audit.md
+# Create .env.example files (NEVER commit real .env files)
+cat > api/.env.example << 'EOF'
+# PostgreSQL (Supabase)
+DB_CONNECTION=pgsql
+DB_HOST=db.PROJECT.supabase.co
+DB_PORT=5432
+DB_DATABASE=agent_memory
+DB_USERNAME=laravel_app
+DB_PASSWORD=CHANGE_ME
+EOF
+
+cat > trading/.env.example << 'EOF'
+# PostgreSQL (Supabase) - trading user (no DDL)
+DATABASE_URL=postgresql://trading_app:CHANGE_ME@db.PROJECT.supabase.co:5432/agent_memory
+EOF
+
+git add api/.env.example trading/.env.example docs/schema-drift-audit.md
 git commit -m "feat(db): configure PostgreSQL connection for both services
 
 Two users:
 - laravel_app (full DDL) for migrations
 - trading_app (read/write) for runtime queries
 
-Tested: Both services connect successfully"
+Actual credentials set via Railway env vars / local .env (not committed).
+See .env.example files for template."
 ```
 
 ---
@@ -620,33 +649,24 @@ Expected: Line ~60-70 in `DatabaseConnection.connect()`
 
 - [ ] **Step 2: Comment out run_migrations() for Postgres**
 
-Edit `trading/storage/db.py`:
+Edit `trading/storage/db.py` — **ONLY** comment out the `run_migrations()` call.
+Do NOT modify the SSL context or connection logic (it already works correctly).
 
+Find the line:
 ```python
-async def connect(self):
-    """Connect to database (SQLite or PostgreSQL)."""
-    if self.config.database_url:
-        # PostgreSQL mode
-        import asyncpg
-        from .postgres import PostgresDB
+        await run_migrations(self.connection)
+```
 
-        ssl_ctx = ssl.create_default_context()
-        ssl_ctx.check_hostname = False
-        ssl_ctx.verify_mode = ssl.CERT_NONE
-
-        pool = await asyncpg.create_pool(self.config.database_url, ssl=ssl_ctx)
-        self.connection = PostgresDB(pool)
-
+Replace with:
+```python
         # DISABLED: Laravel now owns all DDL via migrations
         # await run_migrations(self.connection)
-
         logger.info("Connected to PostgreSQL (DDL managed by Laravel)")
-    else:
-        # SQLite mode (dev/test)
-        self.connection = await aiosqlite.connect(self.config.db_path)
-        await init_db(self.connection)  # Keep for SQLite
-        logger.info(f"Connected to SQLite: {self.config.db_path}")
 ```
+
+> **IMPORTANT:** Keep the existing SSL handling (`config.database_ssl` /
+> `config.database_ssl_verify` conditional) untouched. The existing code
+> correctly respects these config fields.
 
 - [ ] **Step 3: Archive migrations.py**
 
@@ -786,7 +806,9 @@ async def test():
     db = await db_conn.connect()
 
     # Query empty table (should work, return 0 rows)
-    count = await db.fetchval("SELECT COUNT(*) FROM tracked_positions")
+    # NOTE: PostgresDB exposes fetchone(), NOT fetchval()
+    row = await db.fetchone("SELECT COUNT(*) as cnt FROM tracked_positions")
+    count = row['cnt'] if row else 0
     print(f"✅ Python can query tracked_positions: {count} rows")
 
     await db_conn.close()
@@ -1105,7 +1127,12 @@ async def verify():
     mismatches = []
 
     for table in TABLES:
-        sqlite_count = (await sqlite.execute(f"SELECT COUNT(*) FROM {table}")).fetchone()[0]
+        # aiosqlite: cursor.fetchone() must be awaited
+        cursor = await sqlite.execute(f"SELECT COUNT(*) FROM {table}")
+        row = await cursor.fetchone()
+        sqlite_count = row[0]
+
+        # asyncpg: fetchval is a direct method on the connection
         pg_count = await pg.fetchval(f"SELECT COUNT(*) FROM {table}")
 
         status = "✅" if sqlite_count == pg_count else "❌"
@@ -1214,10 +1241,12 @@ async def test():
     db = await db_conn.connect()
 
     # Query migrated data
-    count = await db.fetchval("SELECT COUNT(*) FROM tracked_positions")
+    # NOTE: PostgresDB exposes fetchone() and fetchall(), NOT fetchval/fetchrow
+    row = await db.fetchone("SELECT COUNT(*) as cnt FROM tracked_positions")
+    count = row['cnt'] if row else 0
     print(f"✅ tracked_positions: {count} rows")
 
-    sample = await db.fetchrow("SELECT * FROM agent_registry LIMIT 1")
+    sample = await db.fetchone("SELECT * FROM agent_registry LIMIT 1")
     if sample:
         print(f"✅ agent_registry sample: {sample['name']}")
 
@@ -1336,21 +1365,17 @@ If issues found:
    cp trading/.env.sqlite-backup trading/.env
    ```
 
-2. **Rollback Laravel migration:**
+2. **Rollback Laravel migration (drops only trading tables):**
    ```bash
    cd api
    php artisan migrate:rollback
    ```
 
-3. **Drop Postgres tables:**
-   ```bash
-   psql "$DATABASE_URL" << 'EOF'
-   DROP SCHEMA public CASCADE;
-   CREATE SCHEMA public;
-   EOF
-   ```
+   > **WARNING:** Do NOT use `DROP SCHEMA public CASCADE` — that would destroy
+   > Laravel's own tables (`users`, `agents`, `workspaces`, etc.).
+   > `migrate:rollback` only drops the tables created by the trading migration.
 
-4. **Investigate root cause before retry**
+3. **Investigate root cause before retry**
 
 ---
 

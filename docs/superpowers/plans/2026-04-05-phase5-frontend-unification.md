@@ -4,9 +4,9 @@
 
 **Goal:** Replace Vue app with unified React SPA, add nginx reverse proxy for API routing, replicate all 14 Vue components.
 
-**Architecture:** React 19 + TanStack Router + TanStack Query, shadcn/ui components, Tailwind CSS, nginx routes `/api/v1/memories` → Laravel, `/api/v1/trades` → Python.
+**Architecture:** React 19 + React Router v7 + TanStack Query, shadcn/ui components, Tailwind CSS, nginx routes `/api/v1/memories` → Laravel, `/api/v1/trades` → Python.
 
-**Tech Stack:** Vite, React 19, TanStack Router v7, TanStack Query, shadcn/ui, Tailwind CSS, nginx
+**Tech Stack:** Vite, React 19, React Router v7, TanStack Query, shadcn/ui, Tailwind CSS, nginx
 
 **Timeline:** 2 weeks (Weeks 7-8, May 18-31, 2026)
 - Week 7: Scaffold React app, port 7 core components
@@ -269,13 +269,13 @@ Auto-redirects to login on 401"
 
 **Purpose:** TanStack Router with routes for landing, dashboard, trading, arena.
 
-- [ ] **Step 1: Install TanStack Router**
+- [ ] **Step 1: Dependencies already installed**
 
-```bash
-cd frontend
-npm install @tanstack/react-router
-npm install -D @tanstack/router-devtools
-```
+`react-router-dom@^7` was installed in Task 1 Step 3. No additional router package needed.
+
+> **Note:** We use React Router v7 (`react-router-dom`), NOT TanStack Router
+> (`@tanstack/react-router`). They are different libraries. React Router is
+> simpler and matches the route definitions below.
 
 - [ ] **Step 2: Create route tree**
 
@@ -420,7 +420,7 @@ All should render placeholder pages.
 
 ```bash
 git add frontend/src/router.tsx frontend/src/pages/ frontend/src/App.tsx
-git commit -m "feat(frontend): add routing with TanStack Router
+git commit -m "feat(frontend): add routing with React Router v7
 
 Routes:
 - / → Landing

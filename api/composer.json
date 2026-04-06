@@ -9,11 +9,16 @@
         {
             "type": "path",
             "url": "../shared/types-php"
+        },
+        {
+            "type": "path",
+            "url": "../shared/events-php"
         }
     ],
     "require": {
         "php": "^8.2",
         "agent-memory/shared-types": "@dev",
+        "agent-memory/shared-events": "@dev",
         "aws/aws-sdk-php": "^3.376",
         "firebase/php-jwt": "^7.0",
         "inertiajs/inertia-laravel": "^2.0",

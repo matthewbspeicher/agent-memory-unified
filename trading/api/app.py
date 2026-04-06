@@ -1272,9 +1272,47 @@ async def lifespan(app: FastAPI):
             )
 
         app.state.bittensor_enabled_runtime = bittensor_enabled_runtime
+
+    # Redis Streams event consumer (Phase 3: Redis Streams Event Bus)
+    from events.consumer_streams import StreamsEventConsumer
+    import redis.asyncio as aioredis
+
+    redis_url = config.redis_url or "redis://127.0.0.1:6379"
+    redis_client = await aioredis.from_url(redis_url, decode_responses=True)
+
+    consumer = StreamsEventConsumer(
+        redis=redis_client,
+        stream="events",
+        group="trading-service",
+        consumer_name="worker-1"
+    )
+
+    # Register event handlers
+    async def handle_trade_opened(data: dict):
+        _log.info(f"TradeOpened event: {data}")
+        # TODO: Add trading-specific logic (update dashboards, send notifications, etc.)
+
+    async def handle_trade_closed(data: dict):
+        _log.info(f"TradeClosed event: {data}")
+        # TODO: Add trading-specific logic (update performance metrics, etc.)
+
+    consumer.register("TradeOpened", handle_trade_opened)
+    consumer.register("TradeClosed", handle_trade_closed)
+
+    # Start consumer as background task
+    task_mgr.create_task(consumer.start(), name="redis_streams_consumer")
+    app.state.streams_consumer = consumer
+    _log.info("Redis Streams consumer started")
+
     yield
 
     # --- Shutdown ---
+    # Stop Redis Streams consumer first
+    streams_consumer = getattr(app.state, "streams_consumer", None)
+    if streams_consumer:
+        await streams_consumer.stop()
+        logging.getLogger(__name__).info("Redis Streams consumer stopped")
+
     task_mgr = getattr(app.state, "task_manager", None)
     if task_mgr:
         await task_mgr.shutdown()

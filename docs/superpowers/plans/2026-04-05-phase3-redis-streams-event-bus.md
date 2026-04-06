@@ -410,8 +410,11 @@ class StreamsEventConsumer:
                         f"Message {msg_id} failed, retry {delivery_count}/{self.max_retries}"
                     )
             else:
-                # Pending info not available, ACK to avoid infinite loop
-                await self.redis.xack(self.stream, self.group, msg_id)
+                # Pending info unavailable — leave unacked for retry on next iteration.
+                # Do NOT ack here: that would silently drop messages on first failure.
+                logger.warning(
+                    f"Could not check pending info for {msg_id}, will retry"
+                )
 
 
 # Example handler
@@ -530,8 +533,8 @@ async def lifespan(app: FastAPI):
     """Application lifespan: Startup and shutdown."""
 
     # Initialize Redis
-    redis_url = config.redis_url or "redis://localhost:6379"
-    redis = Redis.from_url(redis_url)
+    # config.redis_url has default "redis://localhost:6379/0" — no fallback needed
+    redis = Redis.from_url(config.redis_url)
 
     # Start Streams consumer
     consumer = StreamsEventConsumer(
@@ -868,6 +871,12 @@ import asyncio
 import pytest
 from redis.asyncio import Redis
 from events.consumer_streams import StreamsEventConsumer
+
+@pytest.fixture
+def redis_url():
+    """Redis connection URL from environment or localhost default."""
+    return os.getenv("REDIS_URL", "redis://localhost:6379/0")
+
 
 @pytest.mark.asyncio
 async def test_event_bus_flow(redis_url: str):

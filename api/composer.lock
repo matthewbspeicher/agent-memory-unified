@@ -4,8 +4,31 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "9327b2d81cbf9e052533d012f70e0256",
+    "content-hash": "a40871fad3ef0fb5d30c7a95f310acd6",
     "packages": [
+        {
+            "name": "agent-memory/shared-events",
+            "version": "dev-main",
+            "dist": {
+                "type": "path",
+                "url": "../shared/events-php",
+                "reference": "d3a7a443233163dc7ee07c49ce055a2a1c8e94a2"
+            },
+            "require": {
+                "ext-redis": "*",
+                "php": ">=8.3"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "AgentMemory\\SharedEvents\\": "src/"
+                }
+            },
+            "description": "Cross-service event publishing via Redis Streams",
+            "transport-options": {
+                "relative": true
+            }
+        },
         {
             "name": "agent-memory/shared-types",
             "version": "dev-main",
@@ -10749,6 +10772,7 @@
     "aliases": [],
     "minimum-stability": "stable",
     "stability-flags": {
+        "agent-memory/shared-events": 20,
         "agent-memory/shared-types": 20
     },
     "prefer-stable": true,

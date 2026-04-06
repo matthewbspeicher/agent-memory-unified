@@ -340,14 +340,17 @@ set -e
 
 # Type generation script for shared types
 # Reads JSON Schemas from schemas/, outputs to generated/
+# Also copies Python types into shared_types package for clean imports
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+MONOREPO_ROOT="$(cd "$ROOT_DIR/../.." && pwd)"
 
 SCHEMAS_DIR="$ROOT_DIR/schemas"
 OUT_PY="$ROOT_DIR/generated/python"
 OUT_TS="$ROOT_DIR/generated/typescript"
 OUT_PHP="$ROOT_DIR/generated/php"
+PY_PKG="$MONOREPO_ROOT/shared/types-py/shared_types"
 
 echo "🔧 Generating types from JSON Schemas..."
 
@@ -362,6 +365,13 @@ for schema in "$SCHEMAS_DIR"/*.schema.json; do
     --use-default \
     --use-standard-collections
 done
+
+# Copy generated Python files into shared_types package
+# This avoids fragile sys.path hacks and bare imports
+if [ -d "$PY_PKG" ]; then
+  echo "→ Copying Python types into shared_types package..."
+  cp "$OUT_PY"/*.py "$PY_PKG/"
+fi
 
 # Generate TypeScript
 echo "→ TypeScript..."
@@ -485,23 +495,27 @@ EOF
 
 ```bash
 cat > shared/types-py/shared_types/__init__.py << 'EOF'
-"""Shared types for agent-memory services."""
-from pathlib import Path
-import sys
+"""Shared types for agent-memory services.
 
-# Add generated types to path
-generated_path = Path(__file__).parent.parent.parent / "types" / "generated" / "python"
-sys.path.insert(0, str(generated_path))
+Generated types are copied into this package by generate-types.sh.
+Do NOT edit .agent.py, .memory.py, .trade.py, .event.py directly —
+they will be overwritten on next generation run.
+"""
 
-# Re-export generated types
-from agent import Agent
-from memory import Memory
-from trade import Trade
-from event import Event
+# Re-export generated types (copied here by generate-types.sh)
+from .agent import Agent
+from .memory import Memory
+from .trade import Trade
+from .event import Event
 
 __all__ = ["Agent", "Memory", "Trade", "Event"]
 EOF
 ```
+
+> **Note:** The generated Python files are copied into this package directory
+> by `generate-types.sh`, so we use standard relative imports (`.agent`, `.memory`)
+> instead of bare imports or `sys.path` hacks. This avoids module name collisions
+> and works reliably across all environments.
 
 - [ ] **Step 4: Add dependency to trading service**
 
@@ -708,12 +722,24 @@ Laravel can now: use AgentMemory\\SharedTypes\\Agent;"
 ## Task 6: Setup Pre-Commit Hook
 
 **Files:**
-- Create: `.git/hooks/pre-commit`
+- Create: `.githooks/pre-commit`
+- Modify: `.git/config` (via `git config`)
 
-- [ ] **Step 1: Create pre-commit hook**
+> **Note:** Using `.githooks/` instead of `.git/hooks/` so the hook is tracked
+> by version control and works for anyone who clones the repo.
+
+- [ ] **Step 1: Configure git to use .githooks directory**
 
 ```bash
-cat > .git/hooks/pre-commit << 'EOF'
+git config core.hooksPath .githooks
+```
+
+- [ ] **Step 2: Create pre-commit hook**
+
+```bash
+mkdir -p .githooks
+
+cat > .githooks/pre-commit << 'EOF'
 #!/bin/bash
 # Pre-commit hook: Auto-generate types from JSON Schemas
 
@@ -722,16 +748,17 @@ echo "🔧 Regenerating types from JSON Schemas..."
 # Run generator
 ./shared/types/scripts/generate-types.sh
 
-# Stage generated files
+# Stage generated files (both generated/ and copied package files)
 git add shared/types/generated/
+git add shared/types-py/shared_types/
 
 echo "✅ Types regenerated and staged"
 EOF
 
-chmod +x .git/hooks/pre-commit
+chmod +x .githooks/pre-commit
 ```
 
-- [ ] **Step 2: Test hook with schema change**
+- [ ] **Step 3: Test hook with schema change**
 
 ```bash
 # Make a trivial change to agent schema
@@ -749,13 +776,14 @@ Expected output:
 ```
 🔧 Regenerating types from JSON Schemas...
 → Python (Pydantic)...
+→ Copying Python types into shared_types package...
 → TypeScript...
 → PHP (manual for now)...
 ✅ Types regenerated and staged
 [main abc1234] test: trigger pre-commit hook
 ```
 
-- [ ] **Step 3: Verify generated code updated**
+- [ ] **Step 4: Verify generated code updated**
 
 ```bash
 git show HEAD:shared/types/generated/python/agent.py | grep -A2 "maxLength"
@@ -763,13 +791,13 @@ git show HEAD:shared/types/generated/python/agent.py | grep -A2 "maxLength"
 
 Expected: Shows `maxLength=300` in generated Pydantic model
 
-- [ ] **Step 4: Revert test change**
+- [ ] **Step 5: Revert test change**
 
 ```bash
 git revert HEAD --no-edit
 ```
 
-- [ ] **Step 5: Document hook**
+- [ ] **Step 6: Document hook**
 
 ```bash
 cat >> README.md << 'EOF'
@@ -777,6 +805,11 @@ cat >> README.md << 'EOF'
 ## Type Generation
 
 Types are auto-generated from JSON Schemas in `shared/types/schemas/`.
+
+**Setup (one-time after clone):**
+```bash
+git config core.hooksPath .githooks
+```
 
 **Manual generation:**
 ```bash
@@ -792,7 +825,7 @@ Pre-commit hook automatically regenerates types when schemas change.
 - PHP: `use AgentMemory\SharedTypes\Agent;`
 EOF
 
-git add README.md .git/hooks/pre-commit
+git add README.md .githooks/
 git commit -m "docs: document type generation workflow and pre-commit hook"
 ```
 
