@@ -12,6 +12,33 @@ from typing import Any, get_origin, get_args, Union
 
 
 @dataclass
+class BittensorConfig:
+    """Bittensor Subnet 8 (Taoshi PTN) configuration."""
+    enabled: bool = False
+    network: str = "finney"
+    endpoint: str = "ws://localhost:9944"
+    wallet_name: str = "sta_wallet"
+    hotkey_path: str = ""
+    hotkey: str = "sta_hotkey"
+    subnet_uid: int = 8
+    selection_policy: str = "all"
+    selection_metric: str = "incentive"
+    top_miners: int = 10
+    min_responses_for_consensus: int = 1
+    min_responses_for_opportunity: int = 3
+    evaluation_delay_factor: float = 1.2
+    min_windows_for_ranking: int = 20
+    rolling_window: int = 500
+    hybrid_alpha_initial: float = 1.0
+    hybrid_alpha_decay_per_window: float = 0.003
+    derivation_version: str = "v1"
+    scoring_version: str = "v1"
+    hybrid_alpha_floor: float = 0.1
+    ranking_lookback_windows: int = 500
+    mock: bool = False
+
+
+@dataclass
 class Config:
     """Application configuration with sensible defaults"""
 
@@ -160,29 +187,20 @@ class Config:
 
     quiverquant_api_key: str | None = None
 
-    # Bittensor Subnet 8
-    bittensor_enabled: bool = False
-    bittensor_network: str = "finney"
-    bittensor_endpoint: str = "ws://localhost:9944"
-    bittensor_wallet_name: str = "sta_wallet"
-    bittensor_hotkey_path: str = ""
-    bittensor_hotkey: str = "sta_hotkey"
-    bittensor_subnet_uid: int = 8
-    bittensor_selection_policy: str = "all"
-    bittensor_selection_metric: str = "incentive"
-    bittensor_top_miners: int = 10
-    bittensor_min_responses_for_consensus: int = 1
-    bittensor_min_responses_for_opportunity: int = 3
-    bittensor_evaluation_delay_factor: float = 1.2
-    bittensor_min_windows_for_ranking: int = 20
-    bittensor_rolling_window: int = 500
-    bittensor_hybrid_alpha_initial: float = 1.0
-    bittensor_hybrid_alpha_decay_per_window: float = 0.003
-    bittensor_derivation_version: str = "v1"
-    bittensor_scoring_version: str = "v1"
-    bittensor_hybrid_alpha_floor: float = 0.1
-    bittensor_ranking_lookback_windows: int = 500
-    bittensor_mock: bool = False
+    # Bittensor Subnet 8 (nested config)
+    bittensor: BittensorConfig = field(default_factory=BittensorConfig)
+
+    def __getattr__(self, name: str):
+        """Backward-compat: config.bittensor_enabled -> config.bittensor.enabled"""
+        if name.startswith("bittensor_"):
+            nested_name = name[len("bittensor_"):]
+            try:
+                bt = object.__getattribute__(self, "bittensor")
+                if hasattr(bt, nested_name):
+                    return getattr(bt, nested_name)
+            except AttributeError:
+                pass
+        raise AttributeError(f"'Config' object has no attribute '{name}'")
 
     # Sovereign Arbitrageur & Capital Governor
     enable_arbitrage: bool = False
@@ -298,7 +316,25 @@ def load_config(env_file: str = ".env") -> Config:
     config = Config()
     annotations = Config.__annotations__  # Get annotations from class, not instance
 
+    # Route nested config fields
+    bt_annotations = BittensorConfig.__annotations__
+
     for field_name, raw_value in config_dict.items():
+        # Route bittensor_* fields to nested BittensorConfig
+        if field_name.startswith("bittensor_"):
+            nested_name = field_name[len("bittensor_"):]
+            if nested_name in bt_annotations:
+                ft = bt_annotations[nested_name]
+                origin = get_origin(ft)
+                if origin is Union:
+                    args = get_args(ft)
+                    ft = args[0] if args[0] is not type(None) else args[1]
+                try:
+                    setattr(config.bittensor, nested_name, _parse_value(raw_value, ft))
+                except (ValueError, json.JSONDecodeError) as e:
+                    raise ValueError(f"Invalid value for bittensor.{nested_name}: {raw_value}") from e
+                continue
+
         if not hasattr(config, field_name):
             continue  # Ignore unknown fields
 
