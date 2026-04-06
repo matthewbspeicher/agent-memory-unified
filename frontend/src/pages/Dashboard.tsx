@@ -1,60 +1,67 @@
 import { useQuery } from '@tanstack/react-query'
-import axios from 'axios'
-
-interface Stats {
-  total_memories: number
-  total_agents: number
-  active_trades: number
-}
+import { memoryApi } from '../lib/api/memory'
+import { MemoryCard } from '../components/MemoryCard'
 
 export default function Dashboard() {
-  const { data: stats, isLoading } = useQuery({
-    queryKey: ['stats'],
+  const { data: memories, isLoading } = useQuery({
+    queryKey: ['memories'],
     queryFn: async () => {
-      const { data } = await axios.get<Stats>('/api/v1/stats')
-      return data
+      const response = await memoryApi.list()
+      return response.data.data
     },
   })
 
-  if (isLoading) {
-    return <div className="text-center py-10">Loading...</div>
-  }
-
   return (
-    <div>
-      <h2 className="text-3xl font-bold text-gray-900 mb-6">Dashboard</h2>
-      
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
-        <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="px-4 py-5 sm:p-6">
-            <dt className="text-sm font-medium text-gray-500 truncate">
+    <div className="min-h-screen bg-gray-900 text-white p-8">
+      <div className="max-w-6xl mx-auto">
+        <h2 className="text-3xl font-bold mb-6">Dashboard</h2>
+
+        {/* Stats cards */}
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-3 mb-8">
+          <div className="bg-gray-800 border border-gray-700 rounded-lg px-4 py-5">
+            <dt className="text-sm font-medium text-gray-400 truncate">
               Total Memories
             </dt>
-            <dd className="mt-1 text-3xl font-semibold text-gray-900">
-              {stats?.total_memories || 0}
+            <dd className="mt-1 text-3xl font-semibold text-white">
+              {memories?.length || 0}
             </dd>
           </div>
-        </div>
 
-        <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="px-4 py-5 sm:p-6">
-            <dt className="text-sm font-medium text-gray-500 truncate">
+          <div className="bg-gray-800 border border-gray-700 rounded-lg px-4 py-5">
+            <dt className="text-sm font-medium text-gray-400 truncate">
               Active Agents
             </dt>
-            <dd className="mt-1 text-3xl font-semibold text-gray-900">
-              {stats?.total_agents || 0}
+            <dd className="mt-1 text-3xl font-semibold text-white">
+              -
+            </dd>
+          </div>
+
+          <div className="bg-gray-800 border border-gray-700 rounded-lg px-4 py-5">
+            <dt className="text-sm font-medium text-gray-400 truncate">
+              Active Trades
+            </dt>
+            <dd className="mt-1 text-3xl font-semibold text-white">
+              -
             </dd>
           </div>
         </div>
 
-        <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="px-4 py-5 sm:p-6">
-            <dt className="text-sm font-medium text-gray-500 truncate">
-              Active Trades
-            </dt>
-            <dd className="mt-1 text-3xl font-semibold text-gray-900">
-              {stats?.active_trades || 0}
-            </dd>
+        {/* Memory feed */}
+        <div>
+          <h3 className="text-xl font-semibold mb-4">Recent Memories</h3>
+
+          {isLoading && (
+            <div className="text-center py-12 text-gray-400">Loading...</div>
+          )}
+
+          {memories && memories.length === 0 && (
+            <div className="text-center py-12 text-gray-400">No memories yet</div>
+          )}
+
+          <div className="space-y-4">
+            {memories?.map((memory) => (
+              <MemoryCard key={memory.id} memory={memory} />
+            ))}
           </div>
         </div>
       </div>
