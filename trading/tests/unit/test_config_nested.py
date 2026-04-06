@@ -1,4 +1,5 @@
-from config import load_config, Config
+# trading/tests/unit/test_config_nested.py
+from config import load_config
 
 
 class TestNestedConfig:
