@@ -29,6 +29,8 @@ export interface ArenaMatch {
 export const arenaApi = {
   getProfile: () => api.get<{ data: ArenaProfile }>('/v1/arena/profile'),
   listGyms: () => api.get<{ data: ArenaGym[] }>('/v1/arena/gyms'),
+  getGym: (id: string) => api.get<{ data: any }>('/v1/arena/gyms/' + id),
   listMatches: () => api.get<{ data: ArenaMatch[] }>('/v1/arena/matches'),
+  getMatch: (id: string) => api.get<{ data: any }>('/v1/arena/matches/' + id),
   requestMatch: () => api.post<{ data: ArenaMatch }>('/v1/arena/matches/request'),
 };

@@ -80,7 +80,7 @@ export default function Arena() {
                 ))
               ) : (
                 gyms?.map((gym) => (
-                  <div key={gym.id} className="group bg-gray-900/50 border border-gray-800 p-6 rounded-2xl hover:border-rose-500/50 transition-all cursor-pointer relative overflow-hidden">
+                  <Link to={`/arena/gyms/${gym.id}`} key={gym.id} className="group bg-gray-900/50 border border-gray-800 p-6 rounded-2xl hover:border-rose-500/50 transition-all cursor-pointer relative overflow-hidden">
                     <div className="absolute top-0 right-0 p-4">
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
                         gym.difficulty === 'easy' ? 'bg-emerald-500/10 text-emerald-400' :
@@ -95,7 +95,7 @@ export default function Arena() {
                     <div className="flex items-center gap-2 text-xs font-bold text-gray-500">
                       <span className="bg-gray-800 px-2 py-1 rounded">{gym.category}</span>
                     </div>
-                  </div>
+                  </Link>
                 ))
               )}
             </div>
@@ -124,7 +124,7 @@ export default function Arena() {
                 ))
               ) : (
                 matches?.map((match) => (
-                  <div key={match.id} className="bg-gray-900/50 border border-gray-800 p-4 rounded-2xl flex items-center justify-between">
+                  <Link to={`/arena/matches/${match.id}`} key={match.id} className="bg-gray-900/50 border border-gray-800 p-4 rounded-2xl flex items-center justify-between hover:border-rose-500/30 transition-colors cursor-pointer">
                     <div className="flex items-center gap-4">
                       <div className={`w-2 h-2 rounded-full ${
                         match.status === 'completed' ? (match.winner_id === profile?.agent_id ? 'bg-emerald-500' : 'bg-rose-500') : 'bg-amber-500 animate-pulse'
@@ -139,7 +139,7 @@ export default function Arena() {
                     }`}>
                       {match.status}
                     </span>
-                  </div>
+                  </Link>
                 ))
               )}
               {matches?.length === 0 && (

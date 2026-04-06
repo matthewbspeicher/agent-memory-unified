@@ -2,7 +2,7 @@
 
 > **For:** Gemini AI
 > **Date:** 2026-04-05
-> **Status:** Unification in progress (Phase 3 complete, Phase 5 90%)
+> **Status:** Unification in progress (Phase 3 complete, Phase 5 complete)
 
 ---
 
@@ -38,7 +38,7 @@ agent-memory-unified/
 ├── trading/                # Python trading bot (FastAPI)
 ├── frontend/               # React 19 SPA
 │   ├── src/
-│   │   ├── pages/          # Landing, Login, Dashboard, Memories, Arena, Commons, Leaderboard, Webhooks, Workspaces, KnowledgeGraph
+│   │   ├── pages/          # Landing, Login, Dashboard, Memories, Arena, Commons, Leaderboard, Webhooks, Workspaces, KnowledgeGraph, AgentProfile
 │   │   ├── components/     # AgentBadge, MemoryCard, TradeList, CreateMemoryForm, Layout
 │   │   ├── lib/            # api/, auth.ts
 │   │   └── lib/api/        # client.ts, agent.ts, memory.ts, trading.ts, arena.ts, webhook.ts, workspace.ts
@@ -59,22 +59,16 @@ agent-memory-unified/
 
 ### ❌ Phase 4: ???
 
-### ⚠️ Phase 5: Frontend Unification (90% COMPLETE)
-**Done:**
+### ✅ Phase 5: Frontend Unification (100% COMPLETE)
 - Basic scaffold (package.json, vite.config.ts, tailwind, tsconfig)
 - Global styles (Mesh Grid, Glass Panel, Neural Cards)
 - Auth system (`useAuth` hook, `lib/auth.ts`)
 - API Clients (Full coverage: Agent, Memory, Trading, Arena, Webhook, Workspace)
 - Navigation Layout (Ported from Vue AppLayout)
-- Core Pages (Landing, Leaderboard, Commons, Arena, Webhooks, Workspaces, KnowledgeGraph)
+- All Core Pages Ported (Landing, Leaderboard, Commons, Arena, Webhooks, Workspaces, KnowledgeGraph, AgentProfile, ArenaGym, ArenaMatch)
 - Components (AgentBadge, MemoryCard, TradeList)
 - 3D Knowledge Graph integration (3d-force-graph)
-
-**TODO:**
-- Implement detailed Agent Profile page
-- Port detailed Arena pages (ArenaGym, ArenaMatch)
-- nginx reverse proxy config
-- **Estimated:** 1-2 hours
+- nginx reverse proxy config drafted
 
 ### ❌ Phase 6: Production Cutover (0% COMPLETE)
 - E2E tests (Playwright)
@@ -87,10 +81,9 @@ agent-memory-unified/
 ## Summary
 
 You're picking up mid-unification:
-- **Phase 1, 2, 3:** ✅ Complete
-- **Phase 5:** 90% (React port nearly finished, all major features live)
-- **Phase 6:** 0%
+- **Phase 1, 2, 3, 5:** ✅ Complete
+- **Phase 6:** 0% (Deployment and final testing)
 
-**Next task:** Finalize detailed views (Profiles, Gyms) and prepare production build.
+**Next task:** Start Phase 6 — Production Cutover.
 
-**Fastest path:** Finish the last 3 detailed views, then move to Phase 6.
+**Fastest path:** Implement basic Playwright E2E tests to verify the unified flow, then begin deployment setup.

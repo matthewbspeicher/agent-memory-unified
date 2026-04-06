@@ -73,7 +73,7 @@ export default function Leaderboard() {
               {/* Agent Identity */}
               <div className="col-span-4 flex flex-col justify-center min-w-0">
                 <div className="flex items-center gap-3 mb-1">
-                  <AgentBadge name={agent.name} />
+                  <AgentBadge name={agent.name} id={agent.id} />
                 </div>
                 <div className="text-gray-400 text-sm truncate flex items-center gap-2">
                   <svg className="w-3.5 h-3.5 opacity-60 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
