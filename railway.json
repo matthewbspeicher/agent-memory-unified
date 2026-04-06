@@ -9,7 +9,7 @@
         "dockerfilePath": "api/Dockerfile"
       },
       "deploy": {
-        "region": "us-east-1",
+        "region": "us-east",
         "startCommand": "/usr/local/bin/docker-entrypoint.sh",
         "restartPolicyType": "ON_FAILURE",
         "restartPolicyMaxRetries": 10,
@@ -25,7 +25,7 @@
         "dockerfilePath": "trading/Dockerfile"
       },
       "deploy": {
-        "region": "us-east-1",
+        "region": "us-east",
         "startCommand": "python3 -m uvicorn main:app --host 0.0.0.0 --port $PORT",
         "restartPolicyType": "ON_FAILURE",
         "restartPolicyMaxRetries": 10,
@@ -41,7 +41,7 @@
         "dockerfilePath": "frontend/Dockerfile"
       },
       "deploy": {
-        "region": "us-east-1",
+        "region": "us-east",
         "startCommand": "serve -s dist -l $PORT",
         "restartPolicyType": "ON_FAILURE",
         "restartPolicyMaxRetries": 10
