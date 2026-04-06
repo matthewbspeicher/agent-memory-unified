@@ -176,7 +176,8 @@ class BittensorMetrics:
     # Evaluator metrics
     windows_evaluated: int = 0
     windows_expired: int = 0
-    windows_skipped_no_data: int = 0
+    windows_skipped: int = 0
+    last_skip_reason: str | None = None
     last_evaluation_duration_secs: float = 0.0
 
     # Weight setter metrics

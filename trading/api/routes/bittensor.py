@@ -205,7 +205,8 @@ async def bittensor_metrics(
         result["evaluator"] = {
             "windows_evaluated": m.windows_evaluated,
             "windows_expired": m.windows_expired,
-            "windows_skipped_no_data": m.windows_skipped_no_data,
+            "windows_skipped": m.windows_skipped,
+            "last_skip_reason": m.last_skip_reason,
             "last_evaluation_duration_secs": round(m.last_evaluation_duration_secs, 2),
         }
 

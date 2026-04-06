@@ -174,20 +174,35 @@ class BittensorEvaluator:
         """Fetch realized bars and compute per-miner accuracy for one window."""
         eval_start = datetime.now(tz=timezone.utc)
         if self._coingecko is None or window.symbol not in SYMBOL_TO_COINGECKO:
-            self.metrics.windows_skipped_no_data += 1
-            logger.debug(
-                "BittensorEvaluator: skipping window %s — no coingecko client or "
-                "unknown symbol %s",
+            reason = "no_coingecko_or_unknown_symbol"
+            self.metrics.windows_skipped += 1
+            self.metrics.last_skip_reason = reason
+            logger.warning(
+                "BittensorEvaluator: skipping window %s — %s (symbol=%s)",
                 window.window_id,
+                reason,
                 window.symbol,
+            )
+            await self._event_bus.publish(
+                "bittensor.evaluation_skipped",
+                {"window_id": window.window_id, "symbol": window.symbol, "reason": reason},
             )
             return
 
         all_forecasts = await self._store.get_raw_forecasts_by_window(window.window_id)
         forecasts = [f for f in all_forecasts if getattr(f, "hash_verified", True)]
         if not forecasts:
-            logger.debug(
-                "BittensorEvaluator: no forecasts for window %s", window.window_id
+            reason = "no_verified_forecasts"
+            self.metrics.windows_skipped += 1
+            self.metrics.last_skip_reason = reason
+            logger.warning(
+                "BittensorEvaluator: skipping window %s — %s",
+                window.window_id,
+                reason,
+            )
+            await self._event_bus.publish(
+                "bittensor.evaluation_skipped",
+                {"window_id": window.window_id, "symbol": window.symbol, "reason": reason},
             )
             return
 
@@ -197,12 +212,19 @@ class BittensorEvaluator:
         )
 
         if len(realized) < window.prediction_size * 0.9:
+            reason = "insufficient_candle_data"
+            self.metrics.windows_skipped += 1
+            self.metrics.last_skip_reason = reason
             logger.warning(
-                "BittensorEvaluator: insufficient candles for window %s "
-                "(got %d, need ~%d)",
+                "BittensorEvaluator: skipping window %s — %s (got %d, need ~%d)",
                 window.window_id,
+                reason,
                 len(realized),
                 window.prediction_size,
+            )
+            await self._event_bus.publish(
+                "bittensor.evaluation_skipped",
+                {"window_id": window.window_id, "symbol": window.symbol, "reason": reason},
             )
             return
 
