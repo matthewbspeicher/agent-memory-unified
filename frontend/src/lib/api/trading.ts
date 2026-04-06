@@ -26,4 +26,6 @@ export const tradingApi = {
 
   closeTrade: (id: string, exit_price: string) =>
     api.post<Trade>(`/v1/trades/${id}/close`, { exit_price }),
+
+  getLeaderboard: () => api.get<{ data: any[] }>('/v1/trading/leaderboard'),
 };

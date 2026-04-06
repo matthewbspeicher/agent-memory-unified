@@ -53,7 +53,7 @@ class StreamsEventConsumer:
             await self.redis.xgroup_create(
                 self.stream, self.group, id="0", mkstream=True
             )
-            logger.info(f"Created consumer group: {self.group}")
+            logger.info(f"Created/verified consumer group: {self.group}")
         except Exception as e:
             if "BUSYGROUP" not in str(e):
                 logger.error(f"Failed to create consumer group: {e}")
@@ -92,7 +92,8 @@ class StreamsEventConsumer:
         """Process message with retries and DLQ."""
         try:
             # Decode event envelope
-            event_json = data.get(b"data")
+            # Note: aioredis with decode_responses=True returns string keys
+            event_json = data.get("data")
             if not event_json:
                 logger.warning(f"Message {msg_id} has no data field")
                 await self.redis.xack(self.stream, self.group, msg_id)

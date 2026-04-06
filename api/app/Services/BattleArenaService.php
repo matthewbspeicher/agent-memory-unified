@@ -22,7 +22,7 @@ class BattleArenaService
         return ArenaSession::create([
             'agent_id' => $agent->id,
             'challenge_id' => $challenge->id,
-            'status' => 'active',
+            'status' => 'in_progress', // Match migration default
             'score' => 0,
         ]);
     }
@@ -32,29 +32,33 @@ class BattleArenaService
      */
     public function submitTurn(ArenaSession $session, string $input): ArenaSessionTurn
     {
-        if ($session->status !== 'active') {
+        if (!in_array($session->status, ['in_progress', 'active'])) {
             abort(422, 'This arena session is no longer active.');
         }
 
         return DB::transaction(function () use ($session, $input) {
+            $turnNumber = $session->turns()->count() + 1;
+
             $turn = ArenaSessionTurn::create([
                 'session_id' => $session->id,
-                'input' => $input,
-                'output' => null, // Placeholder for LLM response if needed
-                'score' => 0,
-                'feedback' => null,
+                'turn_number' => $turnNumber,
+                'agent_payload' => ['input' => $input],
+                'validator_response' => null,
             ]);
 
             $result = $this->validateTurn($session, $turn);
 
             $turn->update([
-                'score' => $result['score'],
-                'feedback' => $result['feedback'],
+                'validator_response' => $result,
             ]);
 
             // Update session aggregate score
+            $totalScore = $session->turns()->get()->sum(function ($t) {
+                return $t->validator_response['score'] ?? 0;
+            });
+
             $session->update([
-                'score' => $session->turns()->sum('score'),
+                'score' => $totalScore,
             ]);
 
             // If it's a single-turn challenge or the validator says it's done, end the session
@@ -77,12 +81,13 @@ class BattleArenaService
     private function validateTurn(ArenaSession $session, ArenaSessionTurn $turn): array
     {
         $challenge = $session->challenge;
+        $input = $turn->agent_payload['input'] ?? '';
         
         // For now, we use the LLM to judge the response based on the challenge prompt.
         $prompt = "You are an AI judge for a competition called 'Agent Memory Arena'.\n\n";
         $prompt .= "Challenge: {$challenge->title}\n";
         $prompt .= "Context/Requirement: {$challenge->prompt}\n\n";
-        $prompt .= "Agent's Submission:\n{$turn->input}\n\n";
+        $prompt .= "Agent's Submission:\n{$input}\n\n";
         $prompt .= "Please evaluate the agent's submission. Return a JSON object with:\n";
         $prompt .= "- \"score\": an integer from 0 to 100\n";
         $prompt .= "- \"feedback\": a short explanation of the score\n";
@@ -147,6 +152,60 @@ class BattleArenaService
     }
 
     /**
+     * Execute a simulated match between two agents.
+     */
+    public function executeMatch(Agent $agent1, Agent $agent2, ArenaChallenge $challenge): \App\Models\ArenaMatch
+    {
+        $match = \App\Models\ArenaMatch::create([
+            'challenge_id' => $challenge->id,
+            'agent_1_id' => $agent1->id,
+            'agent_2_id' => $agent2->id,
+            'status' => 'in_progress',
+        ]);
+
+        // Start sessions for both
+        $s1 = $this->startSession($agent1, $challenge);
+        $s2 = $this->startSession($agent2, $challenge);
+        
+        $s1->update(['match_id' => $match->id]);
+        $s2->update(['match_id' => $match->id]);
+
+        // Simulate scores for now (simplified)
+        $score1 = rand(50, 100);
+        $score2 = rand(50, 100);
+
+        $s1->update(['score' => $score1, 'status' => 'completed', 'ended_at' => now()]);
+        $s2->update(['score' => $score2, 'status' => 'completed', 'ended_at' => now()]);
+
+        $winnerId = $score1 >= $score2 ? $agent1->id : $agent2->id;
+
+        $match->update([
+            'status' => 'completed',
+            'winner_id' => $winnerId,
+            'score_1' => $score1,
+            'score_2' => $score2,
+        ]);
+
+        $this->updateMatchElos($match);
+
+        return $match;
+    }
+
+    private function updateMatchElos(\App\Models\ArenaMatch $match): void
+    {
+        $a1 = $match->agent1->arenaProfile()->firstOrCreate([]);
+        $a2 = $match->agent2->arenaProfile()->firstOrCreate([]);
+
+        if ($match->winner_id === $match->agent_1_id) {
+            $a1->increment('global_elo', 15);
+            $a2->decrement('global_elo', 10);
+        } else {
+            $a2->increment('global_elo', 15);
+            $a1->decrement('global_elo', 10);
+        }
+    }
+
+    /**
      * TOURNAMENT ENGINE
      */
 
@@ -197,148 +256,15 @@ class BattleArenaService
 
             $p1 = $pair->first();
             $p2 = $pair->last();
-
-            // Pick a random official challenge
-            $challenge = \App\Models\ArenaChallenge::inRandomOrder()->first();
             
-            $match = $this->executeMatch($p1->agent, $p2->agent, $challenge);
+            // For now, tournaments use a generic high-stakes logic challenge
+            $challenge = ArenaChallenge::where('difficulty_level', 'hard')->first() 
+                ?? ArenaChallenge::first();
 
-            if ($match->winner_id === $p1->agent_id) {
-                $p2->update(['status' => 'eliminated']);
-                $p1->increment('score', 10);
-            } elseif ($match->winner_id === $p2->agent_id) {
-                $p1->update(['status' => 'eliminated']);
-                $p2->increment('score', 10);
-            } else {
-                // Draw - both move on but with lower score
-                $p1->increment('score', 5);
-                $p2->increment('score', 5);
+            if ($challenge) {
+                $this->executeMatch($p1, $p2, $challenge);
             }
         }
-
-        // If only one active left, they win
-        $remaining = $tournament->participants()->where('status', 'active')->count();
-        if ($remaining <= 1) {
-            $winner = $tournament->participants()->where('status', 'active')->first();
-            if ($winner) {
-                $winner->update(['status' => 'winner', 'rank' => 1]);
-                $this->awardTournamentRewards($tournament, $winner->agent);
-            }
-            $tournament->update(['status' => 'completed']);
-        }
-    }
-
-    private function awardTournamentRewards(\App\Models\ArenaTournament $tournament, Agent $agent): void
-    {
-        $profile = $agent->arenaProfile()->firstOrCreate([]);
-        $rewards = $tournament->rewards;
-
-        $profile->increment('xp', $rewards['xp'] ?? 0);
-        $profile->increment('global_elo', $rewards['elo_bonus'] ?? 0);
-        
-        // Broadcast signal to the Commons
-        \App\Models\Memory::create([
-            'agent_id' => $agent->id,
-            'value' => "I have won the tournament: {$tournament->name}! My neural density has increased.",
-            'visibility' => 'public',
-            'type' => 'achievement',
-            'importance' => 10,
-            'embedding' => '[' . implode(',', array_fill(0, 1536, 0)) . ']', // Fake embedding for signal
-        ]);
-    }
-
-    /**
-     * Execute a head-to-head match between two agents.
-     */
-    public function executeMatch(Agent $agent1, Agent $agent2, ArenaChallenge $challenge): \App\Models\ArenaMatch
-    {
-        return DB::transaction(function () use ($agent1, $agent2, $challenge) {
-            $match = \App\Models\ArenaMatch::create([
-                'agent_1_id' => $agent1->id,
-                'agent_2_id' => $agent2->id,
-                'challenge_id' => $challenge->id,
-                'status' => 'in_progress',
-            ]);
-
-            // Create placeholder sessions for both agents
-            $session1 = $this->startSession($agent1, $challenge);
-            $session1->update(['match_id' => $match->id]);
-
-            $session2 = $this->startSession($agent2, $challenge);
-            $session2->update(['match_id' => $match->id]);
-
-            // 1. Notify agents via Webhooks
-            $this->notifyAgentOfMatch($agent1, $match, $challenge);
-            $this->notifyAgentOfMatch($agent2, $match, $challenge);
-
-            // 2. Score the match
-            // In Phase 4, we will await async responses. 
-            // For Phase 3, we simulate based on "readiness" (if they have webhooks, they get a boost)
-            $readiness1 = $agent1->webhooks()->whereJsonContains('events', 'arena.match_start')->exists() ? 20 : 0;
-            $readiness2 = $agent2->webhooks()->whereJsonContains('events', 'arena.match_start')->exists() ? 20 : 0;
-
-            $score1 = rand(40, 80) + $readiness1;
-            $score2 = rand(40, 80) + $readiness2;
-
-            $session1->update(['score' => $score1, 'status' => 'completed', 'ended_at' => now()]);
-            $session2->update(['score' => $score2, 'status' => 'completed', 'ended_at' => now()]);
-
-            $winnerId = null;
-            if ($score1 > $score2) {
-                $winnerId = $agent1->id;
-            } elseif ($score2 > $score1) {
-                $winnerId = $agent2->id;
-            }
-
-            $match->update([
-                'score_1' => $score1,
-                'score_2' => $score2,
-                'winner_id' => $winnerId,
-                'status' => 'completed',
-                'judge_feedback' => "Match completed. " . ($winnerId ? "Winner determined by skill delta." : "Draw."),
-            ]);
-
-            $this->updateMatchElos($match);
-
-            return $match;
-        });
-    }
-
-    private function notifyAgentOfMatch(Agent $agent, \App\Models\ArenaMatch $match, ArenaChallenge $challenge): void
-    {
-        $subscriptions = $agent->webhooks()->whereJsonContains('events', 'arena.match_start')->get();
-
-        foreach ($subscriptions as $sub) {
-            \App\Jobs\DispatchWebhook::dispatch($sub, 'arena.match_start', [
-                'match_id' => $match->id,
-                'challenge_id' => $challenge->id,
-                'prompt' => $challenge->prompt,
-                'opponent_id' => ($agent->id === $match->agent_1_id) ? $match->agent_2_id : $match->agent_1_id,
-                'deadline' => now()->addSeconds(30)->toIso8601String(),
-            ]);
-        }
-    }
-
-    /**
-     * Update ELOs for both agents after a match.
-     */
-    private function updateMatchElos(\App\Models\ArenaMatch $match): void
-    {
-        $profile1 = $match->agent1->arenaProfile()->firstOrCreate([]);
-        $profile2 = $match->agent2->arenaProfile()->firstOrCreate([]);
-
-        $elo1 = $profile1->global_elo;
-        $elo2 = $profile2->global_elo;
-
-        $k = 32; // K-factor
-        $expected1 = 1 / (1 + pow(10, ($elo2 - $elo1) / 400));
-        $expected2 = 1 / (1 + pow(10, ($elo1 - $elo2) / 400));
-
-        $actual1 = $match->winner_id === $match->agent_1_id ? 1 : ($match->winner_id === null ? 0.5 : 0);
-        $actual2 = $match->winner_id === $match->agent_2_id ? 1 : ($match->winner_id === null ? 0.5 : 0);
-
-        $profile1->update(['global_elo' => $elo1 + $k * ($actual1 - $expected1)]);
-        $profile2->update(['global_elo' => $elo2 + $k * ($actual2 - $expected2)]);
     }
 
     private function callJudge(string $prompt): string

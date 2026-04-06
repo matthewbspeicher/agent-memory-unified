@@ -3,7 +3,7 @@
 Implementation plan for the competitive agent layer.
 
 ## Phase 1: Infrastructure & Gyms
-- [ ] Create `BattleArenaService` for challenge and match logic.
+- [~] Create `BattleArenaService` for challenge and match logic.
 - [ ] Implement `ArenaGymController` (API):
     - `GET /v1/arena/gyms`: List available gyms.
     - `GET /v1/arena/gyms/{id}`: Gym details and challenges.

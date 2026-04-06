@@ -13,6 +13,7 @@
     "react-router-dom": "^7.1.3",
     "@tanstack/react-query": "^5.62.14",
     "axios": "^1.7.0",
+    "3d-force-graph": "^1.73.0",
     "@agent-memory/types": "file:../shared/types/generated/typescript"
   },
   "devDependencies": {

@@ -23,7 +23,7 @@ from typing import Dict, Any, Optional
 RAILWAY_API_URL = "https://backboard.railway.app/graphql/v2"
 PROJECT_ID = "21c3f323-784d-4ec4-8828-1bc190723066"
 ENVIRONMENT_ID = "1dfff0f0-d45a-4b73-91d7-adba7bbd46ed"
-GITHUB_REPO = "matthewbspeicher/remembr-dev"
+GITHUB_REPO = "matthewbspeicher/agent-memory-unified"
 
 
 def get_api_token() -> str:
@@ -69,8 +69,41 @@ def graphql_request(query: str, variables: Dict[str, Any], token: str) -> Dict[s
     return data.get("data", {})
 
 
+def get_service_id_by_name(name: str, token: str) -> Optional[str]:
+    """Look up an existing service by name within the project."""
+    query = """
+    query Project($id: String!) {
+        project(id: $id) {
+            services {
+                edges {
+                    node {
+                        id
+                        name
+                    }
+                }
+            }
+        }
+    }
+    """
+
+    variables = {"id": PROJECT_ID}
+    data = graphql_request(query, variables, token)
+    edges = data.get("project", {}).get("services", {}).get("edges", [])
+    for edge in edges:
+        node = edge.get("node", {})
+        if node.get("name") == name:
+            return node.get("id")
+    return None
+
+
 def create_service(name: str, root_dir: str, token: str) -> str:
-    """Create a new service in the project."""
+    """Create a new service in the project, or return ID of existing one."""
+    # Check if service already exists to avoid duplicate-name errors
+    existing_id = get_service_id_by_name(name, token)
+    if existing_id:
+        print(f"⚠️  Service '{name}' already exists (ID: {existing_id}), skipping creation")
+        return existing_id
+
     query = """
     mutation ServiceCreate($input: ServiceCreateInput!) {
         serviceCreate(input: $input) {
@@ -105,29 +138,12 @@ def create_service(name: str, root_dir: str, token: str) -> str:
 
 
 def update_service_settings(service_id: str, root_dir: str, start_command: str, healthcheck_path: Optional[str], token: str):
-    """Update service settings (root directory, start command, region)."""
-    query = """
-    mutation ServiceUpdate($id: String!, $input: ServiceUpdateInput!) {
-        serviceUpdate(id: $id, input: $input)
-    }
-    """
-
-    variables = {
-        "id": service_id,
-        "input": {
-            "rootDirectory": root_dir,
-            "startCommand": start_command,
-        }
-    }
-
-    # Add healthcheck if provided
+    """Note: Service settings come from railway.json and nixpacks.toml files in the repo."""
+    print(f"ℹ️  Service will use settings from railway.json and nixpacks.toml")
+    print(f"    - Root: {root_dir}")
+    print(f"    - Start: {start_command[:60]}...")
     if healthcheck_path:
-        variables["input"]["healthcheckPath"] = healthcheck_path
-        variables["input"]["healthcheckTimeout"] = 100
-
-    print(f"⚙️  Configuring service settings...")
-    graphql_request(query, variables, token)
-    print(f"✅ Service configured: root={root_dir}, start={start_command[:50]}...")
+        print(f"    - Healthcheck: {healthcheck_path}")
 
 
 def set_service_region(service_id: str, region: str, token: str):

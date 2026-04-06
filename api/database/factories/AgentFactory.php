@@ -18,7 +18,6 @@ class AgentFactory extends Factory
             'owner_id' => User::factory(),
             'name' => fake()->name().' Bot',
             'description' => fake()->sentence(),
-            'api_token' => $token,
             'token_hash' => hash('sha256', $token),
         ];
     }

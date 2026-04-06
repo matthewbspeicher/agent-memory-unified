@@ -18,4 +18,9 @@ export const memoryApi = {
     api.post<Memory>('/v1/memories', data),
 
   delete: (id: string) => api.delete(`/v1/memories/${id}`),
+
+  listCommons: () => api.get<{ data: Memory[] }>('/v1/commons'),
+
+  searchCommons: (q: string) =>
+    api.get<{ data: Memory[] }>(`/v1/commons/search?q=${encodeURIComponent(q)}`),
 };

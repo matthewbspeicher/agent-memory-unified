@@ -22,6 +22,7 @@ class Agent extends Model implements AuthenticatableContract
         'name',
         'description',
         'is_listed',
+        'is_active',
         'broadcasts_signals',
         'last_seen_at', // Keep for touchLastSeen()
     ];
