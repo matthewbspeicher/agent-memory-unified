@@ -7,25 +7,24 @@ RUN apk add --no-cache autoconf g++ make && \
     docker-php-ext-install bcmath && \
     apk del autoconf g++ make
 
-WORKDIR /app
+WORKDIR /build
 
-# Copy shared directories first (required by composer.json local dependencies)
-COPY shared/types-php ./shared/types-php
-COPY shared/events-php ./shared/events-php
+# Copy entire monorepo structure to preserve relative paths
+COPY shared ./shared
+COPY api ./api
 
-# Copy API composer files and install dependencies
-COPY api/composer.json api/composer.lock ./api/
-WORKDIR /app/api
+# Install composer dependencies from api directory
+WORKDIR /build/api
 RUN composer install --no-dev --optimize-autoloader --no-scripts
 
 # Stage 2: Build frontend assets
 FROM node:20-alpine AS node-build
-WORKDIR /app/api
+WORKDIR /build/api
 COPY api/package.json api/package-lock.json* ./
 RUN NODE_OPTIONS="--max-old-space-size=512" npm ci
 COPY api ./
 # Copy vendor from Stage 1 so Tailwind v4 can find Laravel's pagination blades
-COPY --from=vendor /app/api/vendor ./vendor
+COPY --from=vendor /build/api/vendor ./vendor
 RUN npm run build
 
 # Stage 3: PHP application
@@ -44,18 +43,14 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Copy shared directories (needed at runtime)
-COPY shared/types-php ./shared/types-php
-COPY shared/events-php ./shared/events-php
-
 # Copy PHP dependencies from vendor stage
-COPY --from=vendor /app/api/vendor ./vendor
+COPY --from=vendor /build/api/vendor ./vendor
 
 # Copy application
 COPY api ./
 
 # Copy built assets from node stage
-COPY --from=node-build /app/api/public/build ./public/build
+COPY --from=node-build /build/api/public/build ./public/build
 
 # Run post-install scripts
 RUN php artisan package:discover --ansi \
