@@ -2,8 +2,8 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
@@ -26,13 +26,10 @@ return new class extends Migration
 
         Schema::create('trades', function (Blueprint $table) {
             $table->id('id');
-            $table->text('opportunity_id')->nullable();
             $table->text('order_result');
             $table->text('risk_evaluation')->nullable();
             $table->text('agent_name')->nullable();
             $table->text('created_at');
-
-            $table->foreign('opportunity_id')->references('id')->on('opportunities');
         });
 
         Schema::create('risk_events', function (Blueprint $table) {
@@ -62,11 +59,8 @@ return new class extends Migration
         });
 
         Schema::create('opportunity_snapshots', function (Blueprint $table) {
-            $table->text('opportunity_id')->primary();
             $table->text('snapshot_data');
             $table->text('created_at');
-
-            $table->foreign('opportunity_id')->references('id')->on('opportunities');
         });
 
         Schema::create('whatsapp_sessions', function (Blueprint $table) {
@@ -106,7 +100,7 @@ return new class extends Migration
         });
 
         Schema::create('agent_overrides', function (Blueprint $table) {
-            $table->text('agent_name')->nullable();
+            $table->text('agent_name')->primary();
             $table->text('trust_level')->nullable();
             $table->text('runtime_parameters')->nullable();
             $table->text('updated_at');
@@ -199,20 +193,16 @@ return new class extends Migration
             $table->text('agent_name');
             $table->text('opportunity_id');
             $table->text('voted_at');
-
-            $table->primary(['symbol', 'side', 'agent_name']);
+            $table->text('PRIMARY')->nullable();
         });
 
         Schema::create('leaderboard_cache', function (Blueprint $table) {
-            $table->integer('id')->primary();
+            $table->integer('id')->nullable();
             $table->text('rankings_json');
             $table->text('last_processed_snapshot_at');
             $table->text('updated_at');
             $table->text('source')->default('live');
         });
-
-        // Add CHECK constraint for single row
-        DB::statement('ALTER TABLE leaderboard_cache ADD CONSTRAINT chk_leaderboard_single_row CHECK (id = 1)');
 
         Schema::create('agent_remembr_map', function (Blueprint $table) {
             $table->text('agent_name')->primary();
@@ -227,13 +217,13 @@ return new class extends Migration
         });
 
         Schema::create('daily_briefs', function (Blueprint $table) {
-            $table->text('date')->nullable();
+            $table->text('date')->primary();
             $table->text('brief_text');
             $table->text('created_at');
         });
 
         Schema::create('convergence_syntheses', function (Blueprint $table) {
-            $table->text('convergence_id')->nullable();
+            $table->text('convergence_id')->primary();
             $table->text('synthesis_text');
             $table->text('created_at');
         });
@@ -253,7 +243,7 @@ return new class extends Migration
         });
 
         Schema::create('shadow_executions', function (Blueprint $table) {
-            $table->text('id')->nullable();
+            $table->text('id')->primary();
             $table->text('opportunity_id');
             $table->text('agent_name');
             $table->text('symbol');
@@ -309,12 +299,10 @@ return new class extends Migration
             $table->double('stake_tao')->nullable();
             $table->integer('metagraph_block')->nullable();
             $table->text('created_at');
-
-            $table->unique(['window_id', 'miner_hotkey']);
         });
 
         Schema::create('bittensor_derived_views', function (Blueprint $table) {
-            $table->text('window_id')->nullable();
+            $table->text('window_id')->primary();
             $table->text('symbol');
             $table->text('timeframe');
             $table->text('timestamp');
@@ -334,7 +322,7 @@ return new class extends Migration
         });
 
         Schema::create('bittensor_realized_windows', function (Blueprint $table) {
-            $table->text('window_id')->nullable();
+            $table->text('window_id')->primary();
             $table->text('symbol');
             $table->text('timeframe');
             $table->text('realized_path');
@@ -363,7 +351,7 @@ return new class extends Migration
         });
 
         Schema::create('bittensor_miner_rankings', function (Blueprint $table) {
-            $table->text('miner_hotkey')->nullable();
+            $table->text('miner_hotkey')->primary();
             $table->integer('windows_evaluated');
             $table->double('direction_accuracy');
             $table->double('mean_magnitude_error');
@@ -419,8 +407,6 @@ return new class extends Migration
             $table->double('partial_fill_rate')->nullable();
             $table->text('created_at');
             $table->text('updated_at');
-
-            $table->unique(['group_type', 'group_key', 'window_label']);
         });
 
         Schema::create('trade_analytics', function (Blueprint $table) {
@@ -475,12 +461,11 @@ return new class extends Migration
             $table->text('sample_quality');
             $table->text('created_at');
             $table->text('updated_at');
-
-            $table->unique(['agent_name', 'confidence_bucket', 'window_label']);
+            $table->text('UNIQUE')->nullable();
         });
 
         Schema::create('strategy_health', function (Blueprint $table) {
-            $table->text('agent_name')->nullable();
+            $table->text('agent_name')->primary();
             $table->text('status');
             $table->double('health_score')->nullable();
             $table->text('rolling_expectancy')->nullable();
@@ -507,7 +492,7 @@ return new class extends Migration
         });
 
         Schema::create('signal_features', function (Blueprint $table) {
-            $table->text('opportunity_id')->nullable();
+            $table->text('opportunity_id')->primary();
             $table->text('agent_name');
             $table->text('symbol');
             $table->text('signal');
@@ -566,7 +551,7 @@ return new class extends Migration
         });
 
         Schema::create('agent_stages', function (Blueprint $table) {
-            $table->text('agent_name')->nullable();
+            $table->text('agent_name')->primary();
             $table->integer('current_stage')->default(0);
             $table->text('updated_at');
         });
@@ -588,7 +573,7 @@ return new class extends Migration
         });
 
         Schema::create('arb_trades', function (Blueprint $table) {
-            $table->text('id')->nullable();
+            $table->text('id')->primary();
             $table->text('symbol_a');
             $table->text('symbol_b');
             $table->integer('expected_profit_bps');
@@ -600,7 +585,6 @@ return new class extends Migration
         });
 
         Schema::create('arb_legs', function (Blueprint $table) {
-            $table->text('trade_id');
             $table->text('leg_name');
             $table->text('broker_id');
             $table->text('order_data');
@@ -608,121 +592,130 @@ return new class extends Migration
             $table->text('fill_quantity');
             $table->text('status');
             $table->text('external_order_id')->nullable();
+            $table->text('PRIMARY')->nullable();
+        });
 
-            $table->primary(['trade_id', 'leg_name']);
+        Schema::create('agent_registry', function (Blueprint $table) {
+            $table->id('id');
+            $table->text('name');
+            $table->text('strategy');
+            $table->text('schedule')->default('continuous');
+            $table->integer('interval_or_cron');
+            $table->jsonb('universe')->default('[]');
+            $table->jsonb('parameters')->default('{}');
+            $table->text('status')->default('active');
+            $table->text('trust_level')->default('monitored');
+            $table->jsonb('runtime_overrides')->default('{}');
+            $table->jsonb('promotion_criteria')->default('{}');
+            $table->boolean('shadow_mode')->default(false);
+            $table->text('created_by')->default('human');
+            $table->text('parent_name')->nullable();
+            $table->integer('generation');
+            $table->jsonb('creation_context')->default('{}');
+            $table->timestampTz('created_at');
+            $table->timestampTz('updated_at');
+        });
+
+
+        // Indexes
+        // CREATE INDEX IF NOT EXISTS idx_opp_agent ON opportunities(agent_name)
+        // CREATE INDEX IF NOT EXISTS idx_opp_symbol ON opportunities(symbol)
+        // CREATE INDEX IF NOT EXISTS idx_opp_status ON opportunities(status)
+        // CREATE INDEX IF NOT EXISTS idx_trades_opp ON trades(opportunity_id)
+        // CREATE INDEX IF NOT EXISTS idx_perf_agent ON performance_snapshots(agent_name)
+        // CREATE INDEX IF NOT EXISTS idx_tracked_agent_status ON tracked_positions(agent_name, status)
+        // CREATE INDEX IF NOT EXISTS idx_tracked_symbol ON tracked_positions(symbol, status)
+        // CREATE INDEX IF NOT EXISTS idx_backtest_agent ON backtest_results(agent_name, run_date)
+        // CREATE INDEX IF NOT EXISTS idx_ext_pos_broker ON external_positions(broker)
+        // CREATE INDEX IF NOT EXISTS idx_ext_pos_symbol ON external_positions(symbol)
+        // CREATE INDEX IF NOT EXISTS idx_ext_bal_broker ON external_balances(broker)
+        // CREATE INDEX IF NOT EXISTS idx_consensus_window ON consensus_votes(symbol, side, voted_at)
+        // CREATE INDEX IF NOT EXISTS idx_exec_quality_agent ON execution_quality(agent_name, filled_at)
+        // CREATE INDEX IF NOT EXISTS idx_shadow_executions_agent_opened ON shadow_executions(agent_name, opened_at DESC)
+        // CREATE INDEX IF NOT EXISTS idx_shadow_executions_due ON shadow_executions(resolution_status, resolve_after)
+        // CREATE INDEX IF NOT EXISTS idx_shadow_executions_opportunity ON shadow_executions(opportunity_id)
+        // CREATE INDEX IF NOT EXISTS idx_shadow_executions_symbol_opened ON shadow_executions(symbol, opened_at DESC)
+        // CREATE INDEX IF NOT EXISTS idx_bt_raw_window ON bittensor_raw_forecasts(window_id)
+        // CREATE INDEX IF NOT EXISTS idx_bt_raw_symbol_time ON bittensor_raw_forecasts(symbol, timeframe, collected_at)
+        // CREATE INDEX IF NOT EXISTS idx_bt_raw_miner ON bittensor_raw_forecasts(miner_hotkey, collected_at)
+        // CREATE INDEX IF NOT EXISTS idx_bt_view_symbol_time ON bittensor_derived_views(symbol, timeframe, timestamp)
+        // CREATE INDEX IF NOT EXISTS idx_bt_realized_symbol ON bittensor_realized_windows(symbol, timeframe, captured_at)
+        // CREATE INDEX IF NOT EXISTS idx_bt_acc_miner ON bittensor_accuracy_records(miner_hotkey, evaluated_at)
+        // CREATE INDEX IF NOT EXISTS idx_bt_acc_window ON bittensor_accuracy_records(window_id, miner_hotkey)
+        // CREATE INDEX IF NOT EXISTS idx_bt_acc_symbol ON bittensor_accuracy_records(symbol, timeframe, evaluated_at)
+        // CREATE INDEX IF NOT EXISTS idx_bt_rank_hybrid ON bittensor_miner_rankings(hybrid_score DESC)
+        // CREATE INDEX IF NOT EXISTS idx_bt_rank_internal ON bittensor_miner_rankings(internal_score DESC)
+        // CREATE INDEX IF NOT EXISTS idx_ece_agent ON execution_cost_events(agent_name, decision_time)
+        // CREATE INDEX IF NOT EXISTS idx_ece_symbol ON execution_cost_events(symbol, decision_time)
+        // CREATE INDEX IF NOT EXISTS idx_ece_broker ON execution_cost_events(broker_id, decision_time)
+        // CREATE INDEX IF NOT EXISTS idx_ecs_group ON execution_cost_stats(group_type, group_key)
+        // CREATE INDEX IF NOT EXISTS idx_ta_agent_exit ON trade_analytics(agent_name, exit_time)
+        // CREATE INDEX IF NOT EXISTS idx_ta_symbol ON trade_analytics(symbol, agent_name)
+        // CREATE INDEX IF NOT EXISTS idx_ta_regime ON trade_analytics(trend_regime, agent_name)
+        // CREATE INDEX IF NOT EXISTS idx_cc_agent_window ON strategy_confidence_calibration(agent_name, window_label)
+        // CREATE INDEX IF NOT EXISTS idx_strategy_health_status ON strategy_health(status)
+        // CREATE INDEX IF NOT EXISTS idx_she_agent_time ON strategy_health_events(agent_name, created_at)
+        // CREATE INDEX IF NOT EXISTS idx_sf_agent_time ON signal_features(agent_name, opportunity_timestamp)
+        // CREATE INDEX IF NOT EXISTS idx_sf_symbol_time ON signal_features(symbol, opportunity_timestamp)
+        // CREATE INDEX IF NOT EXISTS idx_sf_signal_agent ON signal_features(signal, agent_name)
+        // CREATE INDEX IF NOT EXISTS idx_tournament_audit_agent ON tournament_audit_log(agent_name, timestamp)
+        // CREATE INDEX IF NOT EXISTS idx_arb_spread_pair ON arb_spread_observations(kalshi_ticker, poly_ticker, observed_at)
+        // CREATE INDEX IF NOT EXISTS idx_arb_spread_gap ON arb_spread_observations(gap_cents, observed_at)
+        // CREATE INDEX IF NOT EXISTS idx_arb_trades_state ON arb_trades(state)
+        // CREATE INDEX IF NOT EXISTS idx_arb_legs_trade_id ON arb_legs(trade_id)
+        // CREATE INDEX IF NOT EXISTS idx_agent_registry_name ON agent_registry(name)
+        // CREATE INDEX IF NOT EXISTS idx_agent_registry_status ON agent_registry(status)
+        // CREATE INDEX IF NOT EXISTS idx_agent_registry_strategy ON agent_registry(strategy)
+        // CREATE INDEX IF NOT EXISTS idx_agent_registry_created_by ON agent_registry(created_by)
+        // CREATE INDEX IF NOT EXISTS idx_agent_registry_parent ON agent_registry(parent_name)
+
+        // Foreign Keys
+        Schema::table('trades', function (Blueprint $table) {
+            $table->foreign('opportunity_id')->references('id')->on('opportunities');
+        });
+
+        Schema::table('opportunity_snapshots', function (Blueprint $table) {
+            $table->foreign('opportunity_id')->references('id')->on('opportunities');
+        });
+
+        Schema::table('arb_legs', function (Blueprint $table) {
             $table->foreign('trade_id')->references('id')->on('arb_trades')->onDelete('cascade');
         });
 
-
-        // Create indexes
-        Schema::table('opportunities', function (Blueprint $table) {
-            $table->index('agent_name', 'idx_opp_agent');
-            $table->index('symbol', 'idx_opp_symbol');
-            $table->index('status', 'idx_opp_status');
-        });
-
-        Schema::table('trades', function (Blueprint $table) {
-            $table->index('opportunity_id', 'idx_trades_opp');
-        });
-
-        Schema::table('performance_snapshots', function (Blueprint $table) {
-            $table->index('agent_name', 'idx_perf_agent');
-        });
-
-        Schema::table('tracked_positions', function (Blueprint $table) {
-            $table->index(['agent_name', 'status'], 'idx_tracked_agent_status');
-            $table->index(['symbol', 'status'], 'idx_tracked_symbol');
-        });
-
-        Schema::table('backtest_results', function (Blueprint $table) {
-            $table->index(['agent_name', 'run_date'], 'idx_backtest_agent');
-        });
-
-        Schema::table('external_positions', function (Blueprint $table) {
-            $table->index('broker', 'idx_ext_pos_broker');
-            $table->index('symbol', 'idx_ext_pos_symbol');
-        });
-
-        Schema::table('external_balances', function (Blueprint $table) {
-            $table->index('broker', 'idx_ext_bal_broker');
-        });
-
+        // Composite Primary Keys
         Schema::table('consensus_votes', function (Blueprint $table) {
-            $table->index(['symbol', 'side', 'voted_at'], 'idx_consensus_window');
+            $table->primary(['symbol', 'side', 'agent_name']);
         });
 
-        Schema::table('execution_quality', function (Blueprint $table) {
-            $table->index(['agent_name', 'filled_at'], 'idx_exec_quality_agent');
+        Schema::table('arb_legs', function (Blueprint $table) {
+            $table->primary(['trade_id', 'leg_name']);
         });
 
-        Schema::table('shadow_executions', function (Blueprint $table) {
-            $table->index(['agent_name', 'opened_at'], 'idx_shadow_executions_agent_opened');
-            $table->index(['resolution_status', 'resolve_after'], 'idx_shadow_executions_due');
-            $table->index('opportunity_id', 'idx_shadow_executions_opportunity');
-            $table->index(['symbol', 'opened_at'], 'idx_shadow_executions_symbol_opened');
-        });
-
+        // UNIQUE Constraints
         Schema::table('bittensor_raw_forecasts', function (Blueprint $table) {
-            $table->index('window_id', 'idx_bt_raw_window');
-            $table->index(['symbol', 'timeframe', 'collected_at'], 'idx_bt_raw_symbol_time');
-            $table->index(['miner_hotkey', 'collected_at'], 'idx_bt_raw_miner');
-        });
-
-        Schema::table('bittensor_derived_views', function (Blueprint $table) {
-            $table->index(['symbol', 'timeframe', 'timestamp'], 'idx_bt_view_symbol_time');
-        });
-
-        Schema::table('bittensor_realized_windows', function (Blueprint $table) {
-            $table->index(['symbol', 'timeframe', 'captured_at'], 'idx_bt_realized_symbol');
-        });
-
-        Schema::table('bittensor_accuracy_records', function (Blueprint $table) {
-            $table->index(['miner_hotkey', 'evaluated_at'], 'idx_bt_acc_miner');
-            $table->index(['window_id', 'miner_hotkey'], 'idx_bt_acc_window');
-            $table->index(['symbol', 'timeframe', 'evaluated_at'], 'idx_bt_acc_symbol');
-        });
-
-        Schema::table('bittensor_miner_rankings', function (Blueprint $table) {
-            $table->index('hybrid_score', 'idx_bt_rank_hybrid');
-            $table->index('internal_score', 'idx_bt_rank_internal');
-        });
-
-        Schema::table('execution_cost_events', function (Blueprint $table) {
-            $table->index(['agent_name', 'decision_time'], 'idx_ece_agent');
-            $table->index(['symbol', 'decision_time'], 'idx_ece_symbol');
-            $table->index(['broker_id', 'decision_time'], 'idx_ece_broker');
+            $table->unique(['window_id', 'miner_hotkey']);
         });
 
         Schema::table('execution_cost_stats', function (Blueprint $table) {
-            $table->index(['group_type', 'group_key'], 'idx_ecs_group');
-        });
-
-        Schema::table('trade_analytics', function (Blueprint $table) {
-            $table->index(['agent_name', 'exit_time'], 'idx_ta_agent_exit');
-            $table->index(['symbol', 'agent_name'], 'idx_ta_symbol');
-            $table->index(['trend_regime', 'agent_name'], 'idx_ta_regime');
+            $table->unique(['group_type', 'group_key', 'window_label']);
         });
 
         Schema::table('strategy_confidence_calibration', function (Blueprint $table) {
-            $table->index(['agent_name', 'window_label'], 'idx_cc_agent_window');
+            $table->unique(['agent_name', 'confidence_bucket', 'window_label']);
         });
 
-        Schema::table('strategy_health', function (Blueprint $table) {
-            $table->index('status', 'idx_strategy_health_status');
+        // CHECK Constraints
+        DB::statement('ALTER TABLE leaderboard_cache ADD CONSTRAINT chk_leaderboard_single_row CHECK (id = 1)');
+
+        // Indexes
+        Schema::table('opportunities', function (Blueprint $table) {
+            $table->index(['agent_name', 'created_at']);
+            $table->index('status');
         });
 
-        Schema::table('strategy_health_events', function (Blueprint $table) {
-            $table->index(['agent_name', 'created_at'], 'idx_she_agent_time');
-        });
-
-        Schema::table('signal_features', function (Blueprint $table) {
-            $table->index(['agent_name', 'opportunity_timestamp'], 'idx_sf_agent_time');
-            $table->index(['symbol', 'opportunity_timestamp'], 'idx_sf_symbol_time');
-            $table->index(['signal', 'agent_name'], 'idx_sf_signal_agent');
-        });
-
-        Schema::table('tournament_audit_log', function (Blueprint $table) {
-            $table->index(['agent_name', 'timestamp'], 'idx_tournament_audit_agent');
+        Schema::table('tracked_positions', function (Blueprint $table) {
+            $table->index(['agent_name', 'status']);
+            $table->index('opportunity_id');
         });
 
         Schema::table('arb_spread_observations', function (Blueprint $table) {
@@ -731,17 +724,31 @@ return new class extends Migration
         });
 
         Schema::table('arb_trades', function (Blueprint $table) {
-            $table->index('state', 'idx_arb_trades_state');
+            $table->index('state');
         });
 
         Schema::table('arb_legs', function (Blueprint $table) {
-            $table->index('trade_id', 'idx_arb_legs_trade_id');
+            $table->index('trade_id');
+        });
+
+        Schema::table('agent_registry', function (Blueprint $table) {
+            $table->index('name');
+            $table->index('status');
+            $table->index('strategy');
+            $table->index('created_by');
+            $table->index('parent_name');
+        });
+
+        Schema::table('tournament_audit_log', function (Blueprint $table) {
+            $table->index(['agent_name', 'timestamp']);
         });
     }
 
     public function down(): void
     {
         // Drop tables in reverse order
+        Schema::dropIfExists('an');
+        Schema::dropIfExists('agent_registry');
         Schema::dropIfExists('arb_legs');
         Schema::dropIfExists('arb_trades');
         Schema::dropIfExists('arb_spread_observations');

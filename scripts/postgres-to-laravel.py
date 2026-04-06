@@ -42,9 +42,16 @@ def postgres_to_blueprint(ddl: str) -> str:
             result += f"            $table->id('{col_name}');\n"
             continue
 
+        # Handle TEXT PRIMARY KEY
+        if col_type == 'TEXT' and 'PRIMARY' in line and 'KEY' in line:
+            result += f"            $table->text('{col_name}')->primary();\n"
+            continue
+
         # Map Postgres types to Laravel
         if col_type == 'TEXT':
             chain = f"$table->text('{col_name}')"
+        elif col_type == 'TIMESTAMPTZ':
+            chain = f"$table->timestampTz('{col_name}')"
         elif col_type == 'INTEGER':
             chain = f"$table->integer('{col_name}')"
         elif col_type in ('DOUBLE', 'PRECISION'):
@@ -92,8 +99,8 @@ def main():
     with open('trading/storage/migrations.py', 'r') as f:
         content = f.read()
 
-    # Extract _STATEMENTS list
-    statements_match = re.search(r'_STATEMENTS:\s*list\[str\]\s*=\s*\[(.*?)\]', content, re.DOTALL)
+    # Extract _STATEMENTS list (greedy match to handle JSONB defaults with brackets)
+    statements_match = re.search(r'_STATEMENTS:\s*list\[str\]\s*=\s*\[(.*)\]', content, re.DOTALL)
     if not statements_match:
         print("ERROR: Could not find _STATEMENTS list", file=sys.stderr)
         sys.exit(1)
