@@ -14,6 +14,9 @@ class JWTValidator
 
     public function __construct(\Predis\Client|\Redis $redis, string $secret, string $algorithm = 'HS256')
     {
+        if (strlen($secret) < 32 || str_contains($secret, 'CHANGE_ME')) {
+            throw new \Exception('JWT_SECRET must be at least 32 characters long and not contain CHANGE_ME');
+        }
         $this->redis = $redis;
         $this->secret = $secret;
         $this->algorithm = $algorithm;

@@ -31,6 +31,8 @@ async def validate_token(
     Raises:
         TokenValidationError: if token invalid or revoked
     """
+    if jwt_secret and (len(jwt_secret) < 32 or "CHANGE_ME" in jwt_secret):
+        raise TokenValidationError("JWT_SECRET must be at least 32 characters long and not contain CHANGE_ME")
 
     # Try JWT validation (new tokens)
     if not token.startswith('amc_'):

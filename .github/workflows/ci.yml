@@ -180,4 +180,6 @@ jobs:
           pip install pytest-timeout
 
       - name: Run unit tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/trading
         run: python -m pytest tests/unit/ -x --timeout=60 -q

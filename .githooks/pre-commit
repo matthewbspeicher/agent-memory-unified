@@ -5,19 +5,10 @@ set -euo pipefail
 echo "🔧 Regenerating types from JSON Schemas..."
 
 # Check required tools
-if ! command -v datamodel-codegen &>/dev/null; then
-    echo "⚠️  datamodel-codegen not installed — skipping type generation"
-    echo "   Install: pip install datamodel-code-generator"
-    exit 0
-fi
+command -v datamodel-codegen >/dev/null 2>&1 || { echo "ERROR: datamodel-codegen not installed"; exit 1; }
+command -v quicktype >/dev/null 2>&1 || { echo "ERROR: quicktype not installed"; exit 1; }
 
-if ! command -v npx &>/dev/null; then
-    echo "⚠️  npx not available — skipping type generation"
-    exit 0
-fi
-
-# Run unified generator
-./scripts/sync-types.sh || { echo "❌ Type generation failed"; exit 1; }
+./scripts/generate-types.sh || { echo "ERROR: Type generation failed"; exit 1; }
 
 # Stage generated files
 git add shared/types/generated/
