@@ -1,44 +1,69 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import api from './api/client';
 
 export interface User {
   id: string;
-  email: string;
+  email?: string;
   name: string;
 }
 
+interface AuthState {
+  user: User | null;
+  isLoading: boolean;
+  isAuthenticated: boolean;
+}
+
 export function useAuth() {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [state, setState] = useState<AuthState>({
+    user: null,
+    isLoading: true,
+    isAuthenticated: false,
+  });
 
   useEffect(() => {
-    // Basic local check for token
     const token = localStorage.getItem('auth_token');
-    if (token) {
-      // In a real app, we'd verify the token or fetch the user profile
-      // Mocking user for now based on local storage
-      setUser({
-        id: '1',
-        email: 'agent@remembr.dev',
-        name: 'Primary Agent'
-      });
+    if (!token) {
+      setState({ user: null, isLoading: false, isAuthenticated: false });
+      return;
     }
-    setIsLoading(false);
+
+    api.get('/v1/agents/me')
+      .then((res) => {
+        setState({
+          user: res.data,
+          isLoading: false,
+          isAuthenticated: true,
+        });
+      })
+      .catch(() => {
+        localStorage.removeItem('auth_token');
+        setState({ user: null, isLoading: false, isAuthenticated: false });
+      });
   }, []);
 
-  const login = (token: string) => {
+  const login = useCallback((token: string) => {
     localStorage.setItem('auth_token', token);
-    setUser({
-      id: '1',
-      email: 'agent@remembr.dev',
-      name: 'Primary Agent'
-    });
-  };
+    setState((prev) => ({ ...prev, isLoading: true }));
+    api.get('/v1/agents/me')
+      .then((res) => {
+        setState({ user: res.data, isLoading: false, isAuthenticated: true });
+      })
+      .catch(() => {
+        localStorage.removeItem('auth_token');
+        setState({ user: null, isLoading: false, isAuthenticated: false });
+      });
+  }, []);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     localStorage.removeItem('auth_token');
-    setUser(null);
-    window.location.href = '/login';
-  };
+    setState({ user: null, isLoading: false, isAuthenticated: false });
+  }, []);
 
-  return { user, isLoading, login, logout };
+  return {
+    user: state.user,
+    isLoading: state.isLoading,
+    isAuthenticated: state.isAuthenticated,
+    login,
+    logout,
+  };
 }
