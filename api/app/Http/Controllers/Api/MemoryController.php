@@ -11,6 +11,8 @@ use App\Models\Memory;
 use App\Models\Workspace;
 use App\Models\WorkspaceEvent;
 use App\Services\AchievementService;
+use App\Http\Requests\StoreMemoryRequest;
+use App\Http\Requests\UpdateMemoryRequest;
 use App\Services\MemoryService;
 use App\Services\SummarizationService;
 use App\Traits\ResolvesAgent;
@@ -34,38 +36,30 @@ class MemoryController extends Controller
     // POST /v1/memories
     // -------------------------------------------------------------------------
 
-    public function store(Request $request): JsonResponse
+    public function store(StoreMemoryRequest $request): JsonResponse
     {
         $agent = $this->resolveAgent($request);
         if ($agent instanceof JsonResponse) {
             return $agent;
         }
 
-        $validated = $request->validate([
-            'agent_id' => ['sometimes', 'uuid'],
-            'key' => ['nullable', 'string', 'max:255'],
-            'value' => ['required', 'string', 'max:10000'],
-            'type' => ['sometimes', 'string', Rule::in(Memory::TYPES)],
-            'category' => ['nullable', 'string', 'max:100'],
-            'visibility' => ['nullable', 'in:private,shared,public,workspace'],
-            'workspace_id' => ['nullable', 'required_if:visibility,workspace', 'uuid', 'exists:workspaces,id'],
-            'metadata' => ['nullable', 'array'],
-            'importance' => ['nullable', 'integer', 'min:1', 'max:10'],
-            'confidence' => ['nullable', 'numeric', 'min:0', 'max:1'],
-            'expires_at' => ['nullable', 'date', 'after:now', 'prohibits:ttl'],
-            'ttl' => ['nullable', 'string', 'regex:/^\d+[hmd]$/', 'prohibits:expires_at'],
-            'tags' => ['nullable', 'array', 'max:10'],
-            'tags.*' => ['string', 'max:50'],
-            'relations' => ['nullable', 'array', 'max:50'],
-            'relations.*.id' => ['required', 'uuid',
-                function (string $attribute, mixed $value, Closure $fail) use ($agent) {
-                    if (! Memory::where('id', $value)->accessibleBy($agent)->exists()) {
-                        $fail('The referenced memory does not exist or is not accessible.');
-                    }
-                },
-            ],
-            'relations.*.type' => ['nullable', 'string', 'max:50'],
-        ]);
+        $validated = $request->validated();
+
+        // Relations need agent-scoped validation (can't go in FormRequest)
+        if ($request->has('relations')) {
+            $request->validate([
+                'relations' => ['nullable', 'array', 'max:50'],
+                'relations.*.id' => ['required', 'uuid',
+                    function (string $attribute, mixed $value, Closure $fail) use ($agent) {
+                        if (! Memory::where('id', $value)->accessibleBy($agent)->exists()) {
+                            $fail('The referenced memory does not exist or is not accessible.');
+                        }
+                    },
+                ],
+                'relations.*.type' => ['nullable', 'string', 'max:50'],
+            ]);
+            $validated['relations'] = $request->input('relations');
+        }
 
         // Check workspace membership if storing to a workspace
         if (($validated['visibility'] ?? null) === 'workspace' && ! empty($validated['workspace_id'])) {
@@ -154,7 +148,7 @@ class MemoryController extends Controller
     // PATCH /v1/memories/{key}
     // -------------------------------------------------------------------------
 
-    public function update(Request $request, string $key): JsonResponse
+    public function update(UpdateMemoryRequest $request, string $key): JsonResponse
     {
         $agent = $this->resolveAgent($request);
         if ($agent instanceof JsonResponse) {
@@ -167,29 +161,23 @@ class MemoryController extends Controller
             return response()->json(['error' => 'Memory not found.'], 404);
         }
 
-        $validated = $request->validate([
-            'value' => ['sometimes', 'string', 'max:10000'],
-            'type' => ['sometimes', 'string', Rule::in(Memory::TYPES)],
-            'category' => ['sometimes', 'nullable', 'string', 'max:100'],
-            'visibility' => ['sometimes', 'in:private,shared,public,workspace'],
-            'workspace_id' => ['sometimes', 'nullable', 'required_if:visibility,workspace', 'uuid', 'exists:workspaces,id'],
-            'metadata' => ['sometimes', 'array'],
-            'importance' => ['sometimes', 'integer', 'min:1', 'max:10'],
-            'confidence' => ['sometimes', 'numeric', 'min:0', 'max:1'],
-            'expires_at' => ['sometimes', 'nullable', 'date', 'after:now', 'prohibits:ttl'],
-            'ttl' => ['sometimes', 'nullable', 'string', 'regex:/^\d+[hmd]$/', 'prohibits:expires_at'],
-            'tags' => ['sometimes', 'array', 'max:10'],
-            'tags.*' => ['string', 'max:50'],
-            'relations' => ['sometimes', 'array', 'max:50'],
-            'relations.*.id' => ['required', 'uuid',
-                function (string $attribute, mixed $value, Closure $fail) use ($agent) {
-                    if (! Memory::where('id', $value)->accessibleBy($agent)->exists()) {
-                        $fail('The referenced memory does not exist or is not accessible.');
-                    }
-                },
-            ],
+        $validated = $request->validated();
+
+        // Relations need agent-scoped validation (can't go in FormRequest)
+        if ($request->has('relations')) {
+            $request->validate([
+                'relations' => ['sometimes', 'array', 'max:50'],
+                'relations.*.id' => ['required', 'uuid',
+                    function (string $attribute, mixed $value, Closure $fail) use ($agent) {
+                        if (! Memory::where('id', $value)->accessibleBy($agent)->exists()) {
+                            $fail('The referenced memory does not exist or is not accessible.');
+                        }
+                    },
+                ],
             'relations.*.type' => ['nullable', 'string', 'max:50'],
-        ]);
+            ]);
+            $validated['relations'] = $request->input('relations');
+        }
 
         // Check workspace membership if changing to a workspace
         if (($validated['visibility'] ?? null) === 'workspace' && isset($validated['workspace_id'])) {
