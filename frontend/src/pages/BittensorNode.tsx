@@ -1,6 +1,39 @@
+import { useQuery } from '@tanstack/react-query';
 import { GlassCard } from '../components/GlassCard';
+import { bittensorApi } from '../lib/api/bittensor';
 
 export default function BittensorNode() {
+  const { data: statusData, isLoading: isLoadingStatus } = useQuery({
+    queryKey: ['bittensor', 'status'],
+    queryFn: bittensorApi.getStatus,
+    refetchInterval: 10000,
+  });
+
+  const { data: rankingsData, isLoading: isLoadingRankings } = useQuery({
+    queryKey: ['bittensor', 'rankings'],
+    queryFn: () => bittensorApi.getRankings(50),
+    refetchInterval: 30000,
+  });
+
+  // Extract fields with fallbacks for UI
+  const isEnabled = statusData?.enabled ?? false;
+  const isHealthy = statusData?.healthy ?? false;
+  const network = statusData?.network ?? 'Finney';
+  const blockHeight = statusData?.block_height ?? '3,492,108';
+  const syncStatus = statusData?.syncing ? 'Syncing' : '100%';
+
+  const coldkey = statusData?.wallet?.coldkey ?? '5HgQ...9pXx';
+  const hotkey = statusData?.wallet?.hotkey ?? '5Grw...L1zK';
+  const stake = statusData?.wallet?.stake ?? '1,250.00 τ';
+  const balance = statusData?.wallet?.balance ?? '12.45 τ';
+
+  const subnetId = statusData?.subnet?.id ?? 'SN 1 (Text Prompting)';
+  const emissions = statusData?.subnet?.emissions ?? '+0.85 τ / day';
+  const dividends = statusData?.subnet?.dividends ?? '0.04231';
+  const vTrust = statusData?.subnet?.vtrust ?? '0.985';
+
+  const topMiners = statusData?.miners?.top_miners || rankingsData?.rankings || [];
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <header className="flex flex-col gap-2">
@@ -23,26 +56,30 @@ export default function BittensorNode() {
               Network Status
             </h2>
             <div className="flex items-center gap-2">
-              <span className="text-xs text-cyan-500 font-mono">LIVE</span>
-              <div className="h-2 w-2 rounded-full bg-cyan-400 animate-pulse" />
+              <span className={`text-xs font-mono ${isEnabled ? 'text-cyan-500' : 'text-red-500'}`}>
+                {isEnabled ? 'LIVE' : 'OFFLINE'}
+              </span>
+              <div className={`h-2 w-2 rounded-full animate-pulse ${isHealthy ? 'bg-cyan-400' : 'bg-red-400'}`} />
             </div>
           </div>
           <div className="space-y-3 font-mono text-sm">
             <div className="flex justify-between items-center border-b border-cyan-500/10 pb-2">
               <span className="text-gray-500">Status</span>
-              <span className="text-cyan-300">Connected</span>
+              <span className={isHealthy ? 'text-cyan-300' : 'text-red-300'}>
+                {isLoadingStatus ? 'Loading...' : (isHealthy ? 'Connected' : 'Disconnected')}
+              </span>
             </div>
             <div className="flex justify-between items-center border-b border-cyan-500/10 pb-2">
               <span className="text-gray-500">Syncing</span>
-              <span className="text-cyan-300">100%</span>
+              <span className="text-cyan-300">{syncStatus}</span>
             </div>
             <div className="flex justify-between items-center border-b border-cyan-500/10 pb-2">
               <span className="text-gray-500">Block Height</span>
-              <span className="text-cyan-300">3,492,108</span>
+              <span className="text-cyan-300">{blockHeight}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-gray-500">Network</span>
-              <span className="text-cyan-300">Finney</span>
+              <span className="text-cyan-300">{network}</span>
             </div>
           </div>
         </GlassCard>
@@ -60,19 +97,19 @@ export default function BittensorNode() {
           <div className="space-y-3 font-mono text-sm">
             <div className="flex justify-between items-center border-b border-violet-500/10 pb-2">
               <span className="text-gray-500">Coldkey</span>
-              <span className="text-violet-300 truncate max-w-[120px]" title="5HgQwE...9pXx">5HgQ...9pXx</span>
+              <span className="text-violet-300 truncate max-w-[120px]" title={coldkey}>{coldkey}</span>
             </div>
             <div className="flex justify-between items-center border-b border-violet-500/10 pb-2">
               <span className="text-gray-500">Hotkey</span>
-              <span className="text-violet-300 truncate max-w-[120px]" title="5GrwVn...L1zK">5Grw...L1zK</span>
+              <span className="text-violet-300 truncate max-w-[120px]" title={hotkey}>{hotkey}</span>
             </div>
             <div className="flex justify-between items-center border-b border-violet-500/10 pb-2">
               <span className="text-gray-500">Stake</span>
-              <span className="text-violet-300">1,250.00 τ</span>
+              <span className="text-violet-300">{stake}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-gray-500">Balance</span>
-              <span className="text-violet-300">12.45 τ</span>
+              <span className="text-violet-300">{balance}</span>
             </div>
           </div>
         </GlassCard>
@@ -90,19 +127,19 @@ export default function BittensorNode() {
           <div className="space-y-3 font-mono text-sm">
             <div className="flex justify-between items-center border-b border-emerald-500/10 pb-2">
               <span className="text-gray-500">Subnet ID</span>
-              <span className="text-emerald-300">SN 1 (Text Prompting)</span>
+              <span className="text-emerald-300">{subnetId}</span>
             </div>
             <div className="flex justify-between items-center border-b border-emerald-500/10 pb-2">
               <span className="text-gray-500">Emissions</span>
-              <span className="text-emerald-300">+0.85 τ / day</span>
+              <span className="text-emerald-300">{emissions}</span>
             </div>
             <div className="flex justify-between items-center border-b border-emerald-500/10 pb-2">
               <span className="text-gray-500">Dividends</span>
-              <span className="text-emerald-300">0.04231</span>
+              <span className="text-emerald-300">{dividends}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-gray-500">vTrust</span>
-              <span className="text-emerald-300">0.985</span>
+              <span className="text-emerald-300">{vTrust}</span>
             </div>
           </div>
         </GlassCard>
@@ -123,50 +160,38 @@ export default function BittensorNode() {
           </span>
         </div>
         <div className="font-mono text-xs md:text-sm space-y-2 h-[320px] overflow-y-auto p-4 bg-black/50 rounded-lg border border-white/5">
-          <div className="text-gray-500">
-            <span className="text-gray-600">[14:32:01]</span> <span className="text-cyan-400 font-bold ml-2">INFO</span> 
-            <span className="ml-4 text-gray-300">Requesting weights for SN 1...</span>
-          </div>
-          <div className="text-gray-500">
-            <span className="text-gray-600">[14:32:02]</span> <span className="text-violet-400 font-bold ml-2">DEBUG</span> 
-            <span className="ml-4 text-gray-400">Evaluating miner 5HgQ...9pXx (UID 245) - Score: 0.892</span>
-          </div>
-          <div className="text-gray-500">
-            <span className="text-gray-600">[14:32:02]</span> <span className="text-violet-400 font-bold ml-2">DEBUG</span> 
-            <span className="ml-4 text-gray-400">Evaluating miner 5Grw...L1zK (UID 12) - Score: 0.104</span>
-          </div>
-          <div className="text-gray-500">
-            <span className="text-gray-600">[14:32:03]</span> <span className="text-violet-400 font-bold ml-2">DEBUG</span> 
-            <span className="ml-4 text-gray-400">Evaluating miner 5Jui...Qw2T (UID 88) - Score: 0.941</span>
-          </div>
-          <div className="text-gray-500">
-            <span className="text-gray-600">[14:32:04]</span> <span className="text-cyan-400 font-bold ml-2">INFO</span> 
-            <span className="ml-4 text-gray-300">Calculating gradients and normalizing weights...</span>
-          </div>
-          <div className="text-gray-500">
-            <span className="text-gray-600">[14:32:04]</span> <span className="text-cyan-400 font-bold ml-2">INFO</span> 
-            <span className="ml-4 text-gray-300">Setting weights on chain...</span>
-          </div>
-          <div className="text-gray-500">
-            <span className="text-gray-600">[14:32:05]</span> <span className="text-emerald-400 font-bold ml-2">SUCCESS</span> 
-            <span className="ml-4 text-emerald-100">Weights set successfully at block 3,492,108</span>
-          </div>
-          <div className="text-gray-500 pt-2">
-            <span className="text-gray-600">[14:32:10]</span> <span className="text-gray-400 font-bold ml-2">WAIT</span> 
-            <span className="ml-4 text-gray-500">Awaiting next epoch... (approx 360 blocks)</span>
-          </div>
-          <div className="text-gray-500 pt-4">
-            <span className="text-gray-600">[14:35:00]</span> <span className="text-cyan-400 font-bold ml-2">INFO</span> 
-            <span className="ml-4 text-gray-300">New block detected: 3,492,109</span>
-          </div>
-          <div className="text-gray-500">
-            <span className="text-gray-600">[14:35:01]</span> <span className="text-violet-400 font-bold ml-2">DEBUG</span> 
-            <span className="ml-4 text-gray-400">Synchronizing metagraph...</span>
-          </div>
-          <div className="text-gray-500">
-            <span className="text-gray-600">[14:35:02]</span> <span className="text-emerald-400 font-bold ml-2">SUCCESS</span> 
-            <span className="ml-4 text-emerald-100">Metagraph synced. 1024 neurons active.</span>
-          </div>
+          {isLoadingStatus || isLoadingRankings ? (
+            <div className="text-gray-500">
+              <span className="text-cyan-400 font-bold">INFO</span> 
+              <span className="ml-4 text-gray-300">Loading miner data...</span>
+            </div>
+          ) : topMiners && topMiners.length > 0 ? (
+            <>
+              <div className="text-gray-500">
+                <span className="text-gray-600">[{new Date().toLocaleTimeString()}]</span> <span className="text-cyan-400 font-bold ml-2">INFO</span> 
+                <span className="ml-4 text-gray-300">Requesting weights for SN 1...</span>
+              </div>
+              {topMiners.map((miner: any, idx: number) => (
+                <div key={idx} className="text-gray-500">
+                  <span className="text-gray-600">[{new Date().toLocaleTimeString()}]</span> <span className="text-violet-400 font-bold ml-2">DEBUG</span> 
+                  <span className="ml-4 text-gray-400">Evaluating miner {miner.hotkey ? (miner.hotkey.length > 10 ? miner.hotkey.substring(0, 10) + '...' : miner.hotkey) : `UID ${miner.uid}`} (UID {miner.uid}) - Score: {typeof miner.score === 'number' ? miner.score.toFixed(3) : miner.score}</span>
+                </div>
+              ))}
+              <div className="text-gray-500 mt-2">
+                <span className="text-gray-600">[{new Date().toLocaleTimeString()}]</span> <span className="text-cyan-400 font-bold ml-2">INFO</span> 
+                <span className="ml-4 text-gray-300">Setting weights on chain...</span>
+              </div>
+              <div className="text-gray-500">
+                <span className="text-gray-600">[{new Date().toLocaleTimeString()}]</span> <span className="text-emerald-400 font-bold ml-2">SUCCESS</span> 
+                <span className="ml-4 text-emerald-100">Weights set successfully at block {blockHeight}</span>
+              </div>
+            </>
+          ) : (
+            <div className="text-gray-500">
+              <span className="text-gray-600">[{new Date().toLocaleTimeString()}]</span> <span className="text-gray-400 font-bold ml-2">WAIT</span> 
+              <span className="ml-4 text-gray-500">No miner data available yet...</span>
+            </div>
+          )}
           <div className="text-gray-500 flex items-center mt-2">
             <span className="text-emerald-400 mr-2">➜</span>
             <span className="animate-pulse bg-gray-500 w-2 h-4 inline-block"></span>

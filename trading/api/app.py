@@ -733,6 +733,7 @@ async def _start_redis_streams_consumer(
     config: Config,
     task_mgr,
     logger: logging.Logger,
+    llm_client,
 ):
     from events.consumer_streams import StreamsEventConsumer
     import redis.asyncio as aioredis
@@ -745,7 +746,11 @@ async def _start_redis_streams_consumer(
         stream="events",
         group="trading-service",
         consumer_name="worker-1",
+        event_bus=getattr(app.state, "event_bus", None),
     )
+
+    from integrations.memory.consolidator import MemoryConsolidator
+    consolidator = MemoryConsolidator(llm_client=llm_client, redis_client=redis_client)
 
     async def handle_trade_opened(data: dict):
         logger.info("TradeOpened event: %s", data)
@@ -753,8 +758,12 @@ async def _start_redis_streams_consumer(
     async def handle_trade_closed(data: dict):
         logger.info("TradeClosed event: %s", data)
 
+    async def handle_memory_consolidation_requested(data: dict):
+        await consolidator.consolidate(data)
+
     consumer.register("TradeOpened", handle_trade_opened)
     consumer.register("TradeClosed", handle_trade_closed)
+    consumer.register("memory.consolidation.requested", handle_memory_consolidation_requested)
 
     task_mgr.create_task(consumer.start(), name="redis_streams_consumer")
     app.state.streams_consumer = consumer
@@ -1636,6 +1645,7 @@ async def lifespan(app: FastAPI):
         config=config,
         task_mgr=task_mgr,
         logger=_log,
+        llm_client=llm_client,
     )
 
     yield

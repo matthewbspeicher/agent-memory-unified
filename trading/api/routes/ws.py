@@ -17,6 +17,20 @@ class CustomJSONEncoder(json.JSONEncoder):
             return str(obj)
 
 
+@router.websocket("/public")
+async def public_websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    
+    # We can just start sending events
+    event_bus = get_event_bus()
+    try:
+        async for event in event_bus.subscribe():
+            # Only broadcast public events if needed, or all for now
+            payload = json.dumps(event, cls=CustomJSONEncoder)
+            await websocket.send_text(payload)
+    except WebSocketDisconnect:
+        pass
+
 @router.websocket("")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()

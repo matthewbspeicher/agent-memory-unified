@@ -33,12 +33,14 @@ class StreamsEventConsumer:
         group: str = "trading-service",
         consumer_name: str = "worker-1",
         max_retries: int = 3,
+        event_bus=None,
     ):
         self.redis = redis
         self.stream = stream
         self.group = group
         self.consumer_name = consumer_name
         self.max_retries = max_retries
+        self.event_bus = event_bus
         self.handlers: Dict[str, Callable] = {}
         self._running = False
 
@@ -112,6 +114,10 @@ class StreamsEventConsumer:
                 await handler(event_data)
             else:
                 logger.debug(f"No handler for event type: {event_type}")
+
+            # Re-emit on local EventBus for WebSocket streaming
+            if self.event_bus:
+                self.event_bus.publish(event_type, event_data)
 
             # ACK message on success
             await self.redis.xack(self.stream, self.group, msg_id)

@@ -6,7 +6,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:chaos": "playwright test tests/e2e/chaos.spec.ts"
   },
   "dependencies": {
     "react": "^19.0.0",

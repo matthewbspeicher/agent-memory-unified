@@ -16,17 +16,16 @@ test.describe('Authentication Flow', () => {
 
   test('should show error on invalid login', async ({ page }) => {
     // Mock the API failure
-    await page.route('**/api/v1/auth/jwt', async route => {
+    await page.route('**/api/v1/agents/me', async route => {
       await route.fulfill({
         status: 401,
         contentType: 'application/json',
-        body: JSON.stringify({ message: 'Invalid credentials' }),
+        body: JSON.stringify({ message: 'Invalid token' }),
       });
     });
 
     await page.goto('/login');
-    await page.fill('input[type="email"]', 'wrong@example.com');
-    await page.fill('input[type="password"]', 'wrongpassword');
+    await page.fill('input[type="password"]', 'wrongtoken');
     await page.click('button[type="submit"]');
     
     // Check for error message (assuming we have one in Login.tsx)

@@ -94,6 +94,9 @@ class ConsumeTradingEvents extends Command
                     } catch (\Exception $e) {
                         $this->error("DB Error processing event: " . $e->getMessage());
                     }
+                } elseif ($event['type'] === 'memory.consolidation.completed') {
+                    $this->info("Processing memory.consolidation.completed");
+                    \App\Events\MemoryConsolidationCompleted::dispatch($event['payload']);
                 }
 
                 $redis->xAck($stream, $group, [$messageId]);

@@ -43,6 +43,12 @@ class AppServiceProvider extends ServiceProvider
         // Phase 4: Token revocation on agent deactivation
         Event::listen(\App\Events\AgentDeactivated::class, \App\Listeners\RevokeAgentTokens::class);
 
+        // Memory Consolidation
+        Event::listen(
+            \App\Events\MemoryConsolidationCompleted::class,
+            \App\Listeners\ConsolidateMemoriesListener::class,
+        );
+
         Auth::viaRequest('agent-token', function (Request $request) {
             $token = $request->bearerToken();
 
