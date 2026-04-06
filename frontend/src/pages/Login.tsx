@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { GlassCard } from '../components/GlassCard';
 
 export default function Login() {
   const [token, setToken] = useState('');
@@ -36,137 +37,148 @@ export default function Login() {
         const msg = data.errors?.invite_code?.[0]
           || data.errors?.email?.[0]
           || data.message
-          || 'Something went wrong';
+          || 'SYSTEM_ERROR: INVALID_PARAMETERS';
         setStatus({ type: 'error', message: msg });
         return;
       }
 
-      setStatus({ type: 'success', message: 'Check your email for a magic link!' });
+      setStatus({ type: 'success', message: 'UPLINK_ESTABLISHED: CHECK_EMAIL_FOR_MAGIC_LINK' });
     } catch {
-      setStatus({ type: 'error', message: 'Network error. Try again.' });
+      setStatus({ type: 'error', message: 'NETWORK_ERROR: UPLINK_FAILED' });
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="bg-gray-800 border border-gray-700 rounded-lg p-8 max-w-md mx-auto">
-      {/* Mode tabs */}
-      <div className="flex mb-6 border-b border-gray-700">
-        <button
-          onClick={() => { setMode('token'); setStatus(null); }}
-          className={`flex-1 pb-3 text-sm font-medium transition ${
-            mode === 'token'
-              ? 'text-white border-b-2 border-blue-500'
-              : 'text-gray-400 hover:text-gray-300'
-          }`}
-        >
-          Agent Login
-        </button>
-        <button
-          onClick={() => { setMode('invite'); setStatus(null); }}
-          className={`flex-1 pb-3 text-sm font-medium transition ${
-            mode === 'invite'
-              ? 'text-white border-b-2 border-blue-500'
-              : 'text-gray-400 hover:text-gray-300'
-          }`}
-        >
-          Join with Invite
-        </button>
-      </div>
+    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 font-mono relative overflow-hidden">
+      {/* Background decoration */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-cyan-900/20 blur-[120px] rounded-full pointer-events-none" />
 
-      {mode === 'token' ? (
-        <>
-          <h2 className="text-2xl font-bold text-white mb-6">Login</h2>
-          <form onSubmit={handleTokenLogin}>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                API Token
-              </label>
-              <input
-                type="password"
-                value={token}
-                onChange={(e) => setToken(e.target.value)}
-                placeholder="amc_..."
-                className="w-full px-4 py-2 bg-gray-900 border border-gray-700 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
+      <GlassCard variant="cyan" className="w-full max-w-md !p-0 z-10 shadow-[0_0_30px_rgba(34,211,238,0.15)]">
+        {/* Terminal Header */}
+        <div className="bg-slate-950/80 px-4 py-3 border-b border-cyan-900/50 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></span>
+            <span className="text-xs text-cyan-500 tracking-widest font-bold">AUTH_TERMINAL_V1.0</span>
+          </div>
+        </div>
+
+        <div className="p-8">
+          {/* Mode tabs */}
+          <div className="flex mb-8 border-b border-slate-800">
             <button
-              type="submit"
-              disabled={!token}
-              className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={() => { setMode('token'); setStatus(null); }}
+              className={`flex-1 pb-3 text-sm font-bold tracking-widest uppercase transition-all ${
+                mode === 'token'
+                  ? 'text-cyan-400 border-b-2 border-cyan-400 shadow-[0_4px_10px_-2px_rgba(34,211,238,0.3)]'
+                  : 'text-slate-500 hover:text-slate-400'
+              }`}
             >
-              Login
+              Agent_Login
             </button>
-          </form>
-          <p className="mt-4 text-sm text-gray-400 text-center">
-            Enter your agent token to access the dashboard
-          </p>
-        </>
-      ) : (
-        <>
-          <h2 className="text-2xl font-bold text-white mb-6">Join with Invite</h2>
-          <form onSubmit={handleInviteSignup}>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Invite Code
-              </label>
-              <input
-                type="text"
-                value={inviteCode}
-                onChange={(e) => setInviteCode(e.target.value)}
-                placeholder="inv_..."
-                className="w-full px-4 py-2 bg-gray-900 border border-gray-700 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Name
-              </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Your name"
-                className="w-full px-4 py-2 bg-gray-900 border border-gray-700 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Email
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                className="w-full px-4 py-2 bg-gray-900 border border-gray-700 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
+            <button
+              onClick={() => { setMode('invite'); setStatus(null); }}
+              className={`flex-1 pb-3 text-sm font-bold tracking-widest uppercase transition-all ${
+                mode === 'invite'
+                  ? 'text-cyan-400 border-b-2 border-cyan-400 shadow-[0_4px_10px_-2px_rgba(34,211,238,0.3)]'
+                  : 'text-slate-500 hover:text-slate-400'
+              }`}
+            >
+              Request_Access
+            </button>
+          </div>
 
-            {status && (
-              <div className={`mb-4 p-3 rounded text-sm ${
-                status.type === 'error'
-                  ? 'bg-red-500/10 border border-red-500/20 text-red-400'
-                  : 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
-              }`}>
-                {status.message}
+          {mode === 'token' ? (
+            <form onSubmit={handleTokenLogin}>
+              <div className="mb-6">
+                <label className="block text-xs font-bold text-cyan-500 mb-2 uppercase tracking-widest">
+                  &gt; API_TOKEN_INPUT
+                </label>
+                <input
+                  type="password"
+                  value={token}
+                  onChange={(e) => setToken(e.target.value)}
+                  placeholder="amc_..."
+                  className="w-full px-4 py-3 bg-slate-950 border border-cyan-900 rounded text-cyan-300 placeholder-slate-700 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all font-mono"
+                  autoComplete="off"
+                  spellCheck="false"
+                />
               </div>
-            )}
+              <button
+                type="submit"
+                disabled={!token}
+                className="w-full px-4 py-3 bg-cyan-500/10 border border-cyan-500/50 text-cyan-400 font-bold rounded hover:bg-cyan-500/20 hover:shadow-[0_0_15px_rgba(34,211,238,0.4)] disabled:opacity-50 disabled:cursor-not-allowed transition-all uppercase tracking-widest"
+              >
+                Execute_Login
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleInviteSignup}>
+              <div className="mb-4">
+                <label className="block text-xs font-bold text-cyan-500 mb-2 uppercase tracking-widest">
+                  &gt; INVITE_CODE
+                </label>
+                <input
+                  type="text"
+                  value={inviteCode}
+                  onChange={(e) => setInviteCode(e.target.value)}
+                  placeholder="inv_..."
+                  className="w-full px-4 py-3 bg-slate-950 border border-cyan-900 rounded text-cyan-300 placeholder-slate-700 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all font-mono"
+                  autoComplete="off"
+                  spellCheck="false"
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-xs font-bold text-cyan-500 mb-2 uppercase tracking-widest">
+                  &gt; IDENTIFIER
+                </label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Operative Name"
+                  className="w-full px-4 py-3 bg-slate-950 border border-cyan-900 rounded text-cyan-300 placeholder-slate-700 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all font-mono"
+                  autoComplete="off"
+                  spellCheck="false"
+                />
+              </div>
+              <div className="mb-6">
+                <label className="block text-xs font-bold text-cyan-500 mb-2 uppercase tracking-widest">
+                  &gt; COMM_LINK (EMAIL)
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@grid.net"
+                  className="w-full px-4 py-3 bg-slate-950 border border-cyan-900 rounded text-cyan-300 placeholder-slate-700 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all font-mono"
+                  autoComplete="off"
+                  spellCheck="false"
+                />
+              </div>
 
-            <button
-              type="submit"
-              disabled={!inviteCode || !name || !email || loading}
-              className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? 'Sending...' : 'Request Magic Link'}
-            </button>
-          </form>
-          <p className="mt-4 text-sm text-gray-400 text-center">
-            Need an invite? Contact the project maintainer.
-          </p>
-        </>
-      )}
+              {status && (
+                <div className={`mb-6 p-4 rounded text-xs font-bold uppercase tracking-wider border ${
+                  status.type === 'error'
+                    ? 'bg-rose-500/10 border-rose-500/50 text-rose-400 shadow-[0_0_10px_rgba(244,63,94,0.2)]'
+                    : 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.2)]'
+                }`}>
+                  [ {status.message} ]
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={!inviteCode || !name || !email || loading}
+                className="w-full px-4 py-3 bg-cyan-500/10 border border-cyan-500/50 text-cyan-400 font-bold rounded hover:bg-cyan-500/20 hover:shadow-[0_0_15px_rgba(34,211,238,0.4)] disabled:opacity-50 disabled:cursor-not-allowed transition-all uppercase tracking-widest"
+              >
+                {loading ? 'Transmitting...' : 'Initialize_Uplink'}
+              </button>
+            </form>
+          )}
+        </div>
+      </GlassCard>
     </div>
   );
 }
