@@ -69,7 +69,6 @@ async def lifespan(app: FastAPI):
     if enabled:
         import logging
         import pathlib
-        from pydantic import ValidationError
         from utils.config_loader import ConfigLoader
 
         _log = logging.getLogger(__name__)
@@ -79,60 +78,15 @@ async def lifespan(app: FastAPI):
         config_loader = ConfigLoader(app_root=_app_root)
 
         # --- Fail-fast config validation (before DB init or broker connect) ---
-        try:
-            from risk.config import RiskConfigSchema
-            from agents.config import AgentsFileSchema, _ensure_strategies_registered
-            from learning.config import LearningConfig
+        from api.startup.config_validation import validate_configs
 
-            # 1. Resolve and load Risk Config
-            _risk_path_str = config_loader.resolve("risk.yaml")
-            _risk_data = config_loader.load_yaml("risk.yaml")
-
-            if _risk_data:
-                RiskConfigSchema(**_risk_data.get("risk", _risk_data))
-            else:
-                _log.warning(
-                    "Config validation: risk.yaml not found, skipping validation"
-                )
-
-            # 2. Resolve and load Agents Config
-            if config.agents_config:
-                _agents_yaml_name = config.agents_config
-            elif config.paper_trading:
-                _agents_yaml_name = "agents.paper.yaml"
-            else:
-                _agents_yaml_name = "agents.yaml"
-
-            _agents_path_str = config_loader.resolve(_agents_yaml_name)
-            _agents_data = config_loader.load_yaml(_agents_yaml_name)
-
-            if _agents_data:
-                _ensure_strategies_registered()
-                AgentsFileSchema(agents=_agents_data.get("agents", []))
-            else:
-                _log.warning(
-                    "Config validation: agents config not found, skipping validation"
-                )
-
-            # 3. Resolve and load Learning Config
-            _learning_path_str = config_loader.resolve("learning.yaml")
-            _learning_data = config_loader.load_yaml("learning.yaml")
-
-            if _learning_data:
-                _learning_cfg = LearningConfig(**_learning_data)
-            else:
-                _log.warning(
-                    "Config validation: learning.yaml not found, using empty config"
-                )
-                _learning_cfg = LearningConfig(
-                    memory={"enabled": False}, strategy_health={"enabled": False}
-                )
-        except ValidationError as exc:
-            _log.critical("Config validation failed: %s", exc.errors())
-            raise
-        except Exception as exc:
-            _log.critical("Config file error: %s", exc)
-            raise
+        _validated = await validate_configs(config, config_loader)
+        _learning_cfg = _validated.learning_cfg
+        _learning_data = _validated.learning_data
+        _risk_path_str = _validated.risk_path_str
+        _risk_data = _validated.risk_data
+        _agents_data = _validated.agents_data
+        _agents_path_str = _validated.agents_path_str
         # --- End config validation ---
 
         from data.bus import DataBus
@@ -157,35 +111,10 @@ async def lifespan(app: FastAPI):
         set_event_bus(event_bus)
         app.state.event_bus = event_bus
 
-        # --- Redis Connection (for hybrid authentication and caching) ---
-        if config.redis_url:
-            try:
-                from redis.asyncio import from_url as redis_from_url
-                redis = await redis_from_url(config.redis_url, decode_responses=True)
-                app.state.redis = redis
-                _log.info("Redis connected for authentication")
-            except ImportError:
-                _log.warning("redis-py not installed — authentication will fail")
-            except Exception as redis_exc:
-                _log.warning("Redis connection failed: %s", redis_exc)
+        # --- Redis Connection + Signal Bridge ---
+        from api.startup.redis import setup_redis
 
-        # --- Redis Signal Bridge (Track 20) ---
-        if config.redis_url:
-            try:
-                from data.redis_bridge import RedisSignalBridge
-
-                node_id = "oracle" if config.worker_mode else "primary"
-                redis_bridge = RedisSignalBridge(
-                    event_bus=event_bus, redis_url=config.redis_url, node_id=node_id
-                )
-                await redis_bridge.start()
-                app.state.redis_bridge = redis_bridge
-            except ImportError:
-                _log.warning(
-                    "redis-py not installed — distributed signal bridge disabled"
-                )
-            except Exception as rb_exc:
-                _log.warning("RedisSignalBridge startup failed: %s", rb_exc)
+        await setup_redis(config=config, event_bus=event_bus, app_state=app.state)
 
         db = await create_db(config)
         app.state.db = db
