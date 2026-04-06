@@ -1,6 +1,6 @@
 # Railway Deployment Status
 
-**Last Updated:** 2026-04-06 00:30 EDT
+**Last Updated:** 2026-04-06 00:48 EDT
 
 ## ✅ Completed
 
@@ -12,24 +12,36 @@
 - ✅ Removed root `pyproject.toml` (was causing Python detection for all services)
 - ✅ Fixed api dockerfile path in railway.json
 
-### 2. Git Commit & Push
-- ✅ Committed all Dockerfile changes with clear message
-- ✅ Pushed to GitHub main branch (commit 918a166)
-- ✅ Pre-commit hook regenerated types successfully
+### 2. Fixed Trading Service Crash
+- ✅ Identified issue: uvicorn looking for `api.app:app` but app is in factory pattern
+- ✅ Corrected to use `main:app` (main.py has module-level app instance)
+- ✅ Updated both railway.json startCommand and Dockerfile.trading CMD
 
-### 3. Railway Deployments Triggered
-- ✅ Manually triggered deployment for API service
-- ✅ Manually triggered deployment for Trading service
-- ✅ Manually triggered deployment for Frontend service
+### 3. Git Commits & Pushes
+- ✅ Commit 918a166: Initial Dockerfile migration
+- ✅ Commit 8335c61: Fixed trading uvicorn entry point
+- ✅ Pre-commit hooks regenerated types successfully
+
+### 4. Railway Deployments Triggered
+- ✅ All 3 services triggered with corrected configuration
+- ✅ Using Dockerfiles (not nixpacks)
+- ✅ Using correct entry points and paths
 
 ## 🔄 In Progress
 
-### Current Deployment Status
-- **API**: Building (da4962b9-913d-4861-9467-e951b0ccf2e2)
-- **Trading**: Queued (334af86f-f06e-4727-96b8-a193bb0b2e5f)
-- **Frontend**: Building (08cfa829-fee8-45f3-a8cc-8efd2a1af606)
+### Current Deployment Status (as of 00:48 EDT)
+All 3 services are currently BUILDING with latest fixes:
+- **Trading**: 76d97b13-de51-49b1-af88-77f347614d98 (BUILDING - with uvicorn fix)
+- **API/Frontend**: 41cdc68e, b94c7548 (BUILDING)
 
-Note: Trading build will take 15+ minutes due to ML dependencies (torch, torchvision, hnswlib)
+Previous deployments that crashed/failed have been removed or superseded.
+
+**Note:** Trading build takes 15+ minutes due to ML dependencies (torch, torchvision, hnswlib, sentence-transformers)
+
+### Issues Fixed Since Initial Push
+1. ❌ Initial crash: "Attribute 'app' not found in module 'api.app'"
+   - ✅ **Fixed:** Changed uvicorn command from `api.app:app` to `main:app`
+   - Deployed in commit 8335c61
 
 ## ⏳ TODO - After Successful Deploy
 
