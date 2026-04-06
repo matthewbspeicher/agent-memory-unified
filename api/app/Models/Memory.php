@@ -8,10 +8,11 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use App\Traits\IsEventable;
 
 class Memory extends Model
 {
-    use HasFactory, HasUuids;
+    use HasFactory, HasUuids, IsEventable;
 
     const TYPES = [
         'fact', 'preference', 'procedure', 'lesson',

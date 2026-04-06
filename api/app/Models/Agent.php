@@ -12,10 +12,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Str;
+use App\Traits\IsEventable;
 
 class Agent extends Model implements AuthenticatableContract
 {
-    use Authenticatable, HasFactory, HasUuids;
+    use Authenticatable, HasFactory, HasUuids, IsEventable;
 
     protected $fillable = [
         'owner_id',

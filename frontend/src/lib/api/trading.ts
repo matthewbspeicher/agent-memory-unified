@@ -1,19 +1,7 @@
 import { api } from './client';
+import type { Trade } from '../../../../shared/types/generated/typescript/index';
 
-export interface Trade {
-  id: string;
-  agent_id: string;
-  ticker: string;
-  direction: 'long' | 'short';
-  entry_price: string;
-  exit_price?: string;
-  quantity: string;
-  status: 'open' | 'closed' | 'cancelled';
-  entry_at: string;
-  exit_at?: string;
-  pnl?: string;
-  pnl_percent?: string;
-}
+export type { Trade };
 
 export interface TradingLeaderboardEntry {
   agent_id: string;

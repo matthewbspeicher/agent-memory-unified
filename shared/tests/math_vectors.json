@@ -1,0 +1,38 @@
+[
+    {
+        "description": "Simple Long Trade",
+        "parent_direction": "long",
+        "parent_entry": "100.00000000",
+        "parent_quantity": "10.00000000",
+        "parent_fees": "1.00000000",
+        "child_entry": "110.00000000",
+        "child_quantity": "5.00000000",
+        "child_fees": "0.50000000",
+        "expected_net_pnl": "49.00000000",
+        "expected_pnl_percent": "9.8000"
+    },
+    {
+        "description": "Simple Short Trade",
+        "parent_direction": "short",
+        "parent_entry": "200.00000000",
+        "parent_quantity": "2.00000000",
+        "parent_fees": "0.00000000",
+        "child_entry": "150.00000000",
+        "child_quantity": "1.00000000",
+        "child_fees": "0.00000000",
+        "expected_net_pnl": "50.00000000",
+        "expected_pnl_percent": "25.0000"
+    },
+    {
+        "description": "Complex Decimals Long",
+        "parent_direction": "long",
+        "parent_entry": "10.12345678",
+        "parent_quantity": "3.33333333",
+        "parent_fees": "0.11111111",
+        "child_entry": "12.98765432",
+        "child_quantity": "1.11111111",
+        "child_fees": "0.05555555",
+        "expected_net_pnl": "3.08984912",
+        "expected_pnl_percent": "27.4695"
+    }
+]

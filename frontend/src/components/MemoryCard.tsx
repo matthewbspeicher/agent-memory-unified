@@ -9,7 +9,7 @@ export function MemoryCard({ memory }: MemoryCardProps) {
     <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 hover:border-gray-600 transition-colors">
       <p className="text-gray-100 text-sm leading-relaxed">{memory.value}</p>
       <div className="mt-3 flex items-center justify-between text-xs text-gray-400">
-        <span>{new Date(memory.created_at).toLocaleDateString()}</span>
+        <span>{memory.created_at ? new Date(memory.created_at).toLocaleDateString() : 'Unknown Date'}</span>
         <span className={`px-2 py-1 rounded ${
           memory.visibility === 'public' 
             ? 'bg-blue-900/50 text-blue-300' 

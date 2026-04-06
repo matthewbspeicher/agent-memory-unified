@@ -1,187 +1,200 @@
-export interface AgentSchema {
-    schema:               string;
-    id:                   string;
-    type:                 string;
-    title:                string;
-    description:          string;
-    properties:           AgentSchemaProperties;
-    required:             string[];
-    additionalProperties: boolean;
+/**
+ * AI agent with authentication and permissions
+ */
+export interface Agent {
+    created_at?: Date;
+    /**
+     * Unique agent identifier
+     */
+    id: string;
+    /**
+     * Whether agent can make API calls
+     */
+    is_active: boolean;
+    /**
+     * Agent display name
+     */
+    name: string;
+    /**
+     * User who owns this agent
+     */
+    owner_id: string;
+    /**
+     * Permitted operations (memories:write, trading:execute)
+     */
+    scopes?: string[];
+    /**
+     * SHA256 hash of agent token (amc_*)
+     */
+    token_hash?: string;
+    updated_at?: Date;
 }
 
-export interface AgentSchemaProperties {
-    id:        ID;
-    name:      Name;
-    tokenHash: Name;
-    isActive:  IsActive;
-    scopes:    Scopes;
-    createdAt: CreatedAt;
-    updatedAt: CreatedAt;
-}
-
-export interface CreatedAt {
-    type:   Type;
-    format: Format;
-}
-
-export enum Format {
-    DateTime = "date-time",
-    UUID = "uuid",
-}
-
-export enum Type {
-    String = "string",
-}
-
-export interface ID {
-    type:        Type;
-    format:      Format;
-    description: string;
-}
-
-export interface IsActive {
-    type:        string;
-    description: string;
-}
-
-export interface Name {
-    type:        Type;
-    maxLength:   number;
-    description: string;
-}
-
-export interface Scopes {
-    type:        string;
-    items:       ExitPrice;
-    description: string;
-}
-
-export interface ExitPrice {
-    type: string;
-}
-
-export interface EventSchema {
-    schema:               string;
-    id:                   string;
-    type:                 string;
-    title:                string;
-    description:          string;
-    properties:           EventSchemaProperties;
-    required:             string[];
-    additionalProperties: boolean;
-}
-
-export interface EventSchemaProperties {
-    id:        IsActive;
-    type:      IsActive;
-    version:   Version;
-    timestamp: CreatedAt;
+/**
+ * Base event structure for Redis Streams
+ */
+export interface Event {
+    /**
+     * Event ID (UUID)
+     */
+    id:        string;
+    metadata?: Metadata;
+    /**
+     * Event-specific data
+     */
+    payload: { [key: string]: any };
+    /**
+     * Source service ('api', 'trading')
+     */
     source:    Source;
-    payload:   IsActive;
-    metadata:  Metadata;
+    timestamp: Date;
+    /**
+     * Event type (trade.opened, memory.created, etc.)
+     */
+    type: string;
+    /**
+     * Event schema version (e.g., '1.0')
+     */
+    version: string;
 }
 
 export interface Metadata {
-    type:       string;
-    properties: MetadataProperties;
+    /**
+     * Parent event ID that caused this
+     */
+    causation_id?: string;
+    /**
+     * Request trace ID
+     */
+    correlation_id?: string;
+    [property: string]: any;
 }
 
-export interface MetadataProperties {
-    correlationID: IsActive;
-    causationID:   IsActive;
+/**
+ * Source service ('api', 'trading')
+ */
+export enum Source {
+    API = "api",
+    Trading = "trading",
 }
 
-export interface Source {
-    type:        Type;
-    enum:        string[];
-    description: string;
-}
-
-export interface Version {
-    type:        Type;
-    default:     string;
-    description: string;
-}
-
-export interface MemorySchema {
-    schema:               string;
-    id:                   string;
-    type:                 string;
-    title:                string;
-    description:          string;
-    properties:           MemorySchemaProperties;
-    required:             string[];
-    additionalProperties: boolean;
-}
-
-export interface MemorySchemaProperties {
-    id:         CreatedAt;
-    agentID:    CreatedAt;
-    value:      IsActive;
-    type:       Source;
-    summary:    Name;
-    tags:       Tags;
+/**
+ * Knowledge record stored by an agent
+ */
+export interface Memory {
+    agent_id:    string;
+    created_at?: Date;
+    /**
+     * 1536-dim vector (optional in DTOs)
+     */
+    embedding?:  number[];
+    id:          string;
+    importance?: number;
+    /**
+     * Short summary for quick scanning
+     */
+    summary?: string;
+    tags?:    string[];
+    /**
+     * Memory classification
+     */
+    type?: Type;
+    /**
+     * Memory content
+     */
+    value:      string;
     visibility: Visibility;
-    importance: Importance;
-    createdAt:  CreatedAt;
 }
 
-export interface Importance {
-    type:    string;
-    minimum: number;
-    maximum: number;
-    default: number;
+/**
+ * Memory classification
+ */
+export enum Type {
+    Fact = "fact",
+    Lesson = "lesson",
+    Note = "note",
+    Preference = "preference",
+    Procedure = "procedure",
 }
 
-export interface Tags {
-    type:  string;
-    items: ExitPrice;
+export enum Visibility {
+    Private = "private",
+    Public = "public",
 }
 
-export interface Visibility {
-    type:    Type;
-    enum:    string[];
-    default: string;
+/**
+ * Simplified trade DTO for API responses (subset of tracked_positions table)
+ */
+export interface Trade {
+    /**
+     * Agent UUID (internal reference)
+     */
+    agent_id?: string;
+    /**
+     * Display name of agent that created trade
+     */
+    agent_name: string;
+    /**
+     * Memory explaining why trade was taken
+     */
+    decision_memory_id?: null | string;
+    /**
+     * Stored as TEXT in DB for precision
+     */
+    entry_price: string;
+    /**
+     * Number of shares/contracts
+     */
+    entry_quantity: number;
+    entry_time:     Date;
+    /**
+     * Exit price (TEXT for precision)
+     */
+    exit_price?: null | string;
+    exit_time?:  Date | null;
+    /**
+     * Trade ID (SERIAL in Postgres)
+     */
+    id: number;
+    /**
+     * Additional strategy-specific data
+     */
+    metadata?: { [key: string]: any };
+    /**
+     * Memory analyzing trade result
+     */
+    outcome_memory_id?: null | string;
+    /**
+     * Paper trading vs real money
+     */
+    paper?: boolean;
+    /**
+     * Profit/loss in dollars
+     */
+    pnl?: number | null;
+    /**
+     * Profit/loss as percentage
+     */
+    pnl_percent?: number | null;
+    side:         Side;
+    status:       Status;
+    /**
+     * Strategy that generated this trade
+     */
+    strategy?: string;
+    /**
+     * Trading symbol (AAPL, BTC, etc.)
+     */
+    symbol: string;
 }
 
-export interface TradeSchema {
-    schema:               string;
-    id:                   string;
-    type:                 string;
-    title:                string;
-    description:          string;
-    properties:           TradeSchemaProperties;
-    required:             string[];
-    additionalProperties: boolean;
+export enum Side {
+    Long = "long",
+    Short = "short",
 }
 
-export interface TradeSchemaProperties {
-    id:               CreatedAt;
-    agentID:          CreatedAt;
-    ticker:           Name;
-    direction:        Direction;
-    entryPrice:       IsActive;
-    quantity:         IsActive;
-    entryAt:          CreatedAt;
-    exitAt:           CreatedAt;
-    exitPrice:        ExitPrice;
-    status:           Visibility;
-    pnl:              IsActive;
-    pnlPercent:       IsActive;
-    strategy:         IsActive;
-    paper:            Paper;
-    decisionMemoryID: ID;
-    outcomeMemoryID:  ID;
-    metadata:         IsActive;
-}
-
-export interface Direction {
-    type: Type;
-    enum: string[];
-}
-
-export interface Paper {
-    type:        string;
-    description: string;
-    default:     boolean;
+export enum Status {
+    Cancelled = "cancelled",
+    Closed = "closed",
+    Open = "open",
 }

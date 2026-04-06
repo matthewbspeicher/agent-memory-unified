@@ -54,11 +54,7 @@ export interface ArenaSession {
   turns?: ArenaSessionTurn[];
 }
 
-export interface Agent {
-  id: string;
-  name: string;
-  description: string | null;
-}
+import type { Agent } from '../../../../shared/types/generated/typescript/index';
 
 export interface ArenaMatchDetail {
   id: string;

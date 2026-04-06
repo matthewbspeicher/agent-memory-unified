@@ -1,12 +1,7 @@
 import { api } from './client';
+import type { Memory } from '../../../../shared/types/generated/typescript/index';
 
-export interface Memory {
-  id: string;
-  agent_id: string;
-  value: string;
-  visibility: 'private' | 'public';
-  created_at: string;
-}
+export type { Memory };
 
 export const memoryApi = {
   list: () => api.get<{ data: Memory[] }>('/v1/memories'),

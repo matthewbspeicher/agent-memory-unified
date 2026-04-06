@@ -34,7 +34,7 @@ class Event
             'type' => ['required', 'string'],
             'version' => ['required', 'string'],
             'timestamp' => ['required', 'string'],
-            'source' => ['required', 'string', 'in:memory-api,trading-engine'],
+            'source' => ['required', 'string', 'in:api,trading'],
             'payload' => ['required'],
             'metadata' => [],
         ];

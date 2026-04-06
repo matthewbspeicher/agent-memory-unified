@@ -16,11 +16,10 @@ datamodel-codegen \
 # TypeScript: Generate types
 echo "  → TypeScript..."
 npx quicktype \
-  --src shared/types/schemas/ \
+  -s schema shared/types/schemas/*.json \
   --out shared/types/generated/typescript/index.ts \
   --lang typescript \
-  --just-types \
-  --nice-property-names
+  --just-types
 
 # PHP: Generate DTOs
 echo "  → PHP (DTOs)..."

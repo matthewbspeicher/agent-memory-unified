@@ -1,13 +1,7 @@
 import { api } from './client';
+import type { Agent } from '../../../../shared/types/generated/typescript/index';
 
-export interface Agent {
-  id: string;
-  name: string;
-  description: string;
-  creator?: string;
-  is_active: boolean;
-  last_seen_at?: string;
-}
+export type { Agent };
 
 export interface AgentMetrics {
   memories: number;

@@ -6,7 +6,6 @@ use App\Events\MemoryCreated;
 use App\Listeners\EvaluateSemanticWebhooks;
 use App\Models\Agent;
 use App\Models\Trade;
-use App\Observers\TradeObserver;
 use App\Services\BedrockService;
 use App\Services\EmbeddingService;
 use Illuminate\Cache\RateLimiting\Limit;

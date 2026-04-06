@@ -10,7 +10,8 @@ class Agent
 {
     public string $id;
     public string $name;
-    public string $token_hash;
+    public string $owner_id;
+    public ?string $token_hash;
     public bool $is_active;
     public ?array $scopes;
     public ?string $created_at;
@@ -20,6 +21,7 @@ class Agent
     {
         $this->id = $data['id'] ?? null;
         $this->name = $data['name'] ?? null;
+        $this->owner_id = $data['owner_id'] ?? null;
         $this->token_hash = $data['token_hash'] ?? null;
         $this->is_active = $data['is_active'] ?? null;
         $this->scopes = $data['scopes'] ?? null;
@@ -32,7 +34,8 @@ class Agent
         return [
             'id' => ['required', 'string'],
             'name' => ['required', 'string', 'max:255'],
-            'token_hash' => ['required', 'string', 'max:64'],
+            'owner_id' => ['required', 'string'],
+            'token_hash' => ['string', 'max:64'],
             'is_active' => ['required'],
             'scopes' => [],
             'created_at' => ['string'],

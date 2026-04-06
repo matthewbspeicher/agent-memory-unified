@@ -26,6 +26,30 @@ class JWTValidator
      */
     public function validate(string $token): array
     {
+        if (str_starts_with($token, 'amc_')) {
+            $hash = hash('sha256', $token);
+            $cacheKey = "legacy_token:{$hash}";
+            
+            $cached = $this->redis->get($cacheKey);
+            if ($cached) {
+                return json_decode($cached, true);
+            }
+            
+            if (class_exists('\App\Models\Agent')) {
+                $agent = \App\Models\Agent::where('token_hash', $hash)->where('is_active', true)->first();
+                if ($agent) {
+                    $payload = [
+                        'sub' => $agent->id,
+                        'type' => 'agent',
+                        'scopes' => is_string($agent->scopes) ? json_decode($agent->scopes, true) : $agent->scopes,
+                    ];
+                    $this->redis->setex($cacheKey, 300, json_encode($payload));
+                    return $payload;
+                }
+            }
+            throw new \Exception('Invalid legacy token');
+        }
+
         try {
             // Decode and verify JWT
             $payload = JWT::decode($token, new Key($this->secret, $this->algorithm));

@@ -9,10 +9,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Traits\IsEventable;
 
 class Trade extends Model
 {
-    use HasFactory, HasUuids, SoftDeletes;
+    use HasFactory, HasUuids, SoftDeletes, IsEventable;
 
     const DIRECTIONS = ['long', 'short'];
 
@@ -116,5 +117,61 @@ class Trade extends Model
         $childrenQty = $this->children()->sum('quantity');
 
         return bcsub($this->quantity, $childrenQty, 8);
+    }
+
+    public function getCustomEventName(string $action): ?string
+    {
+        if ($action === 'created') {
+            return 'TradeOpened';
+        }
+        if ($action === 'updated' && $this->wasChanged('status') && $this->status === 'closed') {
+            return 'TradeClosed';
+        }
+        return null;
+    }
+
+    public function getCustomEventPayload(string $action): array
+    {
+        if ($action === 'created') {
+            return [
+                'trade_id' => $this->id,
+                'agent_id' => $this->agent_id,
+                'ticker' => $this->ticker,
+                'direction' => $this->direction,
+                'entry_price' => (string) $this->entry_price,
+                'quantity' => (string) $this->quantity,
+                'status' => $this->status,
+                'paper' => $this->paper,
+            ];
+        }
+
+        if ($action === 'updated' && $this->status === 'closed') {
+            return [
+                'trade_id' => $this->id,
+                'agent_id' => $this->agent_id,
+                'ticker' => $this->ticker,
+                'direction' => $this->direction,
+                'entry_price' => (string) $this->entry_price,
+                'exit_price' => (string) $this->exit_price,
+                'quantity' => (string) $this->quantity,
+                'pnl' => (string) $this->pnl,
+                'pnl_percent' => (string) $this->pnl_percent,
+                'status' => $this->status,
+            ];
+        }
+
+        return $this->toArray();
+    }
+
+    public function onCreatedEvent()
+    {
+        \App\Events\TradeOpened::dispatch($this);
+    }
+
+    public function onUpdatedEvent()
+    {
+        if ($this->wasChanged('status') && $this->status === 'closed') {
+            \App\Events\TradeClosed::dispatch($this);
+        }
     }
 }

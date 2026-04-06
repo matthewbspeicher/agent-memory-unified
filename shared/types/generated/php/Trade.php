@@ -3,41 +3,43 @@
 namespace AgentMemory\SharedTypes;
 
 /**
- * Trading execution record
+ * Simplified trade DTO for API responses (subset of tracked_positions table)
  * Auto-generated from JSON Schema - do not edit manually
  */
 class Trade
 {
-    public string $id;
-    public string $agent_id;
-    public string $ticker;
-    public string $direction;
-    public float $entry_price;
-    public float $quantity;
-    public string $entry_at;
-    public ?string $exit_at;
-    public ?float $exit_price;
+    public int $id;
+    public string $agent_name;
+    public ?string $agent_id;
+    public string $symbol;
+    public string $side;
+    public string $entry_price;
+    public int $entry_quantity;
     public string $status;
-    public ?float $pnl;
-    public ?float $pnl_percent;
+    public string $entry_time;
+    public ?mixed $exit_time;
+    public ?mixed $exit_price;
+    public ?mixed $pnl;
+    public ?mixed $pnl_percent;
     public ?string $strategy;
     public ?bool $paper;
-    public ?string $decision_memory_id;
-    public ?string $outcome_memory_id;
+    public ?mixed $decision_memory_id;
+    public ?mixed $outcome_memory_id;
     public ?array $metadata;
 
     public function __construct(array $data)
     {
         $this->id = $data['id'] ?? null;
+        $this->agent_name = $data['agent_name'] ?? null;
         $this->agent_id = $data['agent_id'] ?? null;
-        $this->ticker = $data['ticker'] ?? null;
-        $this->direction = $data['direction'] ?? null;
+        $this->symbol = $data['symbol'] ?? null;
+        $this->side = $data['side'] ?? null;
         $this->entry_price = $data['entry_price'] ?? null;
-        $this->quantity = $data['quantity'] ?? null;
-        $this->entry_at = $data['entry_at'] ?? null;
-        $this->exit_at = $data['exit_at'] ?? null;
-        $this->exit_price = $data['exit_price'] ?? null;
+        $this->entry_quantity = $data['entry_quantity'] ?? null;
         $this->status = $data['status'] ?? null;
+        $this->entry_time = $data['entry_time'] ?? null;
+        $this->exit_time = $data['exit_time'] ?? null;
+        $this->exit_price = $data['exit_price'] ?? null;
         $this->pnl = $data['pnl'] ?? null;
         $this->pnl_percent = $data['pnl_percent'] ?? null;
         $this->strategy = $data['strategy'] ?? null;
@@ -50,22 +52,23 @@ class Trade
     public static function validationRules(): array
     {
         return [
-            'id' => ['required', 'string'],
-            'agent_id' => ['required', 'string'],
-            'ticker' => ['required', 'string', 'max:64'],
-            'direction' => ['required', 'string', 'in:long,short'],
-            'entry_price' => ['required'],
-            'quantity' => ['required'],
-            'entry_at' => ['required', 'string'],
-            'exit_at' => ['string'],
-            'exit_price' => [],
+            'id' => ['required', 'integer'],
+            'agent_name' => ['required', 'string'],
+            'agent_id' => ['string'],
+            'symbol' => ['required', 'string', 'max:64'],
+            'side' => ['required', 'string', 'in:long,short'],
+            'entry_price' => ['required', 'string'],
+            'entry_quantity' => ['required', 'integer'],
             'status' => ['required', 'string', 'in:open,closed,cancelled'],
+            'entry_time' => ['required', 'string'],
+            'exit_time' => [],
+            'exit_price' => [],
             'pnl' => [],
             'pnl_percent' => [],
-            'strategy' => ['string'],
+            'strategy' => ['string', 'max:255'],
             'paper' => [],
-            'decision_memory_id' => ['string'],
-            'outcome_memory_id' => ['string'],
+            'decision_memory_id' => [],
+            'outcome_memory_id' => [],
             'metadata' => [],
         ];
     }
