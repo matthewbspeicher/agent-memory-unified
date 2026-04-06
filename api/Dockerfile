@@ -1,6 +1,11 @@
 # Stage 1: Install PHP dependencies
 FROM composer:latest AS vendor
-RUN docker-php-ext-install bcmath
+# Install redis extension before composer install (required by shared-events package)
+RUN apk add --no-cache autoconf g++ make && \
+    pecl install redis && \
+    docker-php-ext-enable redis && \
+    docker-php-ext-install bcmath && \
+    apk del autoconf g++ make
 WORKDIR /app
 COPY composer.json composer.lock ./
 RUN composer install --no-dev --optimize-autoloader --no-scripts
