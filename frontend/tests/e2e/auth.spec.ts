@@ -11,7 +11,7 @@ test.describe('Authentication Flow', () => {
     await page.goto('/');
     await page.click('text=Sign In');
     await expect(page).toHaveURL('/login');
-    await expect(page.locator('h1')).toContainText('Welcome Back');
+    await expect(page.locator('h2')).toContainText('Login');
   });
 
   test('should show error on invalid login', async ({ page }) => {

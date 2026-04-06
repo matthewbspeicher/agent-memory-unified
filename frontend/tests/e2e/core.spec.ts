@@ -43,7 +43,7 @@ test.describe('Core Functionality', () => {
 
   test('should load the trade history', async ({ page }) => {
     await page.goto('/trades');
-    await expect(page.locator('h1')).toContainText('Trade Ledger');
+    await expect(page.locator('h2')).toContainText('Trade History');
     await expect(page.locator('text=AAPL')).toBeVisible();
   });
 
