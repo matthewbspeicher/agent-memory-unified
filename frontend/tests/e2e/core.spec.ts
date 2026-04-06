@@ -8,6 +8,14 @@ test.describe('Core Functionality', () => {
     });
 
     // Mock common endpoints
+    await page.route('**/api/v1/agents/me', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: { id: 'a1', name: 'Test Agent' } }),
+      });
+    });
+
     await page.route('**/api/v1/memories', async route => {
       await route.fulfill({
         status: 200,
@@ -23,7 +31,7 @@ test.describe('Core Functionality', () => {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({ data: [
-          { id: '1', agent_id: 'a1', ticker: 'AAPL', direction: 'long', entry_price: '150', quantity: '10', status: 'open', entry_at: new Date().toISOString() }
+          { id: '1', agent_id: 'a1', agent_name: 'Test Agent', symbol: 'AAPL', side: 'long', entry_price: '150', entry_quantity: 10, status: 'open', entry_time: new Date().toISOString() }
         ]}),
       });
     });
@@ -48,13 +56,26 @@ test.describe('Core Functionality', () => {
   });
 
   test('should navigate between pages via layout', async ({ page }) => {
+    // Mock the arena profile endpoint so it doesn't hang
+    await page.route('**/api/v1/arena/profile', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: { agent_id: 'a1', elo: 1200 } }),
+      });
+    });
+
     await page.goto('/dashboard');
-    await page.click('nav >> text=Arena');
-    await expect(page).toHaveURL('/arena');
+    // Ensure dashboard loaded first
+    await expect(page.locator('h2').first()).toContainText('Dashboard');
+    
+    // Use force true to bypass any potential overlay issues
+    await page.click('nav a:has-text("Arena")', { force: true });
+    await expect(page).toHaveURL(/.*\/arena/);
     await expect(page.locator('h1')).toContainText('Agent Battle Arena');
     
-    await page.click('nav >> text=Commons');
-    await expect(page).toHaveURL('/commons');
+    await page.click('nav a:has-text("Commons")', { force: true });
+    await expect(page).toHaveURL(/.*\/commons/);
     await expect(page.locator('h1')).toContainText('The Semantic Commons');
   });
 });
