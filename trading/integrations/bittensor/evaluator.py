@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 
 from data.coingecko import SYMBOL_TO_COINGECKO
 from integrations.bittensor.models import (
+    BittensorMetrics,
     MinerAccuracyRecord,
     MinerRankingInput,
     RankingConfig,
@@ -93,6 +94,7 @@ class BittensorEvaluator:
         coingecko=None,
         adapter=None,
         ranking_config: RankingConfig | None = None,
+        metrics: BittensorMetrics | None = None,
     ) -> None:
         self._store = store
         self._data_bus = data_bus
@@ -114,6 +116,7 @@ class BittensorEvaluator:
         self.last_success_at: datetime | None = None
         self.windows_evaluated_total: int = 0
         self.unevaluated_count: int = 0
+        self.metrics = metrics or BittensorMetrics()
 
     async def run(self) -> None:
         """Main async evaluation loop."""
@@ -141,6 +144,7 @@ class BittensorEvaluator:
         # Expire stale pending windows (>2h old)
         expired = await self._store.expire_stale_windows(now=now, ttl_hours=2)
         if expired:
+            self.metrics.windows_expired += expired
             logger.info("BittensorEvaluator: expired %d stale windows", expired)
             await self._event_bus.publish(
                 "bittensor.window_expired", {"count": expired}
@@ -168,7 +172,9 @@ class BittensorEvaluator:
 
     async def _evaluate_window(self, window) -> None:
         """Fetch realized bars and compute per-miner accuracy for one window."""
+        eval_start = datetime.now(tz=timezone.utc)
         if self._coingecko is None or window.symbol not in SYMBOL_TO_COINGECKO:
+            self.metrics.windows_skipped_no_data += 1
             logger.debug(
                 "BittensorEvaluator: skipping window %s — no coingecko client or "
                 "unknown symbol %s",
@@ -279,6 +285,10 @@ class BittensorEvaluator:
 
         self.windows_evaluated_total += 1
         self.last_success_at = datetime.now(tz=timezone.utc).replace(tzinfo=None)
+        self.metrics.windows_evaluated += 1
+        self.metrics.last_evaluation_duration_secs = (
+            datetime.now(tz=timezone.utc) - eval_start
+        ).total_seconds()
 
         await self._event_bus.publish(
             "bittensor.accuracy_evaluated",

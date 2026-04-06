@@ -129,8 +129,9 @@ async def setup_bittensor(
         from integrations.bittensor.adapter import TaoshiProtocolAdapter
         from integrations.bittensor.scheduler import TaoshiScheduler
         from integrations.bittensor.evaluator import BittensorEvaluator
-        from integrations.bittensor.models import RankingConfig
+        from integrations.bittensor.models import BittensorMetrics, RankingConfig
 
+        _bt_metrics = BittensorMetrics()
         _bt_store = BittensorStore(db)
         _bt_source = BittensorDataSource(_bt_store)
         data_bus._bittensor_source = _bt_source
@@ -160,6 +161,8 @@ async def setup_bittensor(
             selection_metric=config.bittensor_selection_metric,
             top_miners=config.bittensor_top_miners,
             derivation_version=config.bittensor_derivation_version,
+            metrics=_bt_metrics,
+            streams=config.bittensor_streams,
         )
 
         _coingecko_client = None
@@ -177,6 +180,7 @@ async def setup_bittensor(
             scoring_version=config.bittensor_scoring_version,
             coingecko=_coingecko_client,
             adapter=_bt_adapter,
+            metrics=_bt_metrics,
             ranking_config=RankingConfig(
                 min_windows_for_ranking=config.bittensor_min_windows_for_ranking,
                 alpha_decay_per_window=config.bittensor_hybrid_alpha_decay_per_window,
@@ -207,6 +211,7 @@ async def setup_bittensor(
             netuid=config.bittensor_subnet_uid,
             interval_blocks=100,
             min_rankings=config.bittensor_min_windows_for_ranking,
+            metrics=_bt_metrics,
         )
 
         logger.info(

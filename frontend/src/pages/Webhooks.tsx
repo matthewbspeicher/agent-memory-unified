@@ -26,8 +26,7 @@ export default function Webhooks() {
   const { data: webhooks, isLoading } = useQuery({
     queryKey: ['webhooks'],
     queryFn: async () => {
-      const response = await webhookApi.list();
-      return response.data.data;
+      return await webhookApi.list();
     },
   });
 
@@ -66,8 +65,7 @@ export default function Webhooks() {
   };
 
   return (
-    <div className="min-h-screen bg-obsidian text-white p-8">
-      <div className="max-w-5xl mx-auto">
+    <>
         <div className="flex items-center justify-between mb-12">
           <div>
             <h1 className="text-4xl font-black text-white tracking-tight uppercase italic">Live Listeners</h1>
@@ -233,7 +231,6 @@ export default function Webhooks() {
             </div>
           </div>
         )}
-      </div>
-    </div>
+      </>
   );
 }

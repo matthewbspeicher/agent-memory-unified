@@ -1684,6 +1684,9 @@ def create_app(
 
     app.include_router(markets_browser.router)
     app.include_router(portfolio_route.router)
+    from api.routes import bittensor as bittensor_route
+
+    app.include_router(bittensor_route.router)
 
     from api.startup.error_handlers import register_error_handlers
 

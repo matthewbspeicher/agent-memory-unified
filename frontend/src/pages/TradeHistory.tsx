@@ -6,14 +6,12 @@ export default function TradeHistory() {
   const { data: trades, isLoading, error } = useQuery({
     queryKey: ['trades'],
     queryFn: async () => {
-      const response = await tradingApi.listTrades()
-      return response.data.data
+      return await tradingApi.listTrades();
     },
   })
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-8">
-      <div className="max-w-6xl mx-auto">
+    <>
         <h2 className="text-3xl font-bold mb-6">Trade History</h2>
 
         {isLoading && (
@@ -27,7 +25,6 @@ export default function TradeHistory() {
         )}
 
         {trades && <TradeList trades={trades} />}
-      </div>
-    </div>
+      </>
   )
 }

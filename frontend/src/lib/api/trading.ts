@@ -15,16 +15,16 @@ export interface TradingLeaderboardEntry {
 }
 
 export const tradingApi = {
-  listTrades: () => api.get<{ data: Trade[] }>('/v1/trades'),
+  listTrades: () => api.get<{ data: Trade[] }>('/v1/trades').then(res => res.data?.data ?? res.data),
 
   openTrade: (data: {
     ticker: string;
     direction: 'long' | 'short';
     quantity: number;
-  }) => api.post<Trade>('/v1/trades', data),
+  }) => api.post<Trade>('/v1/trades', data).then(res => (res.data as any)?.data ?? res.data),
 
   closeTrade: (id: string, exit_price: string) =>
-    api.post<Trade>(`/v1/trades/${id}/close`, { exit_price }),
+    api.post<Trade>(`/v1/trades/${id}/close`, { exit_price }).then(res => (res.data as any)?.data ?? res.data),
 
-  getLeaderboard: () => api.get<{ data: TradingLeaderboardEntry[] }>('/v1/trading/leaderboard'),
+  getLeaderboard: () => api.get<{ data: TradingLeaderboardEntry[] }>('/v1/trading/leaderboard').then(res => res.data?.data ?? res.data),
 };

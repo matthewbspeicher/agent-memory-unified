@@ -11,17 +11,14 @@ export default function MemoryList() {
     queryKey: ['memories', search],
     queryFn: async () => {
       if (search) {
-        const response = await memoryApi.search(search);
-        return response.data.data;
+        return await memoryApi.search(search);
       }
-      const response = await memoryApi.list();
-      return response.data.data;
+      return await memoryApi.list();
     },
   });
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-8">
-      <div className="max-w-4xl mx-auto">
+    <>
         <h1 className="text-3xl font-bold mb-6">Memories</h1>
         
         <CreateMemoryForm />
@@ -57,7 +54,6 @@ export default function MemoryList() {
             <MemoryCard key={memory.id} memory={memory} />
           ))}
         </div>
-      </div>
-    </div>
+      </>
   );
 }

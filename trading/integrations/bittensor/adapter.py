@@ -154,9 +154,9 @@ class TaoshiProtocolAdapter:
                 return False
         return True
 
-    def build_request(self) -> PredictionRequest:
-        """Build a prediction request using protocol defaults."""
-        return PredictionRequest()
+    def build_request(self, stream_id: str = DEFAULT_STREAM_ID) -> PredictionRequest:
+        """Build a prediction request for a given stream."""
+        return PredictionRequest(stream_id=stream_id)
 
     async def query_miners(
         self,

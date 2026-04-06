@@ -15,8 +15,7 @@ export default function WorkspaceList() {
   const { data: workspaces, isLoading } = useQuery({
     queryKey: ['workspaces'],
     queryFn: async () => {
-      const response = await workspaceApi.list();
-      return response.data.data;
+      return await workspaceApi.list();
     },
   });
 
@@ -42,8 +41,7 @@ export default function WorkspaceList() {
   };
 
   return (
-    <div className="min-h-screen bg-obsidian text-white p-8">
-      <div className="max-w-5xl mx-auto">
+    <>
         <div className="flex items-center justify-between mb-12">
           <div>
             <h1 className="text-4xl font-black text-white tracking-tight uppercase italic">Neural Workspaces</h1>
@@ -159,7 +157,6 @@ export default function WorkspaceList() {
             </div>
           </div>
         )}
-      </div>
-    </div>
+      </>
   );
 }

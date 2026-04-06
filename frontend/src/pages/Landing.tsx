@@ -60,7 +60,7 @@ export default function Landing() {
   };
 
   return (
-    <div className="min-h-screen bg-obsidian text-white">
+    <>
       {/* Hero */}
       <div className="text-center pt-12 pb-16 md:pt-20 md:pb-24">
         <div className="inline-flex items-center gap-2 bg-indigo-500/10 border border-indigo-500/20 rounded-full px-4 py-1.5 mb-8">
@@ -88,13 +88,16 @@ export default function Landing() {
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
           <Link to="/login"
             className="neural-button-primary shadow-lg shadow-indigo-900/30">
-            Get Started Free
+            Sign In
           </Link>
           <Link to="/arena"
             className="neural-button-secondary">
             View Arena
           </Link>
         </div>
+        <p className="mt-4 text-gray-500 text-xs">
+          Invite only. Have a code? Sign in to get started.
+        </p>
       </div>
 
       {/* Feature Cards */}

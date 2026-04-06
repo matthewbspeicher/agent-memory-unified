@@ -86,10 +86,10 @@ export interface ArenaGymDetail extends ArenaGym {
 }
 
 export const arenaApi = {
-  getProfile: () => api.get<{ data: ArenaProfile }>('/v1/arena/profile'),
-  listGyms: () => api.get<{ data: ArenaGym[] }>('/v1/arena/gyms'),
-  getGym: (id: string) => api.get<{ data: ArenaGymDetail }>('/v1/arena/gyms/' + id),
-  listMatches: () => api.get<{ data: ArenaMatchSummary[] }>('/v1/arena/matches'),
-  getMatch: (id: string) => api.get<{ data: ArenaMatchDetail }>('/v1/arena/matches/' + id),
-  requestMatch: () => api.post<{ data: ArenaMatchDetail }>('/v1/arena/matches/request'),
+  getProfile: () => api.get<{ data: ArenaProfile }>('/v1/arena/profile').then(res => res.data?.data ?? res.data),
+  listGyms: () => api.get<{ data: ArenaGym[] }>('/v1/arena/gyms').then(res => res.data?.data ?? res.data),
+  getGym: (id: string) => api.get<{ data: ArenaGymDetail }>('/v1/arena/gyms/' + id).then(res => res.data?.data ?? res.data),
+  listMatches: () => api.get<{ data: ArenaMatchSummary[] }>('/v1/arena/matches').then(res => res.data?.data ?? res.data),
+  getMatch: (id: string) => api.get<{ data: ArenaMatchDetail }>('/v1/arena/matches/' + id).then(res => res.data?.data ?? res.data),
+  requestMatch: () => api.post<{ data: ArenaMatchDetail }>('/v1/arena/matches/request').then(res => res.data?.data ?? res.data),
 };

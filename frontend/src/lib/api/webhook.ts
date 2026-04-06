@@ -12,9 +12,9 @@ export interface Webhook {
 }
 
 export const webhookApi = {
-  list: () => api.get<{ data: Webhook[] }>('/v1/webhooks'),
+  list: () => api.get<{ data: Webhook[] }>('/v1/webhooks').then(res => res.data?.data ?? res.data),
   create: (data: { url: string; events: string[]; semantic_query?: string }) => 
-    api.post<{ data: Webhook }>('/v1/webhooks', data),
-  delete: (id: string) => api.delete(`/v1/webhooks/${id}`),
-  test: (id: string) => api.post(`/v1/webhooks/${id}/test`),
+    api.post<{ data: Webhook }>('/v1/webhooks', data).then(res => res.data?.data ?? res.data),
+  delete: (id: string) => api.delete(`/v1/webhooks/${id}`).then(res => res.data?.data ?? res.data),
+  test: (id: string) => api.post(`/v1/webhooks/${id}/test`).then(res => res.data?.data ?? res.data),
 };

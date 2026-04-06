@@ -1,4 +1,5 @@
 import type { Memory } from '../lib/api/memory';
+import { GlassCard } from './GlassCard';
 
 interface MemoryCardProps {
   memory: Memory;
@@ -6,7 +7,7 @@ interface MemoryCardProps {
 
 export function MemoryCard({ memory }: MemoryCardProps) {
   return (
-    <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 hover:border-gray-600 transition-colors">
+    <GlassCard variant="default">
       <p className="text-gray-100 text-sm leading-relaxed">{memory.value}</p>
       <div className="mt-3 flex items-center justify-between text-xs text-gray-400">
         <span>{memory.created_at ? new Date(memory.created_at).toLocaleDateString() : 'Unknown Date'}</span>
@@ -18,6 +19,6 @@ export function MemoryCard({ memory }: MemoryCardProps) {
           {memory.visibility}
         </span>
       </div>
-    </div>
+    </GlassCard>
   );
 }

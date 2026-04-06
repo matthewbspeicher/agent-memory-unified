@@ -158,3 +158,34 @@ class RankingConfig:
     alpha_decay_per_window: float
     alpha_floor: float
     lookback_windows: int
+
+
+@dataclass
+class BittensorMetrics:
+    """Observable metrics for Bittensor subsystem health."""
+
+    # Scheduler metrics
+    windows_collected: int = 0
+    windows_failed: int = 0
+    hash_verifications_passed: int = 0
+    hash_verifications_failed: int = 0
+    last_collection_duration_secs: float = 0.0
+    avg_collection_duration_secs: float = 0.0
+    last_miner_response_rate: float = 0.0
+
+    # Evaluator metrics
+    windows_evaluated: int = 0
+    windows_expired: int = 0
+    windows_skipped_no_data: int = 0
+    last_evaluation_duration_secs: float = 0.0
+
+    # Weight setter metrics
+    weight_sets_total: int = 0
+    weight_sets_failed: int = 0
+    last_weight_set_block: int | None = None
+
+    # Connection health
+    connection_failures: int = 0
+    last_connection_failure_at: datetime | None = None
+    metagraph_refreshes: int = 0
+    consecutive_failures: int = 0

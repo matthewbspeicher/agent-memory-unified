@@ -4,7 +4,7 @@ import asyncio
 import logging
 from typing import Any
 
-from integrations.bittensor.models import MinerRanking
+from integrations.bittensor.models import BittensorMetrics, MinerRanking
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +23,7 @@ class WeightSetter:
         netuid: int = 8,
         interval_blocks: int = 100,
         min_rankings: int = 5,
+        metrics: BittensorMetrics | None = None,
     ) -> None:
         self._adapter = adapter
         self._store = store
@@ -32,6 +33,7 @@ class WeightSetter:
         self._running = False
         self.last_set_at_block: int | None = None
         self.total_weight_sets: int = 0
+        self.metrics = metrics or BittensorMetrics()
 
     def compute_weight_vector(
         self,
@@ -108,6 +110,8 @@ class WeightSetter:
                 block = getattr(metagraph, "block", None)
                 self.last_set_at_block = block
                 self.total_weight_sets += 1
+                self.metrics.weight_sets_total += 1
+                self.metrics.last_weight_set_block = block
                 logger.info(
                     "WeightSetter: set weights for %d miners at block %s (total sets: %d)",
                     len(uids),
@@ -115,9 +119,11 @@ class WeightSetter:
                     self.total_weight_sets,
                 )
             else:
+                self.metrics.weight_sets_failed += 1
                 logger.warning("WeightSetter: set_weights returned failure: %s", msg)
             return success
         except Exception as exc:
+            self.metrics.weight_sets_failed += 1
             logger.exception("WeightSetter: set_weights failed: %s", exc)
             return False
 
@@ -125,6 +131,7 @@ class WeightSetter:
         """Background loop: set weights every interval_blocks (~20 min at 12s/block)."""
         self._running = True
         interval_secs = self._interval_blocks * 12
+        consecutive_failures = 0
         logger.info(
             "WeightSetter started (interval=%d blocks / %d secs, netuid=%d)",
             self._interval_blocks,
@@ -133,8 +140,28 @@ class WeightSetter:
         )
         try:
             while self._running:
-                await self._adapter.refresh_metagraph()
-                await self.set_weights_once()
+                try:
+                    await self._adapter.refresh_metagraph()
+                    success = await self.set_weights_once()
+                    if success:
+                        consecutive_failures = 0
+                    else:
+                        consecutive_failures += 1
+                except Exception as exc:
+                    consecutive_failures += 1
+                    self.metrics.connection_failures += 1
+                    logger.error(
+                        "WeightSetter: cycle failed (%d consecutive): %s",
+                        consecutive_failures,
+                        exc,
+                    )
+                    if consecutive_failures >= 3:
+                        backoff = min(60 * (2 ** (consecutive_failures - 3)), 1800)
+                        logger.warning(
+                            "WeightSetter: backing off %.0f seconds", backoff
+                        )
+                        await asyncio.sleep(backoff)
+                        continue
                 await asyncio.sleep(interval_secs)
         except asyncio.CancelledError:
             logger.info("WeightSetter cancelled")

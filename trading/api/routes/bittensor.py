@@ -173,6 +173,54 @@ async def bittensor_miner_accuracy(
     }
 
 
+@router.get("/api/bittensor/metrics")
+async def bittensor_metrics(
+    request: Request,
+    _: str = Depends(verify_api_key),
+):
+    """Return raw observability metrics from scheduler, evaluator, and weight setter."""
+    enabled = getattr(request.app.state, "bittensor_enabled_runtime", False)
+    if not enabled:
+        return {"enabled": False}
+
+    result: dict = {"enabled": True}
+
+    scheduler = getattr(request.app.state, "bittensor_scheduler", None)
+    if scheduler and hasattr(scheduler, "metrics"):
+        m = scheduler.metrics
+        result["scheduler"] = {
+            "windows_collected": m.windows_collected,
+            "windows_failed": m.windows_failed,
+            "hash_verifications_passed": m.hash_verifications_passed,
+            "hash_verifications_failed": m.hash_verifications_failed,
+            "last_collection_duration_secs": round(m.last_collection_duration_secs, 2),
+            "avg_collection_duration_secs": round(m.avg_collection_duration_secs, 2),
+            "last_miner_response_rate": round(m.last_miner_response_rate, 3),
+            "consecutive_failures": m.consecutive_failures,
+        }
+
+    evaluator = getattr(request.app.state, "bittensor_evaluator", None)
+    if evaluator and hasattr(evaluator, "metrics"):
+        m = evaluator.metrics
+        result["evaluator"] = {
+            "windows_evaluated": m.windows_evaluated,
+            "windows_expired": m.windows_expired,
+            "windows_skipped_no_data": m.windows_skipped_no_data,
+            "last_evaluation_duration_secs": round(m.last_evaluation_duration_secs, 2),
+        }
+
+    ws = getattr(request.app.state, "bittensor_weight_setter", None)
+    if ws and hasattr(ws, "metrics"):
+        m = ws.metrics
+        result["weight_setter"] = {
+            "weight_sets_total": m.weight_sets_total,
+            "weight_sets_failed": m.weight_sets_failed,
+            "last_weight_set_block": m.last_weight_set_block,
+        }
+
+    return result
+
+
 @router.get("/api/bittensor/signals")
 async def bittensor_signals(
     request: Request,

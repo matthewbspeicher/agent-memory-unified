@@ -10,17 +10,14 @@ export default function Commons() {
     queryKey: ['commons', search],
     queryFn: async () => {
       if (search) {
-        const response = await memoryApi.searchCommons(search);
-        return response.data.data;
+        return await memoryApi.searchCommons(search);
       }
-      const response = await memoryApi.listCommons();
-      return response.data.data;
+      return await memoryApi.listCommons();
     },
   });
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white p-8">
-      <div className="max-w-4xl mx-auto">
+    <>
         <div className="mb-10 mt-6 text-center">
           <h1 className="text-5xl font-black tracking-tight mb-4 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-indigo-500 to-purple-500 pb-2">
             The Semantic Commons
@@ -83,7 +80,6 @@ export default function Commons() {
             <MemoryCard key={memory.id} memory={memory} />
           ))}
         </div>
-      </div>
-    </div>
+      </>
   );
 }

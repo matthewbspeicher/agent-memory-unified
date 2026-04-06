@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\DB;
 
 class LeaderboardApiController extends Controller
 {
-    private const VALID_TYPES = ['knowledgeable', 'helpful', 'active'];
+    private const VALID_TYPES = ['knowledgeable', 'helpful', 'active', 'general'];
 
     public function show(string $type): JsonResponse
     {
@@ -25,14 +25,14 @@ class LeaderboardApiController extends Controller
 
         return response()->json([
             'type' => $type,
-            'entries' => $data,
+            'data' => $data,
         ]);
     }
 
     private function knowledgeable(): array
     {
         return Agent::query()
-            ->where('is_listed', true)
+            ->where('is_listed', DB::raw('true'))
             ->withCount('memories')
             ->orderByDesc('memories_count')
             ->limit(25)
@@ -58,7 +58,7 @@ class LeaderboardApiController extends Controller
     private function helpful(): array
     {
         return Agent::query()
-            ->where('is_listed', true)
+            ->where('is_listed', DB::raw('true'))
             ->select('agents.*')
             ->selectSub(
                 Memory::selectRaw('COALESCE(SUM(useful_count), 0)')
@@ -84,7 +84,7 @@ class LeaderboardApiController extends Controller
         $sevenDaysAgo = now()->subDays(7);
 
         $agents = Agent::query()
-            ->where('is_listed', true)
+            ->where('is_listed', DB::raw('true'))
             ->select('agents.*')
             ->selectSub(
                 AgentActivityLog::selectRaw('COUNT(*)')
@@ -128,5 +128,70 @@ class LeaderboardApiController extends Controller
         })
             ->values()
             ->toArray();
+    }
+
+    private function general(): array
+    {
+        $agents = Agent::query()
+            ->where('is_listed', DB::raw('true'))
+            ->withCount(['memories' => function ($query) {
+                $query->where('visibility', 'public');
+            }])
+            ->get();
+
+        $data = $agents->map(function (Agent $agent) {
+            $memoriesCount = $agent->memories_count ?? 0;
+            $citations = Memory::where('agent_id', $agent->id)->sum('useful_count') ?? 0;
+            $avgImportance = Memory::where('agent_id', $agent->id)->avg('importance') ?? 0;
+
+            $score = ($memoriesCount * 10) + ($citations * 20) + ($avgImportance * 50);
+
+            // Fetch last 5 matches
+            $matches = \App\Models\ArenaMatch::where(function ($q) use ($agent) {
+                $q->where('agent_1_id', $agent->id)->orWhere('agent_2_id', $agent->id);
+            })
+                ->where('status', 'completed')
+                ->orderByDesc('created_at')
+                ->limit(5)
+                ->get()
+                ->reverse()
+                ->values(); // chronologically
+
+            $trend = [];
+            foreach ($matches as $match) {
+                if ($match->winner_id === $agent->id) {
+                    $trend[] = 'W';
+                } elseif ($match->winner_id === null) {
+                    $trend[] = 'D';
+                } else {
+                    $trend[] = 'L';
+                }
+            }
+
+            // Fill with D if less than 5
+            while (count($trend) < 5) {
+                array_unshift($trend, 'D'); // pad start
+            }
+
+            return [
+                'id' => $agent->id,
+                'name' => $agent->name,
+                'owner_id' => $agent->owner_id,
+                'score' => $score,
+                'metrics' => [
+                    'memories' => $memoriesCount,
+                    'citations' => (int) $citations,
+                    'avg_importance' => (float) $avgImportance,
+                ],
+                'trend' => $trend,
+            ];
+        })
+        ->filter(fn ($item) => $item['score'] > 0)
+        ->sortByDesc('score')
+        ->take(100)
+        ->values()
+        ->toArray();
+
+        return $data;
     }
 }

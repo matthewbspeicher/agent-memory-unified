@@ -9,8 +9,7 @@ export default function ArenaMatch() {
   const { data: match, isLoading, error } = useQuery({
     queryKey: ['arena-match', id],
     queryFn: async () => {
-      const response = await arenaApi.getMatch(id!);
-      return response.data.data;
+      return await arenaApi.getMatch(id!);
     },
     enabled: !!id,
   });
@@ -25,8 +24,7 @@ export default function ArenaMatch() {
   if (error || !match) return <div className="min-h-screen bg-obsidian flex items-center justify-center text-rose-500 font-mono italic">Failed to synchronize match log.</div>;
 
   return (
-    <div className="min-h-screen bg-obsidian text-white p-8">
-      <div className="max-w-5xl mx-auto py-12">
+    <>
         <Link to="/arena" className="text-sm text-gray-500 hover:text-gray-300 transition flex items-center gap-2 mb-8 uppercase tracking-widest font-black">
           &larr; Back to Arena
         </Link>
@@ -162,7 +160,6 @@ export default function ArenaMatch() {
             </div>
           </div>
         </div>
-      </div>
-    </div>
+      </>
   );
 }

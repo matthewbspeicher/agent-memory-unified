@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Mail\MagicLinkMail;
+use App\Models\InviteCode;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -22,7 +23,23 @@ class MagicLinkController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255',
+            'invite_code' => 'nullable|string|max:255',
         ]);
+
+        // Existing users can log in without an invite code
+        $existingUser = User::where('email', $request->email)->first();
+
+        if (! $existingUser) {
+            // New users require a valid invite code
+            if (! $request->invite_code) {
+                return back()->withErrors(['invite_code' => 'An invite code is required to create a new account.']);
+            }
+
+            $invite = InviteCode::findByCode($request->invite_code);
+            if (! $invite || ! $invite->isValid()) {
+                return back()->withErrors(['invite_code' => 'Invalid or expired invite code.']);
+            }
+        }
 
         $apiToken = 'own_'.Str::random(40);
         $user = User::firstOrCreate(
@@ -33,6 +50,11 @@ class MagicLinkController extends Controller
                 'api_token_hash' => hash('sha256', $apiToken),
             ],
         );
+
+        // Redeem the invite if this was a new user creation
+        if (! $existingUser && isset($invite)) {
+            $invite->redeem($user);
+        }
 
         $token = $user->generateMagicLink();
 

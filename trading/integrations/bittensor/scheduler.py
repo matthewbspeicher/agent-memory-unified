@@ -8,6 +8,7 @@ from typing import Any
 
 from integrations.bittensor.adapter import FORWARD_DELAY_SECONDS, HASH_WINDOWS
 from integrations.bittensor.derivation import derive_consensus_view
+from integrations.bittensor.models import BittensorMetrics
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +46,8 @@ class TaoshiScheduler:
         selection_metric: str = "incentive",
         top_miners: int = 10,
         derivation_version: str = "v1",
+        metrics: BittensorMetrics | None = None,
+        streams: list[str] | None = None,
     ) -> None:
         self._adapter = adapter
         self._store = store
@@ -54,11 +57,14 @@ class TaoshiScheduler:
         self._selection_metric = selection_metric
         self._top_miners = top_miners
         self._derivation_version = derivation_version
+        self._streams = streams or ["BTCUSD-5m"]
         self._running = False
         self.last_success_at: datetime | None = None
         self.windows_collected_total: int = 0
         self.last_window_responder_count: int = 0
         self.last_window_miner_count: int = 0
+        self.metrics = metrics or BittensorMetrics()
+        self._collection_durations: list[float] = []
 
     def select_miners(self, metagraph: Any) -> list[tuple[int, Any]]:
         """Return (uid, axon) pairs according to the configured selection policy.
@@ -97,12 +103,14 @@ class TaoshiScheduler:
             )
             await asyncio.sleep(delay)
 
-    async def _collect_window(self) -> None:
+    async def _collect_window(self, stream_id: str = "BTCUSD-5m") -> None:
         """Collect miner predictions for the current window via hash/forward cycle."""
         start_time = datetime.now(tz=timezone.utc)
         window_id = start_time.strftime("%Y%m%d-%H%M")
         request_uuid = str(uuid.uuid4())
-        logger.info("TaoshiScheduler: collecting window %s", window_id)
+        logger.info(
+            "TaoshiScheduler: collecting window %s stream %s", window_id, stream_id
+        )
 
         try:
             # Step 1: refresh metagraph
@@ -115,7 +123,7 @@ class TaoshiScheduler:
             self.last_window_miner_count = len(selected)
 
             # Step 3: build request
-            request = self._adapter.build_request()
+            request = self._adapter.build_request(stream_id=stream_id)
 
             # Step 4: hash phase
             await self._event_bus.publish(
@@ -152,6 +160,10 @@ class TaoshiScheduler:
                     )
                 else:
                     verified = False
+                if verified:
+                    self.metrics.hash_verifications_passed += 1
+                else:
+                    self.metrics.hash_verifications_failed += 1
                 try:
                     forecast.hash_verified = verified
                 except Exception:
@@ -178,6 +190,23 @@ class TaoshiScheduler:
             self.last_window_responder_count = len(forward_forecasts)
             self.windows_collected_total += 1
             self.last_success_at = datetime.now(tz=timezone.utc)
+
+            # Metrics
+            duration = (datetime.now(tz=timezone.utc) - start_time).total_seconds()
+            self.metrics.windows_collected += 1
+            self.metrics.last_collection_duration_secs = duration
+            self._collection_durations.append(duration)
+            if len(self._collection_durations) > 100:
+                self._collection_durations = self._collection_durations[-100:]
+            self.metrics.avg_collection_duration_secs = (
+                sum(self._collection_durations) / len(self._collection_durations)
+            )
+            self.metrics.last_miner_response_rate = (
+                len(forward_forecasts) / self.last_window_miner_count
+                if self.last_window_miner_count > 0
+                else 0.0
+            )
+            self.metrics.consecutive_failures = 0
 
             await self._event_bus.publish(
                 "bittensor.window_collected",
@@ -233,11 +262,32 @@ class TaoshiScheduler:
             )
 
         except Exception as exc:
+            self.metrics.windows_failed += 1
+            self.metrics.consecutive_failures += 1
             logger.exception("TaoshiScheduler: window %s failed: %s", window_id, exc)
             await self._event_bus.publish(
                 "bittensor.window_failed",
                 {"window_id": window_id, "error": str(exc)},
             )
+
+    async def _try_reconnect(self) -> bool:
+        """Attempt to reconnect the adapter after consecutive failures."""
+        logger.warning(
+            "TaoshiScheduler: %d consecutive failures, attempting reconnect",
+            self.metrics.consecutive_failures,
+        )
+        try:
+            await self._adapter.connect(max_retries=3, retry_delay=5.0)
+            await self._adapter.refresh_metagraph()
+            self.metrics.consecutive_failures = 0
+            self.metrics.metagraph_refreshes += 1
+            logger.info("TaoshiScheduler: reconnect succeeded")
+            return True
+        except Exception as exc:
+            self.metrics.connection_failures += 1
+            self.metrics.last_connection_failure_at = datetime.now(tz=timezone.utc)
+            logger.error("TaoshiScheduler: reconnect failed: %s", exc)
+            return False
 
     async def run(self) -> None:
         """Main collection loop. Runs until stop() is called or task is cancelled."""
@@ -245,10 +295,27 @@ class TaoshiScheduler:
         logger.info("TaoshiScheduler started")
         try:
             while self._running:
+                # Circuit breaker: reconnect after 3 consecutive failures
+                if self.metrics.consecutive_failures >= 3:
+                    reconnected = await self._try_reconnect()
+                    if not reconnected:
+                        backoff = min(
+                            60 * (2 ** (self.metrics.consecutive_failures - 3)), 1800
+                        )
+                        logger.warning(
+                            "TaoshiScheduler: backing off %.0f seconds after reconnect failure",
+                            backoff,
+                        )
+                        await asyncio.sleep(backoff)
+                        continue
+
                 await self._wait_for_next_window()
                 if not self._running:
                     break
-                await self._collect_window()
+                for stream_id in self._streams:
+                    if not self._running:
+                        break
+                    await self._collect_window(stream_id=stream_id)
         except asyncio.CancelledError:
             logger.info("TaoshiScheduler cancelled")
         finally:

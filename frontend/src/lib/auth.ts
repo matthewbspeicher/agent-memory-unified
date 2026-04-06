@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
-import { api } from './api/client';
+import { useCallback } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { agentApi } from './api/agent';
 
 export interface User {
   id: string;
@@ -7,62 +8,45 @@ export interface User {
   name: string;
 }
 
-interface AuthState {
-  user: User | null;
-  isLoading: boolean;
-  isAuthenticated: boolean;
-}
-
 export function useAuth() {
-  const [state, setState] = useState<AuthState>({
-    user: null,
-    isLoading: true,
-    isAuthenticated: false,
+  const queryClient = useQueryClient();
+
+  const { data: user, isLoading, isError } = useQuery<User | null>({
+    queryKey: ['auth', 'me'],
+    queryFn: async () => {
+      const token = localStorage.getItem('auth_token');
+      if (!token) return null;
+      
+      try {
+        const agent = await agentApi.getMe();
+        return agent as unknown as User;
+      } catch (err) {
+        localStorage.removeItem('auth_token');
+        return null;
+      }
+    },
+    retry: false,
   });
 
-  useEffect(() => {
-    const token = localStorage.getItem('auth_token');
-    if (!token) {
-      setState({ user: null, isLoading: false, isAuthenticated: false });
-      return;
-    }
-
-    api.get('/v1/agents/me')
-      .then((res) => {
-        setState({
-          user: res.data,
-          isLoading: false,
-          isAuthenticated: true,
-        });
-      })
-      .catch(() => {
-        localStorage.removeItem('auth_token');
-        setState({ user: null, isLoading: false, isAuthenticated: false });
-      });
-  }, []);
-
-  const login = useCallback((token: string) => {
-    localStorage.setItem('auth_token', token);
-    setState((prev) => ({ ...prev, isLoading: true }));
-    api.get('/v1/agents/me')
-      .then((res) => {
-        setState({ user: res.data, isLoading: false, isAuthenticated: true });
-      })
-      .catch(() => {
-        localStorage.removeItem('auth_token');
-        setState({ user: null, isLoading: false, isAuthenticated: false });
-      });
-  }, []);
+  const login = useCallback(
+    async (token: string) => {
+      localStorage.setItem('auth_token', token);
+      await queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
+    },
+    [queryClient]
+  );
 
   const logout = useCallback(() => {
     localStorage.removeItem('auth_token');
-    setState({ user: null, isLoading: false, isAuthenticated: false });
-  }, []);
+    queryClient.setQueryData(['auth', 'me'], null);
+  }, [queryClient]);
+
+  const isAuthenticated = !!user && !isError;
 
   return {
-    user: state.user,
-    isLoading: state.isLoading,
-    isAuthenticated: state.isAuthenticated,
+    user: user ?? null,
+    isLoading,
+    isAuthenticated,
     login,
     logout,
   };

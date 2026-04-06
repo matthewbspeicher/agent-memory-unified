@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { arenaApi } from '../lib/api/arena';
+import { GlassCard } from '../components/GlassCard';
+import { HeadToHeadMatchCard } from '../components/HeadToHeadMatchCard';
 
 export default function Arena() {
   const queryClient = useQueryClient();
@@ -8,24 +10,21 @@ export default function Arena() {
   const { data: profile } = useQuery({
     queryKey: ['arena-profile'],
     queryFn: async () => {
-      const response = await arenaApi.getProfile();
-      return response.data.data;
+      return await arenaApi.getProfile();
     },
   });
 
   const { data: gyms, isLoading: gymsLoading } = useQuery({
     queryKey: ['arena-gyms'],
     queryFn: async () => {
-      const response = await arenaApi.listGyms();
-      return response.data.data;
+      return await arenaApi.listGyms();
     },
   });
 
   const { data: matches, isLoading: matchesLoading } = useQuery({
     queryKey: ['arena-matches'],
     queryFn: async () => {
-      const response = await arenaApi.listMatches();
-      return response.data.data;
+      return await arenaApi.listMatches();
     },
   });
 
@@ -37,8 +36,7 @@ export default function Arena() {
   });
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white p-8">
-      <div className="max-w-6xl mx-auto">
+    <>
         <div className="mb-10 mt-6 flex flex-col md:flex-row md:items-end md:justify-between gap-6">
           <div className="text-center md:text-left">
             <h1 className="text-5xl font-black tracking-tight mb-4 bg-clip-text text-transparent bg-gradient-to-r from-rose-400 via-fuchsia-500 to-indigo-500 pb-2">
@@ -50,7 +48,7 @@ export default function Arena() {
             </p>
           </div>
 
-          <div className="bg-gray-900/80 border border-gray-800 rounded-3xl p-6 backdrop-blur-xl flex items-center gap-8 shadow-2xl shadow-rose-500/10">
+          <GlassCard className="flex items-center gap-8">
             <div className="text-center">
               <span className="block text-[10px] uppercase font-bold text-gray-500 tracking-widest mb-1">Global Rating</span>
               <span className="text-3xl font-black font-mono text-rose-400">{profile?.rating || '---'}</span>
@@ -62,7 +60,7 @@ export default function Arena() {
                 {profile ? `${((profile.wins / (profile.matches_played || 1)) * 100).toFixed(0)}%` : '---'}
               </span>
             </div>
-          </div>
+          </GlassCard>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-20">
@@ -80,21 +78,23 @@ export default function Arena() {
                 ))
               ) : (
                 gyms?.map((gym) => (
-                  <Link to={`/arena/gyms/${gym.id}`} key={gym.id} className="group bg-gray-900/50 border border-gray-800 p-6 rounded-2xl hover:border-rose-500/50 transition-all cursor-pointer relative overflow-hidden">
-                    <div className="absolute top-0 right-0 p-4">
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
-                        gym.difficulty === 'easy' ? 'bg-emerald-500/10 text-emerald-400' :
-                        gym.difficulty === 'medium' ? 'bg-amber-500/10 text-amber-400' :
-                        'bg-rose-500/10 text-rose-400'
-                      }`}>
-                        {gym.difficulty}
-                      </span>
-                    </div>
-                    <h3 className="text-xl font-bold mb-2 group-hover:text-rose-400 transition-colors">{gym.name}</h3>
-                    <p className="text-sm text-gray-400 mb-4 line-clamp-2">{gym.description}</p>
-                    <div className="flex items-center gap-2 text-xs font-bold text-gray-500">
-                      <span className="bg-gray-800 px-2 py-1 rounded">{gym.category}</span>
-                    </div>
+                  <Link to={`/arena/gyms/${gym.id}`} key={gym.id}>
+                    <GlassCard variant={gym.difficulty === 'easy' ? 'green' : gym.difficulty === 'medium' ? 'violet' : 'red'} className="h-full cursor-pointer group">
+                      <div className="absolute top-0 right-0 p-4 z-20">
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                          gym.difficulty === 'easy' ? 'bg-emerald-500/10 text-emerald-400' :
+                          gym.difficulty === 'medium' ? 'bg-amber-500/10 text-amber-400' :
+                          'bg-rose-500/10 text-rose-400'
+                        }`}>
+                          {gym.difficulty}
+                        </span>
+                      </div>
+                      <h3 className="text-xl font-bold mb-2 transition-colors">{gym.name}</h3>
+                      <p className="text-sm text-gray-400 mb-4 line-clamp-2 relative z-20">{gym.description}</p>
+                      <div className="flex items-center gap-2 text-xs font-bold text-gray-500">
+                        <span className="bg-gray-800 px-2 py-1 rounded relative z-20">{gym.category}</span>
+                      </div>
+                    </GlassCard>
                   </Link>
                 ))
               )}
@@ -117,28 +117,20 @@ export default function Arena() {
               </button>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-6">
               {matchesLoading ? (
-                Array(5).fill(0).map((_, i) => (
-                  <div key={i} className="h-20 bg-gray-900/50 rounded-2xl animate-pulse"></div>
+                Array(2).fill(0).map((_, i) => (
+                  <div key={i} className="h-40 bg-gray-900/50 rounded-2xl animate-pulse"></div>
                 ))
               ) : (
                 matches?.map((match) => (
-                  <Link to={`/arena/matches/${match.id}`} key={match.id} className="bg-gray-900/50 border border-gray-800 p-4 rounded-2xl flex items-center justify-between hover:border-rose-500/30 transition-colors cursor-pointer">
-                    <div className="flex items-center gap-4">
-                      <div className={`w-2 h-2 rounded-full ${
-                        match.status === 'completed' ? (match.winner_id === profile?.agent_id ? 'bg-emerald-500' : 'bg-rose-500') : 'bg-amber-500 animate-pulse'
-                      }`}></div>
-                      <div>
-                        <p className="text-sm font-bold">vs Agent {match.opponent_id.slice(0, 8)}</p>
-                        <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">{new Date(match.created_at).toLocaleDateString()}</p>
-                      </div>
-                    </div>
-                    <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-lg ${
-                      match.status === 'completed' ? 'bg-gray-800 text-gray-400' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                    }`}>
-                      {match.status}
-                    </span>
+                  <Link to={`/arena/matches/${match.id}`} key={match.id} className="block">
+                    <HeadToHeadMatchCard 
+                      agentA={{ name: "Your Agent", initials: "YOU", elo: profile?.rating || 1200 }}
+                      agentB={{ name: `Agent ${match.opponent_id.slice(0,4)}`, initials: "OPP", elo: match.opponent_rating || 1200 }}
+                      matchStatus={match.status === 'completed' ? 'COMPLETED' : 'LIVE'}
+                      winProbA={50} // placeholder
+                    />
                   </Link>
                 ))
               )}
@@ -150,7 +142,6 @@ export default function Arena() {
             </div>
           </div>
         </div>
-      </div>
-    </div>
+      </>
   );
 }

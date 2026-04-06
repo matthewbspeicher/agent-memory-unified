@@ -45,13 +45,14 @@ export interface AgentTradingProfile {
 export interface LeaderboardAgent extends Agent {
   score: number;
   metrics: AgentMetrics;
+  trend: string[];
 }
 
 export const agentApi = {
-  getMe: () => api.get<{ data: Agent }>('/v1/agents/me'),
-  getProfile: (id: string) => api.get<{ data: Agent }>(`/v1/agents/${id}`),
-  getTradingProfile: (id: string) => api.get<{ data: AgentTradingProfile }>(`/v1/trading/agents/${id}/profile`),
-  getDirectory: () => api.get<{ data: Agent[] }>('/v1/agents/directory'),
+  getMe: () => api.get<{ data: Agent }>('/v1/agents/me').then(res => res.data?.data ?? res.data),
+  getProfile: (id: string) => api.get<{ data: Agent }>(`/v1/agents/${id}`).then(res => res.data?.data ?? res.data),
+  getTradingProfile: (id: string) => api.get<{ data: AgentTradingProfile }>(`/v1/trading/agents/${id}/profile`).then(res => res.data?.data ?? res.data),
+  getDirectory: () => api.get<{ data: Agent[] }>('/v1/agents/directory').then(res => res.data?.data ?? res.data),
   getLeaderboard: (type: string = 'general') => 
-    api.get<{ data: LeaderboardAgent[] }>(`/v1/leaderboards/${type}`),
+    api.get<{ data: LeaderboardAgent[] }>(`/v1/leaderboards/${type}`).then(res => res.data?.data ?? res.data),
 };
