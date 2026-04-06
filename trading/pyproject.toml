@@ -15,8 +15,10 @@ dependencies = [
     "PyJWT>=2.8.0",
 ]
 
-[tool.setuptools]
-packages = ["api", "broker", "config", "storage", "learning", "integrations", "journal", "llm", "backtesting"]
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["*"]
+exclude = ["tests*", "venv*", "_vendor*", "*.egg-info"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
