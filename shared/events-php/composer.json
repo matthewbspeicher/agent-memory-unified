@@ -1,0 +1,14 @@
+{
+  "name": "agent-memory/shared-events",
+  "description": "Cross-service event publishing via Redis Streams",
+  "type": "library",
+  "autoload": {
+    "psr-4": {
+      "AgentMemory\\SharedEvents\\": "src/"
+    }
+  },
+  "require": {
+    "php": ">=8.3",
+    "ext-redis": "*"
+  }
+}
