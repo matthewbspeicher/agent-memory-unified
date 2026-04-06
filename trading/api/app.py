@@ -1261,6 +1261,12 @@ async def lifespan(app: FastAPI):
                 bittensor_components["evaluator"].run(),
                 name="bittensor_evaluator"
             )
+            if bittensor_components.get("weight_setter"):
+                app.state.bittensor_weight_setter = bittensor_components["weight_setter"]
+                task_mgr.create_task(
+                    bittensor_components["weight_setter"].run(),
+                    name="bittensor_weight_setter"
+                )
         elif config.bittensor_mock and not bittensor_enabled_runtime:
             from integrations.bittensor.mock_source import MockBittensorSource
             _bt_mock = MockBittensorSource(signal_bus=signal_bus)

@@ -197,18 +197,29 @@ async def setup_bittensor(
             )
             return False, {}
         
+        from integrations.bittensor.weight_setter import WeightSetter
+
+        _bt_weight_setter = WeightSetter(
+            adapter=_bt_adapter,
+            store=_bt_store,
+            netuid=config.bittensor_subnet_uid,
+            interval_blocks=100,
+            min_rankings=config.bittensor_min_windows_for_ranking,
+        )
+
         logger.info(
             "Bittensor integration enabled (network=%s, subnet=%d)",
             config.bittensor_network,
             config.bittensor_subnet_uid,
         )
-        
+
         return True, {
             "store": _bt_store,
             "source": _bt_source,
             "adapter": _bt_adapter,
             "scheduler": _bt_scheduler,
             "evaluator": _bt_evaluator,
+            "weight_setter": _bt_weight_setter,
             "ranking_config": {
                 "min_windows_for_ranking": config.bittensor_min_windows_for_ranking,
                 "alpha_decay_per_window": config.bittensor_hybrid_alpha_decay_per_window,
