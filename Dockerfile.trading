@@ -25,8 +25,13 @@ RUN pip install -e /app/shared-types && \
 # Set PYTHONPATH to include /app so 'import shared' works
 ENV PYTHONPATH=/app:$PYTHONPATH
 
+# Copy the entrypoint script
+COPY trading/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 # Set working directory to trading service
 WORKDIR /app/trading
 
-# Start command (use shell form to allow $PORT expansion)
-CMD python3 -m uvicorn main:app --host 0.0.0.0 --port $PORT
+# Start command via entrypoint
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+CMD ["python3", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
