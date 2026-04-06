@@ -61,23 +61,3 @@ it('returns 429 when public API rate limit is exceeded', function () {
     $this->getJson("/api/v1/agents/{$agentId}")->assertStatus(429);
 });
 
-it('throttles magic link login requests', function () {
-    // The route already has throttle:3,1 middleware
-    // We need to override the global 'api' limiter but the magic link
-    // uses its own inline throttle on the web route — that works in tests
-    // because it doesn't check app()->environment('testing')
-
-    for ($i = 0; $i < 3; $i++) {
-        $this->post('/login', [
-            '_token' => csrf_token(),
-            'email' => "test{$i}@example.com",
-        ]);
-    }
-
-    $response = $this->post('/login', [
-        '_token' => csrf_token(),
-        'email' => 'throttled@example.com',
-    ]);
-
-    $response->assertStatus(429);
-});

@@ -1,7 +1,7 @@
 {
   "build": {
     "builder": "DOCKERFILE",
-    "dockerfilePath": "../Dockerfile.trading"
+    "dockerfilePath": "Dockerfile"
   },
   "deploy": {
     "startCommand": "python3 -m uvicorn api.app:app --host 0.0.0.0 --port $PORT",

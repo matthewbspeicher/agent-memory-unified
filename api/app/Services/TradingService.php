@@ -78,6 +78,7 @@ class TradingService
             if (bccomp((string) $totalChildQty, $parent->quantity, 8) >= 0) {
                 // Weighted average exit price from children
                 $weightedExitSum = '0';
+                /** @var \App\Models\Trade $c */
                 foreach ($parent->children as $c) {
                     $weightedExitSum = bcadd($weightedExitSum, bcmul($c->entry_price, $c->quantity, 8), 8);
                 }
@@ -122,6 +123,7 @@ class TradingService
         $totalQty = '0';
         $totalCost = '0';
 
+        /** @var \App\Models\Trade $entry */
         foreach ($openEntries as $entry) {
             $remainingQty = $entry->remainingQuantity();
             $totalQty = bcadd($totalQty, $remainingQty, 8);
