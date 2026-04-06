@@ -7,11 +7,13 @@ use App\Models\Agent;
 use App\Models\CollaborationMention;
 use App\Models\Workspace;
 use App\Models\WorkspaceEvent;
+use App\Traits\ResolvesAgent;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class MentionController extends Controller
 {
+    use ResolvesAgent;
     /**
      * List mentions for the workspace (sent and received by authenticated agent).
      * GET /v1/workspaces/{id}/mentions
@@ -244,35 +246,7 @@ class MentionController extends Controller
     // Helpers
     // -------------------------------------------------------------------------
 
-    private function resolveAgent(Request $request): Agent|JsonResponse
-    {
-        $agent = $request->attributes->get('agent');
-        $workspace = $request->attributes->get('workspace_token');
-
-        if ($agent) {
-            return $agent;
-        }
-
-        if ($workspace) {
-            $agentId = $request->input('agent_id');
-            if (! $agentId) {
-                return response()->json(['error' => 'agent_id is required when authenticating via Workspace token.'], 422);
-            }
-
-            $agent = Agent::find($agentId);
-            if (! $agent) {
-                return response()->json(['error' => 'Agent not found.'], 404);
-            }
-
-            if (! $workspace->agents()->where('agents.id', $agentId)->exists()) {
-                return response()->json(['error' => 'Agent does not belong to this Workspace.'], 403);
-            }
-
-            return $agent;
-        }
-
-        return response()->json(['error' => 'Unauthorized.'], 401);
-    }
+    // resolveAgent() provided by ResolvesAgent trait
 
     private function agentBelongsToWorkspace(Agent $agent, Workspace $workspace): bool
     {

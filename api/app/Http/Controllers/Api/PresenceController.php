@@ -6,12 +6,14 @@ use App\Http\Controllers\Controller;
 use App\Models\Agent;
 use App\Models\AgentPresence;
 use App\Models\Workspace;
+use App\Traits\ResolvesAgent;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 class PresenceController extends Controller
 {
+    use ResolvesAgent;
     /**
      * List all agent presences in a workspace.
      * GET /v1/workspaces/{workspaceId}/presence
@@ -168,38 +170,7 @@ class PresenceController extends Controller
         return response()->json(['message' => 'Presence set to offline.']);
     }
 
-    /**
-     * Resolve the active agent for the request.
-     */
-    private function resolveAgent(Request $request): Agent|JsonResponse
-    {
-        $agent = $request->attributes->get('agent');
-        $workspace = $request->attributes->get('workspace_token');
-
-        if ($agent) {
-            return $agent;
-        }
-
-        if ($workspace) {
-            $agentId = $request->input('agent_id');
-            if (! $agentId) {
-                return response()->json(['error' => 'agent_id is required when authenticating via Workspace token.'], 422);
-            }
-
-            $agent = Agent::find($agentId);
-            if (! $agent) {
-                return response()->json(['error' => 'Agent not found.'], 404);
-            }
-
-            if (! $workspace->agents()->where('agents.id', $agentId)->exists()) {
-                return response()->json(['error' => 'Agent does not belong to this Workspace.'], 403);
-            }
-
-            return $agent;
-        }
-
-        return response()->json(['error' => 'Unauthorized.'], 401);
-    }
+    // resolveAgent() provided by ResolvesAgent trait
 
     /**
      * Check if agent belongs to workspace.

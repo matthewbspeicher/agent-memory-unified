@@ -8,6 +8,7 @@ use App\Models\Agent;
 use App\Services\AchievementService;
 use App\Services\MemoryService;
 use App\Services\SummarizationService;
+use App\Traits\ResolvesAgent;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -15,6 +16,7 @@ use Illuminate\Support\Facades\Log;
 class SessionController extends Controller
 {
     use FormatsMemories;
+    use ResolvesAgent;
 
     public function __construct(
         private readonly MemoryService $memories,
@@ -95,36 +97,5 @@ class SessionController extends Controller
         ], 201);
     }
 
-    /**
-     * Resolve the active agent (same logic as MemoryController).
-     */
-    private function resolveAgent(Request $request): Agent|JsonResponse
-    {
-        $agent = $request->attributes->get('agent');
-        $workspace = $request->attributes->get('workspace_token');
-
-        if ($agent) {
-            return $agent;
-        }
-
-        if ($workspace) {
-            $agentId = $request->input('agent_id');
-            if (! $agentId) {
-                return response()->json(['error' => 'agent_id is required when authenticating via Workspace token.'], 422);
-            }
-
-            $agent = Agent::find($agentId);
-            if (! $agent) {
-                return response()->json(['error' => 'Agent not found.'], 404);
-            }
-
-            if (! $workspace->agents()->where('agents.id', $agentId)->exists()) {
-                return response()->json(['error' => 'Agent does not belong to this Workspace.'], 403);
-            }
-
-            return $agent;
-        }
-
-        return response()->json(['error' => 'Unauthorized.'], 401);
-    }
+    // resolveAgent() provided by ResolvesAgent trait
 }

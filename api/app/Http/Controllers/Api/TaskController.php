@@ -7,11 +7,13 @@ use App\Models\Agent;
 use App\Models\Workspace;
 use App\Models\WorkspaceEvent;
 use App\Models\WorkspaceTask;
+use App\Traits\ResolvesAgent;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class TaskController extends Controller
 {
+    use ResolvesAgent;
     /**
      * List tasks in a workspace.
      * GET /v1/workspaces/{id}/tasks
@@ -360,35 +362,7 @@ class TaskController extends Controller
     // Helpers
     // -------------------------------------------------------------------------
 
-    private function resolveAgent(Request $request): Agent|JsonResponse
-    {
-        $agent = $request->attributes->get('agent');
-        $workspace = $request->attributes->get('workspace_token');
-
-        if ($agent) {
-            return $agent;
-        }
-
-        if ($workspace) {
-            $agentId = $request->input('agent_id');
-            if (! $agentId) {
-                return response()->json(['error' => 'agent_id is required when authenticating via Workspace token.'], 422);
-            }
-
-            $agent = Agent::find($agentId);
-            if (! $agent) {
-                return response()->json(['error' => 'Agent not found.'], 404);
-            }
-
-            if (! $workspace->agents()->where('agents.id', $agentId)->exists()) {
-                return response()->json(['error' => 'Agent does not belong to this Workspace.'], 403);
-            }
-
-            return $agent;
-        }
-
-        return response()->json(['error' => 'Unauthorized.'], 401);
-    }
+    // resolveAgent() provided by ResolvesAgent trait
 
     private function agentBelongsToWorkspace(Agent $agent, Workspace $workspace): bool
     {
