@@ -12,12 +12,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
+          python-version: '3.14'
 
       - name: Install Python dependencies
         run: pip install datamodel-code-generator==0.45.0
@@ -190,7 +185,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -r requirements.txt
+          grep -v "remembr @" requirements.txt > requirements-ci.txt
+          pip install -r requirements-ci.txt
           pip install -r requirements-test.txt 2>/dev/null || true
 
       - name: Run unit tests
