@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "stock-trading-api"
 version = "0.1.0"
@@ -10,6 +14,9 @@ dependencies = [
     "redis>=5.1",
     "PyJWT>=2.8.0",
 ]
+
+[tool.setuptools]
+packages = ["api", "broker", "config", "storage", "learning", "integrations", "journal", "llm", "backtesting"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
