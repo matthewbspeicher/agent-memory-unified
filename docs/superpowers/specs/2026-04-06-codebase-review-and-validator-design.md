@@ -552,7 +552,7 @@ Apply to all API controllers.
 **Problem:** `src/lib/auth.ts` has hardcoded mock user (`agent@remembr.dev`), no token verification on app load, no refresh logic.
 
 **Fix:**
-- On app load, verify token by hitting `GET /api/v1/auth/me` (or similar)
+- On app load, verify token by hitting `GET /api/v1/agents/me`
 - If token is expired/invalid, redirect to login
 - Remove hardcoded mock user data
 - Add token refresh logic using JWT refresh endpoint
