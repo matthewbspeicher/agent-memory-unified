@@ -1,19 +1,21 @@
 # tests/unit/test_risk/test_engine.py
 from decimal import Decimal
-from unittest.mock import MagicMock
 import pytest
 
 from broker.models import AccountBalance, MarketOrder, OrderSide, Quote, Symbol
 from risk.engine import RiskEngine
 from risk.kill_switch import KillSwitch
-from risk.rules import MaxPositionSize, MaxDailyLoss, PortfolioContext, RiskResult
+from risk.rules import MaxPositionSize, MaxDailyLoss, PortfolioContext
 
 
 def _ctx():
     return PortfolioContext(
-        positions=[], balance=AccountBalance(
-            account_id="U123", net_liquidation=Decimal("100000"),
-            buying_power=Decimal("50000"), cash=Decimal("30000"),
+        positions=[],
+        balance=AccountBalance(
+            account_id="U123",
+            net_liquidation=Decimal("100000"),
+            buying_power=Decimal("50000"),
+            cash=Decimal("30000"),
             maintenance_margin=Decimal("20000"),
         ),
     )
@@ -21,8 +23,10 @@ def _ctx():
 
 def _trade():
     return MarketOrder(
-        symbol=Symbol(ticker="AAPL"), side=OrderSide.BUY,
-        quantity=Decimal("10"), account_id="U123",
+        symbol=Symbol(ticker="AAPL"),
+        side=OrderSide.BUY,
+        quantity=Decimal("10"),
+        account_id="U123",
     ), Quote(symbol=Symbol(ticker="AAPL"), last=Decimal("150"))
 
 

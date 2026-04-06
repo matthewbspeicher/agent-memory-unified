@@ -4,14 +4,13 @@ Polymarket Client wrapper.
 Handles L1/L2 authentication, REST CLOB endpoints, and on-chain
 interactions (approvals, USDC deposits/withdrawals) via Polygon.
 """
+
 from __future__ import annotations
 
 import json
 import logging
 import httpx
-from dataclasses import dataclass
 from pathlib import Path
-from decimal import Decimal
 
 from eth_account import Account
 from py_clob_client.client import ClobClient, ApiCreds
@@ -33,7 +32,7 @@ class PolymarketClient:
         self,
         private_key: str,
         funder: str | None = None,
-        signature_type: int = 0, # 0 = EOA, 1 = Poly/Magic
+        signature_type: int = 0,  # 0 = EOA, 1 = Poly/Magic
         rpc_url: str = "https://polygon-rpc.com",
         api_key: str | None = None,
         creds_path: str = "data/polymarket_creds.json",
@@ -49,7 +48,7 @@ class PolymarketClient:
         self.dry_run = dry_run
         self._relayer_api_key = relayer_api_key
         self._relayer_address = relayer_address
-        
+
         # Derive wallet from pk
         self._wallet = Account.from_key(private_key)
         self.address = self._wallet.address
@@ -67,10 +66,34 @@ class PolymarketClient:
         self._usdc = self._w3.eth.contract(
             address=self._w3.to_checksum_address(USDC_ADDRESS),
             abi=[
-                {"constant": True, "inputs": [{"name": "_owner", "type": "address"}], "name": "balanceOf", "outputs": [{"name": "balance", "type": "uint256"}], "type": "function"},
-                {"constant": False, "inputs": [{"name": "_spender", "type": "address"}, {"name": "_value", "type": "uint256"}], "name": "approve", "outputs": [{"name": "", "type": "bool"}], "type": "function"},
-                {"constant": True, "inputs": [{"name": "_owner", "type": "address"}, {"name": "_spender", "type": "address"}], "name": "allowance", "outputs": [{"name": "", "type": "uint256"}], "type": "function"}
-            ]
+                {
+                    "constant": True,
+                    "inputs": [{"name": "_owner", "type": "address"}],
+                    "name": "balanceOf",
+                    "outputs": [{"name": "balance", "type": "uint256"}],
+                    "type": "function",
+                },
+                {
+                    "constant": False,
+                    "inputs": [
+                        {"name": "_spender", "type": "address"},
+                        {"name": "_value", "type": "uint256"},
+                    ],
+                    "name": "approve",
+                    "outputs": [{"name": "", "type": "bool"}],
+                    "type": "function",
+                },
+                {
+                    "constant": True,
+                    "inputs": [
+                        {"name": "_owner", "type": "address"},
+                        {"name": "_spender", "type": "address"},
+                    ],
+                    "name": "allowance",
+                    "outputs": [{"name": "", "type": "uint256"}],
+                    "type": "function",
+                },
+            ],
         )
 
     # ------------------------------------------------------------------------
@@ -91,31 +114,45 @@ class PolymarketClient:
                 creds = ApiCreds(
                     api_key=data["api_key"],
                     api_secret=data["api_secret"],
-                    api_passphrase=data["api_passphrase"]
+                    api_passphrase=data["api_passphrase"],
                 )
                 self.clob.set_api_creds(creds)
-                
+
                 # Check validity
                 if self.check_health():
-                    logger.info("Polymarket: Loaded valid L2 credentials from %s", creds_path)
+                    logger.info(
+                        "Polymarket: Loaded valid L2 credentials from %s", creds_path
+                    )
                     creds_loaded = True
                 else:
-                    logger.warning("Polymarket: Cached L2 credentials stale, re-deriving.")
+                    logger.warning(
+                        "Polymarket: Cached L2 credentials stale, re-deriving."
+                    )
             except Exception as e:
-                logger.warning("Polymarket: Failed to load L2 credentials from %s: %s", creds_path, e)
+                logger.warning(
+                    "Polymarket: Failed to load L2 credentials from %s: %s",
+                    creds_path,
+                    e,
+                )
 
         if not creds_loaded:
-            logger.info("Polymarket: Deriving new L2 credentials via wallet signature...")
+            logger.info(
+                "Polymarket: Deriving new L2 credentials via wallet signature..."
+            )
             creds = self.clob.create_or_derive_api_creds()
             self.clob.set_api_creds(creds)
-            
+
             # Persist
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(json.dumps({
-                "api_key": creds.api_key,
-                "api_secret": creds.api_secret,
-                "api_passphrase": creds.api_passphrase
-            }))
+            path.write_text(
+                json.dumps(
+                    {
+                        "api_key": creds.api_key,
+                        "api_secret": creds.api_secret,
+                        "api_passphrase": creds.api_passphrase,
+                    }
+                )
+            )
             path.chmod(0o600)
             logger.info("Polymarket: Saved new L2 credentials to %s", creds_path)
 
@@ -146,22 +183,28 @@ class PolymarketClient:
             return data["data"][0]
         return {}
 
-    def get_markets(self, tag: str = None, active: bool = True, next_cursor: str = "", limit: int = 100) -> dict:
+    def get_markets(
+        self,
+        tag: str = None,
+        active: bool = True,
+        next_cursor: str = "",
+        limit: int = 100,
+    ) -> dict:
         # /markets
         params = {"limit": limit}
         if active:
             params["active"] = "true"
         if next_cursor:
             params["next_cursor"] = next_cursor
-        
+
         # Tags isn't explicitly natively supported in py_clob_client's typing, we use raw get if needed
         resp = httpx.get(f"{self.clob.host}/markets", params=params)
         resp.raise_for_status()
         return resp.json()
-        
+
     def get_orderbook(self, token_id: str) -> dict:
         return self.clob.get_order_book(token_id)
-        
+
     def get_trades(self, token_id: str, limit: int = 50) -> dict:
         # Not natively exposed effectively in recent clob SDK sometimes, raw HTTP
         params = {"market": token_id, "limit": limit}
@@ -175,7 +218,7 @@ class PolymarketClient:
     def cancel_order(self, order_id: str) -> dict:
         return self.clob.cancel(order_id)
 
-    # Note: create_order is done directly via SDK in PolymarketOrderManager 
+    # Note: create_order is done directly via SDK in PolymarketOrderManager
     # as it requires OrderBuilder. We expose the clob client for that.
 
     def get_positions(self) -> list[dict]:
@@ -204,41 +247,73 @@ class PolymarketClient:
             return
 
         MAX_INT = 2**256 - 1
-        
+
         # 1. Check/Approve USDC to CTF Exchange
         ctf_checksum = self._w3.to_checksum_address(CTF_EXCHANGE)
         allowance = self._usdc.functions.allowance(self.address, ctf_checksum).call()
         if allowance == 0:
             logger.info("Polymarket: Approving USDC for CTF Exchange...")
-            txn = self._usdc.functions.approve(ctf_checksum, MAX_INT).build_transaction({
-                "from": self.address,
-                "nonce": self._w3.eth.get_transaction_count(self.address),
-            })
-            signed = self._w3.eth.account.sign_transaction(txn, private_key=self._private_key)
-            tx_hash = self._w3.eth.send_raw_transaction(signed.raw_transaction) # Note: use raw_transaction in v7
+            txn = self._usdc.functions.approve(ctf_checksum, MAX_INT).build_transaction(
+                {
+                    "from": self.address,
+                    "nonce": self._w3.eth.get_transaction_count(self.address),
+                }
+            )
+            signed = self._w3.eth.account.sign_transaction(
+                txn, private_key=self._private_key
+            )
+            tx_hash = self._w3.eth.send_raw_transaction(
+                signed.raw_transaction
+            )  # Note: use raw_transaction in v7
             self._w3.eth.wait_for_transaction_receipt(tx_hash)
             logger.info("Polymarket: USDC approved.")
 
         # 2. Check/Approve ERC-1155 Conditional Tokens to NegRisk Adapter
         # Usually conditional tokens are pre-approved or handled by the ClobClient,
         # but to be safe and thorough as per spec...
-        CONDITIONAL_TOKENS = "0x4D97DCd97eC945f40cF65F87097ACe5EA0476045" # standard CT address on Polygon
+        CONDITIONAL_TOKENS = "0x4D97DCd97eC945f40cF65F87097ACe5EA0476045"  # standard CT address on Polygon
         ct_contract = self._w3.eth.contract(
             address=self._w3.to_checksum_address(CONDITIONAL_TOKENS),
             abi=[
-                {"constant": True, "inputs": [{"name": "owner", "type": "address"}, {"name": "operator", "type": "address"}], "name": "isApprovedForAll", "outputs": [{"name": "", "type": "bool"}], "type": "function"},
-                {"constant": False, "inputs": [{"name": "operator", "type": "address"}, {"name": "approved", "type": "bool"}], "name": "setApprovalForAll", "outputs": [], "type": "function"}
-            ]
+                {
+                    "constant": True,
+                    "inputs": [
+                        {"name": "owner", "type": "address"},
+                        {"name": "operator", "type": "address"},
+                    ],
+                    "name": "isApprovedForAll",
+                    "outputs": [{"name": "", "type": "bool"}],
+                    "type": "function",
+                },
+                {
+                    "constant": False,
+                    "inputs": [
+                        {"name": "operator", "type": "address"},
+                        {"name": "approved", "type": "bool"},
+                    ],
+                    "name": "setApprovalForAll",
+                    "outputs": [],
+                    "type": "function",
+                },
+            ],
         )
         neg_risk_checksum = self._w3.to_checksum_address(NEG_RISK_ADAPTER)
-        is_approved = ct_contract.functions.isApprovedForAll(self.address, neg_risk_checksum).call()
+        is_approved = ct_contract.functions.isApprovedForAll(
+            self.address, neg_risk_checksum
+        ).call()
         if not is_approved:
             logger.info("Polymarket: Approving ERC-1155 for NegRisk Adapter...")
-            txn = ct_contract.functions.setApprovalForAll(neg_risk_checksum, True).build_transaction({
-                "from": self.address,
-                "nonce": self._w3.eth.get_transaction_count(self.address),
-            })
-            signed = self._w3.eth.account.sign_transaction(txn, private_key=self._private_key)
+            txn = ct_contract.functions.setApprovalForAll(
+                neg_risk_checksum, True
+            ).build_transaction(
+                {
+                    "from": self.address,
+                    "nonce": self._w3.eth.get_transaction_count(self.address),
+                }
+            )
+            signed = self._w3.eth.account.sign_transaction(
+                txn, private_key=self._private_key
+            )
             tx_hash = self._w3.eth.send_raw_transaction(signed.raw_transaction)
             self._w3.eth.wait_for_transaction_receipt(tx_hash)
             logger.info("Polymarket: NegRisk approved.")

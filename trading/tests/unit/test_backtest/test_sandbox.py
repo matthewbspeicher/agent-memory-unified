@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import asyncio
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -15,9 +13,13 @@ from broker.models import Bar, Symbol, AssetType
 
 # --- Fixtures ---
 
-def _make_bars(ticker: str, num_bars: int = 120, base_price: float = 100.0) -> list[Bar]:
+
+def _make_bars(
+    ticker: str, num_bars: int = 120, base_price: float = 100.0
+) -> list[Bar]:
     """Generate synthetic daily bars with mild uptrend and noise."""
     import random
+
     random.seed(42)
 
     symbol = Symbol(ticker=ticker, asset_type=AssetType.STOCK)
@@ -28,20 +30,22 @@ def _make_bars(ticker: str, num_bars: int = 120, base_price: float = 100.0) -> l
     for i in range(num_bars):
         # Random walk with slight upward drift
         change = random.gauss(0.001, 0.02)
-        price *= (1 + change)
+        price *= 1 + change
         high = price * (1 + abs(random.gauss(0, 0.01)))
         low = price * (1 - abs(random.gauss(0, 0.01)))
         volume = random.randint(500_000, 5_000_000)
 
-        bars.append(Bar(
-            symbol=symbol,
-            open=Decimal(str(round(price * 0.999, 2))),
-            high=Decimal(str(round(high, 2))),
-            low=Decimal(str(round(low, 2))),
-            close=Decimal(str(round(price, 2))),
-            volume=volume,
-            timestamp=start + timedelta(days=i),
-        ))
+        bars.append(
+            Bar(
+                symbol=symbol,
+                open=Decimal(str(round(price * 0.999, 2))),
+                high=Decimal(str(round(high, 2))),
+                low=Decimal(str(round(low, 2))),
+                close=Decimal(str(round(price, 2))),
+                volume=volume,
+                timestamp=start + timedelta(days=i),
+            )
+        )
 
     return bars
 
@@ -53,7 +57,10 @@ class MockDataBus:
         self._bars = bars_by_ticker
 
     async def get_historical(
-        self, symbol: Symbol, timeframe: str = "1d", period: str = "3mo",
+        self,
+        symbol: Symbol,
+        timeframe: str = "1d",
+        period: str = "3mo",
     ) -> list[Bar]:
         bars = self._bars.get(symbol.ticker, [])
         if not bars:
@@ -62,6 +69,7 @@ class MockDataBus:
 
 
 # --- Tests ---
+
 
 class TestSandboxResult:
     def test_to_dict(self):
@@ -95,10 +103,12 @@ class TestSandboxResult:
 class TestBacktestSandbox:
     @pytest.fixture
     def mock_bus(self) -> MockDataBus:
-        return MockDataBus({
-            "AAPL": _make_bars("AAPL", 120, 150.0),
-            "MSFT": _make_bars("MSFT", 120, 300.0),
-        })
+        return MockDataBus(
+            {
+                "AAPL": _make_bars("AAPL", 120, 150.0),
+                "MSFT": _make_bars("MSFT", 120, 300.0),
+            }
+        )
 
     @pytest.fixture
     def sandbox(self, mock_bus: MockDataBus) -> BacktestSandbox:
@@ -229,6 +239,3 @@ class TestBacktestSandbox:
 
         # Should not error — truncates to first 50 and silently skips missing data
         assert result.error is None
-
-
-

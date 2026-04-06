@@ -87,7 +87,7 @@ class TestAgentOverrideStore:
         await override_store.set_trust_level("agent_1", "LOW")
         override = await override_store.get("agent_1")
         assert override["trust_level"] == "LOW"
-        
+
         # Update trust level
         await override_store.set_trust_level("agent_1", "HIGH")
         override = await override_store.get("agent_1")
@@ -100,7 +100,7 @@ class TestAgentOverrideStore:
         override = await override_store.get("agent_1")
         stored_params = json.loads(override["runtime_parameters"])
         assert stored_params == params1
-        
+
         # Update parameters
         params2 = {"key2": "value2"}
         await override_store.set_runtime_parameters("agent_1", params2)

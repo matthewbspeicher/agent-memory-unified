@@ -1,4 +1,5 @@
 """Tests for Metaculus token wiring in kalshi_calibration and polymarket_calibration (Task 2)."""
+
 from __future__ import annotations
 
 import pytest
@@ -21,10 +22,14 @@ def _make_config(strategy: str, **params) -> AgentConfig:
 # KalshiCalibrationAgent — token fallback from settings
 # ---------------------------------------------------------------------------
 
+
 class TestKalshiCalibrationMetaculusToken:
     def _agent(self, **params):
         from strategies.kalshi_calibration import KalshiCalibrationAgent
-        cfg = _make_config("kalshi_calibration", threshold_cents=5, min_volume=0, **params)
+
+        cfg = _make_config(
+            "kalshi_calibration", threshold_cents=5, min_volume=0, **params
+        )
         return KalshiCalibrationAgent(cfg)
 
     @pytest.mark.asyncio
@@ -89,11 +94,11 @@ class TestKalshiCalibrationMetaculusToken:
 # _fetch_metaculus_questions — Authorization header
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_fetch_metaculus_uses_token_header():
     """_fetch_metaculus_questions adds Authorization header when token is provided."""
     from strategies.kalshi_calibration import _fetch_metaculus_questions
-    import httpx
 
     mock_response = MagicMock()
     mock_response.raise_for_status = MagicMock()
@@ -147,9 +152,11 @@ async def test_fetch_metaculus_no_token_no_auth_header():
 # PolymarketCalibrationAgent — token wiring
 # ---------------------------------------------------------------------------
 
+
 class TestPolymarketCalibrationMetaculusToken:
     def _agent(self, settings=None, **params):
         from strategies.polymarket_calibration import PolymarketCalibrationAgent
+
         cfg = _make_config("polymarket_calibration", **params)
         return PolymarketCalibrationAgent(cfg, settings=settings)
 

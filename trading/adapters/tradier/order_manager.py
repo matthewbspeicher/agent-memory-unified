@@ -8,8 +8,17 @@ from typing import Any
 
 from broker.interfaces import OrderManager
 from broker.models import (
-    AssetType, BracketOrder, LimitOrder, MarketOrder, OrderBase, OrderResult, OrderSide,
-    OrderStatus, StopLimitOrder, StopOrder, TrailingStopOrder,
+    AssetType,
+    BracketOrder,
+    LimitOrder,
+    MarketOrder,
+    OrderBase,
+    OrderResult,
+    OrderSide,
+    OrderStatus,
+    StopLimitOrder,
+    StopOrder,
+    TrailingStopOrder,
 )
 from adapters.tradier.client import TradierClient
 from adapters.tradier.errors import TradierAPIError
@@ -21,9 +30,11 @@ _TERMINAL_STATUSES = {"filled", "canceled", "rejected", "expired"}
 
 
 class TradierOrderManager(OrderManager):
-
     def __init__(
-        self, client: TradierClient, order_timeout: float = 10.0, poll_interval: float = 1.0,
+        self,
+        client: TradierClient,
+        order_timeout: float = 10.0,
+        poll_interval: float = 1.0,
     ) -> None:
         self._client = client
         self._order_timeout = order_timeout
@@ -81,7 +92,11 @@ class TradierOrderManager(OrderManager):
                 option_symbol = order.symbol.ticker  # Already in OCC format from agent
 
             raw = await self._client.place_order(
-                symbol=order.symbol.ticker if not option_symbol else order.symbol.ticker.split()[0] if " " in order.symbol.ticker else order.symbol.ticker,
+                symbol=order.symbol.ticker
+                if not option_symbol
+                else order.symbol.ticker.split()[0]
+                if " " in order.symbol.ticker
+                else order.symbol.ticker,
                 side=side,
                 qty=int(order.quantity),
                 order_type=order_type,
@@ -131,7 +146,11 @@ class TradierOrderManager(OrderManager):
             await self._client.cancel_order(order_id)
         except Exception:
             pass
-        return OrderResult(order_id=order_id, status=OrderStatus.CANCELLED, message="Adaptive poll timeout")
+        return OrderResult(
+            order_id=order_id,
+            status=OrderStatus.CANCELLED,
+            message="Adaptive poll timeout",
+        )
 
     async def modify_order(self, order_id: str, changes: dict) -> OrderResult:
         raise NotImplementedError("Tradier order modification not implemented")
@@ -156,5 +175,7 @@ def _to_order_result(raw: dict) -> OrderResult:
         order_id=str(raw.get("id", "")),
         status=_STATUS_MAP.get(raw.get("status", "").lower(), OrderStatus.SUBMITTED),
         filled_quantity=Decimal(str(raw.get("exec_quantity", raw.get("quantity", 0)))),
-        avg_fill_price=Decimal(str(raw["avg_fill_price"])) if raw.get("avg_fill_price") else None,
+        avg_fill_price=Decimal(str(raw["avg_fill_price"]))
+        if raw.get("avg_fill_price")
+        else None,
     )

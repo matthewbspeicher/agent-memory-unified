@@ -40,7 +40,9 @@ class AgentOverrideStore:
         )
         await self._db.commit()
 
-    async def set_runtime_parameters(self, agent_name: str, params: dict[str, Any]) -> None:
+    async def set_runtime_parameters(
+        self, agent_name: str, params: dict[str, Any]
+    ) -> None:
         """Upsert runtime parameters as JSON."""
         await self._db.execute(
             """INSERT INTO agent_overrides (agent_name, runtime_parameters, updated_at)
@@ -71,7 +73,9 @@ class AgentOverrideStore:
         )
         await self._db.commit()
 
-    async def get_trust_history(self, agent_name: str, limit: int = 50) -> list[dict[str, Any]]:
+    async def get_trust_history(
+        self, agent_name: str, limit: int = 50
+    ) -> list[dict[str, Any]]:
         """Query trust_events for an agent."""
         cursor = await self._db.execute(
             "SELECT * FROM trust_events WHERE agent_name = ? ORDER BY changed_at DESC LIMIT ?",

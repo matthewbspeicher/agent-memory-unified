@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from integrations.bittensor.models import DerivedBittensorView, DerivedMinerSignal, RawMinerForecast
+from integrations.bittensor.models import (
+    DerivedBittensorView,
+    DerivedMinerSignal,
+    RawMinerForecast,
+)
 
 
 def _classify_signal(forecast: RawMinerForecast) -> DerivedMinerSignal:
@@ -36,11 +40,13 @@ def _classify_signal(forecast: RawMinerForecast) -> DerivedMinerSignal:
     if len(predictions) > 1:
         mean_p = sum(predictions) / len(predictions)
         variance = sum((p - mean_p) ** 2 for p in predictions) / len(predictions)
-        volatility_proxy = variance ** 0.5
+        volatility_proxy = variance**0.5
     else:
         volatility_proxy = 0.0
 
-    confidence_proxy = forecast.incentive_score if forecast.incentive_score is not None else 0.0
+    confidence_proxy = (
+        forecast.incentive_score if forecast.incentive_score is not None else 0.0
+    )
 
     return DerivedMinerSignal(
         window_id=forecast.window_id,
@@ -114,8 +120,12 @@ def derive_consensus_view(
         weighted_direction = equal_weight_direction
         weighted_expected_return = equal_weight_expected_return
     else:
-        weighted_direction = sum(w * d for w, d in zip(weights, direction_scores)) / total_weight
-        weighted_expected_return = sum(w * r for w, r in zip(weights, expected_returns)) / total_weight
+        weighted_direction = (
+            sum(w * d for w, d in zip(weights, direction_scores)) / total_weight
+        )
+        weighted_expected_return = (
+            sum(w * r for w, r in zip(weights, expected_returns)) / total_weight
+        )
 
     agreement_ratio = max(bullish_count, bearish_count, flat_count) / n
 

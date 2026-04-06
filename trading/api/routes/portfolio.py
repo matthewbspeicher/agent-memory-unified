@@ -1,4 +1,5 @@
 """GET /portfolio/summary — multi-broker portfolio view."""
+
 from __future__ import annotations
 
 import asyncio
@@ -32,7 +33,11 @@ async def _fetch_broker(name: str, broker, settings) -> tuple[str, dict]:
         "connected": broker.connection.is_connected(),
     }
 
-    if name == "polymarket" and settings and getattr(settings, "polymarket_dry_run", False):
+    if (
+        name == "polymarket"
+        and settings
+        and getattr(settings, "polymarket_dry_run", False)
+    ):
         entry["dry_run"] = True
     if name == "kalshi" and settings and getattr(settings, "kalshi_demo", False):
         entry["demo"] = True
@@ -74,7 +79,10 @@ async def portfolio_summary(
     settings = getattr(request.app.state, "settings", None)
 
     if not brokers:
-        return {"brokers": {}, "totals": {"equity": 0, "buying_power": 0, "open_positions": 0}}
+        return {
+            "brokers": {},
+            "totals": {"equity": 0, "buying_power": 0, "open_positions": 0},
+        }
 
     # Fetch all brokers in parallel
     results = await asyncio.gather(

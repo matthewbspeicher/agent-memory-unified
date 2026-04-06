@@ -1,8 +1,9 @@
 """Tests for LiquidityRegimeDetector and per-symbol RegimeFilter liquidity checks."""
+
 from __future__ import annotations
 import pytest
 from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 from regime.models import LiquidityRegime, LiquiditySnapshot
 from regime.detector import LiquidityRegimeDetector
@@ -13,6 +14,7 @@ from broker.models import Symbol, AssetType
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_symbol(ticker: str, asset_type: AssetType = AssetType.PREDICTION) -> Symbol:
     return Symbol(ticker=ticker, asset_type=asset_type)
@@ -36,6 +38,7 @@ def _make_source(quote=None, markets=None):
 # ---------------------------------------------------------------------------
 # LiquidityRegimeDetector — detect_symbol
 # ---------------------------------------------------------------------------
+
 
 class TestDetectSymbol:
     @pytest.mark.asyncio
@@ -160,6 +163,7 @@ class TestDetectSymbol:
 # ---------------------------------------------------------------------------
 # RegimeFilter — per-symbol liquidity (async)
 # ---------------------------------------------------------------------------
+
 
 class TestRegimeFilterPerSymbol:
     @pytest.mark.asyncio

@@ -1,6 +1,5 @@
-import pytest
 import time
-from whatsapp.confirmation import ConfirmationGate, PendingAction
+from whatsapp.confirmation import ConfirmationGate
 
 
 def test_create_pending():

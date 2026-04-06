@@ -1,4 +1,5 @@
 """Unit tests for Kalshi prediction market agent strategies."""
+
 from __future__ import annotations
 
 import pytest
@@ -6,8 +7,8 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from broker.models import AssetType, LimitOrder, OrderSide, PredictionContract, Symbol
-from agents.models import AgentConfig, ActionLevel, Opportunity
+from broker.models import LimitOrder, OrderSide, PredictionContract
+from agents.models import AgentConfig, ActionLevel
 
 
 def _make_config(strategy: str = "kalshi_news_arb", **params) -> AgentConfig:
@@ -56,9 +57,11 @@ def _make_data_bus(contracts: list, anthropic_key: str = "sk-test") -> MagicMock
 # KalshiTimeDecayAgent
 # ---------------------------------------------------------------------------
 
+
 class TestKalshiTimeDecayAgent:
     def _agent(self, **params):
         from strategies.kalshi_time_decay import KalshiTimeDecayAgent
+
         defaults = dict(max_days_to_close=3, max_price_cents=8, min_volume=100)
         cfg = _make_config("kalshi_time_decay", **{**defaults, **params})
         return KalshiTimeDecayAgent(cfg)
@@ -66,7 +69,9 @@ class TestKalshiTimeDecayAgent:
     @pytest.mark.asyncio
     async def test_emits_opportunity_for_qualifying_market(self):
         agent = self._agent()
-        contract = _make_contract(yes_bid=6, yes_ask=8, days_to_close=1.5, volume_24h=300)
+        contract = _make_contract(
+            yes_bid=6, yes_ask=8, days_to_close=1.5, volume_24h=300
+        )
         bus = _make_data_bus([contract])
 
         opps = await agent.scan(bus)
@@ -110,7 +115,9 @@ class TestKalshiTimeDecayAgent:
     @pytest.mark.asyncio
     async def test_limit_order_price_is_cents_probability(self):
         agent = self._agent()
-        contract = _make_contract(yes_bid=7, yes_ask=9, days_to_close=2.0, volume_24h=1000)
+        contract = _make_contract(
+            yes_bid=7, yes_ask=9, days_to_close=2.0, volume_24h=1000
+        )
         bus = _make_data_bus([contract])
         opps = await agent.scan(bus)
         assert len(opps) == 1
@@ -124,9 +131,11 @@ class TestKalshiTimeDecayAgent:
 # KalshiCalibrationAgent
 # ---------------------------------------------------------------------------
 
+
 class TestKalshiCalibrationAgent:
     def _agent(self, **params):
         from strategies.kalshi_calibration import KalshiCalibrationAgent
+
         defaults = dict(threshold_cents=10, min_volume=100)
         cfg = _make_config("kalshi_calibration", **{**defaults, **params})
         return KalshiCalibrationAgent(cfg)
@@ -135,8 +144,12 @@ class TestKalshiCalibrationAgent:
     async def test_emits_opportunity_when_gap_exceeds_threshold(self):
         agent = self._agent(threshold_cents=10)
         # Market is at 40¢; Metaculus says 60% → 20¢ gap, direction=YES
-        contract = _make_contract(yes_bid=39, yes_ask=41, volume_24h=500,
-                                  title="Will the Fed raise rates in 2026?")
+        contract = _make_contract(
+            yes_bid=39,
+            yes_ask=41,
+            volume_24h=500,
+            title="Will the Fed raise rates in 2026?",
+        )
         bus = _make_data_bus([contract])
 
         metaculus_q = {
@@ -158,8 +171,12 @@ class TestKalshiCalibrationAgent:
     @pytest.mark.asyncio
     async def test_no_opportunity_when_gap_below_threshold(self):
         agent = self._agent(threshold_cents=20)
-        contract = _make_contract(yes_bid=55, yes_ask=57, volume_24h=500,
-                                  title="Will the Fed raise rates in 2026?")
+        contract = _make_contract(
+            yes_bid=55,
+            yes_ask=57,
+            volume_24h=500,
+            title="Will the Fed raise rates in 2026?",
+        )
         bus = _make_data_bus([contract])
 
         metaculus_q = {
@@ -179,8 +196,12 @@ class TestKalshiCalibrationAgent:
     @pytest.mark.asyncio
     async def test_no_opportunity_when_no_matching_metaculus_question(self):
         agent = self._agent()
-        contract = _make_contract(yes_bid=40, yes_ask=42, volume_24h=500,
-                                  title="Will a very niche obscure event happen?")
+        contract = _make_contract(
+            yes_bid=40,
+            yes_ask=42,
+            volume_24h=500,
+            title="Will a very niche obscure event happen?",
+        )
         bus = _make_data_bus([contract])
 
         metaculus_q = {
@@ -203,10 +224,14 @@ class TestKalshiCalibrationAgent:
 # KalshiNewsArbAgent (mocking LLM)
 # ---------------------------------------------------------------------------
 
+
 class TestKalshiNewsArbAgent:
     def _agent(self, **params):
         from strategies.kalshi_news_arb import KalshiNewsArbAgent
-        defaults = dict(threshold_cents=15, min_volume=100, max_markets_per_scan=10, rss_feeds=[])
+
+        defaults = dict(
+            threshold_cents=15, min_volume=100, max_markets_per_scan=10, rss_feeds=[]
+        )
         cfg = _make_config("kalshi_news_arb", **{**defaults, **params})
         return KalshiNewsArbAgent(cfg)
 
@@ -216,8 +241,10 @@ class TestKalshiNewsArbAgent:
         contract = _make_contract(yes_bid=30, yes_ask=32, volume_24h=200)
         bus = _make_data_bus([contract], anthropic_key="sk-test")
 
-        with patch("strategies.kalshi_news_arb._llm_estimate_probability",
-                   new=AsyncMock(return_value=(0.55, 80, "test reasoning"))):  # 55% vs 31% market mid → 24¢ gap
+        with patch(
+            "strategies.kalshi_news_arb._llm_estimate_probability",
+            new=AsyncMock(return_value=(0.55, 80, "test reasoning")),
+        ):  # 55% vs 31% market mid → 24¢ gap
             opps = await agent.scan(bus)
 
         assert len(opps) == 1
@@ -229,8 +256,10 @@ class TestKalshiNewsArbAgent:
         contract = _make_contract(yes_bid=49, yes_ask=51, volume_24h=200)
         bus = _make_data_bus([contract], anthropic_key="sk-test")
 
-        with patch("strategies.kalshi_news_arb._llm_estimate_probability",
-                   new=AsyncMock(return_value=(0.52, 70, "test reasoning"))):  # only 2¢ gap
+        with patch(
+            "strategies.kalshi_news_arb._llm_estimate_probability",
+            new=AsyncMock(return_value=(0.52, 70, "test reasoning")),
+        ):  # only 2¢ gap
             opps = await agent.scan(bus)
 
         assert len(opps) == 0
@@ -241,8 +270,10 @@ class TestKalshiNewsArbAgent:
         contract = _make_contract(yes_bid=70, yes_ask=72, volume_24h=200)
         bus = _make_data_bus([contract], anthropic_key="sk-test")
 
-        with patch("strategies.kalshi_news_arb._llm_estimate_probability",
-                   new=AsyncMock(return_value=(0.50, 75, "test reasoning"))):  # 50% vs 71% → sell YES
+        with patch(
+            "strategies.kalshi_news_arb._llm_estimate_probability",
+            new=AsyncMock(return_value=(0.50, 75, "test reasoning")),
+        ):  # 50% vs 71% → sell YES
             opps = await agent.scan(bus)
 
         assert len(opps) == 1

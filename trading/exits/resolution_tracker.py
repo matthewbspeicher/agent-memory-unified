@@ -1,4 +1,5 @@
 """ResolutionTracker — background task that auto-settles resolved paper positions."""
+
 from __future__ import annotations
 
 import asyncio
@@ -65,12 +66,15 @@ class ResolutionTracker:
 
     async def _settle_kalshi(self) -> None:
         from adapters.kalshi.paper import KALSHI_PAPER_ACCOUNT_ID
+
         positions = await self._paper_store.get_positions(KALSHI_PAPER_ACCOUNT_ID)
         for pos in positions:
             try:
                 market = await self._kalshi_client.get_market(pos.symbol.ticker)
             except Exception as exc:
-                logger.warning("Kalshi get_market failed for %s: %s", pos.symbol.ticker, exc)
+                logger.warning(
+                    "Kalshi get_market failed for %s: %s", pos.symbol.ticker, exc
+                )
                 continue
             status = market.get("status", "")
             result = market.get("result", "")
@@ -85,23 +89,32 @@ class ResolutionTracker:
                 )
                 logger.info(
                     "ResolutionTracker: settled Kalshi %s → %s",
-                    pos.symbol.ticker, resolution,
+                    pos.symbol.ticker,
+                    resolution,
                 )
                 if self._event_bus:
-                    await self._event_bus.publish("market_resolved", {
-                        "broker": "kalshi",
-                        "ticker": pos.symbol.ticker,
-                        "resolution": resolution,
-                    })
+                    await self._event_bus.publish(
+                        "market_resolved",
+                        {
+                            "broker": "kalshi",
+                            "ticker": pos.symbol.ticker,
+                            "resolution": resolution,
+                        },
+                    )
 
     async def _settle_polymarket(self) -> None:
         from adapters.polymarket.paper import POLYMARKET_PAPER_ACCOUNT_ID
+
         positions = await self._paper_store.get_positions(POLYMARKET_PAPER_ACCOUNT_ID)
         for pos in positions:
             try:
-                market = await asyncio.to_thread(self._poly_client.get_market, pos.symbol.ticker)
+                market = await asyncio.to_thread(
+                    self._poly_client.get_market, pos.symbol.ticker
+                )
             except Exception as exc:
-                logger.warning("Polymarket get_market failed for %s: %s", pos.symbol.ticker, exc)
+                logger.warning(
+                    "Polymarket get_market failed for %s: %s", pos.symbol.ticker, exc
+                )
                 continue
             if market.get("closed") and market.get("resolved"):
                 winning_tokens = market.get("winning_outcomes", [])
@@ -120,11 +133,15 @@ class ResolutionTracker:
                 )
                 logger.info(
                     "ResolutionTracker: settled Polymarket %s → %s",
-                    pos.symbol.ticker, resolution,
+                    pos.symbol.ticker,
+                    resolution,
                 )
                 if self._event_bus:
-                    await self._event_bus.publish("market_resolved", {
-                        "broker": "polymarket",
-                        "ticker": pos.symbol.ticker,
-                        "resolution": resolution,
-                    })
+                    await self._event_bus.publish(
+                        "market_resolved",
+                        {
+                            "broker": "polymarket",
+                            "ticker": pos.symbol.ticker,
+                            "resolution": resolution,
+                        },
+                    )

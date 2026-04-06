@@ -1,4 +1,5 @@
 """TradingMemoryClient — namespace-aware wrapper around AsyncRemembrClient."""
+
 from __future__ import annotations
 
 import logging
@@ -47,7 +48,9 @@ class TradingMemoryClient:
         """Record a trade execution in the Remembr Trading Vertical."""
         if hasattr(self._private, "record_trade"):
             return await self._private.record_trade(**kwargs)
-        logger.warning("Private client does not support record_trade (SDK version mismatch?)")
+        logger.warning(
+            "Private client does not support record_trade (SDK version mismatch?)"
+        )
         return {}
 
     async def get_trading_stats(self, paper: bool = True) -> dict:

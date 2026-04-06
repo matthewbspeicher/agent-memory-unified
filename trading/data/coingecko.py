@@ -10,6 +10,7 @@ Usage::
     price = await client.get_price("bitcoin")
     chart = await client.get_market_chart("bitcoin", days=7)
 """
+
 from __future__ import annotations
 
 import logging

@@ -1,17 +1,24 @@
 import pytest
 import asyncio
 import logging
-import time
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock
 
 from execution.arbitrage import ArbCoordinator
-from execution.models import ArbTrade, ArbLeg, ArbState, SequencingStrategy
-from broker.models import OrderBase, OrderSide, OrderStatus, OrderResult, Symbol, AssetType
+from execution.models import ArbTrade, ArbLeg, SequencingStrategy
+from broker.models import (
+    OrderBase,
+    OrderSide,
+    OrderStatus,
+    OrderResult,
+    Symbol,
+    AssetType,
+)
 
 # Configure logging to capture the skew output
 logger = logging.getLogger("execution.arbitrage")
 logger.setLevel(logging.INFO)
+
 
 @pytest.fixture
 def mock_brokers():
@@ -20,23 +27,31 @@ def mock_brokers():
 
     # Mock the fast, concurrent network fills (using minimal sleeps to simulate network jitter)
     async def mock_kalshi_fill(*args, **kwargs):
-        await asyncio.sleep(0.01) # 10ms Kalshi latency
-        return OrderResult(order_id="k-1", status=OrderStatus.FILLED, avg_fill_price=Decimal("0.5"), filled_quantity=Decimal("10"))
-        
+        await asyncio.sleep(0.01)  # 10ms Kalshi latency
+        return OrderResult(
+            order_id="k-1",
+            status=OrderStatus.FILLED,
+            avg_fill_price=Decimal("0.5"),
+            filled_quantity=Decimal("10"),
+        )
+
     async def mock_poly_fill(*args, **kwargs):
-        await asyncio.sleep(0.015) # 15ms Poly latency
-        return OrderResult(order_id="p-1", status=OrderStatus.FILLED, avg_fill_price=Decimal("0.4"), filled_quantity=Decimal("10"))
+        await asyncio.sleep(0.015)  # 15ms Poly latency
+        return OrderResult(
+            order_id="p-1",
+            status=OrderStatus.FILLED,
+            avg_fill_price=Decimal("0.4"),
+            filled_quantity=Decimal("10"),
+        )
 
     kalshi_broker.orders.place_order = AsyncMock(side_effect=mock_kalshi_fill)
     poly_broker.orders.place_order = AsyncMock(side_effect=mock_poly_fill)
-    
+
     # Mock the O(1) cache lookup for pre-flight
     poly_broker.market_data.ds.get_live_quote = AsyncMock(return_value=40)
 
-    return {
-        "kalshi": kalshi_broker,
-        "polymarket": poly_broker
-    }
+    return {"kalshi": kalshi_broker, "polymarket": poly_broker}
+
 
 @pytest.fixture
 def mock_store():
@@ -47,6 +62,7 @@ def mock_store():
     store.update_leg_atomic = AsyncMock()
     return store
 
+
 @pytest.fixture
 def mock_settings():
     settings = MagicMock()
@@ -54,16 +70,19 @@ def mock_settings():
     settings.arb_toxicity_threshold = 0.8
     return settings
 
+
 @pytest.mark.asyncio
-async def test_execution_skew_performance(mock_brokers, mock_store, mock_settings, caplog):
+async def test_execution_skew_performance(
+    mock_brokers, mock_store, mock_settings, caplog
+):
     """
     Validates that the placement skew between Leg A and Leg B is under our 50ms budget.
     """
     coordinator = ArbCoordinator(mock_brokers, mock_store, mock_settings)
-    
+
     # Run 50 simulated trades to gather a skew distribution
     skews = []
-    
+
     for i in range(50):
         trade = ArbTrade(
             id=f"arb-perf-{i}",
@@ -77,8 +96,8 @@ async def test_execution_skew_performance(mock_brokers, mock_store, mock_setting
                     symbol=Symbol(ticker="KALSHI-YES", asset_type=AssetType.PREDICTION),
                     side=OrderSide.BUY,
                     quantity=Decimal("10"),
-                    account_id="test-acct"
-                )
+                    account_id="test-acct",
+                ),
             ),
             leg_b=ArbLeg(
                 broker_id="polymarket",
@@ -86,15 +105,15 @@ async def test_execution_skew_performance(mock_brokers, mock_store, mock_setting
                     symbol=Symbol(ticker="POLY-NO", asset_type=AssetType.PREDICTION),
                     side=OrderSide.BUY,
                     quantity=Decimal("10"),
-                    account_id="test-acct"
-                )
-            )
+                    account_id="test-acct",
+                ),
+            ),
         )
-        
+
         with caplog.at_level(logging.INFO):
             success = await coordinator.execute_arbitrage(trade)
             assert success is True
-            
+
             # Extract skew from logs
             for record in caplog.records:
                 if "Placement Skew" in record.message and trade.id in record.message:
@@ -102,18 +121,20 @@ async def test_execution_skew_performance(mock_brokers, mock_store, mock_setting
                     skew_str = record.message.split()[-1].replace("ms", "")
                     skews.append(float(skew_str))
                     break
-                    
+
             caplog.clear()
 
     # Calculate metrics
     avg_skew = sum(skews) / len(skews)
     max_skew = max(skews)
-    
-    print(f"\n--- Skew Performance Profile ---")
+
+    print("\n--- Skew Performance Profile ---")
     print(f"Total Trades: {len(skews)}")
     print(f"Average Skew: {avg_skew:.3f} ms")
     print(f"Maximum Skew: {max_skew:.3f} ms")
-    print(f"--------------------------------")
-    
+    print("--------------------------------")
+
     # The ultimate Go/No-Go Gate: Max skew must be under 50ms
-    assert max_skew < 50.0, f"Performance Gate Failed: Max skew {max_skew}ms exceeded 50ms budget"
+    assert max_skew < 50.0, (
+        f"Performance Gate Failed: Max skew {max_skew}ms exceeded 50ms budget"
+    )

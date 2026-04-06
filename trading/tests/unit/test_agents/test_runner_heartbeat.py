@@ -1,8 +1,7 @@
-import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 import pytest
 from agents.runner import AgentRunner
-from agents.models import AgentConfig, ActionLevel
+from agents.models import ActionLevel
 
 
 def _make_runner_with_emitter():

@@ -1,5 +1,4 @@
-import pytest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 from fastapi.testclient import TestClient
 from api.app import create_app
 from config import Config
@@ -12,8 +11,10 @@ from datetime import datetime, timezone
 
 def test_get_performance(monkeypatch):
     import os
+
     os.environ["STA_API_KEY"] = "test-key"
     from api.auth import _get_settings
+
     _get_settings.cache_clear()
 
     settings = Config(broker_mode="paper", api_key="test-key")
@@ -28,19 +29,39 @@ def test_get_performance(monkeypatch):
     # Mock runner to return AgentInfo
     runner = AgentRunner(None, None)
     from agents.base import Agent
+
     class Dummy(Agent):
         @property
-        def description(self): return "dummy"
-        async def setup(self): pass
-        async def teardown(self): pass
-        async def scan(self, bus): return []
-    runner.register(Dummy(AgentConfig(name="DummyAgent", strategy="dummy", schedule="continuous", action_level=ActionLevel.NOTIFY)))
+        def description(self):
+            return "dummy"
+
+        async def setup(self):
+            pass
+
+        async def teardown(self):
+            pass
+
+        async def scan(self, bus):
+            return []
+
+    runner.register(
+        Dummy(
+            AgentConfig(
+                name="DummyAgent",
+                strategy="dummy",
+                schedule="continuous",
+                action_level=ActionLevel.NOTIFY,
+            )
+        )
+    )
 
     app.dependency_overrides[get_agent_runner] = lambda: runner
 
     # Mock PerformanceStore
     class MockPerformanceStore:
-        def __init__(self, db): pass
+        def __init__(self, db):
+            pass
+
         async def get_history(self, name, limit):
             return [
                 PerformanceSnapshot(
@@ -49,7 +70,7 @@ def test_get_performance(monkeypatch):
                     timestamp=datetime.now(timezone.utc),
                     opportunities_generated=10,
                     opportunities_executed=5,
-                    win_rate=0.5
+                    win_rate=0.5,
                 )
             ]
 

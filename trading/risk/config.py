@@ -6,8 +6,17 @@ from pydantic import BaseModel, Field, field_validator
 from risk.engine import RiskEngine
 from risk.kill_switch import KillSwitch
 from risk.rules import (
-    MaxComboDelta, MaxCorrelation, MaxDailyLoss, MaxDailyTrades, MaxDrawdownPct,
-    MaxOpenPositions, MaxPortfolioExposure, MaxPositionSize, RiskRule, SectorConcentration, MaxPredictionExposure
+    MaxComboDelta,
+    MaxCorrelation,
+    MaxDailyLoss,
+    MaxDailyTrades,
+    MaxDrawdownPct,
+    MaxOpenPositions,
+    MaxPortfolioExposure,
+    MaxPositionSize,
+    RiskRule,
+    SectorConcentration,
+    MaxPredictionExposure,
 )
 
 _RULE_REGISTRY: dict[str, type] = {
@@ -32,7 +41,9 @@ class RuleConfigSchema(BaseModel):
     @classmethod
     def type_must_be_known(cls, v: str) -> str:
         if v not in _RULE_REGISTRY:
-            raise ValueError(f"Unknown rule type '{v}'. Known: {sorted(_RULE_REGISTRY)}")
+            raise ValueError(
+                f"Unknown rule type '{v}'. Known: {sorted(_RULE_REGISTRY)}"
+            )
         return v
 
 
@@ -46,7 +57,9 @@ def _build_rule(rule_config: dict) -> RiskRule:
     rule_type = rule_config.get("type")
     cls = _RULE_REGISTRY.get(rule_type)
     if cls is None:
-        raise ValueError(f"Unknown risk rule: {rule_type}. Known: {list(_RULE_REGISTRY)}")
+        raise ValueError(
+            f"Unknown risk rule: {rule_type}. Known: {list(_RULE_REGISTRY)}"
+        )
     params = rule_config.get("params", {})
     return cls(**params)
 
@@ -58,7 +71,7 @@ def load_risk_config(
     perf_store=None,
     agent_store=None,
     settings=None,
-    journal_manager=None
+    journal_manager=None,
 ) -> RiskEngine:
     with open(path) as f:
         data = yaml.safe_load(f)
@@ -66,6 +79,7 @@ def load_risk_config(
     risk_data = data.get("risk", data)
 
     from pydantic import ValidationError
+
     try:
         RiskConfigSchema(**risk_data)
     except ValidationError as exc:
@@ -77,28 +91,30 @@ def load_risk_config(
         ks.enable("enabled in config")
 
     rules = []
-    
+
     # Prepend CapitalGovernor if dependencies are provided
     governor = None
     if leaderboard and tournament and perf_store and agent_store and settings:
         from risk.governor import CapitalGovernor
+
         governor = CapitalGovernor(
             leaderboard=leaderboard,
             tournament=tournament,
             perf_store=perf_store,
             agent_store=agent_store,
-            settings=settings
+            settings=settings,
         )
         rules.append(governor)
 
     # Prepend DejaVuGuard if journal manager is available
     if journal_manager:
         from risk.deja_vu import DejaVuGuard
+
         rules.append(DejaVuGuard(journal_manager=journal_manager))
 
     for r in risk_data.get("rules", []):
         if r is None:
             continue
         rules.append(_build_rule(dict(r) if isinstance(r, dict) else r))
-    
+
     return RiskEngine(rules=rules, kill_switch=ks, governor=governor)

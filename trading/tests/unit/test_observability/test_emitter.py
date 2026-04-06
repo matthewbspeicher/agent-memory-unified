@@ -1,7 +1,6 @@
-import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 import pytest
-from config import Config, load_config
+from config import load_config
 
 
 def test_supabase_config_default_none():
@@ -49,7 +48,10 @@ async def test_emit_critical_calls_alert_router(mock_supabase, mock_alert_router
         metadata={"rule": "max_drawdown"},
     )
     mock_alert_router.fire.assert_awaited_once_with(
-        "critical", "kill_switch_triggered", "Kill switch engaged", {"rule": "max_drawdown"}
+        "critical",
+        "kill_switch_triggered",
+        "Kill switch engaged",
+        {"rule": "max_drawdown"},
     )
 
 

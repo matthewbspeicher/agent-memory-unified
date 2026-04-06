@@ -98,9 +98,7 @@ class GridSearchOptimizer:
         )
         await self.db.commit()
 
-    async def get_top_results(
-        self, agent_name: str, limit: int = 3
-    ) -> list[dict]:
+    async def get_top_results(self, agent_name: str, limit: int = 3) -> list[dict]:
         """
         Retrieve top backtest results for an agent.
 

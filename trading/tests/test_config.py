@@ -1,9 +1,6 @@
 """
 Tests for config.py - Config dataclass and load_config()
 """
-import os
-import tempfile
-from pathlib import Path
 
 import pytest
 
@@ -111,7 +108,9 @@ class TestBrokerValidation:
 
     def test_valid_broker_routing(self, monkeypatch):
         # JSON-encoded dict in env var
-        monkeypatch.setenv("STA_BROKER_ROUTING", '{"STOCK": "alpaca", "OPTION": "ibkr"}')
+        monkeypatch.setenv(
+            "STA_BROKER_ROUTING", '{"STOCK": "alpaca", "OPTION": "ibkr"}'
+        )
         config = load_config(env_file="nonexistent.env")
         assert config.broker_routing == {"STOCK": "alpaca", "OPTION": "ibkr"}
 

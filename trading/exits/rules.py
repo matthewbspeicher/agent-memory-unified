@@ -1,4 +1,5 @@
 """Exit rules: StopLoss, TakeProfit, TrailingStop, TimeExit."""
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -138,7 +139,12 @@ class TimeExit(ExitRule):
     def name(self) -> str:
         return "time_exit"
 
-    def should_exit(self, current_price: Decimal, current_time: datetime | None = None, **kwargs: Any) -> bool:
+    def should_exit(
+        self,
+        current_price: Decimal,
+        current_time: datetime | None = None,
+        **kwargs: Any,
+    ) -> bool:
         now = current_time or datetime.now(timezone.utc)
         # Normalise to tz-aware
         if now.tzinfo is None:
@@ -197,7 +203,6 @@ class PredictionTimeExit(ExitRule):
         # If already expired, TimeExit should catch it, but we can catch it too
         return days_remaining <= self.max_days_to_expiry
 
-
     def to_dict(self) -> dict[str, Any]:
         return {
             "type": "prediction_time_exit",
@@ -215,6 +220,7 @@ class PreExpiryExit(ExitRule):
     Unlike PredictionTimeExit, this fires regardless of P&L.
     Intended to capture remaining liquidity premium before binary resolution.
     """
+
     expires_at: datetime
     hours_before_expiry: float = 4.0
 
@@ -257,6 +263,7 @@ class ProbabilityTrailingStop(ExitRule):
     Optionally ignores signals when current_price is within `quiet_zone`
     of 0 or 1 (default 0.05) to avoid noise during terminal convergence.
     """
+
     trail_pp: float
     side: str = "BUY"
     quiet_zone: float = 0.05
@@ -300,6 +307,7 @@ class PartialExitRule(ExitRule):
     side: "BUY" (long YES position) or "SELL" (short/NO position).
     _triggered: internal flag to prevent re-firing after the first trigger.
     """
+
     target_price: Decimal
     fraction: float
     side: str = "BUY"
@@ -358,7 +366,7 @@ class ConvictionExitRule(ExitRule):
             implied_shift = float(self.entry_price - current_price) * 100
         else:
             implied_shift = float(current_price - self.entry_price) * 100
-            
+
         return implied_shift > self.divergence_threshold
 
     def to_dict(self) -> dict[str, Any]:
@@ -378,7 +386,9 @@ def parse_rule(d: dict[str, Any]) -> ExitRule | None:
     if t == "stop_loss":
         return StopLoss(stop_price=Decimal(d["stop_price"]), side=d.get("side", "BUY"))
     elif t == "take_profit":
-        return TakeProfit(target_price=Decimal(d["target_price"]), side=d.get("side", "BUY"))
+        return TakeProfit(
+            target_price=Decimal(d["target_price"]), side=d.get("side", "BUY")
+        )
     elif t == "trailing_stop":
         r = TrailingStop(trail_pct=Decimal(d["trail_pct"]), side=d.get("side", "BUY"))
         r._peak = Decimal(d.get("peak", "0"))
@@ -388,7 +398,7 @@ def parse_rule(d: dict[str, Any]) -> ExitRule | None:
     elif t == "prediction_time_exit":
         return PredictionTimeExit(
             expires_at=datetime.fromisoformat(d["expires_at"]),
-            max_days_to_expiry=d.get("max_days_to_expiry", 2)
+            max_days_to_expiry=d.get("max_days_to_expiry", 2),
         )
     elif t == "conviction_exit":
         return ConvictionExitRule(
@@ -396,7 +406,7 @@ def parse_rule(d: dict[str, Any]) -> ExitRule | None:
             entry_price=Decimal(d["entry_price"]),
             divergence_threshold=d["divergence_threshold"],
             agent_name=d["agent_name"],
-            side=d.get("side", "BUY")
+            side=d.get("side", "BUY"),
         )
     elif t == "pre_expiry_exit":
         return PreExpiryExit(
@@ -421,4 +431,3 @@ def parse_rule(d: dict[str, Any]) -> ExitRule | None:
             r2.mark_triggered()
         return r2
     return None
-

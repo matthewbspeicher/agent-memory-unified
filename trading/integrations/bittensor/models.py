@@ -29,6 +29,7 @@ class RawMinerForecast:
 @dataclass
 class DerivedMinerSignal:
     """Ephemeral per-miner summary. Not persisted — used to compute DerivedBittensorView."""
+
     window_id: str
     miner_hotkey: str
     symbol: str
@@ -44,6 +45,7 @@ class DerivedMinerSignal:
 @dataclass
 class DerivedBittensorView:
     """Persisted aggregate consensus view. The shape agents consume."""
+
     symbol: str
     timeframe: str
     window_id: str
@@ -106,6 +108,7 @@ class MinerRanking:
 @dataclass
 class BittensorEvaluationWindow:
     """Returned by store when querying mature unevaluated windows."""
+
     window_id: str
     symbol: str
     timeframe: str
@@ -116,6 +119,7 @@ class BittensorEvaluationWindow:
 @dataclass
 class PredictionRequest:
     """Wire-compatible request shape for Taoshi Subnet 8 queries."""
+
     stream_id: str = "BTCUSD-5m"
     topic_id: int = 1
     schema_id: int = 1
@@ -126,17 +130,21 @@ class PredictionRequest:
 @dataclass
 class MinerRankingInput:
     """Pre-loaded input for the pure ranking function. No store/metagraph dependencies."""
+
     miner_hotkey: str
     windows_evaluated: int
-    direction_accuracy: float         # [0, 1] from rollup
-    mean_magnitude_error: float       # [0, ∞) from rollup
+    direction_accuracy: float  # [0, 1] from rollup
+    mean_magnitude_error: float  # [0, ∞) from rollup
     mean_path_correlation: float | None  # [-1, 1] or None if insufficient data
-    raw_incentive_score: float        # raw value from metagraph; normalized inside compute_rankings()
+    raw_incentive_score: (
+        float  # raw value from metagraph; normalized inside compute_rankings()
+    )
 
 
 @dataclass
 class RankingWeights:
     """Component weights for internal score computation."""
+
     direction: float
     magnitude: float
     path: float
@@ -145,6 +153,7 @@ class RankingWeights:
 @dataclass
 class RankingConfig:
     """Configuration for ranking computation."""
+
     min_windows_for_ranking: int
     alpha_decay_per_window: float
     alpha_floor: float

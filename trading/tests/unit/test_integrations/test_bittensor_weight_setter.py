@@ -104,10 +104,12 @@ class TestWeightSetter:
         mock_adapter.refresh_metagraph = AsyncMock()
 
         mock_store = AsyncMock()
-        mock_store.get_miner_rankings = AsyncMock(return_value=[
-            _make_ranking("hk_a", 0.8),
-            _make_ranking("hk_b", 0.4),
-        ])
+        mock_store.get_miner_rankings = AsyncMock(
+            return_value=[
+                _make_ranking("hk_a", 0.8),
+                _make_ranking("hk_b", 0.4),
+            ]
+        )
 
         mock_subtensor.set_weights = MagicMock(return_value=(True, "ok"))
 
@@ -132,9 +134,11 @@ class TestWeightSetter:
         mock_adapter.metagraph.uids = [0]
 
         mock_store = AsyncMock()
-        mock_store.get_miner_rankings = AsyncMock(return_value=[
-            _make_ranking("hk_a", 0.8),
-        ])
+        mock_store.get_miner_rankings = AsyncMock(
+            return_value=[
+                _make_ranking("hk_a", 0.8),
+            ]
+        )
 
         setter = WeightSetter(
             adapter=mock_adapter,

@@ -19,6 +19,7 @@ agents.yaml example:
       max_markets: 50
       metaculus_token: ""   # optional — increases rate limits
 """
+
 from __future__ import annotations
 
 import logging
@@ -73,7 +74,9 @@ async def _fetch_metaculus_questions(
         headers["Authorization"] = f"Token {token}"
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.get(f"{METACULUS_API}/questions/", params=params, headers=headers)
+            resp = await client.get(
+                f"{METACULUS_API}/questions/", params=params, headers=headers
+            )
             resp.raise_for_status()
         return resp.json().get("results", [])
     except Exception as exc:
@@ -107,16 +110,19 @@ class KalshiCalibrationAgent(StructuredAgent):
 
         # Fetch data in parallel
         import asyncio
-        kalshi_task = asyncio.create_task(
-            kalshi_source.get_markets(status="open")
-        )
+
+        kalshi_task = asyncio.create_task(kalshi_source.get_markets(status="open"))
         metaculus_task = asyncio.create_task(
             _fetch_metaculus_questions(token=metaculus_token, limit=200)
         )
         kalshi_markets, metaculus_qs = await asyncio.gather(kalshi_task, metaculus_task)
 
         # Filter liquid Kalshi markets
-        liquid = [m for m in kalshi_markets if m.volume_24h >= min_volume and m.mid_probability is not None]
+        liquid = [
+            m
+            for m in kalshi_markets
+            if m.volume_24h >= min_volume and m.mid_probability is not None
+        ]
         liquid.sort(key=lambda m: m.volume_24h, reverse=True)
         liquid = liquid[:max_markets]
 
@@ -151,7 +157,9 @@ class KalshiCalibrationAgent(StructuredAgent):
             side = OrderSide.BUY if direction == "YES" else OrderSide.SELL
             limit_price = Decimal(str(round(market_prob, 2)))
             adjustment = Decimal("0.01") * (1 if direction == "YES" else -1)
-            limit_price = max(Decimal("0.01"), min(Decimal("0.99"), limit_price + adjustment))
+            limit_price = max(
+                Decimal("0.01"), min(Decimal("0.99"), limit_price + adjustment)
+            )
 
             symbol = contract.as_symbol
             suggested = LimitOrder(
@@ -166,31 +174,33 @@ class KalshiCalibrationAgent(StructuredAgent):
             # Confidence based on similarity match quality and gap size
             confidence = round(best_sim * min(gap_cents / 30, 1.0), 3)
 
-            opportunities.append(Opportunity(
-                id=str(uuid.uuid4()),
-                agent_name=self.name,
-                symbol=symbol,
-                signal=direction,
-                confidence=confidence,
-                reasoning=(
-                    f"Kalshi: {market_prob:.0%} | Metaculus: {community_prob:.0%} | "
-                    f"Gap: {gap_cents}¢ | Match score: {best_sim:.2f}\n"
-                    f"Kalshi: {contract.title}\n"
-                    f"Metaculus: {best_q.get('title', '')}"
-                ),
-                data={
-                    "kalshi_ticker": contract.ticker,
-                    "kalshi_prob": float(market_prob),
-                    "metaculus_prob": community_prob,
-                    "metaculus_id": best_q.get("id"),
-                    "match_similarity": round(best_sim, 3),
-                    "gap_cents": gap_cents,
-                    "volume_24h": contract.volume_24h,
-                },
-                timestamp=datetime.now(timezone.utc),
-                suggested_trade=suggested,
-                status=OpportunityStatus.PENDING,
-            ))
+            opportunities.append(
+                Opportunity(
+                    id=str(uuid.uuid4()),
+                    agent_name=self.name,
+                    symbol=symbol,
+                    signal=direction,
+                    confidence=confidence,
+                    reasoning=(
+                        f"Kalshi: {market_prob:.0%} | Metaculus: {community_prob:.0%} | "
+                        f"Gap: {gap_cents}¢ | Match score: {best_sim:.2f}\n"
+                        f"Kalshi: {contract.title}\n"
+                        f"Metaculus: {best_q.get('title', '')}"
+                    ),
+                    data={
+                        "kalshi_ticker": contract.ticker,
+                        "kalshi_prob": float(market_prob),
+                        "metaculus_prob": community_prob,
+                        "metaculus_id": best_q.get("id"),
+                        "match_similarity": round(best_sim, 3),
+                        "gap_cents": gap_cents,
+                        "volume_24h": contract.volume_24h,
+                    },
+                    timestamp=datetime.now(timezone.utc),
+                    suggested_trade=suggested,
+                    status=OpportunityStatus.PENDING,
+                )
+            )
 
         opportunities.sort(key=lambda o: o.confidence, reverse=True)
         return opportunities

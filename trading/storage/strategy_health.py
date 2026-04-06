@@ -1,4 +1,5 @@
 """StrategyHealthStore — persists current strategy health state and audit events."""
+
 from __future__ import annotations
 
 import json
@@ -8,12 +9,12 @@ from typing import Any
 
 import aiosqlite
 
+
 class _DecimalEncoder(json.JSONEncoder):
     def default(self, obj: Any) -> Any:
         if isinstance(obj, Decimal):
             return str(obj)
         return super().default(obj)
-
 
 
 class StrategyHealthStore:
@@ -89,11 +90,19 @@ class StrategyHealthStore:
                 updated_at = excluded.updated_at
             """,
             (
-                agent_name, status, health_score,
-                rolling_expectancy, rolling_net_pnl, rolling_drawdown,
-                rolling_win_rate, rolling_trade_count,
-                throttle_multiplier, trigger_reason,
-                cooldown_until, manual_override, updated_at,
+                agent_name,
+                status,
+                health_score,
+                rolling_expectancy,
+                rolling_net_pnl,
+                rolling_drawdown,
+                rolling_win_rate,
+                rolling_trade_count,
+                throttle_multiplier,
+                trigger_reason,
+                cooldown_until,
+                manual_override,
+                updated_at,
             ),
         )
         await self._db.commit()
@@ -156,7 +165,9 @@ class StrategyHealthStore:
             row_dict = dict(r)
             # Deserialize metrics_snapshot JSON
             try:
-                row_dict["metrics_snapshot"] = json.loads(row_dict.get("metrics_snapshot") or "{}")
+                row_dict["metrics_snapshot"] = json.loads(
+                    row_dict.get("metrics_snapshot") or "{}"
+                )
             except (json.JSONDecodeError, TypeError):
                 row_dict["metrics_snapshot"] = {}
             result.append(row_dict)

@@ -16,7 +16,10 @@ class DataSource(ABC):
 
     @abstractmethod
     async def get_historical(
-        self, symbol: Symbol, timeframe: str = "1d", period: str = "3mo",
+        self,
+        symbol: Symbol,
+        timeframe: str = "1d",
+        period: str = "3mo",
     ) -> list[Bar]: ...
 
     @abstractmethod

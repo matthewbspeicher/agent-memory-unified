@@ -5,8 +5,15 @@ from api.deps import get_broker
 from api.schemas import OrderRequestSchema, OrderResultSchema
 from broker.interfaces import Broker
 from broker.models import (
-    Symbol, AssetType, OrderSide, TIF,
-    MarketOrder, LimitOrder, StopOrder, StopLimitOrder, TrailingStopOrder,
+    Symbol,
+    AssetType,
+    OrderSide,
+    TIF,
+    MarketOrder,
+    LimitOrder,
+    StopOrder,
+    StopLimitOrder,
+    TrailingStopOrder,
 )
 
 router = APIRouter(prefix="/orders", tags=["orders"])
@@ -34,12 +41,19 @@ def _build_order(req: OrderRequestSchema):
         case "stop":
             return StopOrder(**base, stop_price=req.stop_price)
         case "stop_limit":
-            return StopLimitOrder(**base, stop_price=req.stop_price, limit_price=req.limit_price)
+            return StopLimitOrder(
+                **base, stop_price=req.stop_price, limit_price=req.limit_price
+            )
         case "trailing_stop":
-            return TrailingStopOrder(**base, trail_amount=req.trail_amount, trail_percent=req.trail_percent)
+            return TrailingStopOrder(
+                **base, trail_amount=req.trail_amount, trail_percent=req.trail_percent
+            )
         case _:
             from fastapi import HTTPException
-            raise HTTPException(status_code=400, detail=f"Unknown order type: {req.order_type}")
+
+            raise HTTPException(
+                status_code=400, detail=f"Unknown order type: {req.order_type}"
+            )
 
 
 @router.post("", response_model=OrderResultSchema)

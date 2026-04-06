@@ -1,10 +1,10 @@
 """Unit tests for PredictionTimeExit and ConvictionExitRule."""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 
-import pytest
 
 from exits.rules import ConvictionExitRule, PredictionTimeExit
 
@@ -12,6 +12,7 @@ from exits.rules import ConvictionExitRule, PredictionTimeExit
 # ---------------------------------------------------------------------------
 # PredictionTimeExit
 # ---------------------------------------------------------------------------
+
 
 class TestPredictionTimeExit:
     """Tests for PredictionTimeExit rule."""
@@ -122,6 +123,7 @@ class TestPredictionTimeExit:
 # ---------------------------------------------------------------------------
 # ConvictionExitRule
 # ---------------------------------------------------------------------------
+
 
 class TestConvictionExitRule:
     """Tests for ConvictionExitRule."""

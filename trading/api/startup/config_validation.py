@@ -1,4 +1,5 @@
 """Fail-fast config validation (before DB init or broker connect)."""
+
 from __future__ import annotations
 
 import logging

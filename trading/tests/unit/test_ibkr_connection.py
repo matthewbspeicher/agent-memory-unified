@@ -1,9 +1,7 @@
-import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from adapters.ibkr.connection import IBKRConnection
-from broker.errors import BrokerConnectionError
 
 
 class TestIBKRConnection:

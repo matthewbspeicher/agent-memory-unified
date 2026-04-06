@@ -1,6 +1,7 @@
 """Tests for BittensorConfig nested extraction."""
+
 import os
-from config import load_config, Config, BittensorConfig
+from config import load_config, BittensorConfig
 
 
 class TestBittensorConfigNested:

@@ -3,6 +3,7 @@ Configuration management - explicit Config dataclass + load_config()
 
 Replaces pydantic-settings with a simpler, more testable approach.
 """
+
 import json
 import os
 import warnings
@@ -14,6 +15,7 @@ from typing import Any, get_origin, get_args, Union
 @dataclass
 class BittensorConfig:
     """Bittensor Subnet 8 (Taoshi PTN) configuration."""
+
     enabled: bool = False
     network: str = "finney"
     endpoint: str = "ws://localhost:9944"
@@ -193,7 +195,7 @@ class Config:
     def __getattr__(self, name: str):
         """Backward-compat: config.bittensor_enabled -> config.bittensor.enabled"""
         if name.startswith("bittensor_"):
-            nested_name = name[len("bittensor_"):]
+            nested_name = name[len("bittensor_") :]
             try:
                 bt = object.__getattribute__(self, "bittensor")
                 if hasattr(bt, nested_name):
@@ -322,7 +324,7 @@ def load_config(env_file: str = ".env") -> Config:
     for field_name, raw_value in config_dict.items():
         # Route bittensor_* fields to nested BittensorConfig
         if field_name.startswith("bittensor_"):
-            nested_name = field_name[len("bittensor_"):]
+            nested_name = field_name[len("bittensor_") :]
             if nested_name in bt_annotations:
                 ft = bt_annotations[nested_name]
                 origin = get_origin(ft)
@@ -332,7 +334,9 @@ def load_config(env_file: str = ".env") -> Config:
                 try:
                     setattr(config.bittensor, nested_name, _parse_value(raw_value, ft))
                 except (ValueError, json.JSONDecodeError) as e:
-                    raise ValueError(f"Invalid value for bittensor.{nested_name}: {raw_value}") from e
+                    raise ValueError(
+                        f"Invalid value for bittensor.{nested_name}: {raw_value}"
+                    ) from e
                 continue
 
         if not hasattr(config, field_name):

@@ -11,8 +11,6 @@ from agents.consensus import (
     EnhancedConsensusRouter,
     AgentWeightProvider,
     AgentWeightProfile,
-    VoteRecord,
-    ConsensusStore,
     WeightSource,
 )
 

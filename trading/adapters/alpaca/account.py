@@ -4,8 +4,13 @@ from decimal import Decimal
 
 from broker.interfaces import AccountProvider
 from broker.models import (
-    Account, AccountBalance, OrderHistoryFilter, OrderResult, OrderStatus,
-    Position, Symbol,
+    Account,
+    AccountBalance,
+    OrderHistoryFilter,
+    OrderResult,
+    OrderStatus,
+    Position,
+    Symbol,
 )
 from adapters.alpaca.client import AlpacaClient
 from adapters.alpaca._status import STATUS_MAP as _STATUS_MAP
@@ -14,7 +19,6 @@ logger = logging.getLogger(__name__)
 
 
 class AlpacaAccountProvider(AccountProvider):
-
     def __init__(self, client: AlpacaClient, account_id: str) -> None:
         self._client = client
         self._account_id = account_id
@@ -47,7 +51,9 @@ class AlpacaAccountProvider(AccountProvider):
         )
 
     async def get_order_history(
-        self, account_id: str, filters: OrderHistoryFilter | None = None,
+        self,
+        account_id: str,
+        filters: OrderHistoryFilter | None = None,
     ) -> list[OrderResult]:
         status = "all"
         if filters and filters.status:
@@ -61,5 +67,7 @@ def _to_order_result(raw: dict) -> OrderResult:
         order_id=raw["id"],
         status=_STATUS_MAP.get(raw.get("status", ""), OrderStatus.SUBMITTED),
         filled_quantity=Decimal(raw.get("filled_qty", "0")),
-        avg_fill_price=Decimal(raw["filled_avg_price"]) if raw.get("filled_avg_price") else None,
+        avg_fill_price=Decimal(raw["filled_avg_price"])
+        if raw.get("filled_avg_price")
+        else None,
     )

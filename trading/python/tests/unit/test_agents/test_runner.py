@@ -1,14 +1,13 @@
 """
 Tests for agents/runner.py - AgentRunner with dependency injection
 """
+
 import pytest
 from unittest.mock import AsyncMock, MagicMock
-from datetime import datetime, timezone
 
 from agents.runner import AgentRunner
 from agents.base import Agent
-from agents.models import AgentConfig, ActionLevel, Opportunity, OpportunityStatus
-from broker.models import Symbol, AssetType
+from agents.models import AgentConfig, ActionLevel, Opportunity
 
 
 class MockAgent(Agent):

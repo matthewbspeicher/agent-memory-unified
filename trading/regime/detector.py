@@ -1,11 +1,17 @@
 """RegimeDetector — classifies market regime using ADX, volatility, and SMA slope."""
+
 from __future__ import annotations
 import logging
 import math
 from datetime import datetime, timezone
 from typing import Any
 
-from regime.models import MarketRegime, RegimeSnapshot, LiquidityRegime, LiquiditySnapshot
+from regime.models import (
+    MarketRegime,
+    RegimeSnapshot,
+    LiquidityRegime,
+    LiquiditySnapshot,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -13,10 +19,10 @@ logger = logging.getLogger(__name__)
 MIN_BARS = 20
 
 # Thresholds
-ADX_TRENDING_THRESHOLD = 25.0       # ADX > 25 indicates a trend
-ADX_STRONG_TREND_THRESHOLD = 40.0   # ADX > 40 is a strong trend
-HIGH_VOL_THRESHOLD = 0.30           # Annualized vol > 30%
-LOW_VOL_THRESHOLD = 0.10            # Annualized vol < 10%
+ADX_TRENDING_THRESHOLD = 25.0  # ADX > 25 indicates a trend
+ADX_STRONG_TREND_THRESHOLD = 40.0  # ADX > 40 is a strong trend
+HIGH_VOL_THRESHOLD = 0.30  # Annualized vol > 30%
+LOW_VOL_THRESHOLD = 0.10  # Annualized vol < 10%
 
 
 def _compute_true_range(bars: list) -> list[float]:
@@ -91,7 +97,7 @@ def _compute_volatility(bars: list, period: int = 20) -> float:
     if len(bars) < period + 1:
         return 0.0
 
-    closes = [float(b.close) for b in bars[-(period + 1):]]
+    closes = [float(b.close) for b in bars[-(period + 1) :]]
     returns = []
     for i in range(1, len(closes)):
         if closes[i - 1] > 0:
@@ -121,7 +127,7 @@ def _compute_sma_slope(bars: list, period: int = 50) -> float:
 
     # Compare SMA of last `period` bars vs SMA of period bars ago
     sma_now = sma(bars[-period:])
-    sma_prev = sma(bars[-(period + 5):-5])
+    sma_prev = sma(bars[-(period + 5) : -5])
 
     if sma_prev == 0:
         return 0.0
@@ -176,7 +182,10 @@ class RegimeDetector:
 
         logger.debug(
             "Regime detected: %s (ADX=%.1f, vol=%.1f%%, slope=%.3f)",
-            regime.value, adx, volatility, sma_slope,
+            regime.value,
+            adx,
+            volatility,
+            sma_slope,
         )
 
         return RegimeSnapshot(
@@ -220,7 +229,11 @@ class RegimeDetector:
                 async with httpx.AsyncClient(timeout=10.0) as client:
                     resp = await client.get(
                         self.ALPHA_VANTAGE_BASE,
-                        params={"function": function, "interval": interval, "apikey": key},
+                        params={
+                            "function": function,
+                            "interval": interval,
+                            "apikey": key,
+                        },
                     )
                     resp.raise_for_status()
                 data = resp.json()
@@ -237,12 +250,15 @@ class RegimeDetector:
             return None
 
         import asyncio
+
         gdp_task = asyncio.create_task(_fetch("REAL_GDP", "quarterly"))
         rate_task = asyncio.create_task(_fetch("FEDERAL_FUNDS_RATE", "monthly"))
         result["gdp"], result["fed_rate"] = await asyncio.gather(gdp_task, rate_task)
         return result
 
-    def _classify(self, adx: float, volatility: float, sma_slope: float) -> MarketRegime:
+    def _classify(
+        self, adx: float, volatility: float, sma_slope: float
+    ) -> MarketRegime:
         """Apply classification rules."""
         # High volatility overrides trend detection
         if volatility > HIGH_VOL_THRESHOLD:
@@ -255,7 +271,11 @@ class RegimeDetector:
             elif sma_slope < -0.005:  # 0.5% downslope
                 return MarketRegime.TRENDING_DOWN
             # Strong ADX but unclear direction
-            return MarketRegime.TRENDING_UP if sma_slope >= 0 else MarketRegime.TRENDING_DOWN
+            return (
+                MarketRegime.TRENDING_UP
+                if sma_slope >= 0
+                else MarketRegime.TRENDING_DOWN
+            )
 
         # Low volatility regime
         if volatility < LOW_VOL_THRESHOLD:
@@ -314,7 +334,11 @@ class LiquidityRegimeDetector:
         """
         cache_key = symbol.ticker
         cached = self._cache.get(cache_key)
-        if cached and (datetime.now(timezone.utc) - cached.detected_at).total_seconds() < self._cache_ttl:
+        if (
+            cached
+            and (datetime.now(timezone.utc) - cached.detected_at).total_seconds()
+            < self._cache_ttl
+        ):
             return cached
 
         source = self._resolve_source(symbol)
@@ -360,7 +384,10 @@ class LiquidityRegimeDetector:
 
         logger.debug(
             "LiquidityRegime for %s: %s (spread=%.2f¢, vol=%.0f)",
-            symbol.ticker, regime.value, spread, volume,
+            symbol.ticker,
+            regime.value,
+            spread,
+            volume,
         )
         return snapshot
 

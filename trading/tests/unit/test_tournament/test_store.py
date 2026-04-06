@@ -91,9 +91,24 @@ def test_learning_config_tournament_section():
             "enabled": True,
             "evaluate_cron": "0 * * * *",
             "stages": {
-                1: {"min_sharpe": 1.5, "min_trades": 50, "max_drawdown": 0.15, "min_win_rate": 0.45},
-                2: {"min_sharpe": 1.8, "min_trades": 100, "max_drawdown": 0.12, "min_win_rate": 0.48},
-                3: {"min_sharpe": 2.0, "min_trades": 200, "max_drawdown": 0.10, "min_win_rate": 0.50},
+                1: {
+                    "min_sharpe": 1.5,
+                    "min_trades": 50,
+                    "max_drawdown": 0.15,
+                    "min_win_rate": 0.45,
+                },
+                2: {
+                    "min_sharpe": 1.8,
+                    "min_trades": 100,
+                    "max_drawdown": 0.12,
+                    "min_win_rate": 0.48,
+                },
+                3: {
+                    "min_sharpe": 2.0,
+                    "min_trades": 200,
+                    "max_drawdown": 0.10,
+                    "min_win_rate": 0.50,
+                },
             },
             "live_limited": {"max_capital_pct": 0.10, "max_capital_usd": 500},
         },

@@ -11,27 +11,27 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
 
 class Source(StrEnum):
-    memory_api = 'memory-api'
-    trading_engine = 'trading-engine'
+    memory_api = "memory-api"
+    trading_engine = "trading-engine"
 
 
 class Metadata(BaseModel):
-    correlation_id: str | None = Field(None, description='Request trace ID')
+    correlation_id: str | None = Field(None, description="Request trace ID")
     causation_id: str | None = Field(
-        None, description='Parent event ID that caused this'
+        None, description="Parent event ID that caused this"
     )
 
 
 class Event(BaseModel):
     model_config = ConfigDict(
-        extra='forbid',
+        extra="forbid",
     )
-    id: str = Field(..., description='Event ID (ULID or UUID)')
+    id: str = Field(..., description="Event ID (ULID or UUID)")
     type: str = Field(
-        ..., description='Event type (trade.opened, memory.created, etc.)'
+        ..., description="Event type (trade.opened, memory.created, etc.)"
     )
-    version: str = Field(..., description='Event schema version')
+    version: str = Field(..., description="Event schema version")
     timestamp: AwareDatetime
-    source: Source = Field(..., description='Service that published the event')
-    payload: dict[str, Any] = Field(..., description='Event-specific data')
+    source: Source = Field(..., description="Service that published the event")
+    payload: dict[str, Any] = Field(..., description="Event-specific data")
     metadata: Metadata | None = None

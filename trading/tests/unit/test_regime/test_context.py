@@ -1,14 +1,12 @@
 """Tests for regime/context.py — normalization, caching, null-safety."""
+
 from __future__ import annotations
 
-import time
 from datetime import datetime, timezone
-from unittest.mock import patch
 
 import pytest
 
 from regime.context import (
-    CACHE_TTL_SECONDS,
     RegimeContext,
     RegimeContextResolver,
     _normalize_equity,
@@ -48,8 +46,13 @@ def test_to_dict_has_all_keys():
     )
     d = ctx.to_dict()
     assert set(d) == {
-        "trend_regime", "volatility_regime", "liquidity_regime",
-        "event_regime", "market_state", "source_version", "as_of",
+        "trend_regime",
+        "volatility_regime",
+        "liquidity_regime",
+        "event_regime",
+        "market_state",
+        "source_version",
+        "as_of",
     }
     assert d["trend_regime"] == "range"
     assert d["as_of"].endswith("+00:00") or "T" in d["as_of"]
@@ -60,14 +63,17 @@ def test_to_dict_has_all_keys():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("market_regime, expected_trend, expected_vol", [
-    (MarketRegime.TRENDING_UP, "uptrend", "medium"),
-    (MarketRegime.TRENDING_DOWN, "downtrend", "medium"),
-    (MarketRegime.SIDEWAYS, "range", "medium"),
-    (MarketRegime.HIGH_VOLATILITY, "range", "high"),
-    (MarketRegime.LOW_VOLATILITY, "range", "low"),
-    (MarketRegime.UNKNOWN, "unknown", "unknown"),
-])
+@pytest.mark.parametrize(
+    "market_regime, expected_trend, expected_vol",
+    [
+        (MarketRegime.TRENDING_UP, "uptrend", "medium"),
+        (MarketRegime.TRENDING_DOWN, "downtrend", "medium"),
+        (MarketRegime.SIDEWAYS, "range", "medium"),
+        (MarketRegime.HIGH_VOLATILITY, "range", "high"),
+        (MarketRegime.LOW_VOLATILITY, "range", "low"),
+        (MarketRegime.UNKNOWN, "unknown", "unknown"),
+    ],
+)
 def test_normalize_equity_mapping(market_regime, expected_trend, expected_vol):
     ctx = _normalize_equity(market_regime)
     assert ctx.trend_regime == expected_trend

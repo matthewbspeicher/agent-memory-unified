@@ -1,18 +1,19 @@
 """Integration test: agent YAML exit_rules are attached to ExitManager after fill."""
+
 from __future__ import annotations
 
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
-from agents.models import AgentConfig, ActionLevel, Opportunity, OpportunityStatus
-from broker.models import Symbol, AssetType, OrderSide, LimitOrder, OrderResult, OrderStatus, Quote
+from agents.models import Opportunity
+from broker.models import Symbol, AssetType, OrderSide, LimitOrder
 from exits.rules import PreExpiryExit, ProbabilityTrailingStop, PartialExitRule
 
 
 def _make_opportunity(agent_name: str = "kalshi_daily") -> Opportunity:
     from datetime import datetime, timezone
     import uuid
+
     sym = Symbol(ticker="KXBTCD-25MAR28", asset_type=AssetType.PREDICTION)
     return Opportunity(
         id=str(uuid.uuid4()),
@@ -37,6 +38,7 @@ def _make_opportunity(agent_name: str = "kalshi_daily") -> Opportunity:
 @pytest.fixture
 def exit_manager():
     from exits.manager import ExitManager
+
     return ExitManager()
 
 
@@ -48,8 +50,13 @@ async def test_yaml_exit_rules_attached_after_fill(exit_manager):
     from exits.rules import parse_rule
 
     exit_rules_cfg = [
-        {"type": "pre_expiry_exit", "hours_before_expiry": 2.0,
-         "expires_at": (datetime.now(timezone.utc) + timedelta(hours=10)).isoformat()},
+        {
+            "type": "pre_expiry_exit",
+            "hours_before_expiry": 2.0,
+            "expires_at": (
+                datetime.now(timezone.utc) + timedelta(hours=10)
+            ).isoformat(),
+        },
         {"type": "probability_trailing_stop", "trail_pp": 20.0},
         {"type": "partial_exit", "target_price": "0.80", "fraction": 0.5},
     ]
@@ -84,6 +91,7 @@ async def test_yaml_exit_rules_validator_rejects_unknown_type():
     """AgentConfigSchema should reject unknown exit rule types."""
     from pydantic import ValidationError
     from agents.config import AgentConfigSchema
+
     with pytest.raises(ValidationError):
         AgentConfigSchema(
             name="test_agent",

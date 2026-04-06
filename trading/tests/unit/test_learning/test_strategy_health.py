@@ -1,4 +1,5 @@
 """Tests for StrategyHealthEngine — transition logic, recovery, and cooldown."""
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
@@ -22,6 +23,7 @@ from learning.strategy_health import (
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _snapshot(
     agent_name: str = "rsi",
@@ -86,6 +88,7 @@ async def db():
 # Unit: _compute_expectancy
 # ---------------------------------------------------------------------------
 
+
 class TestComputeExpectancy:
     def test_positive_expectancy(self):
         result = _compute_expectancy(avg_win=150.0, avg_loss=80.0, win_rate=0.6)
@@ -105,6 +108,7 @@ class TestComputeExpectancy:
 # Unit: StrategyHealthStatus enum
 # ---------------------------------------------------------------------------
 
+
 class TestStrategyHealthStatus:
     def test_enum_values(self):
         assert StrategyHealthStatus.NORMAL.value == "normal"
@@ -121,6 +125,7 @@ class TestStrategyHealthStatus:
 # Unit: StrategyHealthConfig
 # ---------------------------------------------------------------------------
 
+
 class TestStrategyHealthConfig:
     def test_defaults(self):
         cfg = StrategyHealthConfig()
@@ -135,6 +140,7 @@ class TestStrategyHealthConfig:
 
     def test_from_learning_config_with_pydantic(self):
         from learning.config import StrategyHealthConfig as _PydanticCfg
+
         pydantic_cfg = _PydanticCfg(enabled=False, cooldown_hours=48)
         cfg = StrategyHealthConfig.from_learning_config(pydantic_cfg)
         assert cfg.enabled is False
@@ -144,6 +150,7 @@ class TestStrategyHealthConfig:
 # ---------------------------------------------------------------------------
 # Integration: state transitions
 # ---------------------------------------------------------------------------
+
 
 class TestStateTransitions:
     async def test_insufficient_trades_stays_normal(self, db):
@@ -168,10 +175,15 @@ class TestStateTransitions:
         status = await engine.evaluate("rsi")
         assert status == StrategyHealthStatus.THROTTLED
 
-    async def test_throttled_to_shadow_on_continued_poor_metrics_with_drawdown(self, db):
+    async def test_throttled_to_shadow_on_continued_poor_metrics_with_drawdown(
+        self, db
+    ):
         snap = _snapshot(
-            win_rate=0.3, avg_win=30.0, avg_loss=300.0,
-            max_drawdown=6000.0, total_trades=40,
+            win_rate=0.3,
+            avg_win=30.0,
+            avg_loss=300.0,
+            max_drawdown=6000.0,
+            total_trades=40,
         )
         engine, health_store = await _make_engine(db, snapshot=snap)
         await engine.evaluate("rsi")  # → watchlist
@@ -181,8 +193,11 @@ class TestStateTransitions:
 
     async def test_shadow_to_retired_on_sustained_underperformance(self, db):
         snap = _snapshot(
-            win_rate=0.25, avg_win=20.0, avg_loss=400.0,
-            max_drawdown=6000.0, total_trades=50,
+            win_rate=0.25,
+            avg_win=20.0,
+            avg_loss=400.0,
+            max_drawdown=6000.0,
+            total_trades=50,
         )
         engine, _ = await _make_engine(db, snapshot=snap)
         await engine.evaluate("rsi")  # → watchlist
@@ -192,12 +207,18 @@ class TestStateTransitions:
         assert status == StrategyHealthStatus.RETIRED
 
     async def test_watchlist_recovers_to_normal(self, db):
-        bad_snap = _snapshot(win_rate=0.35, avg_win=40.0, avg_loss=200.0, total_trades=30)
-        good_snap = _snapshot(win_rate=0.6, avg_win=150.0, avg_loss=80.0, total_trades=30)
+        bad_snap = _snapshot(
+            win_rate=0.35, avg_win=40.0, avg_loss=200.0, total_trades=30
+        )
+        good_snap = _snapshot(
+            win_rate=0.6, avg_win=150.0, avg_loss=80.0, total_trades=30
+        )
 
         health_store = StrategyHealthStore(db)
         perf_store = MagicMock(spec=PerformanceStore)
-        engine = StrategyHealthEngine(health_store=health_store, perf_store=perf_store, config=_cfg())
+        engine = StrategyHealthEngine(
+            health_store=health_store, perf_store=perf_store, config=_cfg()
+        )
 
         perf_store.get_latest = AsyncMock(return_value=bad_snap)
         await engine.evaluate("rsi")  # → watchlist
@@ -207,12 +228,18 @@ class TestStateTransitions:
         assert status == StrategyHealthStatus.NORMAL
 
     async def test_throttled_recovers_to_normal(self, db):
-        bad_snap = _snapshot(win_rate=0.35, avg_win=40.0, avg_loss=200.0, total_trades=30)
-        good_snap = _snapshot(win_rate=0.65, avg_win=180.0, avg_loss=70.0, total_trades=35)
+        bad_snap = _snapshot(
+            win_rate=0.35, avg_win=40.0, avg_loss=200.0, total_trades=30
+        )
+        good_snap = _snapshot(
+            win_rate=0.65, avg_win=180.0, avg_loss=70.0, total_trades=35
+        )
 
         health_store = StrategyHealthStore(db)
         perf_store = MagicMock(spec=PerformanceStore)
-        engine = StrategyHealthEngine(health_store=health_store, perf_store=perf_store, config=_cfg())
+        engine = StrategyHealthEngine(
+            health_store=health_store, perf_store=perf_store, config=_cfg()
+        )
 
         perf_store.get_latest = AsyncMock(return_value=bad_snap)
         await engine.evaluate("rsi")  # → watchlist
@@ -226,6 +253,7 @@ class TestStateTransitions:
 # ---------------------------------------------------------------------------
 # Cooldown enforcement
 # ---------------------------------------------------------------------------
+
 
 class TestCooldown:
     async def test_cooldown_prevents_retransition(self, db):
@@ -257,6 +285,7 @@ class TestCooldown:
 # Manual overrides respected
 # ---------------------------------------------------------------------------
 
+
 class TestManualOverride:
     async def test_manual_override_not_overwritten_by_evaluate(self, db):
         snap = _snapshot(win_rate=0.35, avg_win=40.0, avg_loss=200.0, total_trades=30)
@@ -273,6 +302,7 @@ class TestManualOverride:
 # ---------------------------------------------------------------------------
 # Disabled engine
 # ---------------------------------------------------------------------------
+
 
 class TestDisabledEngine:
     async def test_disabled_engine_always_returns_normal(self, db):
@@ -293,6 +323,7 @@ class TestDisabledEngine:
 # get_throttle_multiplier
 # ---------------------------------------------------------------------------
 
+
 class TestThrottleMultiplier:
     async def test_returns_config_default_when_not_set(self, db):
         cfg = _cfg(throttle_multiplier=0.25)
@@ -311,6 +342,7 @@ class TestThrottleMultiplier:
 # on_trade_closed (non-blocking wrapper)
 # ---------------------------------------------------------------------------
 
+
 class TestOnTradeClosed:
     async def test_on_trade_closed_triggers_evaluate(self, db):
         snap = _snapshot()  # healthy snapshot
@@ -322,6 +354,7 @@ class TestOnTradeClosed:
 # ---------------------------------------------------------------------------
 # Audit events recorded on transition
 # ---------------------------------------------------------------------------
+
 
 class TestAuditEvents:
     async def test_transition_records_event(self, db):

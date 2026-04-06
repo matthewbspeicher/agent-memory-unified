@@ -1,4 +1,5 @@
 """ExecutionTracker — records fill slippage for executed trades."""
+
 from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
@@ -11,6 +12,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ExecutionFill:
     """Represents a single order fill with slippage measurement."""
+
     opportunity_id: str
     agent_name: str
     broker_id: str
@@ -98,7 +100,12 @@ class ExecutionTracker:
 
         logger.debug(
             "Fill recorded: %s %s %s — expected=%s actual=%s slippage=%.1f bps",
-            agent_name, side, symbol, expected_price, actual_price, fill.slippage_bps,
+            agent_name,
+            side,
+            symbol,
+            expected_price,
+            actual_price,
+            fill.slippage_bps,
         )
         return fill
 
@@ -123,8 +130,14 @@ class ExecutionTracker:
         if max_days is not None:
             cutoff = datetime.now(timezone.utc) - timedelta(days=max_days)
             fills = [
-                f for f in fills
-                if (f.filled_at if f.filled_at.tzinfo else f.filled_at.replace(tzinfo=timezone.utc)) >= cutoff
+                f
+                for f in fills
+                if (
+                    f.filled_at
+                    if f.filled_at.tzinfo
+                    else f.filled_at.replace(tzinfo=timezone.utc)
+                )
+                >= cutoff
             ]
         # Most-recent first, then cap to limit
         return list(reversed(fills[-limit:]))

@@ -20,7 +20,9 @@ class StrategySummary:
     avg_win: str = "0"
     avg_loss: str = "0"
     expectancy: str = "0"  # win_rate * avg_win + loss_rate * avg_loss
-    profit_factor: float | None = None  # sum(wins) / abs(sum(losses)); None if no losses, 0.0 if no wins
+    profit_factor: float | None = (
+        None  # sum(wins) / abs(sum(losses)); None if no losses, 0.0 if no wins
+    )
     avg_hold_minutes: float = 0.0
     median_hold_minutes: float = 0.0
     best_trade: str = "0"

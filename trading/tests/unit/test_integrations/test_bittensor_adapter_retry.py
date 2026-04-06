@@ -30,6 +30,7 @@ class TestAdapterRetry:
 
         with patch.dict("sys.modules", {"bittensor": MagicMock()}) as _:
             import sys
+
             mock_bt = sys.modules["bittensor"]
             mock_bt.subtensor = mock_subtensor
             mock_bt.wallet = MagicMock(return_value=MagicMock())
@@ -53,6 +54,7 @@ class TestAdapterRetry:
 
         with patch.dict("sys.modules", {"bittensor": MagicMock()}) as _:
             import sys
+
             mock_bt = sys.modules["bittensor"]
             mock_bt.subtensor = MagicMock(side_effect=ConnectionError("down"))
 
@@ -72,6 +74,7 @@ class TestAdapterRetry:
 
         with patch.dict("sys.modules", {"bittensor": MagicMock()}) as _:
             import sys
+
             mock_bt = sys.modules["bittensor"]
             mock_bt.subtensor = MagicMock(return_value=MagicMock())
             mock_bt.wallet = MagicMock(return_value=MagicMock())

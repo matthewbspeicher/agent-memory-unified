@@ -150,21 +150,25 @@ class TournamentRunner:
         champion = variants[0]
 
         challengers = [
-            v
-            for v in variants[1:]
-            if (v["total_trades"] or 0) >= min_trades
+            v for v in variants[1:] if (v["total_trades"] or 0) >= min_trades
         ]
 
         winner: dict | None = None
         if challengers:
             best_challenger = max(
                 challengers,
-                key=lambda v: v["sharpe_ratio"] if v["sharpe_ratio"] is not None else float("-inf"),
+                key=lambda v: (
+                    v["sharpe_ratio"]
+                    if v["sharpe_ratio"] is not None
+                    else float("-inf")
+                ),
             )
             champion_sharpe = champion["sharpe_ratio"] or 0.0
             challenger_sharpe = best_challenger["sharpe_ratio"] or 0.0
 
-            if champion_sharpe > 0 and challenger_sharpe >= champion_sharpe * (1 + promotion_margin):
+            if champion_sharpe > 0 and challenger_sharpe >= champion_sharpe * (
+                1 + promotion_margin
+            ):
                 winner = best_challenger
             elif champion_sharpe <= 0 and challenger_sharpe > champion_sharpe:
                 # Edge case: champion has non-positive sharpe; any improvement wins

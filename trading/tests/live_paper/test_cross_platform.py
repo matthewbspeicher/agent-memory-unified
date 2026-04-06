@@ -9,9 +9,9 @@ Requires:
   - STA_KALSHI_DEMO=true (Kalshi safety guard)
   - STA_POLYMARKET_DRY_RUN=true (Polymarket safety guard)
 """
+
 from __future__ import annotations
 
-import os
 
 import pytest
 
@@ -40,12 +40,15 @@ def _make_agent(kalshi_ds, polymarket_ds):
             "max_markets_per_platform": 20,
         },
     )
-    return CrossPlatformArbAgent(config, kalshi_ds=kalshi_ds, polymarket_ds=polymarket_ds)
+    return CrossPlatformArbAgent(
+        config, kalshi_ds=kalshi_ds, polymarket_ds=polymarket_ds
+    )
 
 
 # ---------------------------------------------------------------------------
 # Test — CrossPlatformArbAgent.scan() with both real data sources
 # ---------------------------------------------------------------------------
+
 
 @skip_no_kalshi
 @skip_no_polymarket

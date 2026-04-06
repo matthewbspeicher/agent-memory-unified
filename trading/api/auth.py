@@ -18,7 +18,9 @@ def verify_api_key(
 ) -> str:
     settings = _get_settings()
     if not settings.api_key:
-        raise HTTPException(status_code=503, detail="API not available — no API key configured")
+        raise HTTPException(
+            status_code=503, detail="API not available — no API key configured"
+        )
     if api_key != settings.api_key:
         raise HTTPException(status_code=401, detail="Invalid API key")
     return api_key

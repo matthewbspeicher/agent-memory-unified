@@ -1,5 +1,4 @@
 from __future__ import annotations
-import asyncio
 import aiosqlite
 import pytest
 from storage.db import init_db
@@ -69,16 +68,25 @@ class TestSpreadStore:
     async def test_get_top_spreads_returns_only_latest_per_pair(self, db):
         """get_top_spreads must return the most-recent row per (kalshi,poly) pair."""
         from datetime import datetime, timezone, timedelta
+
         store = SpreadStore(db)
         now = datetime.now(timezone.utc)
         old_obs = SpreadObservation(
-            kalshi_ticker="K1", poly_ticker="P1",
-            match_score=0.8, kalshi_cents=45, poly_cents=55, gap_cents=10,
+            kalshi_ticker="K1",
+            poly_ticker="P1",
+            match_score=0.8,
+            kalshi_cents=45,
+            poly_cents=55,
+            gap_cents=10,
             observed_at=(now - timedelta(hours=2)).isoformat(),
         )
         new_obs = SpreadObservation(
-            kalshi_ticker="K1", poly_ticker="P1",
-            match_score=0.8, kalshi_cents=45, poly_cents=63, gap_cents=18,
+            kalshi_ticker="K1",
+            poly_ticker="P1",
+            match_score=0.8,
+            kalshi_cents=45,
+            poly_cents=63,
+            gap_cents=18,
             observed_at=now.isoformat(),
         )
         await store.record(old_obs)

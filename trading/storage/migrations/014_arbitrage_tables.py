@@ -1,6 +1,7 @@
 from __future__ import annotations
 import aiosqlite
 
+
 async def upgrade(db: aiosqlite.Connection) -> None:
     # 1. Arbitrage Trades Table
     await db.execute(
@@ -16,7 +17,7 @@ async def upgrade(db: aiosqlite.Connection) -> None:
             updated_at TEXT NOT NULL
         )"""
     )
-    
+
     # 2. Arbitrage Legs Table
     await db.execute(
         """CREATE TABLE IF NOT EXISTS arb_legs (
@@ -32,10 +33,15 @@ async def upgrade(db: aiosqlite.Connection) -> None:
             FOREIGN KEY (trade_id) REFERENCES arb_trades(id) ON DELETE CASCADE
         )"""
     )
-    
+
     # Indices for performance
-    await db.execute("CREATE INDEX IF NOT EXISTS idx_arb_trades_state ON arb_trades(state)")
-    await db.execute("CREATE INDEX IF NOT EXISTS idx_arb_legs_trade_id ON arb_legs(trade_id)")
+    await db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_arb_trades_state ON arb_trades(state)"
+    )
+    await db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_arb_legs_trade_id ON arb_legs(trade_id)"
+    )
+
 
 async def downgrade(db: aiosqlite.Connection) -> None:
     await db.execute("DROP TABLE IF EXISTS arb_legs")

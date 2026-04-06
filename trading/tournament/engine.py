@@ -28,11 +28,12 @@ class TournamentEngine:
         self._notifier = notifier
         self._runner = runner
         self._config = config
-        
+
         if llm is not None:
             self._llm = llm
         else:
             from llm.client import LLMClient as _LLMClient
+
             self._llm = _LLMClient()
 
     def _check_thresholds(
@@ -105,11 +106,15 @@ class TournamentEngine:
         ai_analysis = ""
         ai_recommendation = "go"
         if overridden_by is None and snap is not None:
-            ai_analysis, ai_recommendation = await self._run_ai_gate(agent_name, snap, to_stage)
+            ai_analysis, ai_recommendation = await self._run_ai_gate(
+                agent_name, snap, to_stage
+            )
             if ai_recommendation == "no-go":
                 logger.info(
                     "AI gate blocked promotion of %s to stage %d: %s",
-                    agent_name, to_stage, ai_analysis,
+                    agent_name,
+                    to_stage,
+                    ai_analysis,
                 )
                 return
 
@@ -174,7 +179,9 @@ class TournamentEngine:
             await self.promote(agent_name, to_stage=to_stage, overridden_by=by)
             return f"Override applied: {agent_name} promoted to stage {to_stage}."
         elif action == "demote":
-            await self.demote(agent_name, reason=f"manual override by {by}", overridden_by=by)
+            await self.demote(
+                agent_name, reason=f"manual override by {by}", overridden_by=by
+            )
             return f"Override applied: {agent_name} demoted to stage 0."
         else:
             return f"Unknown override action '{action}'. Use 'promote' or 'demote'."
@@ -207,13 +214,17 @@ class TournamentEngine:
             recommendation = "no-go"
             for line in reversed(text.splitlines()):
                 if "RECOMMENDATION:" in line:
-                    recommendation = "go" if "go" in line.lower().replace("no-go", "") else "no-go"
+                    recommendation = (
+                        "go" if "go" in line.lower().replace("no-go", "") else "no-go"
+                    )
                     if "no-go" in line.lower():
                         recommendation = "no-go"
                     break
             return text, recommendation
         except Exception as exc:
-            logger.warning("AI gate failed for %s: %s — defaulting to go", agent_name, exc)
+            logger.warning(
+                "AI gate failed for %s: %s — defaulting to go", agent_name, exc
+            )
             return f"AI gate error: {exc}", "go"
 
     async def _run_ai_demotion_summary(self, agent_name: str, reason: str) -> str:

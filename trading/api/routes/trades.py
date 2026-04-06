@@ -5,6 +5,7 @@ Trade history endpoints with hybrid authentication.
 Agents can list their own trades, view specific trades, and create new trades.
 Requires JWT or legacy amc_* token for authentication.
 """
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from typing import Optional
 
@@ -114,7 +115,7 @@ async def create_trade(
     if not opportunity_id or not order_result:
         raise HTTPException(
             status_code=400,
-            detail="Missing required fields: opportunity_id, order_result"
+            detail="Missing required fields: opportunity_id, order_result",
         )
 
     # Save the trade
@@ -122,7 +123,7 @@ async def create_trade(
         opportunity_id=opportunity_id,
         order_result=order_result,
         risk_evaluation=risk_evaluation,
-        agent_name=agent_id
+        agent_name=agent_id,
     )
 
     return {"status": "ok", "message": "Trade created"}

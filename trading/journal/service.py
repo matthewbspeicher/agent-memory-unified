@@ -3,6 +3,7 @@ JournalService — trade listing and detail with autopsy integration.
 
 Consumed by WhatsApp /journal and GET /journal API.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -71,9 +72,13 @@ class JournalService:
         self._autopsy = autopsy
 
     async def list_trades(
-        self, agent_name: str | None = None, limit: int = 5,
+        self,
+        agent_name: str | None = None,
+        limit: int = 5,
     ) -> list[JournalEntry]:
-        positions = await self._pnl_store.list_closed(agent_name=agent_name, limit=limit)
+        positions = await self._pnl_store.list_closed(
+            agent_name=agent_name, limit=limit
+        )
         entries: list[JournalEntry] = []
         for p in positions:
             cached = await self._autopsy.get_cached(p["id"])

@@ -4,6 +4,7 @@ SpreadTracker — subscribes to EventBus "polymarket.quote" events and records
 spread observations for matched pairs. Publishes "arb.spread" events when
 the gap exceeds alert_threshold_cents.
 """
+
 from __future__ import annotations
 
 import logging
@@ -27,14 +28,14 @@ class SpreadTracker:
     def __init__(
         self,
         spread_store: "SpreadStore",
-        match_index: dict[str, str],      # poly_ticker (condition_id) -> kalshi_ticker
+        match_index: dict[str, str],  # poly_ticker (condition_id) -> kalshi_ticker
         event_bus: "EventBus",
         kalshi_ds,
         alert_threshold_cents: int = 8,
         notifier: "CompositeNotifier | None" = None,
     ) -> None:
         self._store = spread_store
-        self._match_index = match_index    # mutable — updated by app.py on refresh
+        self._match_index = match_index  # mutable — updated by app.py on refresh
         self._bus = event_bus
         self._kalshi_ds = kalshi_ds
         self._threshold = alert_threshold_cents
@@ -59,7 +60,9 @@ class SpreadTracker:
         # Fetch current Kalshi price (the data source caches internally)
         k_mkt = await self._kalshi_ds.get_market(kalshi_ticker)
         if k_mkt is None:
-            logger.warning("SpreadTracker: Kalshi market not found for ticker=%s", kalshi_ticker)
+            logger.warning(
+                "SpreadTracker: Kalshi market not found for ticker=%s", kalshi_ticker
+            )
             return
         if k_mkt.yes_bid is None and k_mkt.yes_ask is None:
             return
@@ -67,10 +70,11 @@ class SpreadTracker:
         gap = abs(k_cents - poly_cents)
 
         from storage.spreads import SpreadObservation
+
         obs = SpreadObservation(
             kalshi_ticker=kalshi_ticker,
             poly_ticker=condition_id,
-            match_score=0.0,   # match_score not available here; set to 0
+            match_score=0.0,  # match_score not available here; set to 0
             kalshi_cents=k_cents,
             poly_cents=poly_cents,
             gap_cents=gap,
@@ -80,14 +84,17 @@ class SpreadTracker:
         await self._store.record(obs)
 
         if gap > self._threshold:
-            await self._bus.publish("arb.spread", {
-                "kalshi_ticker": kalshi_ticker,
-                "poly_ticker": condition_id,
-                "kalshi_cents": k_cents,
-                "poly_cents": poly_cents,
-                "gap_cents": gap,
-                "observed_at": datetime.now(timezone.utc).isoformat(),
-            })
+            await self._bus.publish(
+                "arb.spread",
+                {
+                    "kalshi_ticker": kalshi_ticker,
+                    "poly_ticker": condition_id,
+                    "kalshi_cents": k_cents,
+                    "poly_cents": poly_cents,
+                    "gap_cents": gap,
+                    "observed_at": datetime.now(timezone.utc).isoformat(),
+                },
+            )
             if self._notifier:
                 try:
                     await self._notifier.notify(

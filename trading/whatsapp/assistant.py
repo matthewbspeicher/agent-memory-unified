@@ -63,7 +63,7 @@ class WhatsAppAssistant:
         account_id: str = "U123",
         llm_client=None,
         external_store=None,
-        data_bus: 'DataBus' = None,
+        data_bus: "DataBus" = None,
         leaderboard_engine=None,
         journal_service=None,
         brief_generator=None,
@@ -103,6 +103,7 @@ class WhatsAppAssistant:
         """Starts background proactive monitoring tasks (Track 14)."""
         if self.proactive_ops is None:
             from whatsapp.proactive import HermesProactiveOps
+
             self.proactive_ops = HermesProactiveOps(self, allowed_numbers)
             self.proactive_ops.start()
 
@@ -140,7 +141,9 @@ class WhatsAppAssistant:
             if len(parts) >= 3:
                 action = parts[1].lower()
                 agent_name = parts[2]
-                result = await self._tournament_engine.override(agent_name, action, by=phone)
+                result = await self._tournament_engine.override(
+                    agent_name, action, by=phone
+                )
                 await self._client.send_text(phone, result)
                 return
 
@@ -166,7 +169,9 @@ class WhatsAppAssistant:
                 return
             lines = []
             for o in opps:
-                lines.append(f"• {o['symbol']} — {o['signal']} ({o['status']}) [{o['agent_name']}]")
+                lines.append(
+                    f"• {o['symbol']} — {o['signal']} ({o['status']}) [{o['agent_name']}]"
+                )
             await self._client.send_text(phone, "\n".join(lines))
 
         elif name == "agents":
@@ -192,9 +197,15 @@ class WhatsAppAssistant:
         elif name in ("buy", "sell") and len(args) >= 2:
             symbol, qty = args[0].upper(), args[1]
             action = "BUY" if name == "buy" else "SELL"
-            token = self._confirmation.create(phone, "place_order", {
-                "symbol": symbol, "side": action, "quantity": qty,
-            })
+            token = self._confirmation.create(
+                phone,
+                "place_order",
+                {
+                    "symbol": symbol,
+                    "side": action,
+                    "quantity": qty,
+                },
+            )
             await self._client.send_text(
                 phone,
                 f"Place market {action.lower()}: {qty} shares {symbol}.\n\nReply *{token}* to confirm, or CANCEL.",
@@ -205,19 +216,29 @@ class WhatsAppAssistant:
 
         elif name == "kill":
             token = self._confirmation.create(phone, "toggle_kill", {"enable": True})
-            await self._client.send_text(phone, f"Enable kill switch?\n\nReply *{token}* to confirm, or CANCEL.")
+            await self._client.send_text(
+                phone, f"Enable kill switch?\n\nReply *{token}* to confirm, or CANCEL."
+            )
 
         elif name == "unkill":
             token = self._confirmation.create(phone, "toggle_kill", {"enable": False})
-            await self._client.send_text(phone, f"Disable kill switch?\n\nReply *{token}* to confirm, or CANCEL.")
+            await self._client.send_text(
+                phone, f"Disable kill switch?\n\nReply *{token}* to confirm, or CANCEL."
+            )
 
         elif name == "start" and args:
             token = self._confirmation.create(phone, "start_agent", {"name": args[0]})
-            await self._client.send_text(phone, f"Start agent '{args[0]}'?\n\nReply *{token}* to confirm, or CANCEL.")
+            await self._client.send_text(
+                phone,
+                f"Start agent '{args[0]}'?\n\nReply *{token}* to confirm, or CANCEL.",
+            )
 
         elif name == "stop" and args:
             token = self._confirmation.create(phone, "stop_agent", {"name": args[0]})
-            await self._client.send_text(phone, f"Stop agent '{args[0]}'?\n\nReply *{token}* to confirm, or CANCEL.")
+            await self._client.send_text(
+                phone,
+                f"Stop agent '{args[0]}'?\n\nReply *{token}* to confirm, or CANCEL.",
+            )
 
         elif name == "markets":
             await self._cmd_markets(phone)
@@ -248,7 +269,9 @@ class WhatsAppAssistant:
             await self._cmd_paper(phone, args)
 
         else:
-            await self._client.send_text(phone, f"Missing arguments for /{name}. Try /help.")
+            await self._client.send_text(
+                phone, f"Missing arguments for /{name}. Try /help."
+            )
 
     async def _cmd_markets(self, phone: str) -> None:
         if not self._data_bus:
@@ -256,19 +279,29 @@ class WhatsAppAssistant:
             return
 
         markets = await self._data_bus.get_markets()
-        pred_markets = [m for m in markets if hasattr(m, 'mid_probability') and m.mid_probability is not None]
+        pred_markets = [
+            m
+            for m in markets
+            if hasattr(m, "mid_probability") and m.mid_probability is not None
+        ]
 
         if not pred_markets:
-            await self._client.send_text(phone, "No active prediction markets found right now.")
+            await self._client.send_text(
+                phone, "No active prediction markets found right now."
+            )
             return
 
-        top = sorted(pred_markets, key=lambda m: getattr(m, 'volume_24h', 0) or 0, reverse=True)[:5]
+        top = sorted(
+            pred_markets, key=lambda m: getattr(m, "volume_24h", 0) or 0, reverse=True
+        )[:5]
 
         lines = ["*Top Prediction Markets*"]
         for idx, m in enumerate(top, 1):
             source = "Poly" if m.ticker.startswith("0x") else "Kalshi"
             prob = int(m.mid_probability * 100)
-            lines.append(f"{idx}. {getattr(m, 'title', m.ticker)} ({source}) — YES @ {prob}¢")
+            lines.append(
+                f"{idx}. {getattr(m, 'title', m.ticker)} ({source}) — YES @ {prob}¢"
+            )
 
         await self._client.send_text(phone, "\n".join(lines))
 
@@ -322,10 +355,14 @@ class WhatsAppAssistant:
             positions = await self._broker.account.get_positions(self._account_id)
             balance = await self._broker.account.get_balances(self._account_id)
             lines.append(f"=== IBKR — ${balance.net_liquidation:,.2f} ===")
-            lines.append(f"Cash: ${balance.cash:,.2f} | Buying Power: ${balance.buying_power:,.2f}")
+            lines.append(
+                f"Cash: ${balance.cash:,.2f} | Buying Power: ${balance.buying_power:,.2f}"
+            )
             if positions:
                 for p in positions:
-                    lines.append(f"  {p.symbol.ticker}: {p.quantity} @ ${p.avg_cost:,.2f} (P&L: ${p.unrealized_pnl:+,.2f})")
+                    lines.append(
+                        f"  {p.symbol.ticker}: {p.quantity} @ ${p.avg_cost:,.2f} (P&L: ${p.unrealized_pnl:+,.2f})"
+                    )
             else:
                 lines.append("  No open positions.")
         except Exception as e:
@@ -431,12 +468,19 @@ class WhatsAppAssistant:
     async def _execute_confirmed(self, phone: str, action) -> None:
         if action.action_type == "place_order":
             try:
-                from broker.models import Symbol as Sym, AssetType, OrderSide, MarketOrder
+                from broker.models import (
+                    Symbol as Sym,
+                    AssetType,
+                    OrderSide,
+                    MarketOrder,
+                )
                 from decimal import Decimal
+
                 sym = Sym(ticker=action.data["symbol"], asset_type=AssetType.STOCK)
                 side = OrderSide.BUY if action.data["side"] == "BUY" else OrderSide.SELL
                 order = MarketOrder(
-                    symbol=sym, side=side,
+                    symbol=sym,
+                    side=side,
                     quantity=Decimal(action.data["quantity"]),
                     account_id=self._account_id,
                 )
@@ -459,27 +503,38 @@ class WhatsAppAssistant:
         elif action.action_type == "start_agent":
             try:
                 await self._runner.start_agent(action.data["name"])
-                await self._client.send_text(phone, f"Agent '{action.data['name']}' started.")
+                await self._client.send_text(
+                    phone, f"Agent '{action.data['name']}' started."
+                )
             except Exception as e:
                 await self._client.send_text(phone, f"Failed to start agent: {e}")
 
         elif action.action_type == "stop_agent":
             try:
                 await self._runner.stop_agent(action.data["name"])
-                await self._client.send_text(phone, f"Agent '{action.data['name']}' stopped.")
+                await self._client.send_text(
+                    phone, f"Agent '{action.data['name']}' stopped."
+                )
             except Exception as e:
                 await self._client.send_text(phone, f"Failed to stop agent: {e}")
 
         elif action.action_type == "spawn_shadow":
             try:
-                agent_store = getattr(self, '_agent_store', None)
+                agent_store = getattr(self, "_agent_store", None)
                 if agent_store:
                     await agent_store.create_evolved_agent(**action.data)
-                    await self._client.send_text(phone, f"Shadow agent '{action.data['name']}' spawned successfully.")
+                    await self._client.send_text(
+                        phone,
+                        f"Shadow agent '{action.data['name']}' spawned successfully.",
+                    )
                 else:
-                    await self._client.send_text(phone, "Agent store not available to spawn shadow agent.")
+                    await self._client.send_text(
+                        phone, "Agent store not available to spawn shadow agent."
+                    )
             except Exception as e:
-                await self._client.send_text(phone, f"Failed to spawn shadow agent: {e}")
+                await self._client.send_text(
+                    phone, f"Failed to spawn shadow agent: {e}"
+                )
 
         elif action.action_type == "paper_reset":
             if not self._paper_broker:
@@ -487,7 +542,9 @@ class WhatsAppAssistant:
                 return
             try:
                 await self._paper_broker.reset()
-                await self._client.send_text(phone, "Paper account reset to initial balance.")
+                await self._client.send_text(
+                    phone, "Paper account reset to initial balance."
+                )
             except Exception as e:
                 await self._client.send_text(phone, f"Paper reset failed: {e}")
 
@@ -596,7 +653,9 @@ class WhatsAppAssistant:
             else:
                 agent_filter = arg
 
-        entries = await self._journal_service.list_trades(agent_name=agent_filter, limit=limit)
+        entries = await self._journal_service.list_trades(
+            agent_name=agent_filter, limit=limit
+        )
         if not entries:
             return "No closed trades yet."
 
@@ -619,7 +678,9 @@ class WhatsAppAssistant:
         lines = ["Convergence Signals:"]
         for s in signals[:5]:
             agents = ", ".join(s.agents)
-            lines.append(f"\n{s.direction} {s.symbol} — {len(s.agents)} agents agree ({agents})")
+            lines.append(
+                f"\n{s.direction} {s.symbol} — {len(s.agents)} agents agree ({agents})"
+            )
             lines.append(f"  Avg confidence: {s.avg_confidence:.0%}")
             if s.synthesis:
                 lines.append(f"  {s.synthesis[:100]}...")
@@ -706,7 +767,9 @@ class WhatsAppAssistant:
         if not self._remembr:
             return ""
         try:
-            results = await self._remembr.search(q=text, limit=5, tags=[f"wa:{phone[-4:]}"])
+            results = await self._remembr.search(
+                q=text, limit=5, tags=[f"wa:{phone[-4:]}"]
+            )
             if not results:
                 results = await self._remembr.search(q=text, limit=3)
             if results:
@@ -727,7 +790,7 @@ class WhatsAppAssistant:
                 f"User: {user_text}\nAssistant: {reply}"
             )
             result = await self._llm_client.complete(prompt, max_tokens=200)
-            
+
             facts = result.text.strip()
             if facts.upper() == "NONE" or len(facts) < 10:
                 return
@@ -741,7 +804,9 @@ class WhatsAppAssistant:
 
     async def _handle_llm(self, phone: str, text: str) -> None:
         if not self._llm_client:
-            await self._client.send_text(phone, "LLM not configured. Use /help for available commands.")
+            await self._client.send_text(
+                phone, "LLM not configured. Use /help for available commands."
+            )
             return
 
         history = self._conversations.get(phone, [])
@@ -776,17 +841,27 @@ class WhatsAppAssistant:
 
     async def _cmd_backtest(self, phone: str, args: list[str]) -> None:
         if not args:
-            await self._client.send_text(phone, "Usage: /backtest <agent_name> [symbol1,symbol2] [period]")
+            await self._client.send_text(
+                phone, "Usage: /backtest <agent_name> [symbol1,symbol2] [period]"
+            )
             return
         agent_name = args[0]
         symbols = args[1].split(",") if len(args) > 1 else ["AAPL", "MSFT", "GOOGL"]
         period = args[2] if len(args) > 2 else "6mo"
         await self._client.send_text(phone, f"Running backtest for {agent_name}...")
         try:
-            from data.backtest import BacktestEngine, HistoricalDataSource, ReplayDataBus, score_backtest_run
+            from data.backtest import (
+                BacktestEngine,
+                HistoricalDataSource,
+                ReplayDataBus,
+                score_backtest_run,
+            )
             from broker.models import Symbol, AssetType
+
             if not self._runner or not self._data_bus:
-                await self._client.send_text(phone, "Agent framework or DataBus not available.")
+                await self._client.send_text(
+                    phone, "Agent framework or DataBus not available."
+                )
                 return
             agent = self._runner._agents.get(agent_name)
             if not agent:
@@ -796,7 +871,9 @@ class WhatsAppAssistant:
             for ticker in symbols:
                 sym = Symbol(ticker=ticker, asset_type=AssetType.STOCK)
                 try:
-                    bars = await self._data_bus.get_historical(sym, timeframe="1d", period=period)
+                    bars = await self._data_bus.get_historical(
+                        sym, timeframe="1d", period=period
+                    )
                     if bars:
                         bars_by_symbol[ticker] = bars
                 except Exception:
@@ -807,7 +884,9 @@ class WhatsAppAssistant:
             hist_source = HistoricalDataSource(bars_by_symbol)
             replay_bus = ReplayDataBus(hist_source)
             engine = BacktestEngine(bus=replay_bus, agents=[agent])
-            all_times = sorted({b.timestamp for bars in bars_by_symbol.values() for b in bars})
+            all_times = sorted(
+                {b.timestamp for bars in bars_by_symbol.values() for b in bars}
+            )
             raw = await engine.run(all_times)
             result = score_backtest_run(
                 agent_name=agent_name,
@@ -832,7 +911,9 @@ class WhatsAppAssistant:
         except Exception as exc:
             logger.error("Backtest failed: %s", exc)
             await self._client.send_text(phone, f"Backtest failed: {exc}")
-            await self._client.send_text(phone, "Sorry, something went wrong. Try a /command instead.")
+            await self._client.send_text(
+                phone, "Sorry, something went wrong. Try a /command instead."
+            )
 
     async def _cmd_regime(self, phone: str, args: list[str]) -> None:
         """Handle /regime [symbol] — detect current market regime."""
@@ -843,10 +924,15 @@ class WhatsAppAssistant:
         try:
             from broker.models import Symbol as Sym, AssetType
             from regime.detector import RegimeDetector
+
             sym = Sym(ticker=symbol, asset_type=AssetType.STOCK)
-            bars = await self._data_bus.get_historical(sym, timeframe="1d", period="3mo")
+            bars = await self._data_bus.get_historical(
+                sym, timeframe="1d", period="3mo"
+            )
             if not bars:
-                await self._client.send_text(phone, f"No historical data available for {symbol}.")
+                await self._client.send_text(
+                    phone, f"No historical data available for {symbol}."
+                )
                 return
             detector = RegimeDetector()
             snapshot = detector.detect_with_snapshot(bars)
@@ -856,8 +942,12 @@ class WhatsAppAssistant:
                 "",
                 f"Regime: {regime_label}",
                 f"ADX: {snapshot.adx:.1f}" if snapshot.adx is not None else "ADX: N/A",
-                f"Volatility: {snapshot.volatility_pct:.1f}%" if snapshot.volatility_pct is not None else "Volatility: N/A",
-                f"SMA Slope: {snapshot.sma_slope:+.3f}" if snapshot.sma_slope is not None else "SMA Slope: N/A",
+                f"Volatility: {snapshot.volatility_pct:.1f}%"
+                if snapshot.volatility_pct is not None
+                else "Volatility: N/A",
+                f"SMA Slope: {snapshot.sma_slope:+.3f}"
+                if snapshot.sma_slope is not None
+                else "SMA Slope: N/A",
                 f"Bars Analyzed: {snapshot.bars_analyzed}",
             ]
 

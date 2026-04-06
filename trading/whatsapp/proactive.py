@@ -10,18 +10,28 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 from opentelemetry import metrics
+
 meter = metrics.get_meter("hermes.proactive")
-tuning_cycles_counter = meter.create_counter("hermes.tuning_cycles_total", description="Total number of tuning and exploration cycles")
-agents_spawned_counter = meter.create_counter("hermes.agents_spawned_total", description="Total number of shadow agents spawned via Hermes")
+tuning_cycles_counter = meter.create_counter(
+    "hermes.tuning_cycles_total",
+    description="Total number of tuning and exploration cycles",
+)
+agents_spawned_counter = meter.create_counter(
+    "hermes.agents_spawned_total",
+    description="Total number of shadow agents spawned via Hermes",
+)
+
 
 class HermesProactiveOps:
     """
-    Background worker that runs proactive monitoring and intelligence-gathering 
-    skills for the Hermes agent. Handles health monitors, daily briefs, 
+    Background worker that runs proactive monitoring and intelligence-gathering
+    skills for the Hermes agent. Handles health monitors, daily briefs,
     and automated tuning autopsies.
     """
 
-    def __init__(self, assistant: 'WhatsAppAssistant', allowed_numbers: list[str]) -> None:
+    def __init__(
+        self, assistant: "WhatsAppAssistant", allowed_numbers: list[str]
+    ) -> None:
         self.wa = assistant
         self.allowed_numbers = allowed_numbers
         self._running = False
@@ -64,36 +74,40 @@ class HermesProactiveOps:
                         is_healthy = self.wa._broker.connection.is_connected()
                         if hasattr(self.wa._broker, "check_health"):
                             # Pings predicting markets for active connection checks
-                            is_healthy = is_healthy and await self.wa._broker.check_health()
+                            is_healthy = (
+                                is_healthy and await self.wa._broker.check_health()
+                            )
                     else:
-                        is_healthy = True # Paper mode with no broker setup defaults to healthy logic 
+                        is_healthy = True  # Paper mode with no broker setup defaults to healthy logic
                 except Exception as e:
                     logger.warning("Proactive health check encountered an error: %s", e)
                     is_healthy = False
 
                 if not is_healthy:
-                    logger.warning("Hermes detected platform is unhealthy. Fetching recent container logs...")
-                    
+                    logger.warning(
+                        "Hermes detected platform is unhealthy. Fetching recent container logs..."
+                    )
+
                     # NOTE: This assumes the host is WSL2 or a container with access to the docker sock
                     # and the container name is 'stock-trading-api'.
                     proc = await asyncio.create_subprocess_shell(
                         "docker compose logs stock-trading-api --tail 50",
                         stdout=asyncio.subprocess.PIPE,
-                        stderr=asyncio.subprocess.PIPE
+                        stderr=asyncio.subprocess.PIPE,
                     )
                     stdout, stderr = await proc.communicate()
                     log_output = (stdout.decode() or "") + (stderr.decode() or "")
-                    
+
                     if len(log_output) > 2000:
                         log_output = "...[truncated]...\n" + log_output[-1900:]
-                    
+
                     msg = (
                         "🚨 *Hermes Health Alert* 🚨\n"
                         "Platform heartbeat failed. Recent logs:\n\n"
                         f"```\n{log_output.strip()}\n```"
                     )
                     await self._broadcast(msg)
-                    
+
                     # Backoff for 1 hour after alerting to avoid spam
                     await asyncio.sleep(3600)
 
@@ -110,9 +124,13 @@ class HermesProactiveOps:
             try:
                 now = datetime.now()
                 current_date = now.strftime("%Y-%m-%d")
-                
+
                 # Check if it is currently 08:30 and the brief hasn't been sent today
-                if now.hour == 8 and now.minute == 30 and self._last_brief_date != current_date:
+                if (
+                    now.hour == 8
+                    and now.minute == 30
+                    and self._last_brief_date != current_date
+                ):
                     logger.info("Hermes generating proactive morning brief...")
                     if self.wa._brief_generator:
                         data = await self.wa._brief_generator.get_or_generate()
@@ -120,8 +138,10 @@ class HermesProactiveOps:
                         await self._broadcast(msg)
                         self._last_brief_date = current_date
                     else:
-                        logger.warning("Brief generator missing in proactive morning brief loop.")
-                
+                        logger.warning(
+                            "Brief generator missing in proactive morning brief loop."
+                        )
+
                 # Check clock every minute
                 await asyncio.sleep(60)
             except asyncio.CancelledError:
@@ -131,7 +151,7 @@ class HermesProactiveOps:
 
     async def _tuning_and_autopsy_loop(self) -> None:
         """
-        Runs every 4 hours to evaluate agent Sharpes for automated tuning 
+        Runs every 4 hours to evaluate agent Sharpes for automated tuning
         and runs silent autopsies on newly closed positions.
         """
         # local imports to avoid circular dependencies during boot
@@ -139,37 +159,43 @@ class HermesProactiveOps:
         from storage.performance import PerformanceStore
         from storage.opportunities import OpportunityStore
         from storage.trades import TradeStore
-        
+
         while self._running:
             try:
                 # Wait 4 hours (14400 seconds) prior to execution (or sleep immediately and run later)
                 # We'll run early, then sleep to allow startup to finish, but for robust design we sleep first
                 await asyncio.sleep(14400)
-                
+
                 if not self.wa._db:
                     continue
 
                 trade_store = TradeStore(self.wa._db)
                 perf_store = PerformanceStore(self.wa._db)
-                
+
                 # 1. Tuning Logic
-                logger.info("Hermes scanning agents for automated performance tuning...")
+                logger.info(
+                    "Hermes scanning agents for automated performance tuning..."
+                )
                 agents = self.wa._runner.list_agents()
                 for info in agents:
                     if info.status != AgentStatus.RUNNING:
                         continue
                     agent_name = info.name
-                    
+
                     # Extract last known performance from the db
                     history = await perf_store.get_history(agent_name, limit=1)
                     if history:
                         latest = history[0]
                         # Trigger tuning if 30-day trailing sharpe is dangerously low (e.g. < 0.5)
                         if latest.sharpe_ratio < 0.5 and latest.position_count > 5:
-                            logger.info(f"Agent {agent_name} trailing Sharpe {latest.sharpe_ratio} < 0.5. Triggering autotune.")
+                            logger.info(
+                                f"Agent {agent_name} trailing Sharpe {latest.sharpe_ratio} < 0.5. Triggering autotune."
+                            )
                             try:
                                 opp_store = OpportunityStore(self.wa._db)
-                                tuner = AdaptiveTuner(self.wa._runner, opp_store, trade_store)
+                                tuner = AdaptiveTuner(
+                                    self.wa._runner, opp_store, trade_store
+                                )
                                 await tuner.tune_agent(agent_name)
                                 msg = f"🔧 *Hermes Auto-Tuner*\nAutomatically tuned `{agent_name}` due to deteriorating Sharpe ({latest.sharpe_ratio:.2f})."
                                 await self._broadcast(msg)
@@ -184,12 +210,18 @@ class HermesProactiveOps:
                     entries = await self.wa._journal_service.list_trades(limit=10)
                     for entry in entries:
                         if not entry.has_autopsy:
-                            logger.info(f"Hermes running autonomous autopsy on trade {entry.position_id}...")
+                            logger.info(
+                                f"Hermes running autonomous autopsy on trade {entry.position_id}..."
+                            )
                             try:
                                 # This generates and caches the autopsy automatically via LLM
-                                await self.wa._journal_service.get_trade_detail(entry.position_id)
+                                await self.wa._journal_service.get_trade_detail(
+                                    entry.position_id
+                                )
                             except Exception as e:
-                                logger.warning(f"autonomous autopsy failed for {entry.position_id}: {e}")
+                                logger.warning(
+                                    f"autonomous autopsy failed for {entry.position_id}: {e}"
+                                )
 
             except asyncio.CancelledError:
                 break
@@ -224,7 +256,7 @@ class HermesProactiveOps:
                 tuner = AdaptiveTuner(self.wa._runner, opp_store, trade_store)
                 sandbox = BacktestSandbox(data_bus=self.wa._data_bus)
                 agents = self.wa._runner.list_agents()
-                
+
                 tuning_cycles_counter.add(1)
 
                 for info in agents:
@@ -248,13 +280,19 @@ class HermesProactiveOps:
                         strategy = config.strategy
                         base_params = config.parameters.copy()
                         universe = config.universe
-                        symbols = universe if isinstance(universe, list) else [universe] if isinstance(universe, str) else ["AAPL", "MSFT", "GOOGL"]
+                        symbols = (
+                            universe
+                            if isinstance(universe, list)
+                            else [universe]
+                            if isinstance(universe, str)
+                            else ["AAPL", "MSFT", "GOOGL"]
+                        )
 
                         # Generate parameter variants via LLM
                         snapshot = {
                             "sharpe_ratio": latest.sharpe_ratio,
                             "win_rate": latest.win_rate,
-                            "total_trades": latest.total_trades
+                            "total_trades": latest.total_trades,
                         }
                         variants = await tuner.generate_parameter_variants(
                             info.name, strategy, base_params, snapshot
@@ -264,7 +302,9 @@ class HermesProactiveOps:
 
                         logger.info(
                             "Hermes exploring %d LLM parameter variants for %s (Sharpe=%.2f)",
-                            len(variants), info.name, latest.sharpe_ratio,
+                            len(variants),
+                            info.name,
+                            latest.sharpe_ratio,
                         )
 
                         # Evaluate all variants
@@ -280,10 +320,10 @@ class HermesProactiveOps:
                         best = results[0] if results else None
                         if best and best.sharpe_ratio > latest.sharpe_ratio + 0.2:
                             improvement = best.sharpe_ratio - latest.sharpe_ratio
-                            
+
                             gen_suffix = datetime.now().strftime("%m%d%H%M")
                             evolved_name = f"{info.name}_gen{gen_suffix}"
-                            
+
                             msg = (
                                 f"🧪 *Hermes LLM Parameter Discovery*\n"
                                 f"Agent: `{info.name}` (strategy: {strategy})\n"
@@ -294,7 +334,7 @@ class HermesProactiveOps:
                                 f"Max DD: {best.max_drawdown_pct:.1f}%\n\n"
                             )
 
-                            agent_store = getattr(self.wa, '_agent_store', None)
+                            agent_store = getattr(self.wa, "_agent_store", None)
                             if agent_store and improvement > 0.5:
                                 spawn_data = {
                                     "name": evolved_name,
@@ -342,7 +382,9 @@ class HermesProactiveOps:
                             await self._broadcast(msg)
                             logger.info(
                                 "Hermes found improvement for %s: Sharpe %.2f -> %.2f",
-                                info.name, latest.sharpe_ratio, best.sharpe_ratio,
+                                info.name,
+                                latest.sharpe_ratio,
+                                best.sharpe_ratio,
                             )
                     except Exception as e:
                         logger.warning(

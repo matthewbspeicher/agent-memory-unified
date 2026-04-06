@@ -1,4 +1,5 @@
 """Tests for strategy analytics API routes."""
+
 from __future__ import annotations
 
 import os
@@ -17,6 +18,7 @@ from storage.trade_analytics import TradeAnalyticsStore
 def _env():
     os.environ["STA_API_KEY"] = "test-key"
     from api.auth import _get_settings
+
     _get_settings.cache_clear()
     yield
     _get_settings.cache_clear()
@@ -84,10 +86,46 @@ async def app_with_trades(_env):
 
     store = TradeAnalyticsStore(db)
     # Insert trades for two strategies
-    await store.upsert(**_make_row(tracked_position_id=1, agent_name="rsi", symbol="AAPL", net_pnl="100", realized_outcome="win", exit_time="2026-03-25T10:00:00Z"))
-    await store.upsert(**_make_row(tracked_position_id=2, agent_name="rsi", symbol="AAPL", net_pnl="-30", realized_outcome="loss", exit_time="2026-03-25T11:00:00Z"))
-    await store.upsert(**_make_row(tracked_position_id=3, agent_name="rsi", symbol="TSLA", net_pnl="50", realized_outcome="win", exit_time="2026-03-25T12:00:00Z"))
-    await store.upsert(**_make_row(tracked_position_id=4, agent_name="momentum", symbol="NVDA", net_pnl="200", realized_outcome="win", exit_time="2026-03-25T13:00:00Z"))
+    await store.upsert(
+        **_make_row(
+            tracked_position_id=1,
+            agent_name="rsi",
+            symbol="AAPL",
+            net_pnl="100",
+            realized_outcome="win",
+            exit_time="2026-03-25T10:00:00Z",
+        )
+    )
+    await store.upsert(
+        **_make_row(
+            tracked_position_id=2,
+            agent_name="rsi",
+            symbol="AAPL",
+            net_pnl="-30",
+            realized_outcome="loss",
+            exit_time="2026-03-25T11:00:00Z",
+        )
+    )
+    await store.upsert(
+        **_make_row(
+            tracked_position_id=3,
+            agent_name="rsi",
+            symbol="TSLA",
+            net_pnl="50",
+            realized_outcome="win",
+            exit_time="2026-03-25T12:00:00Z",
+        )
+    )
+    await store.upsert(
+        **_make_row(
+            tracked_position_id=4,
+            agent_name="momentum",
+            symbol="NVDA",
+            net_pnl="200",
+            realized_outcome="win",
+            exit_time="2026-03-25T13:00:00Z",
+        )
+    )
 
     yield app
     await db.close()
@@ -96,7 +134,9 @@ async def app_with_trades(_env):
 class TestScorecardEndpoint:
     async def test_scorecard_returns_ranked_strategies(self, app_with_trades):
         client = TestClient(app_with_trades)
-        resp = client.get("/analytics/strategies/scorecard", headers={"X-API-Key": "test-key"})
+        resp = client.get(
+            "/analytics/strategies/scorecard", headers={"X-API-Key": "test-key"}
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert len(data) == 2
@@ -113,7 +153,9 @@ class TestScorecardEndpoint:
         app.state.db = db
 
         client = TestClient(app)
-        resp = client.get("/analytics/strategies/scorecard", headers={"X-API-Key": "test-key"})
+        resp = client.get(
+            "/analytics/strategies/scorecard", headers={"X-API-Key": "test-key"}
+        )
         assert resp.status_code == 200
         assert resp.json() == []
         await db.close()
@@ -127,7 +169,9 @@ class TestScorecardEndpoint:
 class TestDrilldownEndpoint:
     async def test_drilldown_returns_summary_and_series(self, app_with_trades):
         client = TestClient(app_with_trades)
-        resp = client.get("/analytics/strategies/rsi", headers={"X-API-Key": "test-key"})
+        resp = client.get(
+            "/analytics/strategies/rsi", headers={"X-API-Key": "test-key"}
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert data["summary"]["agent_name"] == "rsi"
@@ -138,7 +182,9 @@ class TestDrilldownEndpoint:
 
     async def test_drilldown_empty_strategy(self, app_with_trades):
         client = TestClient(app_with_trades)
-        resp = client.get("/analytics/strategies/nonexistent", headers={"X-API-Key": "test-key"})
+        resp = client.get(
+            "/analytics/strategies/nonexistent", headers={"X-API-Key": "test-key"}
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert data["summary"]["trade_count"] == 0
@@ -147,7 +193,10 @@ class TestDrilldownEndpoint:
 class TestTradesEndpoint:
     async def test_trades_returns_paginated(self, app_with_trades):
         client = TestClient(app_with_trades)
-        resp = client.get("/analytics/strategies/rsi/trades?limit=2", headers={"X-API-Key": "test-key"})
+        resp = client.get(
+            "/analytics/strategies/rsi/trades?limit=2",
+            headers={"X-API-Key": "test-key"},
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert len(data) == 2
@@ -156,7 +205,9 @@ class TestTradesEndpoint:
 class TestSymbolsEndpoint:
     async def test_symbols_returns_breakdown(self, app_with_trades):
         client = TestClient(app_with_trades)
-        resp = client.get("/analytics/strategies/rsi/symbols", headers={"X-API-Key": "test-key"})
+        resp = client.get(
+            "/analytics/strategies/rsi/symbols", headers={"X-API-Key": "test-key"}
+        )
         assert resp.status_code == 200
         data = resp.json()
         symbols = [s["symbol"] for s in data]

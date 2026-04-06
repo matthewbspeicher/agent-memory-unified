@@ -1,7 +1,5 @@
 """Tests for storage/encoding.py JSON encoding/decoding utilities."""
 
-import pytest
-
 from storage.encoding import decode_json_column, decode_json_columns
 
 

@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Any
 from unittest.mock import MagicMock
 
-import pytest
 
 from agents.base import StructuredAgent
 from agents.config import _STRATEGY_REGISTRY, register_strategy
@@ -22,6 +21,7 @@ def _make_config(name: str = "test_agent", strategy: str = "fake") -> AgentConfi
 # ---------------------------------------------------------------------------
 # Minimal concrete StructuredAgent subclasses used across the tests
 # ---------------------------------------------------------------------------
+
 
 class FakeAgent(StructuredAgent):
     description = "FakeAgent for tests"
@@ -45,6 +45,7 @@ class FakeAgentWithDep(StructuredAgent):
 # Tests
 # ---------------------------------------------------------------------------
 
+
 def test_register_strategy_accepts_callable():
     """A lambda that creates a FakeAgent can be registered and invoked."""
     factory = lambda config: FakeAgent(config=config)  # noqa: E731
@@ -64,6 +65,7 @@ def test_register_strategy_closure_with_injection():
     def make_factory(dep: Any):
         def factory(config: AgentConfig) -> FakeAgentWithDep:
             return FakeAgentWithDep(config=config, dependency=dep)
+
         return factory
 
     register_strategy("test_closure_factory", make_factory(mock_dep))

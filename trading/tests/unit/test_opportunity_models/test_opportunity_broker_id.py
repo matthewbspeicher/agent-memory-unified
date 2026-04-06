@@ -1,7 +1,6 @@
 import dataclasses
 from datetime import datetime
 
-import pytest
 
 from agents.models import Opportunity
 from broker.models import AssetType, Symbol

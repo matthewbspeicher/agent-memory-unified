@@ -21,7 +21,9 @@ class StreamManager:
         self._streams = streams
         self._data_bus = data_bus
         self._event_bus = event_bus
-        self._symbol_to_broker: dict[str, str] = {}  # symbol → broker_name (one stream per symbol)
+        self._symbol_to_broker: dict[
+            str, str
+        ] = {}  # symbol → broker_name (one stream per symbol)
 
     async def subscribe(self, symbols: list[str], broker: str | None = None) -> None:
         """Subscribe to symbols. One stream per symbol — first subscriber wins."""
@@ -45,7 +47,12 @@ class StreamManager:
         await stream.subscribe(new_symbols)
         for s in new_symbols:
             self._symbol_to_broker[s] = stream_name
-        logger.info("Subscribed %d symbols on %s: %s", len(new_symbols), stream_name, new_symbols)
+        logger.info(
+            "Subscribed %d symbols on %s: %s",
+            len(new_symbols),
+            stream_name,
+            new_symbols,
+        )
 
     async def unsubscribe(self, symbols: list[str]) -> None:
         by_broker: dict[str, list[str]] = {}
@@ -60,7 +67,9 @@ class StreamManager:
         """Connect all streams and register fan-out callbacks."""
         for name, stream in self._streams.items():
             stream.on_quote(self._on_quote)
-            stream.on_disconnected(lambda broker_name=name: self._on_stream_disconnected(broker_name))
+            stream.on_disconnected(
+                lambda broker_name=name: self._on_stream_disconnected(broker_name)
+            )
             try:
                 await stream.connect()
                 await self._event_bus.publish("stream.connected", {"broker": name})
@@ -88,5 +97,6 @@ class StreamManager:
             self._data_bus.invalidate_quote_cache(affected)
             logger.warning(
                 "Stream '%s' disconnected — invalidated %d cached quotes",
-                broker_name, len(affected),
+                broker_name,
+                len(affected),
             )

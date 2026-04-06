@@ -22,7 +22,9 @@ def create_learning_router(
     perf_store: PerformanceStore,
     agent_store: AgentStore,
 ) -> APIRouter:
-    router = APIRouter(prefix="/api/agents", tags=["learning"], dependencies=[Depends(verify_api_key)])
+    router = APIRouter(
+        prefix="/api/agents", tags=["learning"], dependencies=[Depends(verify_api_key)]
+    )
 
     @router.get("/{name}/pnl")
     async def get_pnl(name: str, status: str = "closed") -> list:
@@ -47,8 +49,15 @@ def create_learning_router(
         current = await agent_store.get(name)
         old_level = current.get("trust_level", "none") if current else "none"
         await agent_store.update(name, trust_level=body.trust_level)
-        await agent_store.log_trust_change(name, old_level, body.trust_level, "rest_api")
-        logger.info("Trust level for %s changed from %s to %s by rest_api", name, old_level, body.trust_level)
+        await agent_store.log_trust_change(
+            name, old_level, body.trust_level, "rest_api"
+        )
+        logger.info(
+            "Trust level for %s changed from %s to %s by rest_api",
+            name,
+            old_level,
+            body.trust_level,
+        )
         return {"agent": name, "trust_level": body.trust_level}
 
     @router.get("/{name}/trust/history")

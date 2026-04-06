@@ -133,7 +133,9 @@ class AgentStore:
         """List active agents (alias for get_all_active)."""
         return await self.get_all_active()
 
-    async def update(self, name: str, updates: dict[str, Any] | None = None, **kwargs: Any) -> dict[str, Any] | None:
+    async def update(
+        self, name: str, updates: dict[str, Any] | None = None, **kwargs: Any
+    ) -> dict[str, Any] | None:
         """Partial update of agent fields. Only whitelisted columns allowed.
 
         Accepts updates as either a dict or keyword arguments:

@@ -4,7 +4,7 @@ import logging
 import json
 import re
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 from agents.models import AgentSignal
 from agents.signal_adapter import SignalAdapter
@@ -24,6 +24,7 @@ class NewsAdapter(SignalAdapter):
             self._llm = llm
         else:
             from llm.client import LLMClient as _LLMClient
+
             self._llm = _LLMClient()
 
     def source_name(self) -> str:
@@ -52,19 +53,23 @@ class NewsAdapter(SignalAdapter):
             for item in headlines:
                 sentiment = await self._analyze_headline(item["text"])
                 if sentiment and sentiment.get("confidence", 0) > 0.7:
-                    signals.append(AgentSignal(
-                        source_agent=self.source_name(),
-                        signal_type="news_event",
-                        payload={
-                            "ticker": item.get("ticker"),
-                            "headline": item["text"],
-                            "sentiment": sentiment["label"],
-                            "confidence": sentiment["confidence"],
-                            "direction": "bullish" if sentiment["label"] == "positive" else "bearish",
-                            "source": item.get("source", "newsapi"),
-                        },
-                        expires_at=expires,
-                    ))
+                    signals.append(
+                        AgentSignal(
+                            source_agent=self.source_name(),
+                            signal_type="news_event",
+                            payload={
+                                "ticker": item.get("ticker"),
+                                "headline": item["text"],
+                                "sentiment": sentiment["label"],
+                                "confidence": sentiment["confidence"],
+                                "direction": "bullish"
+                                if sentiment["label"] == "positive"
+                                else "bearish",
+                                "source": item.get("source", "newsapi"),
+                            },
+                            expires_at=expires,
+                        )
+                    )
         except Exception as e:
             logger.error("NewsAdapter: failed to poll news: %s", e)
 
@@ -74,12 +79,12 @@ class NewsAdapter(SignalAdapter):
         """Analyze headline sentiment using LLM chain."""
         try:
             prompt = (
-                f"Analyze the sentiment of this financial headline for the primary ticker mentioned: \"{headline}\"\n"
-                "Respond in JSON format: {\"label\": \"positive\"|\"negative\"|\"neutral\", \"confidence\": 0.0-1.0}"
+                f'Analyze the sentiment of this financial headline for the primary ticker mentioned: "{headline}"\n'
+                'Respond in JSON format: {"label": "positive"|"negative"|"neutral", "confidence": 0.0-1.0}'
             )
             result = await self._llm.complete(prompt, max_tokens=100)
             content = result.text or ""
-            
+
             # Basic JSON extraction from response text
             match = re.search(r"\{.*\}", content, re.DOTALL)
             if match:

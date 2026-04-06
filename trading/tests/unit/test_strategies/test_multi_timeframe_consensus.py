@@ -2,14 +2,12 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock
 from datetime import datetime, timezone
 from decimal import Decimal
-import pytest
 
 from agents.models import ActionLevel, AgentConfig
 from broker.models import Bar, Symbol
 from strategies.multi_timeframe_consensus import (
     MultiTimeframeConsensusAgent,
     TimeframeDirection,
-    TimeframeSignal,
 )
 
 TEST_SYMBOL = Symbol(ticker="AAPL")

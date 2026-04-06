@@ -38,10 +38,14 @@ class WhatsAppClient:
 
     async def load_sessions(self, db) -> None:
         try:
-            cursor = await db.execute("SELECT phone, last_inbound_at FROM whatsapp_sessions")
+            cursor = await db.execute(
+                "SELECT phone, last_inbound_at FROM whatsapp_sessions"
+            )
             rows = await cursor.fetchall()
             for row in rows:
-                self._sessions[row["phone"]] = datetime.fromisoformat(row["last_inbound_at"]).replace(tzinfo=timezone.utc)
+                self._sessions[row["phone"]] = datetime.fromisoformat(
+                    row["last_inbound_at"]
+                ).replace(tzinfo=timezone.utc)
         except Exception:
             pass
 
@@ -58,7 +62,11 @@ class WhatsAppClient:
         """Classify and suppress repeated WhatsApp API errors."""
         if status_code == 401 or "invalid parameter" in text.lower():
             if not self._auth_failed:
-                logger.warning("WhatsApp auth failed (%s %s) — suppressing further errors", status_code, text[:200])
+                logger.warning(
+                    "WhatsApp auth failed (%s %s) — suppressing further errors",
+                    status_code,
+                    text[:200],
+                )
                 self._auth_failed = True
             return
         error_key = f"{method}:{status_code}"
@@ -80,7 +88,9 @@ class WhatsAppClient:
             if resp.status_code != 200:
                 self._handle_error_response("send_text", resp.status_code, resp.text)
 
-    async def send_image(self, to: str, image_bytes: bytes, caption: str | None = None) -> None:
+    async def send_image(
+        self, to: str, image_bytes: bytes, caption: str | None = None
+    ) -> None:
         async with httpx.AsyncClient(timeout=10.0) as client:
             upload_resp = await client.post(
                 f"{META_API_BASE}/{self._phone_id}/media",
@@ -105,15 +115,19 @@ class WhatsAppClient:
         async with httpx.AsyncClient(timeout=10.0) as client:
             await client.post(self._url(), headers=self._headers(), json=payload)
 
-    async def send_template(self, to: str, template_name: str, parameters: list[str]) -> None:
+    async def send_template(
+        self, to: str, template_name: str, parameters: list[str]
+    ) -> None:
         if self._auth_failed:
             return
         components = []
         if parameters:
-            components.append({
-                "type": "body",
-                "parameters": [{"type": "text", "text": p} for p in parameters],
-            })
+            components.append(
+                {
+                    "type": "body",
+                    "parameters": [{"type": "text", "text": p} for p in parameters],
+                }
+            )
         payload = {
             "messaging_product": "whatsapp",
             "to": to,
@@ -127,7 +141,9 @@ class WhatsAppClient:
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.post(self._url(), headers=self._headers(), json=payload)
             if resp.status_code != 200:
-                self._handle_error_response("send_template", resp.status_code, resp.text)
+                self._handle_error_response(
+                    "send_template", resp.status_code, resp.text
+                )
 
     async def mark_read(self, message_id: str) -> None:
         payload = {

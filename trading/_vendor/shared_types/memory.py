@@ -11,37 +11,37 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, conint, constr
 
 
 class Type(Enum):
-    note = 'note'
-    lesson = 'lesson'
-    preference = 'preference'
-    fact = 'fact'
-    procedure = 'procedure'
+    note = "note"
+    lesson = "lesson"
+    preference = "preference"
+    fact = "fact"
+    procedure = "procedure"
 
 
 class Visibility(Enum):
-    private = 'private'
-    public = 'public'
+    private = "private"
+    public = "public"
 
 
 class Memory(BaseModel):
     model_config = ConfigDict(
-        extra='forbid',
+        extra="forbid",
     )
     id: UUID
     agent_id: UUID
     value: constr(min_length=1, max_length=50000) = Field(
-        ..., description='Memory content'
+        ..., description="Memory content"
     )
-    type: Type | None = Field(None, description='Memory classification')
+    type: Type | None = Field(None, description="Memory classification")
     summary: constr(max_length=500) | None = Field(
-        None, description='Short summary for quick scanning'
+        None, description="Short summary for quick scanning"
     )
     tags: list[str] | None = None
-    visibility: Visibility | None = 'private'
+    visibility: Visibility | None = "private"
     importance: conint(ge=1, le=10) | None = 5
     embedding: list[float] | None = Field(
         None,
-        description='1536-dim vector (optional in DTOs)',
+        description="1536-dim vector (optional in DTOs)",
         max_length=1536,
         min_length=1536,
     )

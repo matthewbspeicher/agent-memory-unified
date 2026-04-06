@@ -1,5 +1,6 @@
 # api/tests/test_dependencies.py
 """Tests for FastAPI authentication dependencies."""
+
 import pytest
 from unittest.mock import AsyncMock
 from fastapi import HTTPException
@@ -22,22 +23,25 @@ async def test_get_current_user_with_jwt():
 
     # Mock the validate_token function to return user data
     import sys
-    sys.path.insert(0, '/opt/homebrew/var/www/agent-memory-unified')
+
+    sys.path.insert(0, "/opt/homebrew/var/www/agent-memory-unified")
 
     # Patch validate_token
     from unittest.mock import patch
-    with patch('shared.auth.validate.validate_token', new=AsyncMock(return_value={
-        "sub": "test-agent-id",
-        "type": "agent",
-        "scopes": ["memories:write", "trading:execute"]
-    })):
+
+    with patch(
+        "shared.auth.validate.validate_token",
+        new=AsyncMock(
+            return_value={
+                "sub": "test-agent-id",
+                "type": "agent",
+                "scopes": ["memories:write", "trading:execute"],
+            }
+        ),
+    ):
         from api.dependencies import get_current_user
 
-        user = await get_current_user(
-            authorization=authorization,
-            redis=redis,
-            db=db
-        )
+        user = await get_current_user(authorization=authorization, redis=redis, db=db)
 
         assert user["sub"] == "test-agent-id"
         assert user["type"] == "agent"
@@ -54,29 +58,33 @@ async def test_get_current_user_with_legacy_token():
 
     # Mock database response
     db = AsyncMock()
-    db.fetchrow = AsyncMock(return_value={
-        "id": "legacy-agent-id",
-        "name": "Legacy Agent",
-        "scopes": ["memories:write"],
-        "is_active": True
-    })
+    db.fetchrow = AsyncMock(
+        return_value={
+            "id": "legacy-agent-id",
+            "name": "Legacy Agent",
+            "scopes": ["memories:write"],
+            "is_active": True,
+        }
+    )
 
     token = "amc_legacy_token_12345"
     authorization = f"Bearer {token}"
 
     from unittest.mock import patch
-    with patch('shared.auth.validate.validate_token', new=AsyncMock(return_value={
-        "sub": "legacy-agent-id",
-        "type": "agent",
-        "scopes": ["memories:write"]
-    })):
+
+    with patch(
+        "shared.auth.validate.validate_token",
+        new=AsyncMock(
+            return_value={
+                "sub": "legacy-agent-id",
+                "type": "agent",
+                "scopes": ["memories:write"],
+            }
+        ),
+    ):
         from api.dependencies import get_current_user
 
-        user = await get_current_user(
-            authorization=authorization,
-            redis=redis,
-            db=db
-        )
+        user = await get_current_user(authorization=authorization, redis=redis, db=db)
 
         assert user["sub"] == "legacy-agent-id"
         assert user["type"] == "agent"
@@ -93,11 +101,7 @@ async def test_get_current_user_invalid_header():
     from api.dependencies import get_current_user
 
     with pytest.raises(HTTPException) as exc:
-        await get_current_user(
-            authorization=authorization,
-            redis=redis,
-            db=db
-        )
+        await get_current_user(authorization=authorization, redis=redis, db=db)
 
     assert exc.value.status_code == 401
     assert "Invalid authorization header" in str(exc.value.detail)
@@ -122,11 +126,7 @@ async def test_get_current_user_missing_jwt_secret():
         from api.dependencies import get_current_user
 
         with pytest.raises(HTTPException) as exc:
-            await get_current_user(
-                authorization=authorization,
-                redis=redis,
-                db=db
-            )
+            await get_current_user(authorization=authorization, redis=redis, db=db)
 
         assert exc.value.status_code == 500
         assert "JWT_SECRET not configured" in str(exc.value.detail)
@@ -142,7 +142,7 @@ async def test_require_scope_with_valid_scope():
     user = {
         "sub": "test-agent",
         "type": "agent",
-        "scopes": ["memories:write", "trading:execute"]
+        "scopes": ["memories:write", "trading:execute"],
     }
 
     # Create the dependency
@@ -160,7 +160,7 @@ async def test_require_scope_with_missing_scope():
     user = {
         "sub": "test-agent",
         "type": "agent",
-        "scopes": ["memories:write"]  # Missing trading:execute
+        "scopes": ["memories:write"],  # Missing trading:execute
     }
 
     check_fn = require_scope("trading:execute")
@@ -175,11 +175,7 @@ async def test_require_scope_with_missing_scope():
 @pytest.mark.asyncio
 async def test_require_scope_with_empty_scopes():
     """Test scope checking when user has no scopes."""
-    user = {
-        "sub": "test-agent",
-        "type": "agent",
-        "scopes": []
-    }
+    user = {"sub": "test-agent", "type": "agent", "scopes": []}
 
     check_fn = require_scope("trading:execute")
 

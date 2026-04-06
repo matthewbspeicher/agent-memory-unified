@@ -1,4 +1,5 @@
 """Unit tests for RSSNewsSource."""
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
@@ -92,10 +93,12 @@ class TestRSSFetchAndParse:
     async def test_fetch_skips_failed_feeds(self):
         from data.sources.rss_news import RSSNewsSource
 
-        source = RSSNewsSource(feed_urls=[
-            "https://example.com/bad",
-            "https://example.com/good",
-        ])
+        source = RSSNewsSource(
+            feed_urls=[
+                "https://example.com/bad",
+                "https://example.com/good",
+            ]
+        )
 
         ok_response = _make_mock_response(SAMPLE_RSS_XML)
 
@@ -132,8 +135,10 @@ class TestRSSFetchAndParse:
 
         for article in articles:
             assert article.published_at.tzinfo is not None
-            assert article.published_at.tzinfo == timezone.utc or \
-                   article.published_at.utcoffset() == timedelta(0)
+            assert (
+                article.published_at.tzinfo == timezone.utc
+                or article.published_at.utcoffset() == timedelta(0)
+            )
 
 
 class TestDedup:
@@ -193,8 +198,18 @@ class TestGetHeadlines:
         source = RSSNewsSource(feed_urls=["https://example.com/rss"])
         now = datetime.now(timezone.utc)
         source._latest_articles = [
-            Article(title="Headline A", url="https://example.com/a", published_at=now, source_name="Reuters"),
-            Article(title="Headline B", url="https://example.com/b", published_at=now, source_name="BBC"),
+            Article(
+                title="Headline A",
+                url="https://example.com/a",
+                published_at=now,
+                source_name="Reuters",
+            ),
+            Article(
+                title="Headline B",
+                url="https://example.com/b",
+                published_at=now,
+                source_name="BBC",
+            ),
         ]
 
         headlines = await source.get_headlines()
@@ -212,7 +227,12 @@ class TestGetHeadlines:
         source = RSSNewsSource(feed_urls=["https://example.com/rss"])
         now = datetime.now(timezone.utc)
         source._latest_articles = [
-            Article(title=f"Headline {i}", url=f"https://example.com/{i}", published_at=now, source_name="Test")
+            Article(
+                title=f"Headline {i}",
+                url=f"https://example.com/{i}",
+                published_at=now,
+                source_name="Test",
+            )
             for i in range(20)
         ]
 

@@ -2,6 +2,7 @@
 PolymarketWebSocketFeed — long-running task that subscribes to the Polymarket
 CLOB WebSocket and publishes price_change events to the EventBus.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -45,6 +46,7 @@ class PolymarketWebSocketFeed:
         while True:
             try:
                 import websockets  # type: ignore[import]
+
                 async with websockets.connect(WS_URL) as ws:
                     delay = _RECONNECT_BASE  # reset on successful connect
                     failures = 0
@@ -60,27 +62,34 @@ class PolymarketWebSocketFeed:
                 # Log first 3 failures as WARNING, then switch to DEBUG to reduce noise
                 if failures <= 3:
                     logger.warning(
-                        "PolymarketWebSocketFeed: disconnected (%s), retrying in %ds", exc, delay
+                        "PolymarketWebSocketFeed: disconnected (%s), retrying in %ds",
+                        exc,
+                        delay,
                     )
                 elif failures == 4:
                     logger.warning(
                         "PolymarketWebSocketFeed: repeated failures (%d), "
-                        "suppressing further warnings (DNS unreachable?)", failures
+                        "suppressing further warnings (DNS unreachable?)",
+                        failures,
                     )
                 else:
                     logger.debug(
-                        "PolymarketWebSocketFeed: disconnected (%s), retrying in %ds", exc, delay
+                        "PolymarketWebSocketFeed: disconnected (%s), retrying in %ds",
+                        exc,
+                        delay,
                     )
                 await asyncio.sleep(delay)
                 delay = min(delay * 2, _RECONNECT_MAX)
 
     async def _subscribe(self, ws, token_ids: list[str]) -> None:
         """Send subscribe message per CLOB WebSocket protocol."""
-        payload = json.dumps({
-            "auth": None,
-            "type": "Market",
-            "assets_ids": token_ids,
-        })
+        payload = json.dumps(
+            {
+                "auth": None,
+                "type": "Market",
+                "assets_ids": token_ids,
+            }
+        )
         await ws.send(payload)
 
     async def _handle_message(self, raw: str) -> None:
@@ -100,10 +109,10 @@ class PolymarketWebSocketFeed:
                     continue
                 if not condition_id:
                     continue
-                
+
                 # Update live price cache on the data source
                 await self._ds._live_price_cache.update(condition_id, yes_cents)
-                
+
                 # Publish to EventBus
                 publish_coro = self._bus.publish(
                     "polymarket.quote",
@@ -117,6 +126,8 @@ class PolymarketWebSocketFeed:
                     loop.create_task(publish_coro)
                 except RuntimeError:
                     # No running loop — log at debug and skip publish (non-fatal)
-                    logger.debug("PolymarketWebSocketFeed: no running loop, skipping publish")
+                    logger.debug(
+                        "PolymarketWebSocketFeed: no running loop, skipping publish"
+                    )
         except Exception as exc:
             logger.warning("PolymarketWebSocketFeed._handle_message error: %s", exc)

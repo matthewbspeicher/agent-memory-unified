@@ -1,4 +1,5 @@
 """Execution analytics API routes — summary, trades, worst groups."""
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
@@ -37,7 +38,9 @@ async def get_summary(
     symbol: str | None = None,
     agent_name: str | None = None,
     order_type: str | None = None,
-    group_by: str = Query("broker_id", pattern="^(broker_id|symbol|agent_name|order_type)$"),
+    group_by: str = Query(
+        "broker_id", pattern="^(broker_id|symbol|agent_name|order_type)$"
+    ),
     _: str = Depends(verify_api_key),
 ):
     """Aggregated execution cost summary grouped by one dimension."""
@@ -84,7 +87,9 @@ async def get_trades(
 async def get_worst(
     request: Request,
     window: str = Query("all", pattern="^(7d|30d|90d|all)$"),
-    group_by: str = Query("symbol", pattern="^(broker_id|symbol|agent_name|order_type)$"),
+    group_by: str = Query(
+        "symbol", pattern="^(broker_id|symbol|agent_name|order_type)$"
+    ),
     limit: int = Query(10, ge=1, le=50),
     _: str = Depends(verify_api_key),
 ):

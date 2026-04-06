@@ -18,6 +18,7 @@ async def client():
     os.environ["STA_API_KEY"] = "test-key"
     # Clear lru_cache so the test key is picked up
     from api.auth import _get_settings
+
     _get_settings.cache_clear()
 
     db = await aiosqlite.connect(":memory:")
@@ -29,13 +30,17 @@ async def client():
     agent_store = AgentStore(db)
 
     # Seed a test agent so trust updates work
-    await agent_store.create({"name": "rsi_scanner", "strategy": "rsi", "status": "active"})
+    await agent_store.create(
+        {"name": "rsi_scanner", "strategy": "rsi", "status": "active"}
+    )
 
     router = create_learning_router(pnl_store, perf_store, agent_store)
     app = FastAPI()
     app.include_router(router)
 
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
         yield ac
 
     await db.close()
@@ -48,7 +53,11 @@ async def test_get_pnl_empty(client):
 
 
 async def test_put_trust_level(client):
-    resp = await client.put("/api/agents/rsi_scanner/trust", json={"trust_level": "assisted"}, headers=AUTH_HEADERS)
+    resp = await client.put(
+        "/api/agents/rsi_scanner/trust",
+        json={"trust_level": "assisted"},
+        headers=AUTH_HEADERS,
+    )
     assert resp.status_code == 200
     data = resp.json()
     assert data["agent"] == "rsi_scanner"
@@ -56,8 +65,14 @@ async def test_put_trust_level(client):
 
 
 async def test_get_trust_history(client):
-    await client.put("/api/agents/rsi_scanner/trust", json={"trust_level": "assisted"}, headers=AUTH_HEADERS)
-    resp = await client.get("/api/agents/rsi_scanner/trust/history", headers=AUTH_HEADERS)
+    await client.put(
+        "/api/agents/rsi_scanner/trust",
+        json={"trust_level": "assisted"},
+        headers=AUTH_HEADERS,
+    )
+    resp = await client.get(
+        "/api/agents/rsi_scanner/trust/history", headers=AUTH_HEADERS
+    )
     assert resp.status_code == 200
     history = resp.json()
     assert len(history) == 1

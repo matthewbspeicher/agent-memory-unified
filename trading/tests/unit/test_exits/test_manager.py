@@ -1,4 +1,5 @@
 """Tests for ExitManager with persistence."""
+
 import pytest
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock
@@ -13,7 +14,10 @@ class TestExitManager:
         store.save = AsyncMock()
         manager = ExitManager(store=store)
 
-        rules = [StopLoss(stop_price=Decimal("90")), TakeProfit(target_price=Decimal("120"))]
+        rules = [
+            StopLoss(stop_price=Decimal("90")),
+            TakeProfit(target_price=Decimal("120")),
+        ]
         await manager.attach(position_id=1, rules=rules)
 
         store.save.assert_awaited_once()
@@ -35,9 +39,11 @@ class TestExitManager:
     @pytest.mark.asyncio
     async def test_load_rules_restores_persisted_rules(self):
         store = MagicMock()
-        store.load_all = AsyncMock(return_value={
-            7: [{"type": "stop_loss", "stop_price": "95", "side": "BUY"}],
-        })
+        store.load_all = AsyncMock(
+            return_value={
+                7: [{"type": "stop_loss", "stop_price": "95", "side": "BUY"}],
+            }
+        )
         manager = ExitManager(store=store)
 
         await manager.load_rules()
@@ -48,7 +54,10 @@ class TestExitManager:
 
     def test_stop_loss_triggers(self):
         manager = ExitManager(store=MagicMock())
-        manager._rules[1] = [StopLoss(stop_price=Decimal("95")), TakeProfit(target_price=Decimal("120"))]
+        manager._rules[1] = [
+            StopLoss(stop_price=Decimal("95")),
+            TakeProfit(target_price=Decimal("120")),
+        ]
         result = manager.check(position_id=1, current_price=Decimal("94"))
         assert result is not None
         assert result.name == "stop_loss"
@@ -101,17 +110,23 @@ class TestExitManager:
 # Prediction-market-specific defaults
 # ---------------------------------------------------------------------------
 
+
 class TestComputeDefaultExitsPrediction:
     def _em(self):
         from exits.manager import ExitManager
+
         return ExitManager()
 
     def test_prediction_without_expiry_returns_trailing_only(self):
         from broker.models import AssetType
         from decimal import Decimal
+
         em = self._em()
-        rules = em.compute_default_exits("BUY", Decimal("0.60"), asset_type=AssetType.PREDICTION)
+        rules = em.compute_default_exits(
+            "BUY", Decimal("0.60"), asset_type=AssetType.PREDICTION
+        )
         from exits.rules import ProbabilityTrailingStop
+
         assert len(rules) == 1
         assert isinstance(rules[0], ProbabilityTrailingStop)
 
@@ -120,10 +135,12 @@ class TestComputeDefaultExitsPrediction:
         from decimal import Decimal
         from datetime import datetime, timezone, timedelta
         from exits.rules import PreExpiryExit, ProbabilityTrailingStop
+
         em = self._em()
         expiry = datetime.now(timezone.utc) + timedelta(hours=10)
         rules = em.compute_default_exits(
-            "BUY", Decimal("0.60"),
+            "BUY",
+            Decimal("0.60"),
             asset_type=AssetType.PREDICTION,
             contract_expires_at=expiry,
         )
@@ -134,6 +151,7 @@ class TestComputeDefaultExitsPrediction:
     def test_equity_defaults_unchanged(self):
         from decimal import Decimal
         from exits.rules import StopLoss, TakeProfit, TrailingStop
+
         em = self._em()
         rules = em.compute_default_exits("BUY", Decimal("100.00"))
         assert len(rules) == 3
@@ -145,6 +163,7 @@ class TestComputeDefaultExitsPrediction:
     async def test_update_trailing_calls_probability_trailing_stop(self):
         from decimal import Decimal
         from exits.rules import ProbabilityTrailingStop
+
         em = self._em()
         rule = ProbabilityTrailingStop(trail_pp=15.0)
         await em.attach(42, [rule])
@@ -156,6 +175,7 @@ class TestComputeDefaultExitsPrediction:
         from decimal import Decimal
         from datetime import datetime, timezone, timedelta
         from exits.rules import PreExpiryExit
+
         em = self._em()
         expires = datetime.now(timezone.utc) + timedelta(hours=2)
         rule = PreExpiryExit(expires_at=expires, hours_before_expiry=4.0)

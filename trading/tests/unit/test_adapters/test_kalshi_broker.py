@@ -1,18 +1,28 @@
 """Unit tests for KalshiClient, KalshiBroker, and KalshiDataSource."""
+
 from __future__ import annotations
 
 import pytest
 from datetime import datetime, timezone
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 from broker.models import (
-    AssetType, BrokerCapabilities, LimitOrder, OrderResult, OrderSide,
-    OrderStatus, PredictionContract, Symbol, TIF,
+    AssetType,
+    BrokerCapabilities,
+    LimitOrder,
+    OrderSide,
+    OrderStatus,
+    PredictionContract,
+    Symbol,
 )
 from adapters.kalshi.broker import (
-    KalshiBroker, KalshiAccount, KalshiMarketData, KalshiOrderManager,
-    _cents_to_prob, _prob_to_cents,
+    KalshiBroker,
+    KalshiAccount,
+    KalshiMarketData,
+    KalshiOrderManager,
+    _cents_to_prob,
+    _prob_to_cents,
 )
 from adapters.kalshi.data_source import KalshiDataSource
 
@@ -20,6 +30,7 @@ from adapters.kalshi.data_source import KalshiDataSource
 # ---------------------------------------------------------------------------
 # Utility function tests (pure, no IO)
 # ---------------------------------------------------------------------------
+
 
 class TestProbabilityConversions:
     def test_cents_to_prob_midrange(self):
@@ -49,6 +60,7 @@ class TestProbabilityConversions:
 # Domain model tests
 # ---------------------------------------------------------------------------
 
+
 class TestPredictionContract:
     def _make_contract(self, yes_bid=40, yes_ask=42, yes_last=41):
         return PredictionContract(
@@ -77,7 +89,9 @@ class TestPredictionContract:
 
     def test_mid_probability_none_when_no_data(self):
         contract = PredictionContract(
-            ticker="X", title="X", category="x",
+            ticker="X",
+            title="X",
+            category="x",
             close_time=datetime.now(timezone.utc),
         )
         assert contract.mid_probability is None
@@ -97,6 +111,7 @@ class TestBrokerCapabilities:
 # KalshiAccount tests
 # ---------------------------------------------------------------------------
 
+
 class TestKalshiAccount:
     @pytest.mark.asyncio
     async def test_get_accounts_returns_kalshi_account(self):
@@ -110,8 +125,8 @@ class TestKalshiAccount:
     async def test_get_balances_converts_cents(self):
         client = AsyncMock()
         client.get_balance.return_value = {
-            "available_balance": 50000,   # $500.00
-            "portfolio_value": 120000,    # $1200.00
+            "available_balance": 50000,  # $500.00
+            "portfolio_value": 120000,  # $1200.00
         }
         account = KalshiAccount(client)
         bal = await account.get_balances("KALSHI")
@@ -124,7 +139,12 @@ class TestKalshiAccount:
         client = AsyncMock()
         client.get_positions.return_value = [
             {"ticker": "MKTX", "position": 0, "market_exposure": 0},
-            {"ticker": "MKTY", "position": 5, "market_exposure": 300, "total_traded": 250},
+            {
+                "ticker": "MKTY",
+                "position": 5,
+                "market_exposure": 300,
+                "total_traded": 250,
+            },
         ]
         account = KalshiAccount(client)
         positions = await account.get_positions("KALSHI")
@@ -138,13 +158,14 @@ class TestKalshiAccount:
 # KalshiMarketData tests
 # ---------------------------------------------------------------------------
 
+
 class TestKalshiMarketData:
     @pytest.mark.asyncio
     async def test_get_quote_from_orderbook(self):
         client = AsyncMock()
         client.get_orderbook.return_value = {
-            "yes": [[65, 100], [64, 200]],   # best YES bid = 65¢
-            "no":  [[40, 150]],              # best NO bid = 40¢ → YES ask = 60¢
+            "yes": [[65, 100], [64, 200]],  # best YES bid = 65¢
+            "no": [[40, 150]],  # best NO bid = 40¢ → YES ask = 60¢
         }
         client.get_trades.return_value = [{"yes_price": 63}]
 
@@ -172,6 +193,7 @@ class TestKalshiMarketData:
 # ---------------------------------------------------------------------------
 # KalshiOrderManager tests
 # ---------------------------------------------------------------------------
+
 
 class TestKalshiOrderManager:
     @pytest.mark.asyncio
@@ -203,7 +225,11 @@ class TestKalshiOrderManager:
     @pytest.mark.asyncio
     async def test_place_limit_order_sell_maps_to_no(self):
         client = AsyncMock()
-        client.create_order.return_value = {"order_id": "ord-002", "status": "resting", "contracts_filled": 0}
+        client.create_order.return_value = {
+            "order_id": "ord-002",
+            "status": "resting",
+            "contracts_filled": 0,
+        }
         mgr = KalshiOrderManager(client)
         order = LimitOrder(
             symbol=Symbol(ticker="HIGHNY-26MAR-B72", asset_type=AssetType.PREDICTION),
@@ -219,6 +245,7 @@ class TestKalshiOrderManager:
     @pytest.mark.asyncio
     async def test_market_order_raises(self):
         from broker.models import MarketOrder
+
         client = AsyncMock()
         mgr = KalshiOrderManager(client)
         order = MarketOrder(
@@ -243,6 +270,7 @@ class TestKalshiOrderManager:
 # ---------------------------------------------------------------------------
 # KalshiDataSource tests
 # ---------------------------------------------------------------------------
+
 
 class TestKalshiDataSource:
     def _sample_market(self, ticker="MKT-001", yes_bid=45, yes_ask=47, volume=500):
@@ -288,7 +316,7 @@ class TestKalshiDataSource:
         client = AsyncMock()
         client.get_orderbook.return_value = {
             "yes": [[60, 100]],
-            "no":  [[45, 100]],
+            "no": [[45, 100]],
         }
         client.get_trades.return_value = [{"yes_price": 58}]
         source = KalshiDataSource(client)

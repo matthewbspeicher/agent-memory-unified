@@ -13,6 +13,7 @@ class TestAgentABC:
 
 class ConcreteStructuredAgent(StructuredAgent):
     """Test implementation."""
+
     @property
     def description(self) -> str:
         return "test agent"
@@ -24,8 +25,11 @@ class ConcreteStructuredAgent(StructuredAgent):
 class TestStructuredAgent:
     def test_create(self):
         cfg = AgentConfig(
-            name="test", strategy="test", schedule="on_demand",
-            action_level=ActionLevel.NOTIFY, universe=["AAPL"],
+            name="test",
+            strategy="test",
+            schedule="on_demand",
+            action_level=ActionLevel.NOTIFY,
+            universe=["AAPL"],
             parameters={"threshold": 30},
         )
         agent = ConcreteStructuredAgent(config=cfg)
@@ -36,7 +40,9 @@ class TestStructuredAgent:
 
     async def test_scan_returns_list(self):
         cfg = AgentConfig(
-            name="test", strategy="test", schedule="on_demand",
+            name="test",
+            strategy="test",
+            schedule="on_demand",
             action_level=ActionLevel.NOTIFY,
         )
         agent = ConcreteStructuredAgent(config=cfg)
@@ -45,7 +51,9 @@ class TestStructuredAgent:
 
     async def test_setup_teardown_are_noop(self):
         cfg = AgentConfig(
-            name="test", strategy="test", schedule="on_demand",
+            name="test",
+            strategy="test",
+            schedule="on_demand",
             action_level=ActionLevel.NOTIFY,
         )
         agent = ConcreteStructuredAgent(config=cfg)
@@ -55,6 +63,7 @@ class TestStructuredAgent:
 
 class ConcreteLLMAgent(LLMAgent):
     """Concrete test implementation of LLMAgent."""
+
     @property
     def description(self) -> str:
         return "test llm agent"
@@ -67,22 +76,31 @@ class TestLLMAgentClass:
     def test_llm_agent_system_prompt_with_prompt_store(self):
         """Test that system_prompt includes base and learned rules."""
         cfg = AgentConfig(
-            name="analyst", strategy="test", schedule="on_demand",
+            name="analyst",
+            strategy="test",
+            schedule="on_demand",
             action_level=ActionLevel.NOTIFY,
             system_prompt="You are an analyst.",
         )
         mock_prompt_store = MagicMock()
-        mock_prompt_store.get_runtime_prompt.return_value = "## Learned Rules\n- Always check earnings"
+        mock_prompt_store.get_runtime_prompt.return_value = (
+            "## Learned Rules\n- Always check earnings"
+        )
 
         agent = ConcreteLLMAgent(config=cfg, prompt_store=mock_prompt_store)
 
-        assert agent.system_prompt == "You are an analyst.\n\n## Learned Rules\n- Always check earnings"
+        assert (
+            agent.system_prompt
+            == "You are an analyst.\n\n## Learned Rules\n- Always check earnings"
+        )
         mock_prompt_store.get_runtime_prompt.assert_called_once_with("analyst")
 
     def test_llm_agent_system_prompt_without_prompt_store(self):
         """Test that system_prompt returns just the base when no prompt_store."""
         cfg = AgentConfig(
-            name="analyst", strategy="test", schedule="on_demand",
+            name="analyst",
+            strategy="test",
+            schedule="on_demand",
             action_level=ActionLevel.NOTIFY,
             system_prompt="You are an analyst.",
         )

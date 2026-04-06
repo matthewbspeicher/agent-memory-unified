@@ -11,6 +11,7 @@ Orchestration flow:
   3. tally_results(matches)     — accumulate win/loss/streak deltas
   4. update_elo(matches, elo)   — K_effective = 32 / (N-1)
 """
+
 from __future__ import annotations
 
 import json
@@ -68,7 +69,8 @@ class LeaderboardEngine:
         self._cache: list[AgentRanking] | None = None
 
     async def compute_rankings(
-        self, profiles: dict[str, AgentRanking] | None = None,
+        self,
+        profiles: dict[str, AgentRanking] | None = None,
     ) -> list[AgentRanking]:
         """Build AgentRanking list by merging local snapshots with remembr.dev profiles."""
         agents = self._runner.list_agents()
@@ -81,16 +83,18 @@ class LeaderboardEngine:
 
             # Merge with remembr.dev profile if available
             profile = profiles.get(info.name) if profiles else None
-            rankings.append(AgentRanking(
-                agent_name=info.name,
-                sharpe_ratio=snapshot.sharpe_ratio,
-                total_pnl=float(snapshot.total_pnl),
-                win_rate=snapshot.win_rate,
-                elo=profile.elo if profile else DEFAULT_ELO,
-                win_count=profile.win_count if profile else 0,
-                loss_count=profile.loss_count if profile else 0,
-                streak=profile.streak if profile else 0,
-            ))
+            rankings.append(
+                AgentRanking(
+                    agent_name=info.name,
+                    sharpe_ratio=snapshot.sharpe_ratio,
+                    total_pnl=float(snapshot.total_pnl),
+                    win_rate=snapshot.win_rate,
+                    elo=profile.elo if profile else DEFAULT_ELO,
+                    win_count=profile.win_count if profile else 0,
+                    loss_count=profile.loss_count if profile else 0,
+                    streak=profile.streak if profile else 0,
+                )
+            )
 
         rankings.sort(key=lambda r: r.sharpe_ratio, reverse=True)
         return rankings
@@ -108,14 +112,24 @@ class LeaderboardEngine:
             for j in range(i + 1, n):
                 a, b = rankings[i], rankings[j]
                 if a.sharpe_ratio > b.sharpe_ratio:
-                    matches.append(MatchResult(a.agent_name, b.agent_name, a.sharpe_ratio, b.sharpe_ratio))
+                    matches.append(
+                        MatchResult(
+                            a.agent_name, b.agent_name, a.sharpe_ratio, b.sharpe_ratio
+                        )
+                    )
                 elif b.sharpe_ratio > a.sharpe_ratio:
-                    matches.append(MatchResult(b.agent_name, a.agent_name, b.sharpe_ratio, a.sharpe_ratio))
+                    matches.append(
+                        MatchResult(
+                            b.agent_name, a.agent_name, b.sharpe_ratio, a.sharpe_ratio
+                        )
+                    )
                 # Equal Sharpe → no match (tie = no result)
         return matches
 
     def tally_results(
-        self, matches: list[MatchResult], rankings: list[AgentRanking],
+        self,
+        matches: list[MatchResult],
+        rankings: list[AgentRanking],
     ) -> list[AgentRanking]:
         """Accumulate win/loss deltas and update streaks from match results."""
         wins: dict[str, int] = {}
@@ -140,7 +154,9 @@ class LeaderboardEngine:
         return rankings
 
     def update_elo(
-        self, matches: list[MatchResult], current_elo: dict[str, int],
+        self,
+        matches: list[MatchResult],
+        current_elo: dict[str, int],
     ) -> dict[str, int]:
         """ELO with K_effective = 32 / (N-1) to bound total swing."""
         if not matches:
@@ -181,7 +197,10 @@ class LeaderboardEngine:
             return None
 
     async def save_cache(
-        self, rankings: list[AgentRanking], snapshot_ts: str, source: str = "live",
+        self,
+        rankings: list[AgentRanking],
+        snapshot_ts: str,
+        source: str = "live",
     ) -> None:
         """Persist leaderboard to SQLite singleton row."""
         rankings_json = json.dumps([asdict(r) for r in rankings])
@@ -216,7 +235,9 @@ class LeaderboardEngine:
             row = await cursor.fetchone()
             if row is None:
                 return True
-            cached_ts = row["last_processed_snapshot_at"] if isinstance(row, dict) else row[0]
+            cached_ts = (
+                row["last_processed_snapshot_at"] if isinstance(row, dict) else row[0]
+            )
             return latest_ts != cached_ts
         except Exception:
             return True

@@ -29,10 +29,14 @@ class YahooFinanceSource(DataSource):
                 volume=int(getattr(info, "last_volume", 0) or 0),
                 timestamp=datetime.utcnow(),
             )
+
         return await asyncio.to_thread(_fetch)
 
     async def get_historical(
-        self, symbol: Symbol, timeframe: str = "1d", period: str = "3mo",
+        self,
+        symbol: Symbol,
+        timeframe: str = "1d",
+        period: str = "3mo",
     ) -> list[Bar]:
         def _fetch():
             def _as_scalar(value: Any) -> Any:
@@ -42,7 +46,10 @@ class YahooFinanceSource(DataSource):
 
             ticker = symbol.ticker
             df = yf.download(
-                ticker, period=period, interval=timeframe, progress=False,
+                ticker,
+                period=period,
+                interval=timeframe,
+                progress=False,
             )
             if df.empty:
                 return []
@@ -57,16 +64,19 @@ class YahooFinanceSource(DataSource):
                     df = df.droplevel(-1, axis=1)
             bars: list[Bar] = []
             for ts, row in df.iterrows():
-                bars.append(Bar(
-                    symbol=symbol,
-                    timestamp=ts.to_pydatetime(),
-                    open=Decimal(str(float(_as_scalar(row["Open"])))),
-                    high=Decimal(str(float(_as_scalar(row["High"])))),
-                    low=Decimal(str(float(_as_scalar(row["Low"])))),
-                    close=Decimal(str(float(_as_scalar(row["Close"])))),
-                    volume=int(_as_scalar(row["Volume"])),
-                ))
+                bars.append(
+                    Bar(
+                        symbol=symbol,
+                        timestamp=ts.to_pydatetime(),
+                        open=Decimal(str(float(_as_scalar(row["Open"])))),
+                        high=Decimal(str(float(_as_scalar(row["High"])))),
+                        low=Decimal(str(float(_as_scalar(row["Low"])))),
+                        close=Decimal(str(float(_as_scalar(row["Close"])))),
+                        volume=int(_as_scalar(row["Volume"])),
+                    )
+                )
             return bars
+
         return await asyncio.to_thread(_fetch)
 
     async def get_options_chain(self, symbol: Symbol) -> OptionsChain:

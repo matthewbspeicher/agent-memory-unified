@@ -10,6 +10,7 @@ Design notes:
   health state is throttled/shadow_only/retired (enforced in execution/feedback.py).
   For Phase 1, document only; the loop continues for normal/watchlist agents.
 """
+
 from __future__ import annotations
 
 import logging
@@ -33,6 +34,7 @@ class StrategyHealthStatus(str, Enum):
     Transition path (degradation): normal → watchlist → throttled → shadow_only → retired
     Recovery path: watchlist/throttled → normal (when metrics improve)
     """
+
     NORMAL = "normal"
     WATCHLIST = "watchlist"
     THROTTLED = "throttled"
@@ -71,7 +73,13 @@ class StrategyHealthConfig:
         if cfg is None:
             return cls()
         if isinstance(cfg, dict):
-            return cls(**{k: v for k, v in cfg.items() if k in cls.__init__.__code__.co_varnames})
+            return cls(
+                **{
+                    k: v
+                    for k, v in cfg.items()
+                    if k in cls.__init__.__code__.co_varnames
+                }
+            )
         # Pydantic model
         return cls(
             enabled=getattr(cfg, "enabled", True),
@@ -146,7 +154,8 @@ class StrategyHealthEngine:
         except Exception as exc:
             logger.warning(
                 "StrategyHealthEngine.evaluate failed for %s (failing open): %s",
-                agent_name, exc,
+                agent_name,
+                exc,
             )
             return StrategyHealthStatus.NORMAL
 
@@ -154,14 +163,19 @@ class StrategyHealthEngine:
         # Load latest performance snapshot
         snapshot = await self._perf_store.get_latest(agent_name)
         if snapshot is None:
-            logger.debug("No performance snapshot for %s — skipping health evaluation", agent_name)
+            logger.debug(
+                "No performance snapshot for %s — skipping health evaluation",
+                agent_name,
+            )
             return StrategyHealthStatus.NORMAL
 
         total_trades = snapshot.total_trades or 0
         if total_trades < self._cfg.default_min_trade_count:
             logger.debug(
                 "Agent %s has %d trades < min %d — staying normal",
-                agent_name, total_trades, self._cfg.default_min_trade_count,
+                agent_name,
+                total_trades,
+                self._cfg.default_min_trade_count,
             )
             return StrategyHealthStatus.NORMAL
 
@@ -187,7 +201,9 @@ class StrategyHealthEngine:
 
         # Load current state (for cooldown and transition logic)
         existing = await self._health_store.get_status(agent_name)
-        current_status_str = existing["status"] if existing else StrategyHealthStatus.NORMAL.value
+        current_status_str = (
+            existing["status"] if existing else StrategyHealthStatus.NORMAL.value
+        )
         current_status = StrategyHealthStatus(current_status_str)
 
         # Manual overrides are respected — do not auto-transition away from them
@@ -206,7 +222,9 @@ class StrategyHealthEngine:
                 pass
 
         # Determine target status from metrics
-        target_status = self._compute_target_status(current_status, expectancy, max_drawdown)
+        target_status = self._compute_target_status(
+            current_status, expectancy, max_drawdown
+        )
 
         if target_status != current_status:
             await self._transition(
@@ -227,7 +245,9 @@ class StrategyHealthEngine:
     ) -> StrategyHealthStatus:
         """Determine what status the agent SHOULD be in given current metrics."""
         expectancy_bad = expectancy < self._cfg.default_expectancy_floor
-        drawdown_bad = max_drawdown > abs(self._cfg.default_drawdown_limit)  # drawdown stored as positive magnitude
+        drawdown_bad = max_drawdown > abs(
+            self._cfg.default_drawdown_limit
+        )  # drawdown stored as positive magnitude
 
         # Recovery: watchlist/throttled → normal when metrics improve
         if current in (StrategyHealthStatus.WATCHLIST, StrategyHealthStatus.THROTTLED):
@@ -238,13 +258,23 @@ class StrategyHealthEngine:
         if current == StrategyHealthStatus.NORMAL and expectancy_bad:
             return StrategyHealthStatus.WATCHLIST
 
-        if current == StrategyHealthStatus.WATCHLIST and (expectancy_bad or drawdown_bad):
+        if current == StrategyHealthStatus.WATCHLIST and (
+            expectancy_bad or drawdown_bad
+        ):
             return StrategyHealthStatus.THROTTLED
 
-        if current == StrategyHealthStatus.THROTTLED and expectancy_bad and drawdown_bad:
+        if (
+            current == StrategyHealthStatus.THROTTLED
+            and expectancy_bad
+            and drawdown_bad
+        ):
             return StrategyHealthStatus.SHADOW_ONLY
 
-        if current == StrategyHealthStatus.SHADOW_ONLY and expectancy_bad and drawdown_bad:
+        if (
+            current == StrategyHealthStatus.SHADOW_ONLY
+            and expectancy_bad
+            and drawdown_bad
+        ):
             return StrategyHealthStatus.RETIRED
 
         return current
@@ -307,7 +337,10 @@ class StrategyHealthEngine:
         )
         logger.info(
             "Strategy health transition: %s %s → %s (%s)",
-            agent_name, old_status.value, new_status.value, reason,
+            agent_name,
+            old_status.value,
+            new_status.value,
+            reason,
         )
 
     async def on_trade_closed(self, agent_name: str) -> None:
@@ -323,7 +356,8 @@ class StrategyHealthEngine:
         except Exception as exc:
             logger.warning(
                 "StrategyHealthEngine.on_trade_closed failed for %s: %s",
-                agent_name, exc,
+                agent_name,
+                exc,
             )
 
     async def recompute_all(self, agent_names: list[str]) -> dict[str, str]:

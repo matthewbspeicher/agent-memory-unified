@@ -5,6 +5,7 @@ Detects when 2+ agents flag the same symbol in the same direction within a time 
 On-demand LLM synthesis reads both agents' reasoning and produces combined analysis.
 Uses unified LLMClient.
 """
+
 from __future__ import annotations
 import hashlib
 import logging
@@ -54,6 +55,7 @@ class WarRoomEngine:
             self._llm = llm
         else:
             from llm.client import LLMClient as _LLMClient
+
             self._llm = _LLMClient()
 
     async def detect_convergences(self, hours: int = 4) -> list[ConvergenceSignal]:
@@ -84,12 +86,14 @@ class WarRoomEngine:
             key = (r[2], direction)  # (symbol, direction)
             if key not in groups:
                 groups[key] = []
-            groups[key].append({
-                "id": r[0],
-                "agent_name": r[1],
-                "confidence": r[4] or 0.0,
-                "created_at": r[5],
-            })
+            groups[key].append(
+                {
+                    "id": r[0],
+                    "agent_name": r[1],
+                    "confidence": r[4] or 0.0,
+                    "created_at": r[5],
+                }
+            )
 
         convergences = []
         for (symbol, direction), opps in groups.items():
@@ -100,7 +104,7 @@ class WarRoomEngine:
 
             # Sort by creation time
             opps.sort(key=lambda x: x["created_at"])
-            
+
             # Generate deterministic ID
             hash_in = f"{symbol}:{direction}:{opps[0]['created_at']}".encode()
             conv_id = hashlib.md5(hash_in).hexdigest()[:12]
@@ -183,8 +187,12 @@ class WarRoomEngine:
         rows = await cursor.fetchall()
         return [
             {
-                "id": r[0], "agent_name": r[1], "symbol": r[2],
-                "signal": r[3], "confidence": r[4], "status": r[5],
+                "id": r[0],
+                "agent_name": r[1],
+                "symbol": r[2],
+                "signal": r[3],
+                "confidence": r[4],
+                "status": r[5],
                 "timestamp": r[6],
             }
             for r in rows

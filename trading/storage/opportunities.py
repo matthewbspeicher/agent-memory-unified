@@ -13,6 +13,7 @@ class _DecimalEncoder(json.JSONEncoder):
     def default(self, obj: Any) -> Any:
         import datetime
         from enum import Enum
+
         if isinstance(obj, Decimal):
             return str(obj)
         if isinstance(obj, (datetime.datetime, datetime.date)):
@@ -45,18 +46,25 @@ class OpportunityStore:
             """INSERT OR REPLACE INTO opportunities
                (id, agent_name, symbol, signal, confidence, reasoning, suggested_trade, status, expires_at, data)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (opp.id, opp.agent_name, opp.symbol.ticker, opp.signal,
-             opp.confidence, opp.reasoning,
-             _serialize_suggested_trade(opp),
-             opp.status.value,
-             opp.expires_at.isoformat() if opp.expires_at else None,
-             json.dumps(payload, cls=_DecimalEncoder)),
+            (
+                opp.id,
+                opp.agent_name,
+                opp.symbol.ticker,
+                opp.signal,
+                opp.confidence,
+                opp.reasoning,
+                _serialize_suggested_trade(opp),
+                opp.status.value,
+                opp.expires_at.isoformat() if opp.expires_at else None,
+                json.dumps(payload, cls=_DecimalEncoder),
+            ),
         )
         await self._db.commit()
 
     async def get(self, opportunity_id: str) -> dict[str, Any] | None:
         cursor = await self._db.execute(
-            "SELECT * FROM opportunities WHERE id = ?", (opportunity_id,),
+            "SELECT * FROM opportunities WHERE id = ?",
+            (opportunity_id,),
         )
         row = await cursor.fetchone()
         if row is None:
@@ -64,8 +72,11 @@ class OpportunityStore:
         return dict(row)
 
     async def list(
-        self, agent_name: str | None = None, symbol: str | None = None,
-        signal: str | None = None, status: str | None = None,
+        self,
+        agent_name: str | None = None,
+        symbol: str | None = None,
+        signal: str | None = None,
+        status: str | None = None,
         limit: int = 50,
     ) -> list[dict[str, Any]]:
         query = "SELECT * FROM opportunities WHERE 1=1"
@@ -87,7 +98,9 @@ class OpportunityStore:
         cursor = await self._db.execute(query, params)
         return [dict(row) for row in await cursor.fetchall()]
 
-    async def update_status(self, opportunity_id: str, status: OpportunityStatus) -> None:
+    async def update_status(
+        self, opportunity_id: str, status: OpportunityStatus
+    ) -> None:
         await self._db.execute(
             "UPDATE opportunities SET status = ?, updated_at = datetime('now') WHERE id = ?",
             (status.value, opportunity_id),
@@ -101,18 +114,20 @@ class OpportunityStore:
         )
         await self._db.commit()
 
-    async def save_snapshot(self, opportunity_id: str, snapshot: dict[str, Any]) -> None:
+    async def save_snapshot(
+        self, opportunity_id: str, snapshot: dict[str, Any]
+    ) -> None:
         await self._db.execute(
             """INSERT OR REPLACE INTO opportunity_snapshots (opportunity_id, snapshot_data)
                VALUES (?, ?)""",
-            (opportunity_id, json.dumps(snapshot, cls=_DecimalEncoder))
+            (opportunity_id, json.dumps(snapshot, cls=_DecimalEncoder)),
         )
         await self._db.commit()
 
     async def get_snapshot(self, opportunity_id: str) -> dict[str, Any] | None:
         cursor = await self._db.execute(
             "SELECT snapshot_data FROM opportunity_snapshots WHERE opportunity_id = ?",
-            (opportunity_id,)
+            (opportunity_id,),
         )
         row = await cursor.fetchone()
         if not row:

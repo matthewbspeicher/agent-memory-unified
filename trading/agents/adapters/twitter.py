@@ -18,8 +18,14 @@ logger = logging.getLogger(__name__)
 TICKER_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
 
 # Word-boundary patterns to avoid substring false positives
-BULLISH_PATTERNS = [re.compile(r"\b" + w + r"\b") for w in ["buy", "bull", "bullish", "long", "calls", "moon"]]
-BEARISH_PATTERNS = [re.compile(r"\b" + w + r"\b") for w in ["sell", "bear", "bearish", "short", "puts", "crash"]]
+BULLISH_PATTERNS = [
+    re.compile(r"\b" + w + r"\b")
+    for w in ["buy", "bull", "bullish", "long", "calls", "moon"]
+]
+BEARISH_PATTERNS = [
+    re.compile(r"\b" + w + r"\b")
+    for w in ["sell", "bear", "bearish", "short", "puts", "crash"]
+]
 
 
 class TwitterAdapter(SignalAdapter):
@@ -40,7 +46,11 @@ class TwitterAdapter(SignalAdapter):
         # Get top tickers from Kalshi to scout
         try:
             markets = await self._data_bus.get_kalshi_markets()
-            tickers = [m["ticker"] for m in markets[:5] if TICKER_PATTERN.match(m.get("ticker", ""))]
+            tickers = [
+                m["ticker"]
+                for m in markets[:5]
+                if TICKER_PATTERN.match(m.get("ticker", ""))
+            ]
         except Exception as e:
             logger.error("TwitterAdapter: failed to get tickers from DataBus: %s", e)
             return []
@@ -52,26 +62,40 @@ class TwitterAdapter(SignalAdapter):
 
             sentiment = self._analyze_sentiment(ticker, tweets)
             if sentiment["imbalance"] >= self._sentiment_threshold:
-                signals.append(AgentSignal(
-                    source_agent=self.source_name(),
-                    signal_type="sentiment_spike",
-                    payload={
-                        "ticker": ticker,
-                        "bullish_count": sentiment["bullish"],
-                        "bearish_count": sentiment["bearish"],
-                        "imbalance": sentiment["imbalance"],
-                        "direction": "bullish" if sentiment["bullish"] > sentiment["bearish"] else "bearish",
-                        "source": "twitter",
-                    },
-                    expires_at=expires,
-                ))
+                signals.append(
+                    AgentSignal(
+                        source_agent=self.source_name(),
+                        signal_type="sentiment_spike",
+                        payload={
+                            "ticker": ticker,
+                            "bullish_count": sentiment["bullish"],
+                            "bearish_count": sentiment["bearish"],
+                            "imbalance": sentiment["imbalance"],
+                            "direction": "bullish"
+                            if sentiment["bullish"] > sentiment["bearish"]
+                            else "bearish",
+                            "source": "twitter",
+                        },
+                        expires_at=expires,
+                    )
+                )
 
         return signals
 
     def _scout_ticker(self, ticker: str) -> list[dict] | None:
         """Run opencli-rs to get sentiment for a ticker."""
         try:
-            cmd = ["opencli-rs", "twitter", "search", "--query", ticker, "--format", "json", "--limit", "10"]
+            cmd = [
+                "opencli-rs",
+                "twitter",
+                "search",
+                "--query",
+                ticker,
+                "--format",
+                "json",
+                "--limit",
+                "10",
+            ]
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
             if result.returncode != 0:
                 logger.debug("opencli-rs failed for %s: %s", ticker, result.stderr)
@@ -90,5 +114,5 @@ class TwitterAdapter(SignalAdapter):
         return {
             "bullish": bullish,
             "bearish": bearish,
-            "imbalance": abs(bullish - bearish)
+            "imbalance": abs(bullish - bearish),
         }

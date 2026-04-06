@@ -3,8 +3,14 @@ from decimal import Decimal
 from ib_async import Order as IBOrder
 
 from broker.models import (
-    LimitOrder, MarketOrder, OrderBase, OrderResult, OrderStatus,
-    StopLimitOrder, StopOrder, TrailingStopOrder,
+    LimitOrder,
+    MarketOrder,
+    OrderBase,
+    OrderResult,
+    OrderStatus,
+    StopLimitOrder,
+    StopOrder,
+    TrailingStopOrder,
 )
 
 

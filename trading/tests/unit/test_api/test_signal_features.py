@@ -1,4 +1,5 @@
 """Tests for signal-features API routes."""
+
 from __future__ import annotations
 
 import os
@@ -19,6 +20,7 @@ from storage.signal_features import SignalFeatureStore
 def _env():
     os.environ["STA_API_KEY"] = "test-key"
     from api.auth import _get_settings
+
     _get_settings.cache_clear()
     yield
     _get_settings.cache_clear()
@@ -80,7 +82,9 @@ async def app_with_features(_env):
 class TestGetSignalFeatures:
     def test_get_by_opportunity_id(self, app_with_features):
         client = TestClient(app_with_features)
-        resp = client.get("/analytics/signal-features/opp-001", headers={"X-API-Key": "test-key"})
+        resp = client.get(
+            "/analytics/signal-features/opp-001", headers={"X-API-Key": "test-key"}
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert data["opportunity_id"] == "opp-001"
@@ -89,7 +93,9 @@ class TestGetSignalFeatures:
 
     def test_get_returns_404_for_missing(self, app_with_features):
         client = TestClient(app_with_features)
-        resp = client.get("/analytics/signal-features/no-such-opp", headers={"X-API-Key": "test-key"})
+        resp = client.get(
+            "/analytics/signal-features/no-such-opp", headers={"X-API-Key": "test-key"}
+        )
         assert resp.status_code == 404
 
     def test_get_requires_auth(self, app_with_features):
@@ -101,7 +107,9 @@ class TestGetSignalFeatures:
 class TestListSignalFeatures:
     def test_list_all(self, app_with_features):
         client = TestClient(app_with_features)
-        resp = client.get("/analytics/signal-features", headers={"X-API-Key": "test-key"})
+        resp = client.get(
+            "/analytics/signal-features", headers={"X-API-Key": "test-key"}
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert len(data) == 3
@@ -157,7 +165,9 @@ class TestListSignalFeatures:
 class TestBackfillRoute:
     def test_backfill_no_data_bus_returns_503(self, app_with_features):
         client = TestClient(app_with_features)
-        resp = client.post("/analytics/signal-features/backfill", headers={"X-API-Key": "test-key"})
+        resp = client.post(
+            "/analytics/signal-features/backfill", headers={"X-API-Key": "test-key"}
+        )
         assert resp.status_code == 503
 
     def test_backfill_requires_auth(self, app_with_features):

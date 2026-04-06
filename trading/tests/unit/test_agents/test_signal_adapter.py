@@ -1,4 +1,3 @@
-import asyncio
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -74,10 +73,14 @@ from agents.adapters.prediction_market import PredictionMarketAdapter
 @pytest.mark.asyncio
 async def test_prediction_market_adapter_detects_volume_spike():
     mock_data_bus = MagicMock()
-    mock_data_bus.get_kalshi_markets = AsyncMock(return_value=[
-        {"ticker": "AAPL-YES", "volume": 3000, "avg_volume": 1000, "yes_ask": 0.55},
-    ])
-    adapter = PredictionMarketAdapter(data_bus=mock_data_bus, volume_spike_threshold=2.0, price_move_threshold=0.10)
+    mock_data_bus.get_kalshi_markets = AsyncMock(
+        return_value=[
+            {"ticker": "AAPL-YES", "volume": 3000, "avg_volume": 1000, "yes_ask": 0.55},
+        ]
+    )
+    adapter = PredictionMarketAdapter(
+        data_bus=mock_data_bus, volume_spike_threshold=2.0, price_move_threshold=0.10
+    )
 
     signals = await adapter.poll()
     assert len(signals) == 1
@@ -89,10 +92,14 @@ async def test_prediction_market_adapter_detects_volume_spike():
 @pytest.mark.asyncio
 async def test_prediction_market_adapter_ignores_normal_volume():
     mock_data_bus = MagicMock()
-    mock_data_bus.get_kalshi_markets = AsyncMock(return_value=[
-        {"ticker": "AAPL-YES", "volume": 1200, "avg_volume": 1000, "yes_ask": 0.55},
-    ])
-    adapter = PredictionMarketAdapter(data_bus=mock_data_bus, volume_spike_threshold=2.0, price_move_threshold=0.10)
+    mock_data_bus.get_kalshi_markets = AsyncMock(
+        return_value=[
+            {"ticker": "AAPL-YES", "volume": 1200, "avg_volume": 1000, "yes_ask": 0.55},
+        ]
+    )
+    adapter = PredictionMarketAdapter(
+        data_bus=mock_data_bus, volume_spike_threshold=2.0, price_move_threshold=0.10
+    )
 
     signals = await adapter.poll()
     assert len(signals) == 0

@@ -55,7 +55,7 @@ class TournamentConfig(BaseModel):
 
 
 class DeepReflectionConfig(BaseModel):
-    pnl_multiplier: float = 2.0   # abs(pnl) > pnl_multiplier × expected → deep
+    pnl_multiplier: float = 2.0  # abs(pnl) > pnl_multiplier × expected → deep
     loss_multiplier: float = 1.5  # loss > loss_multiplier × stop → deep
 
 
@@ -87,6 +87,7 @@ class ConfidenceCalibrationConfig(BaseModel):
 
 class StrategyHealthConfig(BaseModel):
     """Configuration for strategy health evaluation and throttling."""
+
     enabled: bool = True
     default_window_trades: int = Field(default=50, ge=1)
     default_expectancy_floor: float = 0.0

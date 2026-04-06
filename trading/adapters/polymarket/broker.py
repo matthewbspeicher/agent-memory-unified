@@ -4,6 +4,7 @@ Polymarket Broker Adapter.
 Implements the standard Broker interfaces (Connection, Account, MarketData, OrderManager)
 by delegating to PolymarketClient and PolymarketDataSource.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -25,6 +26,7 @@ from broker.interfaces import (
 )
 from broker.models import (
     AssetType,
+    ContractDetails,
     LimitOrder,
     MarketOrder,
     OrderResult,
@@ -54,15 +56,27 @@ class PolymarketConnection(BrokerConnection):
         try:
             self.client.authenticate(self.creds_path)
 
-            logger.info("Polymarket: Setting up on-chain approvals (dry-run=%s)...", self.dry_run)
+            logger.info(
+                "Polymarket: Setting up on-chain approvals (dry-run=%s)...",
+                self.dry_run,
+            )
             self.client.setup_approvals(self.dry_run)
 
             if not self.client.check_health():
-                raise ConnectionError("Polymarket CLOB health check failed after authenticate()")
+                raise ConnectionError(
+                    "Polymarket CLOB health check failed after authenticate()"
+                )
         except Exception as e:
             msg = str(e)
-            if "401" in msg or "404" in msg or "Invalid L1 Request headers" in msg or "status_code" in msg:
-                logger.warning("Polymarket auth failed (continuing in read-only mode): %s", e)
+            if (
+                "401" in msg
+                or "404" in msg
+                or "Invalid L1 Request headers" in msg
+                or "status_code" in msg
+            ):
+                logger.warning(
+                    "Polymarket auth failed (continuing in read-only mode): %s", e
+                )
             else:
                 raise
 
@@ -100,23 +114,28 @@ class PolymarketAccount(AccountProvider):
     async def get_balances(self, account_id: str = "") -> AccountBalance:
         try:
             # Try CLOB first
-            resp = self.client.clob.session.get(f"{self.client.clob.host}/balance-allowance")
+            resp = self.client.clob.session.get(
+                f"{self.client.clob.host}/balance-allowance"
+            )
             resp.raise_for_status()
             data = resp.json()
             raw_balance = Decimal(str(data.get("balance", "0")))
         except Exception as e:
-            logger.warning("Polymarket: Failed to fetch balance from CLOB: %s. Falling back to on-chain.", e)
+            logger.warning(
+                "Polymarket: Failed to fetch balance from CLOB: %s. Falling back to on-chain.",
+                e,
+            )
             raw_balance = Decimal(self.client.get_usdc_balance())
 
         # USDC on Polygon has 6 decimals
         cash = raw_balance / Decimal("1000000")
-        
+
         return AccountBalance(
             account_id=self.ACCOUNT_ID,
-            net_liquidation=cash, # Approximated without position valuation for now
+            net_liquidation=cash,  # Approximated without position valuation for now
             cash=cash,
             buying_power=cash,
-            maintenance_margin=Decimal("0.0")
+            maintenance_margin=Decimal("0.0"),
         )
 
     async def get_positions(self, account_id: str = "") -> list[Position]:
@@ -128,13 +147,18 @@ class PolymarketAccount(AccountProvider):
             for p in raw:
                 q = Decimal(str(p.get("size", "0")))
                 if q > 0:
-                    positions.append(Position(
-                        symbol=Symbol(ticker=p.get("conditionId"), asset_type=AssetType.PREDICTION),
-                        quantity=q,
-                        average_cost=Decimal(str(p.get("avg_price", "0"))),
-                        current_price=Decimal("0"), # Needs separate quote logic
-                        unrealized_pnl=Decimal("0")
-                    ))
+                    positions.append(
+                        Position(
+                            symbol=Symbol(
+                                ticker=p.get("conditionId"),
+                                asset_type=AssetType.PREDICTION,
+                            ),
+                            quantity=q,
+                            average_cost=Decimal(str(p.get("avg_price", "0"))),
+                            current_price=Decimal("0"),  # Needs separate quote logic
+                            unrealized_pnl=Decimal("0"),
+                        )
+                    )
             return positions
         except Exception as e:
             logger.error("Polymarket: Failed to fetch positions: %s", e)
@@ -153,12 +177,14 @@ class PolymarketAccount(AccountProvider):
                 else:
                     status = OrderStatus.SUBMITTED
 
-                results.append(OrderResult(
-                    order_id=o.get("id"),
-                    status=status,
-                    filled_qty=Decimal(str(o.get("size_matched", "0"))),
-                    avg_fill_price=Decimal(str(o.get("price", "0")))
-                ))
+                results.append(
+                    OrderResult(
+                        order_id=o.get("id"),
+                        status=status,
+                        filled_qty=Decimal(str(o.get("size_matched", "0"))),
+                        avg_fill_price=Decimal(str(o.get("price", "0"))),
+                    )
+                )
             return results
         except Exception as e:
             logger.error("Polymarket: Failed to fetch order history: %s", e)
@@ -171,7 +197,7 @@ class PolymarketMarketData(MarketDataProvider):
 
     def _quote_from_book(self, symbol: Symbol, token_id: str) -> Quote:
         book = self.ds.client.get_orderbook(token_id)
-        
+
         bid = Decimal("0")
         ask = Decimal("1")
         if book.get("bids"):
@@ -183,8 +209,8 @@ class PolymarketMarketData(MarketDataProvider):
             symbol=symbol,
             bid=bid,
             ask=ask,
-            last=bid, # Approximate fallback
-            timestamp=None
+            last=bid,  # Approximate fallback
+            timestamp=None,
         )
 
     async def get_quote(self, symbol: Symbol) -> Quote | None:
@@ -205,6 +231,7 @@ class PolymarketMarketData(MarketDataProvider):
 
     async def stream_quotes(self, symbols: list[Symbol]) -> AsyncGenerator[Quote, None]:
         import asyncio
+
         while True:
             for symbol in symbols:
                 q = await self.get_quote(symbol)
@@ -212,12 +239,15 @@ class PolymarketMarketData(MarketDataProvider):
                     yield q
             await asyncio.sleep(5.0)
 
-    async def get_historical(self, symbol: Symbol, timeframe: str, lookback: int) -> list:
+    async def get_historical(
+        self, symbol: Symbol, timeframe: str, lookback: int
+    ) -> list:
         return []
 
     async def get_contract_details(self, symbol: Symbol) -> "ContractDetails":
-        from datetime import datetime, timezone
+        from datetime import datetime
         from broker.models import ContractDetails as _CD
+
         try:
             market = await asyncio.to_thread(self.ds._client.get_market, symbol.ticker)
         except Exception as exc:
@@ -241,7 +271,9 @@ class PolymarketMarketData(MarketDataProvider):
 
 
 class PolymarketOrderManager(OrderManager):
-    def __init__(self, client: PolymarketClient, data_source: PolymarketDataSource, dry_run: bool):
+    def __init__(
+        self, client: PolymarketClient, data_source: PolymarketDataSource, dry_run: bool
+    ):
         self.client = client
         self.ds = data_source
         self.dry_run = dry_run
@@ -257,13 +289,18 @@ class PolymarketOrderManager(OrderManager):
             raise ValueError(f"Unsupported order type: {type(order)}")
 
         if self.dry_run:
-            logger.info("Polymarket [DRY-RUN]: Would place LimitOrder %s for %s", order.side.value, order.symbol.ticker)
+            logger.info(
+                "Polymarket [DRY-RUN]: Would place LimitOrder %s for %s",
+                order.side.value,
+                order.symbol.ticker,
+            )
             import uuid
+
             return OrderResult(
                 order_id=f"dry-run-{uuid.uuid4()}",
                 status=OrderStatus.SUBMITTED,
                 filled_quantity=Decimal("0"),
-                avg_fill_price=Decimal("0")
+                avg_fill_price=Decimal("0"),
             )
 
         token_id = self.ds.resolve_token_id(order.symbol.ticker, "YES")
@@ -276,8 +313,9 @@ class PolymarketOrderManager(OrderManager):
 
         # Py-clob-client uses OrderArgs inside create_order
         from py_clob_client.clob_types import OrderArgs
+
         args = OrderArgs(size=size, price=price, side=side, token_id=token_id)
-        
+
         try:
             resp = self.client.clob.create_order(args)
             if resp.get("success"):
@@ -285,7 +323,7 @@ class PolymarketOrderManager(OrderManager):
                     order_id=resp.get("orderID"),
                     status=OrderStatus.SUBMITTED,
                     filled_quantity=Decimal("0"),
-                    avg_fill_price=Decimal("0")
+                    avg_fill_price=Decimal("0"),
                 )
             else:
                 return OrderResult(
@@ -293,7 +331,7 @@ class PolymarketOrderManager(OrderManager):
                     status=OrderStatus.REJECTED,
                     filled_quantity=Decimal("0"),
                     avg_fill_price=Decimal("0"),
-                    message=resp.get("errorMsg", "Unknown SDK error")
+                    message=resp.get("errorMsg", "Unknown SDK error"),
                 )
         except Exception as e:
             return OrderResult(
@@ -301,11 +339,13 @@ class PolymarketOrderManager(OrderManager):
                 status=OrderStatus.REJECTED,
                 filled_quantity=Decimal("0"),
                 avg_fill_price=Decimal("0"),
-                message=str(e)
+                message=str(e),
             )
 
     async def modify_order(self, order_id: str, new_order) -> OrderResult:
-        raise NotImplementedError("Polymarket does not support modifying orders. Cancel and submit a new one.")
+        raise NotImplementedError(
+            "Polymarket does not support modifying orders. Cancel and submit a new one."
+        )
 
     async def cancel_order(self, order_id: str) -> bool:
         if self.dry_run:
@@ -318,14 +358,25 @@ class PolymarketOrderManager(OrderManager):
             return False
 
     async def get_order_status(self, order_id: str) -> OrderResult:
-        return OrderResult(order_id=order_id, status=OrderStatus.SUBMITTED, filled_quantity=Decimal("0"), avg_fill_price=Decimal("0"))
+        return OrderResult(
+            order_id=order_id,
+            status=OrderStatus.SUBMITTED,
+            filled_quantity=Decimal("0"),
+            avg_fill_price=Decimal("0"),
+        )
 
     async def cancel_all_orders(self) -> None:
         pass  # Polymarket does not support bulk cancellation
 
 
 class PolymarketBroker(Broker):
-    def __init__(self, client: PolymarketClient, data_source: PolymarketDataSource, creds_path: str, dry_run: bool):
+    def __init__(
+        self,
+        client: PolymarketClient,
+        data_source: PolymarketDataSource,
+        creds_path: str,
+        dry_run: bool,
+    ):
         self._conn = PolymarketConnection(client, creds_path, dry_run)
         self._acct = PolymarketAccount(client)
         self._data = PolymarketMarketData(data_source)

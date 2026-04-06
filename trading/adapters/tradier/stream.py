@@ -105,13 +105,17 @@ class TradierStream(BrokerStream):
             return
 
         symbols_param = ",".join(self._subscribed_symbols)
-        url = f"{self._session_url}?sessionid={self._session_id}&symbols={symbols_param}"
+        url = (
+            f"{self._session_url}?sessionid={self._session_id}&symbols={symbols_param}"
+        )
 
         try:
             from httpx_sse import aconnect_sse
 
             async with httpx.AsyncClient(timeout=None) as client:
-                async with aconnect_sse(client, "GET", url, headers=self._headers) as event_source:
+                async with aconnect_sse(
+                    client, "GET", url, headers=self._headers
+                ) as event_source:
                     async for event in event_source.aiter_sse():
                         if event.data:
                             try:

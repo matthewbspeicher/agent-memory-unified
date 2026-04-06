@@ -1,4 +1,5 @@
 """Broker startup and connection logic."""
+
 from __future__ import annotations
 
 import asyncio
@@ -8,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from config import Config
     from broker.interfaces import Broker
-    
+
 logger = logging.getLogger(__name__)
 
 
@@ -19,12 +20,12 @@ async def setup_brokers(
 ) -> tuple[Broker | None, dict[str, Broker], Any]:
     """
     Initialize trading brokers (IBKR, Alpaca, Tradier) with retry logic.
-    
+
     Returns:
         (primary_broker, all_brokers_dict, paper_store)
     """
     from broker.paper import PaperBroker
-    
+
     if isinstance(broker, PaperBroker):
         await broker._store.init_tables()
 
@@ -36,7 +37,7 @@ async def setup_brokers(
 
         _paper_store = PaperStore(db)
         await _paper_store.init_tables()
-        
+
         _initial = config.paper_trading_initial_balance
         await db.execute(
             """
@@ -126,7 +127,9 @@ async def setup_brokers(
                     "paper" if config.alpaca_paper else "LIVE",
                 )
         except Exception as _alpaca_exc:
-            logger.warning("Alpaca setup failed (continuing without it): %s", _alpaca_exc)
+            logger.warning(
+                "Alpaca setup failed (continuing without it): %s", _alpaca_exc
+            )
 
     # Tradier (optional — only if configured)
     if config.tradier_token:
@@ -146,7 +149,9 @@ async def setup_brokers(
                     "sandbox" if config.tradier_sandbox else "LIVE",
                 )
         except Exception as _tradier_exc:
-            logger.warning("Tradier setup failed (continuing without it): %s", _tradier_exc)
+            logger.warning(
+                "Tradier setup failed (continuing without it): %s", _tradier_exc
+            )
 
     # Fail-fast: at least one broker must be connected
     if not _all_brokers:
@@ -168,7 +173,9 @@ async def setup_brokers(
                     break
             else:
                 broker = next(iter(_all_brokers.values()))
-                logger.info("Primary broker: %s (first connected)", next(iter(_all_brokers)))
+                logger.info(
+                    "Primary broker: %s (first connected)", next(iter(_all_brokers))
+                )
         else:
             broker = None
 

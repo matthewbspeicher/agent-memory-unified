@@ -1,19 +1,30 @@
 """Tests for external API key fields added to Config (Task 1)."""
+
 import os
 import pytest
-from config import Config, load_config
+from config import load_config
+
 
 @pytest.fixture(autouse=True)
 def clean_env(monkeypatch):
     for key in [
-        "STA_IB_PORT", "STA_BROKER_MODE", "STA_METACULUS_TOKEN",
-        "STA_MANIFOLD_MARKETS_KEY", "STA_NEWSAPI_KEY", "STA_ALPHA_VANTAGE_KEY",
-        "STA_COINGECKO_API_KEY", "STA_MASSIVE_KEY", "STA_TRADERCONGRESS_API_KEY",
-        "STA_TRADIER_TOKEN", "STA_TRADIER_ACCOUNT_ID", "STA_QUIVERQUANT_API_KEY",
-        "STA_API_HOST"
+        "STA_IB_PORT",
+        "STA_BROKER_MODE",
+        "STA_METACULUS_TOKEN",
+        "STA_MANIFOLD_MARKETS_KEY",
+        "STA_NEWSAPI_KEY",
+        "STA_ALPHA_VANTAGE_KEY",
+        "STA_COINGECKO_API_KEY",
+        "STA_MASSIVE_KEY",
+        "STA_TRADERCONGRESS_API_KEY",
+        "STA_TRADIER_TOKEN",
+        "STA_TRADIER_ACCOUNT_ID",
+        "STA_QUIVERQUANT_API_KEY",
+        "STA_API_HOST",
     ]:
         if key in os.environ:
             monkeypatch.delenv(key)
+
 
 def test_external_keys_default_to_none():
     c = load_config(env_file="nonexistent.env")

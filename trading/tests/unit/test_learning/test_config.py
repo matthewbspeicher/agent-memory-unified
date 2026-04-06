@@ -1,5 +1,4 @@
-import pytest
-from learning.config import LearningConfig, load_learning_config
+from learning.config import load_learning_config
 
 
 class TestLearningConfig:

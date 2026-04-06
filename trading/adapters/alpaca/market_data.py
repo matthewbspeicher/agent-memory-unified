@@ -30,7 +30,6 @@ def _quote_last(ask: Decimal | None, bid: Decimal | None) -> Decimal | None:
 
 
 class AlpacaMarketDataProvider(MarketDataProvider):
-
     def __init__(self, client: AlpacaClient) -> None:
         self._client = client
 
@@ -58,23 +57,31 @@ class AlpacaMarketDataProvider(MarketDataProvider):
                 q = q.get("quote", q)
             ask = Decimal(str(q.get("ap", 0))) if q.get("ap") else None
             bid = Decimal(str(q.get("bp", 0))) if q.get("bp") else None
-            result.append(Quote(
-                symbol=symbol,
-                ask=ask,
-                bid=bid,
-                last=_quote_last(ask, bid),
-            ))
+            result.append(
+                Quote(
+                    symbol=symbol,
+                    ask=ask,
+                    bid=bid,
+                    last=_quote_last(ask, bid),
+                )
+            )
         return result
 
     async def stream_quotes(
-        self, symbols: list[Symbol], callback: Callable[[Quote], Any],
+        self,
+        symbols: list[Symbol],
+        callback: Callable[[Quote], Any],
     ) -> None:
         raise NotImplementedError("Alpaca streaming deferred to Phase 2")
 
     async def get_historical(
-        self, symbol: Symbol, timeframe: str, period: str,
+        self,
+        symbol: Symbol,
+        timeframe: str,
+        period: str,
     ) -> list[Bar]:
         from datetime import timedelta
+
         # Convert period string to start/end dates
         now = datetime.now(timezone.utc)
         period_map = {"1d": 1, "5d": 5, "1mo": 30, "3mo": 90, "6mo": 180, "1y": 365}
@@ -83,7 +90,9 @@ class AlpacaMarketDataProvider(MarketDataProvider):
         end = now.strftime("%Y-%m-%dT23:59:59Z")
 
         alpaca_timeframe = _TIMEFRAME_MAP.get(timeframe, timeframe)
-        raw_bars = await self._client.get_bars(symbol.ticker, alpaca_timeframe, start, end)
+        raw_bars = await self._client.get_bars(
+            symbol.ticker, alpaca_timeframe, start, end
+        )
         return [
             Bar(
                 symbol=symbol,
@@ -98,7 +107,9 @@ class AlpacaMarketDataProvider(MarketDataProvider):
         ]
 
     async def get_options_chain(
-        self, symbol: Symbol, expiry: str | None = None,
+        self,
+        symbol: Symbol,
+        expiry: str | None = None,
     ) -> OptionsChain:
         raise NotImplementedError("Alpaca options deferred to Phase 2")
 

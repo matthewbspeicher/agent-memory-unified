@@ -1,24 +1,40 @@
 from decimal import Decimal
-import pytest
 
 from broker.models import (
-    AccountBalance, AssetType, LimitOrder, MarketOrder, OrderSide, Position, Quote, Symbol,
+    AccountBalance,
+    AssetType,
+    LimitOrder,
+    MarketOrder,
+    OrderSide,
+    Position,
+    Quote,
+    Symbol,
 )
 from risk.rules import (
-    MaxDailyLoss, MaxDailyTrades, MaxOpenPositions,
-    MaxPortfolioExposure, MaxPositionSize, PortfolioContext,
-    RiskResult, SectorConcentration, MaxCorrelation, MaxDrawdownPct
+    MaxDailyLoss,
+    MaxDailyTrades,
+    MaxOpenPositions,
+    MaxPortfolioExposure,
+    MaxPositionSize,
+    PortfolioContext,
+    SectorConcentration,
+    MaxCorrelation,
+    MaxDrawdownPct,
 )
 
 
 def _ctx(**overrides) -> PortfolioContext:
     defaults = dict(
-        positions=[], balance=AccountBalance(
-            account_id="U123", net_liquidation=Decimal("100000"),
-            buying_power=Decimal("50000"), cash=Decimal("30000"),
+        positions=[],
+        balance=AccountBalance(
+            account_id="U123",
+            net_liquidation=Decimal("100000"),
+            buying_power=Decimal("50000"),
+            cash=Decimal("30000"),
             maintenance_margin=Decimal("20000"),
         ),
-        daily_pnl=Decimal("0"), daily_trade_count=0,
+        daily_pnl=Decimal("0"),
+        daily_trade_count=0,
         sectors={},
     )
     defaults.update(overrides)
@@ -87,22 +103,34 @@ class TestMaxOpenPositions:
     def test_pass(self):
         rule = MaxOpenPositions(max_count=20)
         trade, quote = _trade()
-        positions = [Position(
-            symbol=Symbol(ticker=f"SYM{i}"), quantity=Decimal("10"),
-            avg_cost=Decimal("100"), market_value=Decimal("1000"),
-            unrealized_pnl=Decimal("0"), realized_pnl=Decimal("0"),
-        ) for i in range(5)]
+        positions = [
+            Position(
+                symbol=Symbol(ticker=f"SYM{i}"),
+                quantity=Decimal("10"),
+                avg_cost=Decimal("100"),
+                market_value=Decimal("1000"),
+                unrealized_pnl=Decimal("0"),
+                realized_pnl=Decimal("0"),
+            )
+            for i in range(5)
+        ]
         result = rule.evaluate(trade, quote, _ctx(positions=positions))
         assert result.passed
 
     def test_fail(self):
         rule = MaxOpenPositions(max_count=5)
         trade, quote = _trade()
-        positions = [Position(
-            symbol=Symbol(ticker=f"SYM{i}"), quantity=Decimal("10"),
-            avg_cost=Decimal("100"), market_value=Decimal("1000"),
-            unrealized_pnl=Decimal("0"), realized_pnl=Decimal("0"),
-        ) for i in range(5)]
+        positions = [
+            Position(
+                symbol=Symbol(ticker=f"SYM{i}"),
+                quantity=Decimal("10"),
+                avg_cost=Decimal("100"),
+                market_value=Decimal("1000"),
+                unrealized_pnl=Decimal("0"),
+                realized_pnl=Decimal("0"),
+            )
+            for i in range(5)
+        ]
         result = rule.evaluate(trade, quote, _ctx(positions=positions))
         assert not result.passed
 
@@ -125,17 +153,25 @@ class TestSectorConcentration:
     def test_pass(self):
         rule = SectorConcentration(max_percent=25)
         trade, quote = _trade()
-        result = rule.evaluate(trade, quote, _ctx(
-            sectors={"Technology": Decimal("15000")},  # 15%
-        ))
+        result = rule.evaluate(
+            trade,
+            quote,
+            _ctx(
+                sectors={"Technology": Decimal("15000")},  # 15%
+            ),
+        )
         assert result.passed
 
     def test_fail(self):
         rule = SectorConcentration(max_percent=25)
         trade, quote = _trade()
-        result = rule.evaluate(trade, quote, _ctx(
-            sectors={"Technology": Decimal("30000")},  # 30%
-        ))
+        result = rule.evaluate(
+            trade,
+            quote,
+            _ctx(
+                sectors={"Technology": Decimal("30000")},  # 30%
+            ),
+        )
         assert not result.passed
 
 
@@ -144,43 +180,123 @@ class TestMaxDrawdownPct:
         rule = MaxDrawdownPct(max_pct=5.0)
         trade, quote = _trade()
         # Initialize HWM by evaluating once
-        rule.evaluate(trade, quote, _ctx(balance=AccountBalance("U123", Decimal("100000"), Decimal("50000"), Decimal("30"), Decimal("20"))))
-        
+        rule.evaluate(
+            trade,
+            quote,
+            _ctx(
+                balance=AccountBalance(
+                    "U123",
+                    Decimal("100000"),
+                    Decimal("50000"),
+                    Decimal("30"),
+                    Decimal("20"),
+                )
+            ),
+        )
+
         # Balance stays at 100k
-        result = rule.evaluate(trade, quote, _ctx(balance=AccountBalance("U123", Decimal("100000"), Decimal("50000"), Decimal("30"), Decimal("20"))))
+        result = rule.evaluate(
+            trade,
+            quote,
+            _ctx(
+                balance=AccountBalance(
+                    "U123",
+                    Decimal("100000"),
+                    Decimal("50000"),
+                    Decimal("30"),
+                    Decimal("20"),
+                )
+            ),
+        )
         assert result.passed
         assert rule.high_water_mark == Decimal("100000")
 
     def test_pass_within_drawdown(self):
         rule = MaxDrawdownPct(max_pct=5.0)
         trade, quote = _trade()
-        rule.evaluate(trade, quote, _ctx(balance=AccountBalance("U123", Decimal("100000"), Decimal("0"), Decimal("0"), Decimal("0"))))
-        
+        rule.evaluate(
+            trade,
+            quote,
+            _ctx(
+                balance=AccountBalance(
+                    "U123", Decimal("100000"), Decimal("0"), Decimal("0"), Decimal("0")
+                )
+            ),
+        )
+
         # Balance drops to 96k (4% drawdown)
-        result = rule.evaluate(trade, quote, _ctx(balance=AccountBalance("U123", Decimal("96000"), Decimal("0"), Decimal("0"), Decimal("0"))))
+        result = rule.evaluate(
+            trade,
+            quote,
+            _ctx(
+                balance=AccountBalance(
+                    "U123", Decimal("96000"), Decimal("0"), Decimal("0"), Decimal("0")
+                )
+            ),
+        )
         assert result.passed
 
     def test_fail_exceeds_drawdown(self):
         rule = MaxDrawdownPct(max_pct=5.0)
         trade, quote = _trade()
-        rule.evaluate(trade, quote, _ctx(balance=AccountBalance("U123", Decimal("100000"), Decimal("0"), Decimal("0"), Decimal("0"))))
-        
+        rule.evaluate(
+            trade,
+            quote,
+            _ctx(
+                balance=AccountBalance(
+                    "U123", Decimal("100000"), Decimal("0"), Decimal("0"), Decimal("0")
+                )
+            ),
+        )
+
         # Balance drops to 94k (6% drawdown)
-        result = rule.evaluate(trade, quote, _ctx(balance=AccountBalance("U123", Decimal("94000"), Decimal("0"), Decimal("0"), Decimal("0"))))
+        result = rule.evaluate(
+            trade,
+            quote,
+            _ctx(
+                balance=AccountBalance(
+                    "U123", Decimal("94000"), Decimal("0"), Decimal("0"), Decimal("0")
+                )
+            ),
+        )
         assert not result.passed
         assert "exceeds max" in result.reason
 
     def test_hwm_updates_automatically(self):
         rule = MaxDrawdownPct(max_pct=5.0)
         trade, quote = _trade()
-        rule.evaluate(trade, quote, _ctx(balance=AccountBalance("U123", Decimal("100000"), Decimal("0"), Decimal("0"), Decimal("0"))))
-        
+        rule.evaluate(
+            trade,
+            quote,
+            _ctx(
+                balance=AccountBalance(
+                    "U123", Decimal("100000"), Decimal("0"), Decimal("0"), Decimal("0")
+                )
+            ),
+        )
+
         # Balance rises to 110k
-        rule.evaluate(trade, quote, _ctx(balance=AccountBalance("U123", Decimal("110000"), Decimal("0"), Decimal("0"), Decimal("0"))))
+        rule.evaluate(
+            trade,
+            quote,
+            _ctx(
+                balance=AccountBalance(
+                    "U123", Decimal("110000"), Decimal("0"), Decimal("0"), Decimal("0")
+                )
+            ),
+        )
         assert rule.high_water_mark == Decimal("110000")
-        
+
         # Balance drops to 104k (5.4% drawdown relative to 110k)
-        result = rule.evaluate(trade, quote, _ctx(balance=AccountBalance("U123", Decimal("104000"), Decimal("0"), Decimal("0"), Decimal("0"))))
+        result = rule.evaluate(
+            trade,
+            quote,
+            _ctx(
+                balance=AccountBalance(
+                    "U123", Decimal("104000"), Decimal("0"), Decimal("0"), Decimal("0")
+                )
+            ),
+        )
         assert not result.passed
 
 
@@ -199,7 +315,7 @@ class TestMaxCorrelation:
         # Mock low correlation histories (AAPL vs XYZ correlation is 0)
         ctx.price_histories = {
             "AAPL": [Decimal("1"), Decimal("2"), Decimal("3"), Decimal("4")],
-            "XYZ":  [Decimal("4"), Decimal("1"), Decimal("4"), Decimal("1")]
+            "XYZ": [Decimal("4"), Decimal("1"), Decimal("4"), Decimal("1")],
         }
         result = rule.evaluate(trade, quote, ctx)
         assert result.passed
@@ -211,40 +327,80 @@ class TestMaxCorrelation:
         # Highly correlated +1 histories
         ctx.price_histories = {
             "AAPL": [Decimal("1"), Decimal("2"), Decimal("3"), Decimal("4")],
-            "MSFT": [Decimal("2"), Decimal("4"), Decimal("6"), Decimal("8")]
+            "MSFT": [Decimal("2"), Decimal("4"), Decimal("6"), Decimal("8")],
         }
         result = rule.evaluate(trade, quote, ctx)
         assert not result.passed
         assert "exceeds max" in result.reason
 
+
 class TestMaxPredictionExposure:
     def test_evaluate_ignores_non_prediction(self):
         from risk.rules import MaxPredictionExposure
+
         rule = MaxPredictionExposure(max_dollars=50.0)
-        trade = LimitOrder(symbol=Symbol("AAPL"), quantity=Decimal("100"), side=OrderSide.BUY, limit_price=Decimal("150"), account_id="U1")
-        quote = Quote(symbol=Symbol("AAPL"), bid=Decimal("150"), ask=Decimal("151"), last=Decimal("150"), volume=0)
+        trade = LimitOrder(
+            symbol=Symbol("AAPL"),
+            quantity=Decimal("100"),
+            side=OrderSide.BUY,
+            limit_price=Decimal("150"),
+            account_id="U1",
+        )
+        quote = Quote(
+            symbol=Symbol("AAPL"),
+            bid=Decimal("150"),
+            ask=Decimal("151"),
+            last=Decimal("150"),
+            volume=0,
+        )
         ctx = _ctx()
-        
+
         result = rule.evaluate(trade, quote, ctx)
         assert result.passed is True
 
     def test_evaluate_prediction_exposure_within_limit(self):
         from risk.rules import MaxPredictionExposure
+
         rule = MaxPredictionExposure(max_dollars=50.0)
-        trade = LimitOrder(symbol=Symbol("WIN", AssetType.PREDICTION), quantity=Decimal("100"), side=OrderSide.BUY, limit_price=Decimal("0.45"), account_id="U1")
-        quote = Quote(symbol=Symbol("WIN", AssetType.PREDICTION), bid=Decimal("0.44"), ask=Decimal("0.46"), last=Decimal("0.45"), volume=0)
+        trade = LimitOrder(
+            symbol=Symbol("WIN", AssetType.PREDICTION),
+            quantity=Decimal("100"),
+            side=OrderSide.BUY,
+            limit_price=Decimal("0.45"),
+            account_id="U1",
+        )
+        quote = Quote(
+            symbol=Symbol("WIN", AssetType.PREDICTION),
+            bid=Decimal("0.44"),
+            ask=Decimal("0.46"),
+            last=Decimal("0.45"),
+            volume=0,
+        )
         ctx = _ctx()
-        
+
         result = rule.evaluate(trade, quote, ctx)
         assert result.passed is True
 
     def test_evaluate_prediction_exposure_exceeds_limit(self):
         from risk.rules import MaxPredictionExposure
+
         rule = MaxPredictionExposure(max_dollars=50.0)
-        trade = LimitOrder(symbol=Symbol("WIN", AssetType.PREDICTION), quantity=Decimal("2000"), side=OrderSide.BUY, limit_price=Decimal("0.45"), account_id="U1")
-        quote = Quote(symbol=Symbol("WIN", AssetType.PREDICTION), bid=Decimal("0.44"), ask=Decimal("0.46"), last=Decimal("0.45"), volume=0)
+        trade = LimitOrder(
+            symbol=Symbol("WIN", AssetType.PREDICTION),
+            quantity=Decimal("2000"),
+            side=OrderSide.BUY,
+            limit_price=Decimal("0.45"),
+            account_id="U1",
+        )
+        quote = Quote(
+            symbol=Symbol("WIN", AssetType.PREDICTION),
+            bid=Decimal("0.44"),
+            ask=Decimal("0.46"),
+            last=Decimal("0.45"),
+            volume=0,
+        )
         ctx = _ctx()
-        
+
         result = rule.evaluate(trade, quote, ctx)
         assert result.passed is False
         assert "exceeds max $50.0" in result.reason

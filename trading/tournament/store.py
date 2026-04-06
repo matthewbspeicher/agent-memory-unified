@@ -51,7 +51,15 @@ class TournamentStore:
                 (agent_name, from_stage, to_stage, reason, ai_analysis, ai_recommendation, overridden_by)
             VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (agent_name, from_stage, to_stage, reason, ai_analysis, ai_recommendation, overridden_by),
+            (
+                agent_name,
+                from_stage,
+                to_stage,
+                reason,
+                ai_analysis,
+                ai_recommendation,
+                overridden_by,
+            ),
         )
         await self._db.commit()
 

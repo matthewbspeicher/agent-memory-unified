@@ -3,11 +3,16 @@ from decimal import Decimal
 
 import pytest
 
-from learning.triggers import TriggerEvaluator, TriggerResult
+from learning.triggers import TriggerEvaluator
 from storage.performance import PerformanceSnapshot
 
 
-def _make_snapshot(daily_pnl_pct: float, max_drawdown: float = 0.0, daily_pnl: float = 0.0, offset_days: int = 0) -> PerformanceSnapshot:
+def _make_snapshot(
+    daily_pnl_pct: float,
+    max_drawdown: float = 0.0,
+    daily_pnl: float = 0.0,
+    offset_days: int = 0,
+) -> PerformanceSnapshot:
     ts = datetime(2026, 3, 25, tzinfo=timezone.utc) - timedelta(days=offset_days)
     return PerformanceSnapshot(
         agent_name="test-agent",
@@ -21,7 +26,9 @@ def _make_snapshot(daily_pnl_pct: float, max_drawdown: float = 0.0, daily_pnl: f
     )
 
 
-def _make_trade(entry: float, exit_: float, side: str = "buy", qty: float = 1.0) -> dict:
+def _make_trade(
+    entry: float, exit_: float, side: str = "buy", qty: float = 1.0
+) -> dict:
     return {
         "side": side,
         "entry_price": str(entry),
@@ -65,7 +72,9 @@ class TestTriggerEvaluator:
         }
         snapshots = [
             _make_snapshot(daily_pnl_pct=-0.03, offset_days=0),
-            _make_snapshot(daily_pnl_pct=0.01, offset_days=1),  # positive — breaks streak
+            _make_snapshot(
+                daily_pnl_pct=0.01, offset_days=1
+            ),  # positive — breaks streak
             _make_snapshot(daily_pnl_pct=-0.03, offset_days=2),
         ]
         evaluator = TriggerEvaluator(config)
@@ -76,7 +85,11 @@ class TestTriggerEvaluator:
         config = {
             "high_drawdown": {
                 "any_of": [
-                    {"metric": "max_drawdown", "threshold": 0.15, "comparison": "above"},
+                    {
+                        "metric": "max_drawdown",
+                        "threshold": 0.15,
+                        "comparison": "above",
+                    },
                 ],
                 "action": "disable",
             }
@@ -95,15 +108,19 @@ class TestTriggerEvaluator:
         config = {
             "loss_streak": {
                 "any_of": [
-                    {"metric": "consecutive_losses", "threshold": 2, "comparison": "above"},
+                    {
+                        "metric": "consecutive_losses",
+                        "threshold": 2,
+                        "comparison": "above",
+                    },
                 ],
                 "action": "adjust",
             }
         }
         trades = [
-            _make_trade(entry=100.0, exit_=90.0),   # loss
-            _make_trade(entry=100.0, exit_=90.0),   # loss
-            _make_trade(entry=100.0, exit_=90.0),   # loss
+            _make_trade(entry=100.0, exit_=90.0),  # loss
+            _make_trade(entry=100.0, exit_=90.0),  # loss
+            _make_trade(entry=100.0, exit_=90.0),  # loss
         ]
         evaluator = TriggerEvaluator(config)
         results = evaluator.evaluate("test-agent", [], trades)

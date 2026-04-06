@@ -7,7 +7,6 @@ import httpx
 
 from adapters.tradier.errors import (
     TradierAPIError,
-    TradierInsufficientFunds,
     TradierInvalidSymbol,
     TradierOrderRejected,
     TradierRateLimited,
@@ -65,7 +64,9 @@ class TradierClient:
             resp = await self._http.request(method, path, **kwargs)
             if resp.status_code == 429:
                 if attempt < len(_RETRY_BACKOFF):
-                    logger.warning("Tradier 429 rate limited, retrying in %.1fs", backoff)
+                    logger.warning(
+                        "Tradier 429 rate limited, retrying in %.1fs", backoff
+                    )
                     await asyncio.sleep(backoff)
                     continue
                 raise TradierRateLimited(429, "Rate limit exceeded after retries")
@@ -101,7 +102,8 @@ class TradierClient:
 
     async def get_orders(self, status: str = "all") -> list[dict[str, Any]]:
         data = await self._request(
-            "GET", f"/v1/accounts/{self._account_id}/orders",
+            "GET",
+            f"/v1/accounts/{self._account_id}/orders",
         )
         orders = data.get("orders", {})
         if orders == "null" or orders is None:
@@ -137,7 +139,9 @@ class TradierClient:
         if option_symbol:
             data["option_symbol"] = option_symbol
         return await self._request(
-            "POST", f"/v1/accounts/{self._account_id}/orders", data=data,
+            "POST",
+            f"/v1/accounts/{self._account_id}/orders",
+            data=data,
         )
 
     async def cancel_order(self, order_id: str) -> None:
@@ -145,25 +149,35 @@ class TradierClient:
 
     async def get_order(self, order_id: str) -> dict[str, Any]:
         data = await self._request(
-            "GET", f"/v1/accounts/{self._account_id}/orders/{order_id}",
+            "GET",
+            f"/v1/accounts/{self._account_id}/orders/{order_id}",
         )
         return data.get("order", data)
 
     # -- Market Data --
 
     async def get_quote(self, symbol: str) -> dict[str, Any]:
-        return await self._request("GET", "/v1/markets/quotes", params={"symbols": symbol})
+        return await self._request(
+            "GET", "/v1/markets/quotes", params={"symbols": symbol}
+        )
 
     async def get_quotes(self, symbols: list[str]) -> dict[str, Any]:
         return await self._request(
-            "GET", "/v1/markets/quotes", params={"symbols": ",".join(symbols)},
+            "GET",
+            "/v1/markets/quotes",
+            params={"symbols": ",".join(symbols)},
         )
 
     async def get_historical(
-        self, symbol: str, interval: str, start: str, end: str,
+        self,
+        symbol: str,
+        interval: str,
+        start: str,
+        end: str,
     ) -> list[dict[str, Any]]:
         data = await self._request(
-            "GET", "/v1/markets/history",
+            "GET",
+            "/v1/markets/history",
             params={"symbol": symbol, "interval": interval, "start": start, "end": end},
         )
         history = data.get("history", {})
@@ -174,13 +188,16 @@ class TradierClient:
 
     async def get_options_chain(self, symbol: str, expiration: str) -> dict[str, Any]:
         return await self._request(
-            "GET", "/v1/markets/options/chains",
+            "GET",
+            "/v1/markets/options/chains",
             params={"symbol": symbol, "expiration": expiration, "greeks": "true"},
         )
 
     async def get_options_expirations(self, symbol: str) -> list[str]:
         data = await self._request(
-            "GET", "/v1/markets/options/expirations", params={"symbol": symbol},
+            "GET",
+            "/v1/markets/options/expirations",
+            params={"symbol": symbol},
         )
         exps = data.get("expirations", {})
         if exps is None:

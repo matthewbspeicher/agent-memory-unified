@@ -13,6 +13,7 @@ from agents.router import OpportunityRouter
 from broker.paper import PaperBroker
 from notifications.log_notifier import LogNotifier
 
+
 @pytest.fixture
 async def db():
     conn = await aiosqlite.connect(":memory:")
@@ -21,6 +22,7 @@ async def db():
     yield conn
     await conn.close()
 
+
 @pytest.mark.asyncio
 async def test_analytics_agent(db):
     # Setup dependencies
@@ -28,31 +30,48 @@ async def test_analytics_agent(db):
     perf_store = PerformanceStore(db)
     from tests.unit.test_broker.test_paper import MockBroker
     from storage.paper import PaperStore
-    import sqlite3
+
     broker = PaperBroker(MockBroker(), PaperStore(db))
     await broker._store.init_tables()
     data_bus = DataBus()
     router = OpportunityRouter(opp_store, LogNotifier(), None, broker, None, data_bus)
     runner = AgentRunner(data_bus, router)
-    
+
     # Register a dummy agent to be analyzed
     from agents.base import Agent
+
     class DummyAgent(Agent):
         @property
-        def description(self): return "dummy"
-        async def setup(self): pass
-        async def teardown(self): pass
-        async def scan(self, bus): return []
-        
+        def description(self):
+            return "dummy"
+
+        async def setup(self):
+            pass
+
+        async def teardown(self):
+            pass
+
+        async def scan(self, bus):
+            return []
+
     from agents.models import ActionLevel
-    runner.register(DummyAgent(AgentConfig(name="DummyAgent", strategy="dummy", schedule="continuous", action_level=ActionLevel.NOTIFY)))
-    
+
+    runner.register(
+        DummyAgent(
+            AgentConfig(
+                name="DummyAgent",
+                strategy="dummy",
+                schedule="continuous",
+                action_level=ActionLevel.NOTIFY,
+            )
+        )
+    )
+
     # Insert some mock opportunities for DummyAgent so win_rate can be calc'd
     from agents.models import Opportunity, OpportunityStatus, ActionLevel
-    from broker.models import OrderSide
-    
+
     from broker.models import Symbol, AssetType
-    
+
     opp = Opportunity(
         id="opp1",
         agent_name="DummyAgent",
@@ -62,10 +81,10 @@ async def test_analytics_agent(db):
         reasoning="Test",
         data={},
         status=OpportunityStatus.EXECUTED,
-        timestamp=datetime.now(timezone.utc)
+        timestamp=datetime.now(timezone.utc),
     )
     await opp_store.save(opp)
-    
+
     opp2 = Opportunity(
         id="opp2",
         agent_name="DummyAgent",
@@ -75,21 +94,27 @@ async def test_analytics_agent(db):
         reasoning="Test 2",
         data={},
         status=OpportunityStatus.REJECTED,
-        timestamp=datetime.now(timezone.utc)
+        timestamp=datetime.now(timezone.utc),
     )
     await opp_store.save(opp2)
-    
+
     # Run the AnalyticsAgent with constructor-injected dependencies
     from storage.trades import TradeStore
+
     analytics = AnalyticsAgent(
-        AgentConfig(name="AnalyticsAgent", strategy="analytics", schedule="continuous", action_level=ActionLevel.NOTIFY),
+        AgentConfig(
+            name="AnalyticsAgent",
+            strategy="analytics",
+            schedule="continuous",
+            action_level=ActionLevel.NOTIFY,
+        ),
         runner=runner,
         opp_store=opp_store,
         perf_store=perf_store,
         trade_store=TradeStore(db),
     )
     await analytics.scan(data_bus)
-    
+
     # Verify PerformanceStore has a snapshot
     history = await perf_store.get_history("DummyAgent")
     assert len(history) == 1
@@ -125,19 +150,36 @@ async def _setup_analytics_env(db):
 
     class DummyAgent(Agent):
         @property
-        def description(self): return "dummy"
-        async def setup(self): pass
-        async def teardown(self): pass
-        async def scan(self, bus): return []
+        def description(self):
+            return "dummy"
 
-    runner.register(DummyAgent(AgentConfig(
-        name="TradeAgent", strategy="dummy", schedule="continuous",
-        action_level=ActionLevel.NOTIFY,
-    )))
+        async def setup(self):
+            pass
+
+        async def teardown(self):
+            pass
+
+        async def scan(self, bus):
+            return []
+
+    runner.register(
+        DummyAgent(
+            AgentConfig(
+                name="TradeAgent",
+                strategy="dummy",
+                schedule="continuous",
+                action_level=ActionLevel.NOTIFY,
+            )
+        )
+    )
 
     analytics = AnalyticsAgent(
-        AgentConfig(name="AnalyticsAgent", strategy="analytics", schedule="continuous",
-                    action_level=ActionLevel.NOTIFY),
+        AgentConfig(
+            name="AnalyticsAgent",
+            strategy="analytics",
+            schedule="continuous",
+            action_level=ActionLevel.NOTIFY,
+        ),
         runner=runner,
         opp_store=opp_store,
         perf_store=perf_store,
@@ -148,7 +190,6 @@ async def _setup_analytics_env(db):
 
 @pytest.mark.asyncio
 async def test_analytics_sharpe_ratio_computed(db):
-    import json
     analytics, perf_store, trade_store, data_bus = await _setup_analytics_env(db)
 
     # Insert 5 sell trades for "TradeAgent" with varying P&L to produce non-zero returns
@@ -177,7 +218,6 @@ async def test_analytics_sharpe_ratio_computed(db):
 
 @pytest.mark.asyncio
 async def test_analytics_max_drawdown_computed(db):
-    import json
     analytics, perf_store, trade_store, data_bus = await _setup_analytics_env(db)
 
     # Simulate a drawdown: gains then a big loss then recovery

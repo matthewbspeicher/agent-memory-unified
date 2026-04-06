@@ -10,6 +10,7 @@ AUTH_HEADERS = {"X-API-Key": "test-key"}
 def set_api_key():
     os.environ["STA_API_KEY"] = "test-key"
     from api.auth import _get_settings
+
     _get_settings.cache_clear()
     yield
     _get_settings.cache_clear()
@@ -18,6 +19,7 @@ def set_api_key():
 @pytest.fixture(autouse=True)
 def clear_memory_registry():
     from api.routes.memory import _memory_client_registry, register_shared_client
+
     _memory_client_registry.clear()
     register_shared_client(None)
 
@@ -40,5 +42,7 @@ def test_market_observations_returns_503_when_not_configured():
 def test_search_returns_503_when_not_configured():
     app = create_app()
     client = TestClient(app)
-    response = client.get("/api/memory/search?agent=momentum_agent&q=AAPL", headers=AUTH_HEADERS)
+    response = client.get(
+        "/api/memory/search?agent=momentum_agent&q=AAPL", headers=AUTH_HEADERS
+    )
     assert response.status_code == 503

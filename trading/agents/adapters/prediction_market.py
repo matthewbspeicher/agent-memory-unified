@@ -51,19 +51,21 @@ class PredictionMarketAdapter(SignalAdapter):
             if avg_volume > 0:
                 magnitude = volume / avg_volume
                 if magnitude >= self._volume_spike_threshold:
-                    signals.append(AgentSignal(
-                        source_agent=self.source_name(),
-                        signal_type="volume_anomaly",
-                        payload={
-                            "ticker": ticker,
-                            "magnitude": round(magnitude, 2),
-                            "volume": volume,
-                            "avg_volume": avg_volume,
-                            "direction": "bullish" if yes_ask > 0.5 else "bearish",
-                            "source": "kalshi",
-                        },
-                        expires_at=expires,
-                    ))
+                    signals.append(
+                        AgentSignal(
+                            source_agent=self.source_name(),
+                            signal_type="volume_anomaly",
+                            payload={
+                                "ticker": ticker,
+                                "magnitude": round(magnitude, 2),
+                                "volume": volume,
+                                "avg_volume": avg_volume,
+                                "direction": "bullish" if yes_ask > 0.5 else "bearish",
+                                "source": "kalshi",
+                            },
+                            expires_at=expires,
+                        )
+                    )
 
             # Price dislocation detection
             prev_price = self._last_prices.get(ticker)
@@ -71,19 +73,21 @@ class PredictionMarketAdapter(SignalAdapter):
                 move = abs(yes_ask - prev_price) / prev_price
                 if move >= self._price_move_threshold:
                     direction = "bullish" if yes_ask > prev_price else "bearish"
-                    signals.append(AgentSignal(
-                        source_agent=self.source_name(),
-                        signal_type="price_dislocation",
-                        payload={
-                            "ticker": ticker,
-                            "move_pct": round(move, 4),
-                            "prev_price": prev_price,
-                            "current_price": yes_ask,
-                            "direction": direction,
-                            "source": "kalshi",
-                        },
-                        expires_at=expires,
-                    ))
+                    signals.append(
+                        AgentSignal(
+                            source_agent=self.source_name(),
+                            signal_type="price_dislocation",
+                            payload={
+                                "ticker": ticker,
+                                "move_pct": round(move, 4),
+                                "prev_price": prev_price,
+                                "current_price": yes_ask,
+                                "direction": direction,
+                                "source": "kalshi",
+                            },
+                            expires_at=expires,
+                        )
+                    )
             self._last_prices[ticker] = yes_ask
 
         return signals

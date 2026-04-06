@@ -225,9 +225,9 @@ class AgentRunner:
                 if self._trade_reflector_factory:
                     try:
                         if agent.name not in self._reflectors:
-                            self._reflectors[agent.name] = (
-                                await self._trade_reflector_factory(agent.name)
-                            )
+                            self._reflectors[
+                                agent.name
+                            ] = await self._trade_reflector_factory(agent.name)
                         reflector = self._reflectors[agent.name]
 
                         # Query memory for the first few tickers in the universe to get context
@@ -370,7 +370,9 @@ class AgentRunner:
 
         # Hot-stop: remove agents no longer active
         for name in running_names - registry_names:
-            logger.info("Registry polling: hot-stopping agent '%s' (no longer active)", name)
+            logger.info(
+                "Registry polling: hot-stopping agent '%s' (no longer active)", name
+            )
             try:
                 await self.stop_agent(name)
                 del self._agents[name]
@@ -398,11 +400,16 @@ class AgentRunner:
                 # Check for warm-restart
                 old_fingerprint = self._registry_configs.get(name)
                 if old_fingerprint and old_fingerprint != config_fingerprint:
-                    logger.info("Registry polling: warm-restarting agent '%s' (config changed)", name)
+                    logger.info(
+                        "Registry polling: warm-restarting agent '%s' (config changed)",
+                        name,
+                    )
                     try:
                         await self.stop_agent(name)
                     except Exception as e:
-                        logger.error("Failed to stop agent '%s' for warm-restart: %s", name, e)
+                        logger.error(
+                            "Failed to stop agent '%s' for warm-restart: %s", name, e
+                        )
                         continue
                     # Fall through to re-instantiate below
                     del self._agents[name]
@@ -413,14 +420,22 @@ class AgentRunner:
                         registry_shadow = bool(entry.get("shadow_mode", False))
                         if agent.config.shadow_mode != registry_shadow:
                             agent.config.shadow_mode = registry_shadow
-                            logger.info("Synced shadow_mode=%s for '%s' from registry", registry_shadow, name)
+                            logger.info(
+                                "Synced shadow_mode=%s for '%s' from registry",
+                                registry_shadow,
+                                name,
+                            )
                     self._registry_configs[name] = config_fingerprint
                     continue
 
             # Hot-start or warm-restart re-instantiation
             factory = _STRATEGY_REGISTRY.get(strategy)
             if not factory:
-                logger.warning("Registry polling: unknown strategy '%s' for agent '%s'", strategy, name)
+                logger.warning(
+                    "Registry polling: unknown strategy '%s' for agent '%s'",
+                    strategy,
+                    name,
+                )
                 continue
 
             try:
@@ -457,6 +472,12 @@ class AgentRunner:
 
                 if schedule in ("continuous", "cron"):
                     await self.start_agent(name)
-                    logger.info("Registry polling: started agent '%s' (strategy=%s)", name, strategy)
+                    logger.info(
+                        "Registry polling: started agent '%s' (strategy=%s)",
+                        name,
+                        strategy,
+                    )
             except Exception as e:
-                logger.error("Failed to instantiate agent '%s' from registry: %s", name, e)
+                logger.error(
+                    "Failed to instantiate agent '%s' from registry: %s", name, e
+                )

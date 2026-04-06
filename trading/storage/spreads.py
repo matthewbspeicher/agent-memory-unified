@@ -1,4 +1,5 @@
 """SpreadStore — persists arb spread observations for history and alerting."""
+
 from __future__ import annotations
 
 import logging
@@ -21,7 +22,9 @@ class SpreadObservation:
     gap_cents: int
     kalshi_volume: float = 0.0
     poly_volume: float = 0.0
-    observed_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    observed_at: str = field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    )
 
 
 class SpreadStore:
@@ -36,9 +39,17 @@ class SpreadStore:
                    (kalshi_ticker, poly_ticker, match_score, kalshi_cents, poly_cents,
                     gap_cents, kalshi_volume, poly_volume, observed_at)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (obs.kalshi_ticker, obs.poly_ticker, obs.match_score,
-                 obs.kalshi_cents, obs.poly_cents, obs.gap_cents,
-                 obs.kalshi_volume, obs.poly_volume, obs.observed_at),
+                (
+                    obs.kalshi_ticker,
+                    obs.poly_ticker,
+                    obs.match_score,
+                    obs.kalshi_cents,
+                    obs.poly_cents,
+                    obs.gap_cents,
+                    obs.kalshi_volume,
+                    obs.poly_volume,
+                    obs.observed_at,
+                ),
             )
             await self._db.commit()
         except Exception as exc:
@@ -54,6 +65,7 @@ class SpreadStore:
         if hours <= 0:
             return []
         from datetime import timedelta
+
         cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
         try:
             cursor = await self._db.execute(
@@ -69,9 +81,15 @@ class SpreadStore:
             rows = await cursor.fetchall()
             return [
                 SpreadObservation(
-                    kalshi_ticker=r[0], poly_ticker=r[1], match_score=r[2],
-                    kalshi_cents=r[3], poly_cents=r[4], gap_cents=r[5],
-                    kalshi_volume=r[6], poly_volume=r[7], observed_at=r[8],
+                    kalshi_ticker=r[0],
+                    poly_ticker=r[1],
+                    match_score=r[2],
+                    kalshi_cents=r[3],
+                    poly_cents=r[4],
+                    gap_cents=r[5],
+                    kalshi_volume=r[6],
+                    poly_volume=r[7],
+                    observed_at=r[8],
                 )
                 for r in rows
             ]
@@ -79,7 +97,9 @@ class SpreadStore:
             logger.warning("SpreadStore.get_history failed: %s", exc)
             return []
 
-    async def get_top_spreads(self, min_gap: int = 5, limit: int = 20) -> list[dict[str, Any]]:
+    async def get_top_spreads(
+        self, min_gap: int = 5, limit: int = 20
+    ) -> list[dict[str, Any]]:
         """Return the most recent observation per pair with gap >= min_gap, ordered by gap desc."""
         try:
             cursor = await self._db.execute(
@@ -104,8 +124,13 @@ class SpreadStore:
             rows = await cursor.fetchall()
             return [
                 {
-                    "id": r[0], "kalshi_ticker": r[1], "poly_ticker": r[2], "match_score": r[3],
-                    "kalshi_cents": r[4], "poly_cents": r[5], "gap_cents": r[6],
+                    "id": r[0],
+                    "kalshi_ticker": r[1],
+                    "poly_ticker": r[2],
+                    "match_score": r[3],
+                    "kalshi_cents": r[4],
+                    "poly_cents": r[5],
+                    "gap_cents": r[6],
                     "observed_at": r[7],
                 }
                 for r in rows
@@ -124,7 +149,7 @@ class SpreadStore:
             """UPDATE arb_spread_observations
                SET is_claimed = 1, claimed_at = ?, claimed_by = ?
                WHERE id = ? AND (is_claimed = 0 OR claimed_at < datetime('now', '-2 minutes'))""",
-            (now, claimant, observation_id)
+            (now, claimant, observation_id),
         )
         await self._db.commit()
         return cursor.rowcount > 0
@@ -133,6 +158,6 @@ class SpreadStore:
         """Release a claimed spread."""
         await self._db.execute(
             "UPDATE arb_spread_observations SET is_claimed = 0 WHERE id = ?",
-            (observation_id,)
+            (observation_id,),
         )
         await self._db.commit()

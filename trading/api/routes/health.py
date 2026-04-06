@@ -1,3 +1,4 @@
+import logging
 import time
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
@@ -5,6 +6,8 @@ from fastapi.responses import JSONResponse
 from api.auth import verify_api_key
 from api.deps import get_broker
 from broker.interfaces import Broker
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 _start_time = time.time()
@@ -23,9 +26,17 @@ def health(
     if all_brokers:
         for name, b in all_brokers.items():
             entry = {"connected": b.connection.is_connected()}
-            if name == "polymarket" and settings and getattr(settings, "polymarket_dry_run", False):
+            if (
+                name == "polymarket"
+                and settings
+                and getattr(settings, "polymarket_dry_run", False)
+            ):
                 entry["dry_run"] = True
-            if name == "kalshi" and settings and getattr(settings, "kalshi_demo", False):
+            if (
+                name == "kalshi"
+                and settings
+                and getattr(settings, "kalshi_demo", False)
+            ):
                 entry["demo"] = True
             brokers_status[name] = entry
     else:
@@ -58,8 +69,7 @@ async def health_internal(request: Request):
     if all_brokers:
         broker_ok = any(b.connection.is_connected() for b in all_brokers.values())
         reconnecting = any(
-            getattr(b.connection, "_reconnecting", False)
-            for b in all_brokers.values()
+            getattr(b.connection, "_reconnecting", False) for b in all_brokers.values()
         )
     elif broker is not None:
         reconnecting = getattr(broker.connection, "_reconnecting", False)
@@ -145,6 +155,6 @@ async def health_connectivity(request: Request):
         status_code=200 if overall_healthy else 503,
         content={
             "status": "healthy" if overall_healthy else "degraded",
-            "brokers": results
-        }
+            "brokers": results,
+        },
     )

@@ -93,7 +93,9 @@ class TriggerEvaluator:
         comparison = condition.get("comparison", "below")
         consecutive_days = condition.get("consecutive_days")
 
-        value = self._resolve_metric(metric, sorted_snapshots, closed_trades, paper_stats)
+        value = self._resolve_metric(
+            metric, sorted_snapshots, closed_trades, paper_stats
+        )
 
         if consecutive_days is not None:
             fired = self._check_consecutive_days(
@@ -151,7 +153,9 @@ class TriggerEvaluator:
                 break
         return count
 
-    def _compute_sharpe_ratio_7d(self, sorted_snapshots: list[PerformanceSnapshot]) -> float:
+    def _compute_sharpe_ratio_7d(
+        self, sorted_snapshots: list[PerformanceSnapshot]
+    ) -> float:
         last_7 = sorted_snapshots[:7]
         if len(last_7) < 5:
             return 0.0

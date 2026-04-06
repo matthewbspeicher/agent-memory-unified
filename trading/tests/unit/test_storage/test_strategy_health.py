@@ -1,4 +1,5 @@
 """Tests for StrategyHealthStore persistence."""
+
 from __future__ import annotations
 
 import aiosqlite
@@ -31,7 +32,9 @@ class TestStrategyHealthStore:
 
     async def test_upsert_updates_existing_row(self, store):
         await store.upsert_status("rsi_agent", "normal")
-        await store.upsert_status("rsi_agent", "watchlist", trigger_reason="bad expectancy")
+        await store.upsert_status(
+            "rsi_agent", "watchlist", trigger_reason="bad expectancy"
+        )
         row = await store.get_status("rsi_agent")
         assert row["status"] == "watchlist"
         assert row["trigger_reason"] == "bad expectancy"
@@ -86,8 +89,12 @@ class TestStrategyHealthStore:
     async def test_get_events_returns_newest_first(self, store):
         for reason in ("first", "second", "third"):
             await store.record_event(
-                "rsi_agent", "normal", "watchlist",
-                reason=reason, metrics_snapshot={}, actor="system",
+                "rsi_agent",
+                "normal",
+                "watchlist",
+                reason=reason,
+                metrics_snapshot={},
+                actor="system",
             )
         events = await store.get_events("rsi_agent", limit=10)
         # newest first — third was inserted last
@@ -96,8 +103,12 @@ class TestStrategyHealthStore:
     async def test_get_events_respects_limit(self, store):
         for i in range(5):
             await store.record_event(
-                "rsi_agent", None, "normal",
-                reason=f"event-{i}", metrics_snapshot={}, actor="system",
+                "rsi_agent",
+                None,
+                "normal",
+                reason=f"event-{i}",
+                metrics_snapshot={},
+                actor="system",
             )
         events = await store.get_events("rsi_agent", limit=3)
         assert len(events) == 3
@@ -107,7 +118,9 @@ class TestStrategyHealthStore:
         assert events == []
 
     async def test_set_override_creates_upsert_and_event(self, store):
-        await store.set_override("rsi_agent", "retired", actor="operator", reason="manual retire")
+        await store.set_override(
+            "rsi_agent", "retired", actor="operator", reason="manual retire"
+        )
         row = await store.get_status("rsi_agent")
         assert row["status"] == "retired"
         assert row["manual_override"] == "operator"

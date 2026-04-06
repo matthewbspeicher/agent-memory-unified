@@ -1,4 +1,5 @@
 """ExitManager — attaches, checks, and persists exit rules for open positions."""
+
 from __future__ import annotations
 
 import logging
@@ -6,8 +7,15 @@ from datetime import datetime, timezone
 from decimal import Decimal
 
 from exits.rules import (
-    ExitRule, StopLoss, TakeProfit, TrailingStop, TimeExit,
-    PredictionTimeExit, PreExpiryExit, ProbabilityTrailingStop, parse_rule,
+    ExitRule,
+    StopLoss,
+    TakeProfit,
+    TrailingStop,
+    TimeExit,
+    PredictionTimeExit,
+    PreExpiryExit,
+    ProbabilityTrailingStop,
+    parse_rule,
 )
 from broker.models import AssetType
 
@@ -45,7 +53,11 @@ class ExitManager:
         raw_rules = await self._store.load_all()
         restored: dict[str | int, list[ExitRule]] = {}
         for position_id, serialized_rules in raw_rules.items():
-            parsed = [rule for rule in (parse_rule(d) for d in serialized_rules) if rule is not None]
+            parsed = [
+                rule
+                for rule in (parse_rule(d) for d in serialized_rules)
+                if rule is not None
+            ]
             if parsed:
                 restored[position_id] = parsed
         self._rules = restored
@@ -101,10 +113,12 @@ class ExitManager:
         if asset_type == AssetType.PREDICTION:
             rules: list[ExitRule] = []
             if contract_expires_at:
-                rules.append(PreExpiryExit(
-                    expires_at=contract_expires_at,
-                    hours_before_expiry=4.0,
-                ))
+                rules.append(
+                    PreExpiryExit(
+                        expires_at=contract_expires_at,
+                        hours_before_expiry=4.0,
+                    )
+                )
             rules.append(ProbabilityTrailingStop(trail_pp=20.0, side=side))
             return rules
 

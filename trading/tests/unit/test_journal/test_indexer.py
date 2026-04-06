@@ -5,7 +5,9 @@ from journal.indexer import JournalIndexer, SearchResult
 
 
 def test_search_result_with_score():
-    r = SearchResult(memory_id="abc", score=0.95, content="trade text", metadata={"status": "open"})
+    r = SearchResult(
+        memory_id="abc", score=0.95, content="trade text", metadata={"status": "open"}
+    )
     assert r.memory_id == "abc"
     assert r.score == 0.95
     assert r.content == "trade text"
@@ -36,6 +38,7 @@ def indexer(mock_model):
     )
     idx._model = mock_model
     import hnswlib
+
     idx._index = hnswlib.Index(space="cosine", dim=384)
     idx._index.init_index(max_elements=100, ef_construction=200, M=16)
     idx._index.set_ef(50)
@@ -51,7 +54,14 @@ def test_add_entry_sync_and_search(indexer, mock_model):
     indexer._add_entry_sync(
         memory_id="mem-1",
         content="Trade AAPL BUY confidence 0.9",
-        metadata={"decision": {"symbol": "AAPL", "direction": "BUY", "timestamp": "2026-04-01T00:00:00+00:00"}, "status": "open"},
+        metadata={
+            "decision": {
+                "symbol": "AAPL",
+                "direction": "BUY",
+                "timestamp": "2026-04-01T00:00:00+00:00",
+            },
+            "status": "open",
+        },
     )
 
     assert indexer.entry_count == 1
@@ -70,9 +80,43 @@ def test_get_by_symbol(indexer, mock_model):
     vec = np.random.randn(384).astype(np.float32)
     mock_model.encode.return_value = vec
 
-    indexer._add_entry_sync("mem-1", "Trade AAPL BUY", {"decision": {"symbol": "AAPL", "direction": "BUY", "timestamp": "2026-04-01T00:00:00+00:00"}, "status": "closed", "realized_pnl": -10.0})
-    indexer._add_entry_sync("mem-2", "Trade TSLA SELL", {"decision": {"symbol": "TSLA", "direction": "SELL", "timestamp": "2026-04-01T01:00:00+00:00"}, "status": "open"})
-    indexer._add_entry_sync("mem-3", "Trade AAPL SELL", {"decision": {"symbol": "AAPL", "direction": "SELL", "timestamp": "2026-04-01T02:00:00+00:00"}, "status": "open"})
+    indexer._add_entry_sync(
+        "mem-1",
+        "Trade AAPL BUY",
+        {
+            "decision": {
+                "symbol": "AAPL",
+                "direction": "BUY",
+                "timestamp": "2026-04-01T00:00:00+00:00",
+            },
+            "status": "closed",
+            "realized_pnl": -10.0,
+        },
+    )
+    indexer._add_entry_sync(
+        "mem-2",
+        "Trade TSLA SELL",
+        {
+            "decision": {
+                "symbol": "TSLA",
+                "direction": "SELL",
+                "timestamp": "2026-04-01T01:00:00+00:00",
+            },
+            "status": "open",
+        },
+    )
+    indexer._add_entry_sync(
+        "mem-3",
+        "Trade AAPL SELL",
+        {
+            "decision": {
+                "symbol": "AAPL",
+                "direction": "SELL",
+                "timestamp": "2026-04-01T02:00:00+00:00",
+            },
+            "status": "open",
+        },
+    )
 
     results = indexer.get_by_symbol("AAPL", limit=10)
     assert len(results) == 2
@@ -85,8 +129,30 @@ def test_tombstone_filtering(indexer, mock_model):
     vec = np.random.randn(384).astype(np.float32)
     mock_model.encode.return_value = vec
 
-    indexer._add_entry_sync("mem-1", "Trade AAPL BUY", {"decision": {"symbol": "AAPL", "direction": "BUY", "timestamp": "2026-04-01T00:00:00+00:00"}, "status": "open"})
-    indexer._add_entry_sync("mem-2", "Trade AAPL SELL", {"decision": {"symbol": "AAPL", "direction": "SELL", "timestamp": "2026-04-01T01:00:00+00:00"}, "status": "cancelled"})
+    indexer._add_entry_sync(
+        "mem-1",
+        "Trade AAPL BUY",
+        {
+            "decision": {
+                "symbol": "AAPL",
+                "direction": "BUY",
+                "timestamp": "2026-04-01T00:00:00+00:00",
+            },
+            "status": "open",
+        },
+    )
+    indexer._add_entry_sync(
+        "mem-2",
+        "Trade AAPL SELL",
+        {
+            "decision": {
+                "symbol": "AAPL",
+                "direction": "SELL",
+                "timestamp": "2026-04-01T01:00:00+00:00",
+            },
+            "status": "cancelled",
+        },
+    )
 
     results = indexer.get_by_symbol("AAPL", limit=10)
     assert len(results) == 1
@@ -99,9 +165,15 @@ def test_tombstone_filtering(indexer, mock_model):
 def test_auto_resize(mock_model):
     event_bus = MagicMock()
     remembr_client = AsyncMock()
-    idx = JournalIndexer(event_bus=event_bus, remembr_client=remembr_client, index_path="/tmp/test_resize", max_elements=10)
+    idx = JournalIndexer(
+        event_bus=event_bus,
+        remembr_client=remembr_client,
+        index_path="/tmp/test_resize",
+        max_elements=10,
+    )
     idx._model = mock_model
     import hnswlib
+
     idx._index = hnswlib.Index(space="cosine", dim=384)
     idx._index.init_index(max_elements=10, ef_construction=200, M=16)
     idx._index.set_ef(50)
@@ -111,7 +183,18 @@ def test_auto_resize(mock_model):
     mock_model.encode.return_value = vec
 
     for i in range(10):
-        idx._add_entry_sync(f"mem-{i}", f"Trade {i}", {"decision": {"symbol": "TEST", "direction": "BUY", "timestamp": f"2026-04-01T{i:02d}:00:00+00:00"}, "status": "open"})
+        idx._add_entry_sync(
+            f"mem-{i}",
+            f"Trade {i}",
+            {
+                "decision": {
+                    "symbol": "TEST",
+                    "direction": "BUY",
+                    "timestamp": f"2026-04-01T{i:02d}:00:00+00:00",
+                },
+                "status": "open",
+            },
+        )
 
     assert idx._max_elements > 10
     assert idx.entry_count == 10
@@ -121,8 +204,30 @@ def test_add_entry_sync_skips_duplicate(indexer, mock_model):
     vec = np.random.randn(384).astype(np.float32)
     mock_model.encode.return_value = vec
 
-    indexer._add_entry_sync("mem-1", "Trade AAPL BUY", {"decision": {"symbol": "AAPL", "direction": "BUY", "timestamp": "2026-04-01T00:00:00+00:00"}, "status": "open"})
-    indexer._add_entry_sync("mem-1", "Trade AAPL BUY DUPLICATE", {"decision": {"symbol": "AAPL", "direction": "BUY", "timestamp": "2026-04-01T00:00:00+00:00"}, "status": "open"})
+    indexer._add_entry_sync(
+        "mem-1",
+        "Trade AAPL BUY",
+        {
+            "decision": {
+                "symbol": "AAPL",
+                "direction": "BUY",
+                "timestamp": "2026-04-01T00:00:00+00:00",
+            },
+            "status": "open",
+        },
+    )
+    indexer._add_entry_sync(
+        "mem-1",
+        "Trade AAPL BUY DUPLICATE",
+        {
+            "decision": {
+                "symbol": "AAPL",
+                "direction": "BUY",
+                "timestamp": "2026-04-01T00:00:00+00:00",
+            },
+            "status": "open",
+        },
+    )
 
     assert indexer.entry_count == 1
     assert indexer._content["mem-1"] == "Trade AAPL BUY"
@@ -145,23 +250,45 @@ async def test_persist_and_load(mock_model):
         event_bus = MagicMock()
         remembr_client = AsyncMock()
 
-        idx1 = JournalIndexer(event_bus=event_bus, remembr_client=remembr_client, index_path=path, max_elements=100)
+        idx1 = JournalIndexer(
+            event_bus=event_bus,
+            remembr_client=remembr_client,
+            index_path=path,
+            max_elements=100,
+        )
         idx1._model = mock_model
         import hnswlib
+
         idx1._index = hnswlib.Index(space="cosine", dim=384)
         idx1._index.init_index(max_elements=100, ef_construction=200, M=16)
         idx1._index.set_ef(50)
 
         vec = np.random.randn(384).astype(np.float32)
         mock_model.encode.return_value = vec
-        idx1._add_entry_sync("mem-1", "Trade AAPL BUY", {"decision": {"symbol": "AAPL", "direction": "BUY", "timestamp": "2026-04-01T00:00:00+00:00"}, "status": "open"})
+        idx1._add_entry_sync(
+            "mem-1",
+            "Trade AAPL BUY",
+            {
+                "decision": {
+                    "symbol": "AAPL",
+                    "direction": "BUY",
+                    "timestamp": "2026-04-01T00:00:00+00:00",
+                },
+                "status": "open",
+            },
+        )
 
         await idx1.persist()
 
         assert os.path.exists(f"{path}.hnsw")
         assert os.path.exists(f"{path}.meta.json")
 
-        idx2 = JournalIndexer(event_bus=event_bus, remembr_client=remembr_client, index_path=path, max_elements=100)
+        idx2 = JournalIndexer(
+            event_bus=event_bus,
+            remembr_client=remembr_client,
+            index_path=path,
+            max_elements=100,
+        )
         idx2._model = mock_model
         loaded = await idx2.load()
 
@@ -179,7 +306,12 @@ async def test_persist_and_load(mock_model):
 async def test_load_returns_false_when_no_files():
     event_bus = MagicMock()
     remembr_client = AsyncMock()
-    idx = JournalIndexer(event_bus=event_bus, remembr_client=remembr_client, index_path="/tmp/nonexistent_path_xyz", max_elements=100)
+    idx = JournalIndexer(
+        event_bus=event_bus,
+        remembr_client=remembr_client,
+        index_path="/tmp/nonexistent_path_xyz",
+        max_elements=100,
+    )
     assert await idx.load() is False
 
 
@@ -189,11 +321,20 @@ async def test_handle_entry_added(indexer, mock_model):
     vec /= np.linalg.norm(vec)
     mock_model.encode.return_value = vec
 
-    await indexer._handle_entry_added({
-        "memory_id": "mem-99",
-        "content": "Trade GOOG BUY high confidence",
-        "metadata": {"decision": {"symbol": "GOOG", "direction": "BUY", "timestamp": "2026-04-01T00:00:00+00:00"}, "status": "open"},
-    })
+    await indexer._handle_entry_added(
+        {
+            "memory_id": "mem-99",
+            "content": "Trade GOOG BUY high confidence",
+            "metadata": {
+                "decision": {
+                    "symbol": "GOOG",
+                    "direction": "BUY",
+                    "timestamp": "2026-04-01T00:00:00+00:00",
+                },
+                "status": "open",
+            },
+        }
+    )
 
     assert "mem-99" in indexer._metadata
     assert "GOOG" in indexer._symbol_index
@@ -203,12 +344,33 @@ async def test_handle_entry_added(indexer, mock_model):
 async def test_handle_entry_updated_tombstone(indexer, mock_model):
     vec = np.random.randn(384).astype(np.float32)
     mock_model.encode.return_value = vec
-    indexer._add_entry_sync("mem-1", "Trade AAPL BUY", {"decision": {"symbol": "AAPL", "direction": "BUY", "timestamp": "2026-04-01T00:00:00+00:00"}, "status": "open"})
+    indexer._add_entry_sync(
+        "mem-1",
+        "Trade AAPL BUY",
+        {
+            "decision": {
+                "symbol": "AAPL",
+                "direction": "BUY",
+                "timestamp": "2026-04-01T00:00:00+00:00",
+            },
+            "status": "open",
+        },
+    )
 
-    await indexer._handle_entry_updated({
-        "memory_id": "mem-1",
-        "metadata": {"decision": {"symbol": "AAPL", "direction": "BUY", "timestamp": "2026-04-01T00:00:00+00:00"}, "status": "cancelled", "realized_pnl": -5.0},
-    })
+    await indexer._handle_entry_updated(
+        {
+            "memory_id": "mem-1",
+            "metadata": {
+                "decision": {
+                    "symbol": "AAPL",
+                    "direction": "BUY",
+                    "timestamp": "2026-04-01T00:00:00+00:00",
+                },
+                "status": "cancelled",
+                "realized_pnl": -5.0,
+            },
+        }
+    )
 
     assert indexer._metadata["mem-1"]["status"] == "cancelled"
     results = indexer.get_by_symbol("AAPL", limit=10)
@@ -217,10 +379,12 @@ async def test_handle_entry_updated_tombstone(indexer, mock_model):
 
 @pytest.mark.asyncio
 async def test_handle_entry_updated_ignores_unknown(indexer):
-    await indexer._handle_entry_updated({
-        "memory_id": "nonexistent",
-        "metadata": {"status": "closed"},
-    })
+    await indexer._handle_entry_updated(
+        {
+            "memory_id": "nonexistent",
+            "metadata": {"status": "closed"},
+        }
+    )
     assert "nonexistent" not in indexer._metadata
 
 
@@ -230,13 +394,17 @@ from unittest.mock import patch
 @pytest.mark.asyncio
 async def test_start_sets_up_background_tasks():
     event_bus = MagicMock()
+
     async def empty_gen():
         return
         yield
+
     event_bus.subscribe = empty_gen
 
     remembr_client = AsyncMock()
-    remembr_client.list = AsyncMock(return_value={"data": [], "page": 1, "total_pages": 1})
+    remembr_client.list = AsyncMock(
+        return_value={"data": [], "page": 1, "total_pages": 1}
+    )
 
     with patch("journal.indexer.SentenceTransformer") as MockST:
         mock_model = MagicMock()
@@ -265,13 +433,17 @@ async def test_start_sets_up_background_tasks():
 @pytest.mark.asyncio
 async def test_stop_persists_and_cancels():
     event_bus = MagicMock()
+
     async def empty_gen():
         return
         yield
+
     event_bus.subscribe = empty_gen
 
     remembr_client = AsyncMock()
-    remembr_client.list = AsyncMock(return_value={"data": [], "page": 1, "total_pages": 1})
+    remembr_client.list = AsyncMock(
+        return_value={"data": [], "page": 1, "total_pages": 1}
+    )
 
     with patch("journal.indexer.SentenceTransformer") as MockST:
         mock_model = MagicMock()
@@ -288,7 +460,18 @@ async def test_stop_persists_and_cancels():
         await idx.start()
         await idx._rehydrate_task
 
-        idx._add_entry_sync("mem-1", "Trade AAPL", {"decision": {"symbol": "AAPL", "direction": "BUY", "timestamp": "2026-04-01T00:00:00+00:00"}, "status": "open"})
+        idx._add_entry_sync(
+            "mem-1",
+            "Trade AAPL",
+            {
+                "decision": {
+                    "symbol": "AAPL",
+                    "direction": "BUY",
+                    "timestamp": "2026-04-01T00:00:00+00:00",
+                },
+                "status": "open",
+            },
+        )
 
         await idx.stop()
 
@@ -298,9 +481,11 @@ async def test_stop_persists_and_cancels():
 @pytest.mark.asyncio
 async def test_rehydrate_fail_open():
     event_bus = MagicMock()
+
     async def empty_gen():
         return
         yield
+
     event_bus.subscribe = empty_gen
 
     remembr_client = AsyncMock()
@@ -329,20 +514,46 @@ async def test_rehydrate_fail_open():
 @pytest.mark.asyncio
 async def test_rehydrate_indexes_entries():
     event_bus = MagicMock()
+
     async def empty_gen():
         return
         yield
+
     event_bus.subscribe = empty_gen
 
     remembr_client = AsyncMock()
-    remembr_client.list = AsyncMock(return_value={
-        "data": [
-            {"id": "mem-1", "value": "Trade AAPL BUY", "metadata": {"decision": {"symbol": "AAPL", "direction": "BUY", "timestamp": "2026-04-01T00:00:00+00:00"}, "status": "open"}},
-            {"id": "mem-2", "value": "Trade TSLA SELL", "metadata": {"decision": {"symbol": "TSLA", "direction": "SELL", "timestamp": "2026-04-01T01:00:00+00:00"}, "status": "closed"}},
-        ],
-        "page": 1,
-        "total_pages": 1,
-    })
+    remembr_client.list = AsyncMock(
+        return_value={
+            "data": [
+                {
+                    "id": "mem-1",
+                    "value": "Trade AAPL BUY",
+                    "metadata": {
+                        "decision": {
+                            "symbol": "AAPL",
+                            "direction": "BUY",
+                            "timestamp": "2026-04-01T00:00:00+00:00",
+                        },
+                        "status": "open",
+                    },
+                },
+                {
+                    "id": "mem-2",
+                    "value": "Trade TSLA SELL",
+                    "metadata": {
+                        "decision": {
+                            "symbol": "TSLA",
+                            "direction": "SELL",
+                            "timestamp": "2026-04-01T01:00:00+00:00",
+                        },
+                        "status": "closed",
+                    },
+                },
+            ],
+            "page": 1,
+            "total_pages": 1,
+        }
+    )
 
     with patch("journal.indexer.SentenceTransformer") as MockST:
         mock_model = MagicMock()

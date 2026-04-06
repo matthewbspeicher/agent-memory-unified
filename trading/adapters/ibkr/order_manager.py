@@ -25,7 +25,9 @@ class IBKROrderManager(OrderManager):
         ib_order = to_ib_order(order)
         trade = self._ib.placeOrder(contract, ib_order)
 
-        terminal_states = FILL_TERMINAL if isinstance(order, MarketOrder) else SUBMIT_TERMINAL
+        terminal_states = (
+            FILL_TERMINAL if isinstance(order, MarketOrder) else SUBMIT_TERMINAL
+        )
         event = asyncio.Event()
 
         def on_status(t):
@@ -47,6 +49,7 @@ class IBKROrderManager(OrderManager):
         trade = next((t for t in trades if str(t.order.orderId) == order_id), None)
         if not trade:
             from broker.errors import BrokerError
+
             raise BrokerError(f"Order {order_id} not found")
 
         for key, value in changes.items():
@@ -82,11 +85,16 @@ class IBKROrderManager(OrderManager):
         trade = next((t for t in trades if str(t.order.orderId) == order_id), None)
         if not trade:
             from broker.errors import BrokerError
+
             raise BrokerError(f"Order {order_id} not found")
 
         event = asyncio.Event()
-        on_cancelled = lambda t: event.set()
-        on_failed = lambda t: event.set()
+
+        def on_cancelled(t):
+            event.set()
+
+        def on_failed(t):
+            event.set()
 
         trade.cancelledEvent += on_cancelled
         trade.cancelFailedEvent += on_failed
@@ -106,6 +114,7 @@ class IBKROrderManager(OrderManager):
         trade = next((t for t in trades if str(t.order.orderId) == order_id), None)
         if not trade:
             from broker.errors import BrokerError
+
             raise BrokerError(f"Order {order_id} not found")
         return to_order_result(trade).status
 

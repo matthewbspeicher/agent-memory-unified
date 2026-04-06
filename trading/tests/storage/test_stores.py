@@ -1,6 +1,7 @@
 """
 Tests for storage stores - verifying they accept db parameter
 """
+
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 import aiosqlite
@@ -54,7 +55,9 @@ class TestStoresWorkWithDatabaseConnection:
         config = Config(db_path=":memory:")
         db_conn = DatabaseConnection(config)
 
-        with patch("storage.db.aiosqlite.connect", new_callable=AsyncMock) as mock_connect:
+        with patch(
+            "storage.db.aiosqlite.connect", new_callable=AsyncMock
+        ) as mock_connect:
             mock_db = AsyncMock(spec=aiosqlite.Connection)
             mock_connect.return_value = mock_db
 

@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 import hashlib
 
+
 class ExperimentConfig(BaseModel):
     name: str
     control_agent: str
@@ -10,6 +11,7 @@ class ExperimentConfig(BaseModel):
     is_arena: bool = False
     status: str = "running"
     started_at: str | None = None
+
 
 class Experiment:
     def __init__(self, config: ExperimentConfig):
@@ -34,7 +36,7 @@ class Experiment:
     def get_assigned_agent(self, symbol: str) -> str:
         # Hash the symbol and experiment name to get a consistent float between 0 and 1
         h = hashlib.sha256(f"{self.name}:{symbol}".encode()).hexdigest()
-        val = int(h[:8], 16) / 0xffffffff
+        val = int(h[:8], 16) / 0xFFFFFFFF
         return self.variant_agent if val < self.variant_split else self.control_agent
 
 
@@ -66,7 +68,9 @@ class ExperimentManager:
                     return False
         return True
 
+
 _manager = ExperimentManager()
+
 
 def get_experiment_manager() -> ExperimentManager:
     return _manager

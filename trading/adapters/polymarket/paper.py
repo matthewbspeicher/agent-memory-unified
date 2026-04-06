@@ -14,6 +14,7 @@ P&L model (prices in 0-1 probability):
 
 Account ID for this broker: "POLYMARKET_PAPER"
 """
+
 from __future__ import annotations
 
 import logging
@@ -23,12 +24,28 @@ from decimal import Decimal
 from typing import Any
 
 from broker.interfaces import (
-    AccountProvider, Broker, BrokerConnection, MarketDataProvider, OrderManager,
+    AccountProvider,
+    Broker,
+    BrokerConnection,
+    MarketDataProvider,
+    OrderManager,
 )
 from broker.models import (
-    Account, AccountBalance, Bar, BrokerCapabilities, ContractDetails,
-    LimitOrder, OptionsChain, OrderBase, OrderHistoryFilter, OrderResult,
-    OrderSide, OrderStatus, Position, Quote, Symbol,
+    Account,
+    AccountBalance,
+    Bar,
+    BrokerCapabilities,
+    ContractDetails,
+    LimitOrder,
+    OptionsChain,
+    OrderBase,
+    OrderHistoryFilter,
+    OrderResult,
+    OrderSide,
+    OrderStatus,
+    Position,
+    Quote,
+    Symbol,
 )
 from storage.paper import PaperStore
 
@@ -73,7 +90,11 @@ class PolymarketPaperAccount(AccountProvider):
         self._store = store
 
     async def get_accounts(self) -> list[Account]:
-        return [Account(account_id=POLYMARKET_PAPER_ACCOUNT_ID, account_type="polymarket_paper")]
+        return [
+            Account(
+                account_id=POLYMARKET_PAPER_ACCOUNT_ID, account_type="polymarket_paper"
+            )
+        ]
 
     async def get_balances(self, account_id: str) -> AccountBalance:
         return await self._store.get_balance(account_id)
@@ -82,27 +103,37 @@ class PolymarketPaperAccount(AccountProvider):
         return await self._store.get_positions(account_id)
 
     async def get_order_history(
-        self, account_id: str, filters: OrderHistoryFilter | None = None,
+        self,
+        account_id: str,
+        filters: OrderHistoryFilter | None = None,
     ) -> list[OrderResult]:
         return await self._store.get_order_history(account_id)
 
 
 class PolymarketPaperMarketData(MarketDataProvider):
     async def get_quote(self, symbol: Symbol) -> Quote:
-        raise NotImplementedError("PolymarketPaperBroker does not provide real-time quotes")
+        raise NotImplementedError(
+            "PolymarketPaperBroker does not provide real-time quotes"
+        )
 
     async def get_quotes(self, symbols: list[Symbol]) -> list[Quote]:
         return []
 
     async def stream_quotes(
-        self, symbols: list[Symbol], callback: Callable[[Quote], Any],
+        self,
+        symbols: list[Symbol],
+        callback: Callable[[Quote], Any],
     ) -> None:
         pass
 
-    async def get_historical(self, symbol: Symbol, timeframe: str, period: str) -> list[Bar]:
+    async def get_historical(
+        self, symbol: Symbol, timeframe: str, period: str
+    ) -> list[Bar]:
         return []
 
-    async def get_options_chain(self, symbol: Symbol, expiry: str | None = None) -> OptionsChain:
+    async def get_options_chain(
+        self, symbol: Symbol, expiry: str | None = None
+    ) -> OptionsChain:
         raise NotImplementedError
 
     async def get_contract_details(self, symbol: Symbol) -> ContractDetails:
@@ -110,7 +141,9 @@ class PolymarketPaperMarketData(MarketDataProvider):
 
 
 class PolymarketPaperOrderManager(OrderManager):
-    def __init__(self, store: PaperStore, slippage_cents: int = DEFAULT_SLIPPAGE_CENTS) -> None:
+    def __init__(
+        self, store: PaperStore, slippage_cents: int = DEFAULT_SLIPPAGE_CENTS
+    ) -> None:
         self._store = store
         self._slippage_cents = slippage_cents
         self._callbacks: list[Callable[[OrderResult], Any]] = []
@@ -123,7 +156,9 @@ class PolymarketPaperOrderManager(OrderManager):
                 message="PolymarketPaperBroker only accepts LimitOrder",
             )
 
-        fill_price = _apply_slippage(order.limit_price, order.side, self._slippage_cents)
+        fill_price = _apply_slippage(
+            order.limit_price, order.side, self._slippage_cents
+        )
         order_id = str(uuid.uuid4())
 
         await self._store.record_fill(
@@ -155,7 +190,9 @@ class PolymarketPaperOrderManager(OrderManager):
         return result
 
     async def modify_order(self, order_id: str, changes: dict) -> OrderResult:
-        raise NotImplementedError("PolymarketPaperBroker does not support order modification")
+        raise NotImplementedError(
+            "PolymarketPaperBroker does not support order modification"
+        )
 
     async def cancel_order(self, order_id: str) -> OrderResult:
         return OrderResult(order_id=order_id, status=OrderStatus.CANCELLED)
@@ -221,5 +258,9 @@ class PolymarketPaperBroker(Broker):
         )
         logger.info(
             "PolymarketPaperBroker: resolved %s %s x%s @ entry %s → %s",
-            account_id, symbol.ticker, quantity, entry_price, resolution,
+            account_id,
+            symbol.ticker,
+            quantity,
+            entry_price,
+            resolution,
         )

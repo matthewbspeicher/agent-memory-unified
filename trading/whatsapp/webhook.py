@@ -33,7 +33,9 @@ def create_webhook_router(
     def _verify_signature(body: bytes, signature: str) -> bool:
         if not app_secret:
             return False
-        expected = "sha256=" + hmac.new(app_secret.encode(), body, hashlib.sha256).hexdigest()
+        expected = (
+            "sha256=" + hmac.new(app_secret.encode(), body, hashlib.sha256).hexdigest()
+        )
         return hmac.compare_digest(expected, signature)
 
     def _is_rate_limited(phone: str) -> bool:
@@ -86,7 +88,9 @@ def create_webhook_router(
                     if not phone or not text:
                         continue
                     if phone not in allowed_set:
-                        logger.warning("Message from disallowed number: %s***", phone[:5])
+                        logger.warning(
+                            "Message from disallowed number: %s***", phone[:5]
+                        )
                         continue
                     if _dedup(msg_id):
                         continue

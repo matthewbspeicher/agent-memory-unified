@@ -56,9 +56,7 @@ class TaoshiProtocolAdapter:
         try:
             import bittensor as bt
         except ImportError:
-            raise ImportError(
-                "bittensor SDK not installed. Run: pip install bittensor"
-            )
+            raise ImportError("bittensor SDK not installed. Run: pip install bittensor")
 
         last_exc: Exception | None = None
         for attempt in range(1, max_retries + 1):
@@ -75,7 +73,10 @@ class TaoshiProtocolAdapter:
                 self._dendrite = bt.dendrite(wallet=self._wallet)
                 logger.info(
                     "Bittensor adapter connected (network=%s, endpoint=%s, subnet=%d) on attempt %d",
-                    self._network, self._endpoint, self._subnet_uid, attempt,
+                    self._network,
+                    self._endpoint,
+                    self._subnet_uid,
+                    attempt,
                 )
                 return
             except Exception as exc:
@@ -84,7 +85,10 @@ class TaoshiProtocolAdapter:
                     delay = retry_delay * (2 ** (attempt - 1))
                     logger.warning(
                         "Bittensor connect attempt %d/%d failed: %s. Retrying in %.1fs",
-                        attempt, max_retries, exc, delay,
+                        attempt,
+                        max_retries,
+                        exc,
+                        delay,
                     )
                     await asyncio.sleep(delay)
 
@@ -179,40 +183,62 @@ class TaoshiProtocolAdapter:
                     axons=[axon],
                     timeout=timeout,
                 )
-                predictions = getattr(response, "predictions", None) if response else None
-                hashed = getattr(response, "hashed_predictions", None) if response else None
+                predictions = (
+                    getattr(response, "predictions", None) if response else None
+                )
+                hashed = (
+                    getattr(response, "hashed_predictions", None) if response else None
+                )
 
-                if predictions is None or not self.validate_tensor(predictions, request.prediction_size):
+                if predictions is None or not self.validate_tensor(
+                    predictions, request.prediction_size
+                ):
                     logger.debug("Miner %d: invalid or missing response", uid)
                     continue
 
                 idx = list(metagraph.uids).index(uid) if metagraph else None
                 incentive = metagraph.I[idx] if metagraph and idx is not None else None
-                vtrust = getattr(metagraph, "validator_trust", [None] * ((idx or 0) + 1))[idx] if metagraph and idx is not None else None
-                stake = getattr(metagraph, "S", [None] * ((idx or 0) + 1))[idx] if metagraph and idx is not None else None
-                hotkey = metagraph.hotkeys[idx] if metagraph and idx is not None else str(uid)
+                vtrust = (
+                    getattr(metagraph, "validator_trust", [None] * ((idx or 0) + 1))[
+                        idx
+                    ]
+                    if metagraph and idx is not None
+                    else None
+                )
+                stake = (
+                    getattr(metagraph, "S", [None] * ((idx or 0) + 1))[idx]
+                    if metagraph and idx is not None
+                    else None
+                )
+                hotkey = (
+                    metagraph.hotkeys[idx]
+                    if metagraph and idx is not None
+                    else str(uid)
+                )
 
-                forecasts.append(RawMinerForecast(
-                    window_id=window_id,
-                    request_uuid=request_uuid,
-                    collected_at=now,
-                    miner_uid=uid,
-                    miner_hotkey=hotkey,
-                    stream_id=request.stream_id,
-                    topic_id=request.topic_id,
-                    schema_id=request.schema_id,
-                    symbol=symbol,
-                    timeframe=timeframe,
-                    feature_ids=request.feature_ids,
-                    prediction_size=request.prediction_size,
-                    predictions=predictions,
-                    hashed_predictions=hashed,
-                    hash_verified=False,
-                    incentive_score=incentive,
-                    vtrust=vtrust,
-                    stake_tao=stake,
-                    metagraph_block=block,
-                ))
+                forecasts.append(
+                    RawMinerForecast(
+                        window_id=window_id,
+                        request_uuid=request_uuid,
+                        collected_at=now,
+                        miner_uid=uid,
+                        miner_hotkey=hotkey,
+                        stream_id=request.stream_id,
+                        topic_id=request.topic_id,
+                        schema_id=request.schema_id,
+                        symbol=symbol,
+                        timeframe=timeframe,
+                        feature_ids=request.feature_ids,
+                        prediction_size=request.prediction_size,
+                        predictions=predictions,
+                        hashed_predictions=hashed,
+                        hash_verified=False,
+                        incentive_score=incentive,
+                        vtrust=vtrust,
+                        stake_tao=stake,
+                        metagraph_block=block,
+                    )
+                )
             except Exception as e:
                 logger.debug("Miner %d: query failed: %s", uid, e)
                 continue
@@ -245,7 +271,9 @@ class TaoshiProtocolAdapter:
             if idx is not None:
                 result[hk] = float(self._metagraph.I[idx])
             else:
-                logger.warning("Hotkey %s not found in metagraph — using incentive 0.0", hk)
+                logger.warning(
+                    "Hotkey %s not found in metagraph — using incentive 0.0", hk
+                )
                 result[hk] = 0.0
         return result
 

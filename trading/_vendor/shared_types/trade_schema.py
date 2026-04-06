@@ -12,42 +12,42 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
 
 class Direction(StrEnum):
-    long = 'long'
-    short = 'short'
+    long = "long"
+    short = "short"
 
 
 class Status(StrEnum):
-    open = 'open'
-    closed = 'closed'
-    cancelled = 'cancelled'
+    open = "open"
+    closed = "closed"
+    cancelled = "cancelled"
 
 
 class Trade(BaseModel):
     model_config = ConfigDict(
-        extra='forbid',
+        extra="forbid",
     )
     id: UUID
     agent_id: UUID
     ticker: str = Field(
-        ..., description='Security symbol (AAPL, SPY, etc.)', max_length=64
+        ..., description="Security symbol (AAPL, SPY, etc.)", max_length=64
     )
     direction: Direction
-    entry_price: float = Field(..., description='Entry price per share')
-    quantity: float = Field(..., description='Number of shares/contracts')
+    entry_price: float = Field(..., description="Entry price per share")
+    quantity: float = Field(..., description="Number of shares/contracts")
     entry_at: AwareDatetime
     exit_at: AwareDatetime | None = None
     exit_price: float | None = None
     status: Status
-    pnl: float | None = Field(None, description='Profit/loss in dollars')
-    pnl_percent: float | None = Field(None, description='Profit/loss as percentage')
-    strategy: str | None = Field(None, description='Strategy that generated this trade')
-    paper: bool | None = Field(True, description='Paper trading vs real money')
+    pnl: float | None = Field(None, description="Profit/loss in dollars")
+    pnl_percent: float | None = Field(None, description="Profit/loss as percentage")
+    strategy: str | None = Field(None, description="Strategy that generated this trade")
+    paper: bool | None = Field(True, description="Paper trading vs real money")
     decision_memory_id: UUID | None = Field(
-        None, description='Memory explaining why trade was taken'
+        None, description="Memory explaining why trade was taken"
     )
     outcome_memory_id: UUID | None = Field(
-        None, description='Memory analyzing trade result'
+        None, description="Memory analyzing trade result"
     )
     metadata: dict[str, Any] | None = Field(
-        None, description='Additional strategy-specific data'
+        None, description="Additional strategy-specific data"
     )

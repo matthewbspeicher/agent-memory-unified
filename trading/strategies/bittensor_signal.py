@@ -55,8 +55,14 @@ class BittensorSignalAgent(StructuredAgent):
 
         # Select view type (equal-weight vs incentive-weighted)
         use_weighted = self.parameters.get("use_weighted_view", False)
-        direction_score = view.weighted_direction if use_weighted else view.equal_weight_direction
-        expected_return = view.weighted_expected_return if use_weighted else view.equal_weight_expected_return
+        direction_score = (
+            view.weighted_direction if use_weighted else view.equal_weight_direction
+        )
+        expected_return = (
+            view.weighted_expected_return
+            if use_weighted
+            else view.equal_weight_expected_return
+        )
 
         # Gate: agreement
         min_agreement = self.parameters.get("min_agreement_ratio", 0.65)
@@ -87,33 +93,35 @@ class BittensorSignalAgent(StructuredAgent):
         signal = "BUY" if direction_score > 0 else "SELL"
         confidence = min(abs(direction_score) * view.agreement_ratio, 1.0)
 
-        return [Opportunity(
-            id=str(uuid.uuid4()),
-            agent_name=self.name,
-            symbol=Symbol(ticker=symbol, asset_type=AssetType.PREDICTION),
-            signal=signal,
-            confidence=confidence,
-            reasoning=(
-                f"Bittensor {symbol} {timeframe} signal: "
-                f"direction={direction_score:.2f}, "
-                f"expected_return={expected_return:.3%}, "
-                f"agreement={view.agreement_ratio:.2f}, "
-                f"responders={view.responder_count}"
-            ),
-            data={
-                "source": "bittensor",
-                "window_id": view.window_id,
-                "symbol": symbol,
-                "timeframe": timeframe,
-                "direction_score": direction_score,
-                "expected_return": expected_return,
-                "equal_weight_direction": view.equal_weight_direction,
-                "weighted_direction": view.weighted_direction,
-                "agreement_ratio": view.agreement_ratio,
-                "responder_count": view.responder_count,
-                "derivation_version": view.derivation_version,
-                "is_low_confidence": view.is_low_confidence,
-            },
-            timestamp=view.timestamp,
-            status=OpportunityStatus.PENDING,
-        )]
+        return [
+            Opportunity(
+                id=str(uuid.uuid4()),
+                agent_name=self.name,
+                symbol=Symbol(ticker=symbol, asset_type=AssetType.PREDICTION),
+                signal=signal,
+                confidence=confidence,
+                reasoning=(
+                    f"Bittensor {symbol} {timeframe} signal: "
+                    f"direction={direction_score:.2f}, "
+                    f"expected_return={expected_return:.3%}, "
+                    f"agreement={view.agreement_ratio:.2f}, "
+                    f"responders={view.responder_count}"
+                ),
+                data={
+                    "source": "bittensor",
+                    "window_id": view.window_id,
+                    "symbol": symbol,
+                    "timeframe": timeframe,
+                    "direction_score": direction_score,
+                    "expected_return": expected_return,
+                    "equal_weight_direction": view.equal_weight_direction,
+                    "weighted_direction": view.weighted_direction,
+                    "agreement_ratio": view.agreement_ratio,
+                    "responder_count": view.responder_count,
+                    "derivation_version": view.derivation_version,
+                    "is_low_confidence": view.is_low_confidence,
+                },
+                timestamp=view.timestamp,
+                status=OpportunityStatus.PENDING,
+            )
+        ]

@@ -1,4 +1,5 @@
 """RegimeFilter — pause agents in unfavorable market regimes."""
+
 from __future__ import annotations
 import logging
 
@@ -8,12 +9,14 @@ logger = logging.getLogger(__name__)
 
 # Default allowed regimes for agents with no custom configuration:
 # Allow trending and sideways markets; block high volatility
-DEFAULT_ALLOWED_REGIMES: frozenset[MarketRegime] = frozenset({
-    MarketRegime.TRENDING_UP,
-    MarketRegime.TRENDING_DOWN,
-    MarketRegime.SIDEWAYS,
-    MarketRegime.LOW_VOLATILITY,
-})
+DEFAULT_ALLOWED_REGIMES: frozenset[MarketRegime] = frozenset(
+    {
+        MarketRegime.TRENDING_UP,
+        MarketRegime.TRENDING_DOWN,
+        MarketRegime.SIDEWAYS,
+        MarketRegime.LOW_VOLATILITY,
+    }
+)
 
 
 class RegimeFilter:
@@ -72,6 +75,7 @@ class RegimeFilter:
         """
         try:
             from broker.models import AssetType
+
             if symbol.asset_type == AssetType.PREDICTION:
                 if not self._liquidity_detector:
                     return True  # no detector configured, allow
@@ -81,14 +85,18 @@ class RegimeFilter:
                     logger.info(
                         "RegimeFilter: blocking %s for prediction symbol %s "
                         "(spread=%.2f¢, vol=%.0f)",
-                        agent_name, symbol.ticker,
-                        snapshot.spread_cents, snapshot.volume_24h,
+                        agent_name,
+                        symbol.ticker,
+                        snapshot.spread_cents,
+                        snapshot.volume_24h,
                     )
                 return allowed
         except Exception as exc:
             logger.warning(
                 "RegimeFilter: liquidity check failed for %s/%s, allowing: %s",
-                agent_name, getattr(symbol, "ticker", symbol), exc,
+                agent_name,
+                getattr(symbol, "ticker", symbol),
+                exc,
             )
             return True  # fail-open on unexpected errors
 
@@ -106,7 +114,8 @@ class RegimeFilter:
         if not permitted:
             logger.info(
                 "RegimeFilter: blocking %s in %s regime (allowed: %s)",
-                agent_name, regime.value,
+                agent_name,
+                regime.value,
                 [r.value for r in allowed],
             )
 

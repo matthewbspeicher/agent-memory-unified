@@ -4,10 +4,10 @@ Kalshi REST API v2 async HTTP client.
 Auth: RSA key-pair (PKCS#8 private key) used to sign a JWT per request.
 Docs: https://trading-api.readme.io/reference
 """
+
 from __future__ import annotations
 
 import base64
-import hashlib
 import logging
 import time
 from pathlib import Path
@@ -22,7 +22,9 @@ PROD_BASE = "https://api.elections.kalshi.com/trade-api/v2"
 DEMO_BASE = "https://demo-api.kalshi.co/trade-api/v2"
 
 
-def _build_signature(method: str, path: str, key_id: str, private_key_pem: str) -> dict[str, str]:
+def _build_signature(
+    method: str, path: str, key_id: str, private_key_pem: str
+) -> dict[str, str]:
     """Return Authorization headers signed with the Kalshi RSASSA-PSS scheme."""
     try:
         from cryptography.hazmat.primitives import hashes, serialization
@@ -37,17 +39,18 @@ def _build_signature(method: str, path: str, key_id: str, private_key_pem: str) 
     clean_path = path.split("?")[0]
     if not clean_path.startswith("/trade-api/v2"):
         clean_path = "/trade-api/v2" + clean_path
-        
+
     msg = (ts_ms + method.upper() + clean_path).encode()
 
-    private_key = serialization.load_pem_private_key(private_key_pem.encode(), password=None)
+    private_key = serialization.load_pem_private_key(
+        private_key_pem.encode(), password=None
+    )
     signature = private_key.sign(
         msg,
         padding.PSS(
-            mgf=padding.MGF1(hashes.SHA256()),
-            salt_length=padding.PSS.DIGEST_LENGTH
+            mgf=padding.MGF1(hashes.SHA256()), salt_length=padding.PSS.DIGEST_LENGTH
         ),
-        hashes.SHA256()
+        hashes.SHA256(),
     )
     sig_b64 = base64.b64encode(signature).decode()
 
@@ -82,33 +85,37 @@ class KalshiClient:
     async def close(self) -> None:
         await self._client.aclose()
 
-    async def ws_connect(self, channels: list[str], callback: Callable[[dict], None]) -> None:
+    async def ws_connect(
+        self, channels: list[str], callback: Callable[[dict], None]
+    ) -> None:
         import websockets
         import json
         import asyncio
 
         ws_host = self._base.replace("https://", "wss://").replace("v2", "ws/v2")
-        
+
         while True:
             try:
                 headers = self._auth_headers("GET", "/trade-api/ws/v2")
-                async with websockets.connect(ws_host, additional_headers=headers) as ws:
+                async with websockets.connect(
+                    ws_host, additional_headers=headers
+                ) as ws:
                     logger.info(f"Kalshi WS connected to {ws_host}")
-                    
+
                     sub_msg = {
                         "id": 1,
                         "cmd": "subscribe",
-                        "params": {"channels": channels}
+                        "params": {"channels": channels},
                     }
                     await ws.send(json.dumps(sub_msg))
-                    
+
                     async for message in ws:
                         try:
                             data = json.loads(message)
                             callback(data)
                         except json.JSONDecodeError:
                             pass
-                        
+
             except websockets.exceptions.ConnectionClosed:
                 logger.warning("Kalshi WS connection closed. Reconnecting...")
                 await asyncio.sleep(2)
@@ -168,7 +175,9 @@ class KalshiClient:
         results: list[dict] = []
         cursor: str | None = None
         for _ in range(max_pages):
-            page = await self.get_markets(category=category, status=status, cursor=cursor)
+            page = await self.get_markets(
+                category=category, status=status, cursor=cursor
+            )
             results.extend(page.get("markets", []))
             cursor = page.get("cursor")
             if not cursor:
@@ -206,7 +215,9 @@ class KalshiClient:
 
     async def get_order_history(self, limit: int = 100) -> list[dict]:
         """GET /portfolio/orders"""
-        data = await self._get("/portfolio/orders", params={"limit": limit, "status": "all"})
+        data = await self._get(
+            "/portfolio/orders", params={"limit": limit, "status": "all"}
+        )
         return data.get("orders", [])
 
     # -------------------------------------------------------------------------
@@ -216,9 +227,9 @@ class KalshiClient:
     async def create_order(
         self,
         ticker: str,
-        side: str,          # "yes" | "no"
-        count: int,         # number of contracts
-        price: int,         # cents 1–99
+        side: str,  # "yes" | "no"
+        count: int,  # number of contracts
+        price: int,  # cents 1–99
         order_type: str = "limit",
         expiration_ts: int | None = None,
     ) -> dict:

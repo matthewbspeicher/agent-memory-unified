@@ -1,7 +1,12 @@
 from decimal import Decimal
 
 from broker.models import (
-    AccountBalance, MarketOrder, OrderSide, Position, Quote, Symbol,
+    AccountBalance,
+    MarketOrder,
+    OrderSide,
+    Position,
+    Quote,
+    Symbol,
 )
 from risk.rules import MaxPortfolioExposure, MaxPositionSize, PortfolioContext
 

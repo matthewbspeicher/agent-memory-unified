@@ -1,4 +1,5 @@
 """Tests for strategy health API routes."""
+
 from __future__ import annotations
 
 import os
@@ -18,6 +19,7 @@ from storage.strategy_health import StrategyHealthStore
 def _env():
     os.environ["STA_API_KEY"] = "test-key"
     from api.auth import _get_settings
+
     _get_settings.cache_clear()
     yield
     _get_settings.cache_clear()
@@ -35,7 +37,9 @@ async def app_with_health(_env):
     # Seed some health rows
     store = StrategyHealthStore(db)
     await store.upsert_status("rsi_agent", "normal")
-    await store.upsert_status("momentum_agent", "watchlist", trigger_reason="low expectancy")
+    await store.upsert_status(
+        "momentum_agent", "watchlist", trigger_reason="low expectancy"
+    )
     await store.record_event(
         agent_name="momentum_agent",
         old_status="normal",
@@ -60,12 +64,17 @@ async def app_with_health_engine(_env):
     app.state.db = db
 
     from learning.strategy_health import StrategyHealthEngine
+
     mock_engine = MagicMock(spec=StrategyHealthEngine)
-    mock_engine.recompute_all = AsyncMock(return_value={"rsi_agent": "normal", "momentum_agent": "watchlist"})
+    mock_engine.recompute_all = AsyncMock(
+        return_value={"rsi_agent": "normal", "momentum_agent": "watchlist"}
+    )
     app.state.health_engine = mock_engine
 
     mock_runner = MagicMock()
-    mock_runner.get_all_statuses = MagicMock(return_value={"rsi_agent": "RUNNING", "momentum_agent": "RUNNING"})
+    mock_runner.get_all_statuses = MagicMock(
+        return_value={"rsi_agent": "RUNNING", "momentum_agent": "RUNNING"}
+    )
     app.state.agent_runner = mock_runner
 
     yield app
@@ -76,7 +85,9 @@ class TestListAllHealth:
     async def test_returns_all_statuses(self, app_with_health):
         app, _ = app_with_health
         client = TestClient(app, raise_server_exceptions=True)
-        resp = client.get("/analytics/strategy-health", headers={"x-api-key": "test-key"})
+        resp = client.get(
+            "/analytics/strategy-health", headers={"x-api-key": "test-key"}
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert len(data) == 2
@@ -97,7 +108,9 @@ class TestListAllHealth:
         await init_db(db)
         app.state.db = db
         client = TestClient(app, raise_server_exceptions=True)
-        resp = client.get("/analytics/strategy-health", headers={"x-api-key": "test-key"})
+        resp = client.get(
+            "/analytics/strategy-health", headers={"x-api-key": "test-key"}
+        )
         assert resp.status_code == 200
         assert resp.json() == []
         await db.close()
@@ -107,7 +120,10 @@ class TestGetAgentHealth:
     async def test_returns_status_and_events(self, app_with_health):
         app, _ = app_with_health
         client = TestClient(app, raise_server_exceptions=True)
-        resp = client.get("/analytics/strategy-health/momentum_agent", headers={"x-api-key": "test-key"})
+        resp = client.get(
+            "/analytics/strategy-health/momentum_agent",
+            headers={"x-api-key": "test-key"},
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert data["agent_name"] == "momentum_agent"
@@ -118,7 +134,10 @@ class TestGetAgentHealth:
     async def test_returns_none_status_for_unknown_agent(self, app_with_health):
         app, _ = app_with_health
         client = TestClient(app, raise_server_exceptions=True)
-        resp = client.get("/analytics/strategy-health/unknown_agent", headers={"x-api-key": "test-key"})
+        resp = client.get(
+            "/analytics/strategy-health/unknown_agent",
+            headers={"x-api-key": "test-key"},
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert data["agent_name"] == "unknown_agent"
@@ -180,7 +199,9 @@ class TestRecomputeHealth:
     async def test_recompute_calls_engine(self, app_with_health_engine):
         app = app_with_health_engine
         client = TestClient(app, raise_server_exceptions=True)
-        resp = client.post("/analytics/strategy-health/recompute", headers={"x-api-key": "test-key"})
+        resp = client.post(
+            "/analytics/strategy-health/recompute", headers={"x-api-key": "test-key"}
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert data["recomputed"] == 2
@@ -196,7 +217,9 @@ class TestRecomputeHealth:
         # No health_engine on state
 
         client = TestClient(app, raise_server_exceptions=False)
-        resp = client.post("/analytics/strategy-health/recompute", headers={"x-api-key": "test-key"})
+        resp = client.post(
+            "/analytics/strategy-health/recompute", headers={"x-api-key": "test-key"}
+        )
         assert resp.status_code == 503
         await db.close()
 

@@ -10,7 +10,9 @@ class ManagerAgent(Agent):
     """Manager agents monitor macro conditions and publish directives.
     They do not trade directly."""
 
-    def __init__(self, config: AgentConfig, sub_agents: list[Agent] | None = None) -> None:
+    def __init__(
+        self, config: AgentConfig, sub_agents: list[Agent] | None = None
+    ) -> None:
         super().__init__(config)
         self.sub_agents = sub_agents or []
 

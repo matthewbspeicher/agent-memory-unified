@@ -15,12 +15,10 @@ logger = logging.getLogger(__name__)
 
 class SignalAdapter(ABC):
     @abstractmethod
-    async def poll(self) -> list[AgentSignal]:
-        ...
+    async def poll(self) -> list[AgentSignal]: ...
 
     @abstractmethod
-    def source_name(self) -> str:
-        ...
+    def source_name(self) -> str: ...
 
 
 class SignalAdapterRunner:
@@ -39,7 +37,9 @@ class SignalAdapterRunner:
             for sig in signals:
                 await self._signal_bus.publish(sig)
             if signals:
-                logger.info("Adapter '%s' produced %d signals", adapter_name, len(signals))
+                logger.info(
+                    "Adapter '%s' produced %d signals", adapter_name, len(signals)
+                )
         except Exception as e:
             logger.error("Adapter '%s' poll failed: %s", adapter_name, e)
 

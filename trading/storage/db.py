@@ -1,8 +1,11 @@
 from __future__ import annotations
+import logging
 import ssl as _ssl
 import aiosqlite
 from storage.postgres import PostgresDB
 from config import Config
+
+logger = logging.getLogger(__name__)
 
 
 class DatabaseConnection:
@@ -47,9 +50,7 @@ class DatabaseConnection:
             return self.connection
 
         # SQLite mode
-        self.connection = await aiosqlite.connect(
-            self.config.db_path or "data.db"
-        )
+        self.connection = await aiosqlite.connect(self.config.db_path or "data.db")
         self.connection.row_factory = aiosqlite.Row
         await init_db(self.connection)
         return self.connection
@@ -77,6 +78,8 @@ class DatabaseConnection:
 
 async def init_db(db: aiosqlite.Connection) -> None:
     pass  # DISABLED: Laravel now owns all DDL via migrations
+
+
 async def get_db(path: str = "data.db") -> aiosqlite.Connection:
     db = await aiosqlite.connect(path)
     db.row_factory = aiosqlite.Row

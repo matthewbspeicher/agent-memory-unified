@@ -1,4 +1,5 @@
 """Signal-time feature store API routes."""
+
 from __future__ import annotations
 
 import logging
@@ -28,7 +29,10 @@ async def get_signal_features(
     store = _get_store(request)
     row = await store.get(opportunity_id)
     if row is None:
-        raise HTTPException(status_code=404, detail=f"No signal features for opportunity {opportunity_id!r}")
+        raise HTTPException(
+            status_code=404,
+            detail=f"No signal features for opportunity {opportunity_id!r}",
+        )
     return row
 
 
@@ -38,8 +42,12 @@ async def list_signal_features(
     agent_name: str | None = Query(None, description="Filter by agent name"),
     symbol: str | None = Query(None, description="Filter by symbol ticker"),
     signal: str | None = Query(None, description="Filter by signal name"),
-    start: str | None = Query(None, description="ISO timestamp lower bound on opportunity_timestamp"),
-    end: str | None = Query(None, description="ISO timestamp upper bound on opportunity_timestamp"),
+    start: str | None = Query(
+        None, description="ISO timestamp lower bound on opportunity_timestamp"
+    ),
+    end: str | None = Query(
+        None, description="ISO timestamp upper bound on opportunity_timestamp"
+    ),
     limit: int = Query(100, ge=1, le=1000),
     _: str = Depends(verify_api_key),
 ) -> list[dict[str, Any]]:
@@ -78,7 +86,9 @@ async def backfill_signal_features(
     data_bus = getattr(request.app.state, "data_bus", None)
 
     if data_bus is None:
-        raise HTTPException(status_code=503, detail="DataBus not available — cannot backfill")
+        raise HTTPException(
+            status_code=503, detail="DataBus not available — cannot backfill"
+        )
 
     # Fetch raw opportunity dicts; reconstruct lightweight objects for capture
     opp_rows = await opp_store.list(agent_name=agent_name, limit=limit * 3)
@@ -102,6 +112,7 @@ async def backfill_signal_features(
                 skipped += 1
                 continue
             from learning.signal_features import SignalFeatureCapture
+
             capture = SignalFeatureCapture(store=feature_store, data_bus=data_bus)
             await capture.capture(_opp)
             # Mark synthetic rows clearly
@@ -144,7 +155,12 @@ def _row_to_opportunity(row: dict[str, Any]) -> Any:
             asset_type = AssetType(raw_asset_type) if raw_asset_type else None
         except ValueError:
             asset_type = None
-        if asset_type is None and broker_id in {"kalshi", "kalshi_paper", "polymarket", "polymarket_paper"}:
+        if asset_type is None and broker_id in {
+            "kalshi",
+            "kalshi_paper",
+            "polymarket",
+            "polymarket_paper",
+        }:
             asset_type = AssetType.PREDICTION
         sym = Symbol(ticker=ticker, asset_type=asset_type or AssetType.STOCK)
         ts_str = row.get("created_at", "")

@@ -16,6 +16,7 @@ Key quirks:
 - Footer rows starting with " (disclaimer text) should be skipped
 - BRK/B → BRK.B normalisation for IBKR compatibility
 """
+
 from __future__ import annotations
 
 import csv
@@ -56,7 +57,7 @@ class FidelityBalance:
 
 def normalize_ticker(symbol: str) -> str:
     """Normalise a Fidelity ticker to IBKR-compatible form."""
-    symbol = symbol.rstrip("*")   # strip trailing * (SPAXX**, USD***)
+    symbol = symbol.rstrip("*")  # strip trailing * (SPAXX**, USD***)
     symbol = symbol.replace("/", ".")  # BRK/B → BRK.B
     return symbol
 
@@ -64,7 +65,11 @@ def normalize_ticker(symbol: str) -> str:
 def _is_cash_equivalent(raw_symbol: str) -> bool:
     """Return True if this symbol represents a cash/money-market holding."""
     normalized = normalize_ticker(raw_symbol)
-    return normalized in _CASH_SYMBOLS or raw_symbol.endswith("**") or raw_symbol.endswith("***")
+    return (
+        normalized in _CASH_SYMBOLS
+        or raw_symbol.endswith("**")
+        or raw_symbol.endswith("***")
+    )
 
 
 def _clean_decimal(value: str) -> Decimal | None:
@@ -139,8 +144,7 @@ def parse_fidelity_csv(file_content: str) -> list[FidelityPosition]:
 
         # Resolve account identifiers — handle both CSV variants
         account_id = (
-            row.get("Account Number")
-            or row.get("Account Name/Number", "")
+            row.get("Account Number") or row.get("Account Name/Number", "")
         ).strip()
         account_name = (row.get("Account Name") or "").strip()
 
@@ -167,19 +171,23 @@ def parse_fidelity_csv(file_content: str) -> list[FidelityPosition]:
         if last_price is None and quantity != 0:
             last_price = current_value / quantity
 
-        positions.append(FidelityPosition(
-            account_id=account_id,
-            account_name=account_name,
-            symbol=normalized,
-            description=(row.get("Description") or "").strip(),
-            quantity=quantity,
-            last_price=last_price or Decimal("0"),
-            current_value=current_value,
-            cost_basis=_clean_decimal(row.get("Cost Basis Total", "") or ""),
-            cost_basis_per_share=_clean_decimal(
-                row.get("Average Cost Basis") or row.get("Cost Basis Per Share", "") or ""
-            ),
-        ))
+        positions.append(
+            FidelityPosition(
+                account_id=account_id,
+                account_name=account_name,
+                symbol=normalized,
+                description=(row.get("Description") or "").strip(),
+                quantity=quantity,
+                last_price=last_price or Decimal("0"),
+                current_value=current_value,
+                cost_basis=_clean_decimal(row.get("Cost Basis Total", "") or ""),
+                cost_basis_per_share=_clean_decimal(
+                    row.get("Average Cost Basis")
+                    or row.get("Cost Basis Per Share", "")
+                    or ""
+                ),
+            )
+        )
 
     return positions
 
@@ -197,8 +205,7 @@ def extract_balances(file_content: str) -> dict[str, FidelityBalance]:
         raw_symbol = (row.get("Symbol") or "").strip()
 
         account_id = (
-            row.get("Account Number")
-            or row.get("Account Name/Number", "")
+            row.get("Account Number") or row.get("Account Name/Number", "")
         ).strip()
         account_name = (row.get("Account Name") or "").strip()
 
@@ -206,7 +213,9 @@ def extract_balances(file_content: str) -> dict[str, FidelityBalance]:
         if account_name in _SKIP_ACCOUNT_NAMES:
             continue
 
-        current_value = _clean_decimal(row.get("Current Value", "") or "") or Decimal("0")
+        current_value = _clean_decimal(row.get("Current Value", "") or "") or Decimal(
+            "0"
+        )
 
         # Skip rows with no value contribution (e.g. Pending activity, ISIN with --)
         if current_value == 0 and not _is_cash_equivalent(raw_symbol):

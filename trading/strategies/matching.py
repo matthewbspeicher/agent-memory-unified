@@ -6,6 +6,7 @@ Steps:
 2. Category alignment bonus (+0.10).
 3. Close-date proximity penalty (0 to -0.30).
 """
+
 from __future__ import annotations
 
 import re
@@ -15,8 +16,29 @@ from datetime import datetime
 from broker.models import PredictionContract
 
 _STOP_WORDS: frozenset[str] = frozenset(
-    {"the", "a", "an", "in", "on", "will", "be", "by", "at", "of", "for",
-     "is", "are", "was", "were", "to", "do", "that", "this", "it", "or"}
+    {
+        "the",
+        "a",
+        "an",
+        "in",
+        "on",
+        "will",
+        "be",
+        "by",
+        "at",
+        "of",
+        "for",
+        "is",
+        "are",
+        "was",
+        "were",
+        "to",
+        "do",
+        "that",
+        "this",
+        "it",
+        "or",
+    }
 )
 
 _CATEGORY_MAP: dict[str, str] = {
@@ -66,7 +88,9 @@ def _jaccard(a: set[str], b: set[str]) -> float:
     return len(a & b) / len(a | b)
 
 
-def _date_penalty(k_close: datetime | str | None, p_close: datetime | str | None) -> float:
+def _date_penalty(
+    k_close: datetime | str | None, p_close: datetime | str | None
+) -> float:
     """Return 0.0, 0.10, 0.20, or 0.30 depending on how far apart the close dates are."""
     if not k_close or not p_close:
         return 0.0
@@ -91,10 +115,10 @@ def _date_penalty(k_close: datetime | str | None, p_close: datetime | str | None
 class MatchCandidate:
     kalshi_ticker: str
     poly_ticker: str
-    title_score: float      # Jaccard on stemmed keywords (0-1)
-    category_bonus: float   # 0.10 if categories agree, else 0.0
-    date_penalty: float     # 0.0 to 0.30
-    final_score: float      # title_score + category_bonus - date_penalty
+    title_score: float  # Jaccard on stemmed keywords (0-1)
+    category_bonus: float  # 0.10 if categories agree, else 0.0
+    date_penalty: float  # 0.0 to 0.30
+    final_score: float  # title_score + category_bonus - date_penalty
 
 
 def match_markets(
@@ -125,14 +149,16 @@ def match_markets(
             date_penalty = _date_penalty(k_mkt.close_time, p_mkt.close_time)
             final_score = title_score + category_bonus - date_penalty
             if final_score >= min_score:
-                all_candidates.append(MatchCandidate(
-                    kalshi_ticker=k_mkt.ticker,
-                    poly_ticker=p_mkt.ticker,
-                    title_score=title_score,
-                    category_bonus=category_bonus,
-                    date_penalty=date_penalty,
-                    final_score=final_score,
-                ))
+                all_candidates.append(
+                    MatchCandidate(
+                        kalshi_ticker=k_mkt.ticker,
+                        poly_ticker=p_mkt.ticker,
+                        title_score=title_score,
+                        category_bonus=category_bonus,
+                        date_penalty=date_penalty,
+                        final_score=final_score,
+                    )
+                )
 
     # Greedy bipartite assignment: sort descending, claim each side once
     all_candidates.sort(key=lambda c: c.final_score, reverse=True)

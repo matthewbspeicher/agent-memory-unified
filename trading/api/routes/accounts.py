@@ -2,7 +2,12 @@ from fastapi import APIRouter, Depends
 
 from api.auth import verify_api_key
 from api.deps import get_broker
-from api.schemas import AccountSchema, PositionSchema, AccountBalanceSchema, OrderResultSchema
+from api.schemas import (
+    AccountSchema,
+    PositionSchema,
+    AccountBalanceSchema,
+    OrderResultSchema,
+)
 from broker.interfaces import Broker
 
 router = APIRouter(prefix="/accounts", tags=["accounts"])

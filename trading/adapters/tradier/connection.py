@@ -10,7 +10,6 @@ logger = logging.getLogger(__name__)
 
 
 class TradierConnection(BrokerConnection):
-
     def __init__(self, client: TradierClient) -> None:
         self._client = client
         self._connected = False

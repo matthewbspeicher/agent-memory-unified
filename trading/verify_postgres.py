@@ -1,9 +1,10 @@
 """
 Quick verification that Python can read/write to Postgres tables.
 """
+
 import asyncio
 import asyncpg
-import os
+
 
 async def verify():
     # Connect directly with asyncpg
@@ -24,7 +25,8 @@ async def verify():
     print(f"✓ tracked_positions: {result} rows")
 
     # Test 4: Write a test agent (using proper column names)
-    await conn.execute("""
+    await conn.execute(
+        """
         INSERT INTO agent_registry (
             name, strategy, schedule, interval_or_cron, universe, parameters,
             status, trust_level, runtime_overrides, promotion_criteria,
@@ -32,14 +34,27 @@ async def verify():
         )
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         ON CONFLICT (name) DO NOTHING
-    """, "test_agent", "test_strategy", "continuous", 60, "[]", "{}",
-        "active", "bronze", "{}", "{}", False, "verify_script", 1, "{}")
+    """,
+        "test_agent",
+        "test_strategy",
+        "continuous",
+        60,
+        "[]",
+        "{}",
+        "active",
+        "bronze",
+        "{}",
+        "{}",
+        False,
+        "verify_script",
+        1,
+        "{}",
+    )
     print("✓ Write to agent_registry")
 
     # Test 5: Read it back
     result = await conn.fetchrow(
-        "SELECT name, trust_level FROM agent_registry WHERE name = $1",
-        "test_agent"
+        "SELECT name, trust_level FROM agent_registry WHERE name = $1", "test_agent"
     )
     print(f"✓ Read back: {result['name']} ({result['trust_level']})")
 
@@ -49,6 +64,7 @@ async def verify():
 
     await conn.close()
     print("\n✅ All Postgres operations working!")
+
 
 if __name__ == "__main__":
     asyncio.run(verify())

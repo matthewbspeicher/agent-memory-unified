@@ -1,8 +1,5 @@
 """Tests for centralized YAML config loading."""
 
-import os
-import tempfile
-import pytest
 import yaml
 from utils.config_loader import ConfigLoader
 

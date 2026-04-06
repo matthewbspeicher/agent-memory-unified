@@ -4,12 +4,14 @@ Hybrid authentication dependencies for FastAPI.
 
 Supports both JWT tokens and legacy amc_* tokens.
 """
+
 from fastapi import Depends, HTTPException, Header, Request
 import os
 
 # Import here to avoid circular dependency
 import sys
-sys.path.insert(0, '/opt/homebrew/var/www/agent-memory-unified')
+
+sys.path.insert(0, "/opt/homebrew/var/www/agent-memory-unified")
 from shared.auth.validate import validate_token, TokenValidationError
 
 
@@ -69,9 +71,11 @@ def require_scope(required_scope: str):
     Returns:
         A dependency function that checks if the user has the required scope.
     """
+
     async def check(user: dict = Depends(get_current_user)):
         scopes = user.get("scopes", [])
         if required_scope not in scopes:
             raise HTTPException(403, f"Missing scope: {required_scope}")
         return user
+
     return check

@@ -62,7 +62,9 @@ class TestTradeAnalyticsStore:
         row = _make_row(tracked_position_id=42)
         await analytics_store.upsert(tracked_position_id=42, **row)
 
-        updated_row = _make_row(tracked_position_id=42, net_pnl="600.00", realized_outcome="win")
+        updated_row = _make_row(
+            tracked_position_id=42, net_pnl="600.00", realized_outcome="win"
+        )
         await analytics_store.upsert(tracked_position_id=42, **updated_row)
 
         # Should still be 1 row

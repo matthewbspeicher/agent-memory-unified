@@ -1,4 +1,5 @@
 """Tests for SlippageFeedbackLoop."""
+
 from __future__ import annotations
 
 import pytest
@@ -16,6 +17,7 @@ from storage.performance import PerformanceSnapshot
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _fill(
     agent: str,
@@ -303,7 +305,8 @@ class TestSlippageFeedbackLoop:
                 expected_price=expected,
                 actual_price=actual_high,
                 quantity=Decimal("10"),
-                filled_at=datetime.now(timezone.utc) - timedelta(days=1),  # 1 day ago — fresh
+                filled_at=datetime.now(timezone.utc)
+                - timedelta(days=1),  # 1 day ago — fresh
             )
             tracker._fills.setdefault(agent, []).append(fill)
 

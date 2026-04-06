@@ -1,6 +1,5 @@
 from __future__ import annotations
-import json
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import aiosqlite
 import pytest
@@ -25,7 +24,9 @@ async def store():
     await db.close()
 
 
-def _make_raw_forecast(window_id: str = "w1", miner_hotkey: str = "hk1") -> RawMinerForecast:
+def _make_raw_forecast(
+    window_id: str = "w1", miner_hotkey: str = "hk1"
+) -> RawMinerForecast:
     return RawMinerForecast(
         window_id=window_id,
         request_uuid="req1",
@@ -100,12 +101,20 @@ async def test_save_and_fetch_derived_view(store: BittensorStore):
 async def test_get_latest_view_returns_newest(store: BittensorStore):
     v1 = _make_derived_view("w1")
     v2 = DerivedBittensorView(
-        symbol="BTCUSD", timeframe="5m", window_id="w2",
+        symbol="BTCUSD",
+        timeframe="5m",
+        window_id="w2",
         timestamp=datetime(2026, 3, 28, 12, 30),
-        responder_count=5, bullish_count=4, bearish_count=0, flat_count=1,
-        weighted_direction=0.8, weighted_expected_return=0.005,
-        agreement_ratio=0.8, equal_weight_direction=0.7,
-        equal_weight_expected_return=0.004, is_low_confidence=False,
+        responder_count=5,
+        bullish_count=4,
+        bearish_count=0,
+        flat_count=1,
+        weighted_direction=0.8,
+        weighted_expected_return=0.005,
+        agreement_ratio=0.8,
+        equal_weight_direction=0.7,
+        equal_weight_expected_return=0.004,
+        is_low_confidence=False,
         derivation_version="v1",
     )
     await store.save_derived_view(v1)
@@ -119,12 +128,16 @@ async def test_get_unevaluated_windows(store: BittensorStore):
     view = _make_derived_view("w1")
     await store.save_derived_view(view)
     now = datetime(2026, 3, 28, 22, 0)
-    windows = await store.get_unevaluated_windows(now, delay_factor=1.2, prediction_size=100, timeframe_minutes=5)
+    windows = await store.get_unevaluated_windows(
+        now, delay_factor=1.2, prediction_size=100, timeframe_minutes=5
+    )
     assert len(windows) == 1
     assert windows[0].window_id == "w1"
 
 
-async def test_get_unevaluated_windows_retries_pending_window_after_realized_snapshot(store: BittensorStore):
+async def test_get_unevaluated_windows_retries_pending_window_after_realized_snapshot(
+    store: BittensorStore,
+):
     view = _make_derived_view("w-retry")
     await store.save_derived_view(view)
     await store.save_realized_window(
@@ -141,17 +154,27 @@ async def test_get_unevaluated_windows_retries_pending_window_after_realized_sna
     )
 
     now = datetime(2026, 3, 28, 22, 0)
-    windows = await store.get_unevaluated_windows(now, delay_factor=1.2, prediction_size=100, timeframe_minutes=5)
+    windows = await store.get_unevaluated_windows(
+        now, delay_factor=1.2, prediction_size=100, timeframe_minutes=5
+    )
     assert len(windows) == 1
     assert windows[0].window_id == "w-retry"
 
 
 async def test_save_accuracy_records_unique_constraint(store: BittensorStore):
     record = MinerAccuracyRecord(
-        window_id="w1", miner_hotkey="hk1", symbol="BTCUSD", timeframe="5m",
-        direction_correct=True, predicted_return=0.003, actual_return=0.002,
-        magnitude_error=0.001, path_correlation=0.85, outcome_bars=100,
-        scoring_version="v1", evaluated_at=datetime(2026, 3, 28, 20, 0),
+        window_id="w1",
+        miner_hotkey="hk1",
+        symbol="BTCUSD",
+        timeframe="5m",
+        direction_correct=True,
+        predicted_return=0.003,
+        actual_return=0.002,
+        magnitude_error=0.001,
+        path_correlation=0.85,
+        outcome_bars=100,
+        scoring_version="v1",
+        evaluated_at=datetime(2026, 3, 28, 20, 0),
     )
     await store.save_accuracy_records([record])
     await store.save_accuracy_records([record])
@@ -170,11 +193,17 @@ class TestGetAccuracyRollup:
 
         records = [
             MinerAccuracyRecord(
-                window_id=f"w{i}", miner_hotkey="5Fhot1", symbol="BTCUSD",
-                timeframe="5m", direction_correct=(i < 2),
-                predicted_return=0.01 * i, actual_return=0.005 * i,
-                magnitude_error=0.005 * i, path_correlation=0.5 if i < 2 else None,
-                outcome_bars=100, scoring_version="v1",
+                window_id=f"w{i}",
+                miner_hotkey="5Fhot1",
+                symbol="BTCUSD",
+                timeframe="5m",
+                direction_correct=(i < 2),
+                predicted_return=0.01 * i,
+                actual_return=0.005 * i,
+                magnitude_error=0.005 * i,
+                path_correlation=0.5 if i < 2 else None,
+                outcome_bars=100,
+                scoring_version="v1",
                 evaluated_at=datetime(2026, 3, 31, i, 0, 0),
             )
             for i in range(3)
@@ -194,11 +223,17 @@ class TestGetAccuracyRollup:
 
         records = [
             MinerAccuracyRecord(
-                window_id=f"w{i}", miner_hotkey="5Fhot1", symbol="BTCUSD",
-                timeframe="5m", direction_correct=True,
-                predicted_return=0.01, actual_return=0.01,
-                magnitude_error=0.0, path_correlation=0.9,
-                outcome_bars=100, scoring_version="v1",
+                window_id=f"w{i}",
+                miner_hotkey="5Fhot1",
+                symbol="BTCUSD",
+                timeframe="5m",
+                direction_correct=True,
+                predicted_return=0.01,
+                actual_return=0.01,
+                magnitude_error=0.0,
+                path_correlation=0.9,
+                outcome_bars=100,
+                scoring_version="v1",
                 evaluated_at=datetime(2026, 3, 31, i, 0, 0),
             )
             for i in range(5)
@@ -215,11 +250,20 @@ class TestWindowExpiry:
 
         old = datetime(2026, 3, 30, 10, 0, 0)
         view = DerivedBittensorView(
-            window_id="w-old", symbol="BTCUSD", timeframe="5m", timestamp=old,
-            responder_count=5, bullish_count=3, bearish_count=1, flat_count=1,
-            weighted_direction=0.3, weighted_expected_return=0.01,
-            agreement_ratio=0.6, equal_weight_direction=0.25,
-            equal_weight_expected_return=0.008, is_low_confidence=False,
+            window_id="w-old",
+            symbol="BTCUSD",
+            timeframe="5m",
+            timestamp=old,
+            responder_count=5,
+            bullish_count=3,
+            bearish_count=1,
+            flat_count=1,
+            weighted_direction=0.3,
+            weighted_expected_return=0.01,
+            agreement_ratio=0.6,
+            equal_weight_direction=0.25,
+            equal_weight_expected_return=0.008,
+            is_low_confidence=False,
             derivation_version="v1",
         )
         await store.save_derived_view(view)
@@ -234,11 +278,20 @@ class TestWindowExpiry:
 
         old = datetime(2026, 3, 30, 10, 0, 0)
         view = DerivedBittensorView(
-            window_id="w-expired", symbol="BTCUSD", timeframe="5m", timestamp=old,
-            responder_count=5, bullish_count=3, bearish_count=1, flat_count=1,
-            weighted_direction=0.3, weighted_expected_return=0.01,
-            agreement_ratio=0.6, equal_weight_direction=0.25,
-            equal_weight_expected_return=0.008, is_low_confidence=False,
+            window_id="w-expired",
+            symbol="BTCUSD",
+            timeframe="5m",
+            timestamp=old,
+            responder_count=5,
+            bullish_count=3,
+            bearish_count=1,
+            flat_count=1,
+            weighted_direction=0.3,
+            weighted_expected_return=0.01,
+            agreement_ratio=0.6,
+            equal_weight_direction=0.25,
+            equal_weight_expected_return=0.008,
+            is_low_confidence=False,
             derivation_version="v1",
         )
         await store.save_derived_view(view)
@@ -248,7 +301,10 @@ class TestWindowExpiry:
 
         now_query = datetime(2026, 3, 31, 16, 0, 0)
         windows = await store.get_unevaluated_windows(
-            now=now_query, delay_factor=1.1, prediction_size=100, timeframe_minutes=5,
+            now=now_query,
+            delay_factor=1.1,
+            prediction_size=100,
+            timeframe_minutes=5,
         )
         assert len(windows) == 0
 
@@ -258,12 +314,20 @@ class TestWindowExpiry:
         from datetime import datetime
 
         view = DerivedBittensorView(
-            window_id="w-status", symbol="BTCUSD", timeframe="5m",
+            window_id="w-status",
+            symbol="BTCUSD",
+            timeframe="5m",
             timestamp=datetime(2026, 3, 30, 10, 0, 0),
-            responder_count=5, bullish_count=3, bearish_count=1, flat_count=1,
-            weighted_direction=0.3, weighted_expected_return=0.01,
-            agreement_ratio=0.6, equal_weight_direction=0.25,
-            equal_weight_expected_return=0.008, is_low_confidence=False,
+            responder_count=5,
+            bullish_count=3,
+            bearish_count=1,
+            flat_count=1,
+            weighted_direction=0.3,
+            weighted_expected_return=0.01,
+            agreement_ratio=0.6,
+            equal_weight_direction=0.25,
+            equal_weight_expected_return=0.008,
+            is_low_confidence=False,
             derivation_version="v1",
         )
         await store.save_derived_view(view)
@@ -286,10 +350,18 @@ class TestGetAccuracyForMiner:
     async def test_returns_records_for_hotkey(self, store):
         records = [
             MinerAccuracyRecord(
-                window_id=f"w{i}", miner_hotkey="hk1", symbol="BTCUSD", timeframe="5m",
-                direction_correct=True, predicted_return=0.01, actual_return=0.01,
-                magnitude_error=0.0, path_correlation=0.9, outcome_bars=100,
-                scoring_version="v1", evaluated_at=datetime(2026, 3, 31, i, 0, 0),
+                window_id=f"w{i}",
+                miner_hotkey="hk1",
+                symbol="BTCUSD",
+                timeframe="5m",
+                direction_correct=True,
+                predicted_return=0.01,
+                actual_return=0.01,
+                magnitude_error=0.0,
+                path_correlation=0.9,
+                outcome_bars=100,
+                scoring_version="v1",
+                evaluated_at=datetime(2026, 3, 31, i, 0, 0),
             )
             for i in range(3)
         ]
@@ -301,10 +373,18 @@ class TestGetAccuracyForMiner:
     async def test_returns_newest_first(self, store):
         records = [
             MinerAccuracyRecord(
-                window_id=f"w{i}", miner_hotkey="hk1", symbol="BTCUSD", timeframe="5m",
-                direction_correct=True, predicted_return=0.01, actual_return=0.01,
-                magnitude_error=0.0, path_correlation=0.9, outcome_bars=100,
-                scoring_version="v1", evaluated_at=datetime(2026, 3, 31, i, 0, 0),
+                window_id=f"w{i}",
+                miner_hotkey="hk1",
+                symbol="BTCUSD",
+                timeframe="5m",
+                direction_correct=True,
+                predicted_return=0.01,
+                actual_return=0.01,
+                magnitude_error=0.0,
+                path_correlation=0.9,
+                outcome_bars=100,
+                scoring_version="v1",
+                evaluated_at=datetime(2026, 3, 31, i, 0, 0),
             )
             for i in range(3)
         ]
@@ -315,10 +395,18 @@ class TestGetAccuracyForMiner:
     async def test_filters_by_hotkey(self, store):
         records = [
             MinerAccuracyRecord(
-                window_id=f"w{i}", miner_hotkey=f"hk{i}", symbol="BTCUSD", timeframe="5m",
-                direction_correct=True, predicted_return=0.01, actual_return=0.01,
-                magnitude_error=0.0, path_correlation=0.9, outcome_bars=100,
-                scoring_version="v1", evaluated_at=datetime(2026, 3, 31, i, 0, 0),
+                window_id=f"w{i}",
+                miner_hotkey=f"hk{i}",
+                symbol="BTCUSD",
+                timeframe="5m",
+                direction_correct=True,
+                predicted_return=0.01,
+                actual_return=0.01,
+                magnitude_error=0.0,
+                path_correlation=0.9,
+                outcome_bars=100,
+                scoring_version="v1",
+                evaluated_at=datetime(2026, 3, 31, i, 0, 0),
             )
             for i in range(3)
         ]
@@ -336,12 +424,20 @@ class TestGetRecentViews:
     async def test_returns_views_for_symbol(self, store):
         for i in range(3):
             view = DerivedBittensorView(
-                window_id=f"w{i}", symbol="BTCUSD", timeframe="5m",
+                window_id=f"w{i}",
+                symbol="BTCUSD",
+                timeframe="5m",
                 timestamp=datetime(2026, 3, 31, i, 0, 0),
-                responder_count=5, bullish_count=3, bearish_count=1, flat_count=1,
-                weighted_direction=0.4, weighted_expected_return=0.003,
-                agreement_ratio=0.6, equal_weight_direction=0.35,
-                equal_weight_expected_return=0.0025, is_low_confidence=False,
+                responder_count=5,
+                bullish_count=3,
+                bearish_count=1,
+                flat_count=1,
+                weighted_direction=0.4,
+                weighted_expected_return=0.003,
+                agreement_ratio=0.6,
+                equal_weight_direction=0.35,
+                equal_weight_expected_return=0.0025,
+                is_low_confidence=False,
                 derivation_version="v1",
             )
             await store.save_derived_view(view)
@@ -352,12 +448,20 @@ class TestGetRecentViews:
     async def test_returns_newest_first(self, store):
         for i in range(3):
             view = DerivedBittensorView(
-                window_id=f"w{i}", symbol="BTCUSD", timeframe="5m",
+                window_id=f"w{i}",
+                symbol="BTCUSD",
+                timeframe="5m",
                 timestamp=datetime(2026, 3, 31, i, 0, 0),
-                responder_count=5, bullish_count=3, bearish_count=1, flat_count=1,
-                weighted_direction=0.4, weighted_expected_return=0.003,
-                agreement_ratio=0.6, equal_weight_direction=0.35,
-                equal_weight_expected_return=0.0025, is_low_confidence=False,
+                responder_count=5,
+                bullish_count=3,
+                bearish_count=1,
+                flat_count=1,
+                weighted_direction=0.4,
+                weighted_expected_return=0.003,
+                agreement_ratio=0.6,
+                equal_weight_direction=0.35,
+                equal_weight_expected_return=0.0025,
+                is_low_confidence=False,
                 derivation_version="v1",
             )
             await store.save_derived_view(view)
@@ -367,12 +471,20 @@ class TestGetRecentViews:
     async def test_filters_by_symbol(self, store):
         for symbol, wid in [("BTCUSD", "w1"), ("ETHUSD", "w2")]:
             view = DerivedBittensorView(
-                window_id=wid, symbol=symbol, timeframe="5m",
+                window_id=wid,
+                symbol=symbol,
+                timeframe="5m",
                 timestamp=datetime(2026, 3, 31, 10, 0, 0),
-                responder_count=5, bullish_count=3, bearish_count=1, flat_count=1,
-                weighted_direction=0.4, weighted_expected_return=0.003,
-                agreement_ratio=0.6, equal_weight_direction=0.35,
-                equal_weight_expected_return=0.0025, is_low_confidence=False,
+                responder_count=5,
+                bullish_count=3,
+                bearish_count=1,
+                flat_count=1,
+                weighted_direction=0.4,
+                weighted_expected_return=0.003,
+                agreement_ratio=0.6,
+                equal_weight_direction=0.35,
+                equal_weight_expected_return=0.0025,
+                is_low_confidence=False,
                 derivation_version="v1",
             )
             await store.save_derived_view(view)

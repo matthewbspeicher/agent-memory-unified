@@ -37,7 +37,9 @@ async def test_send_template(client):
         mock_cls.return_value.__aexit__ = AsyncMock(return_value=False)
         mock_http.post = AsyncMock(return_value=MagicMock(status_code=200))
 
-        await client.send_template("15551234567", "opportunity_alert", ["RSI Agent", "AAPL", "BUY", "0.85"])
+        await client.send_template(
+            "15551234567", "opportunity_alert", ["RSI Agent", "AAPL", "BUY", "0.85"]
+        )
 
         mock_http.post.assert_called_once()
         call_kwargs = mock_http.post.call_args

@@ -1,4 +1,5 @@
 """Confidence calibration analytics API routes."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query, Request
@@ -49,7 +50,9 @@ async def get_strategy_calibration(
 async def get_recommendation(
     request: Request,
     agent_name: str,
-    confidence: float = Query(..., ge=0.0, le=1.0, description="Raw confidence score from the strategy"),
+    confidence: float = Query(
+        ..., ge=0.0, le=1.0, description="Raw confidence score from the strategy"
+    ),
     window: str = Query("all", pattern="^(30d|90d|all)$"),
     _: str = Depends(verify_api_key),
 ):
@@ -85,13 +88,19 @@ async def get_recommendation(
         }
 
     trade_count = cal_row["trade_count"]
-    expectancy = float(cal_row["avg_net_return_pct"]) if cal_row.get("avg_net_return_pct") is not None else None
+    expectancy = (
+        float(cal_row["avg_net_return_pct"])
+        if cal_row.get("avg_net_return_pct") is not None
+        else None
+    )
 
     rec = build_recommendation(
         bucket=bucket,
         trade_count=trade_count,
         expectancy=expectancy,
-        avg_net_pnl=float(cal_row["avg_net_pnl"]) if cal_row.get("avg_net_pnl") is not None else None,
+        avg_net_pnl=float(cal_row["avg_net_pnl"])
+        if cal_row.get("avg_net_pnl") is not None
+        else None,
         cfg=cfg,
     )
 

@@ -17,12 +17,16 @@ def _make_opportunity(needs_approval=False, auto_executed=False):
         reasoning="RSI dropped below 30 on the daily chart for AAPL",
         data={},
         timestamp=datetime.now(timezone.utc),
-        status=OpportunityStatus.EXECUTED if auto_executed else OpportunityStatus.PENDING,
+        status=OpportunityStatus.EXECUTED
+        if auto_executed
+        else OpportunityStatus.PENDING,
     )
     if auto_executed:
         opp.suggested_trade = MarketOrder(
-            symbol=opp.symbol, side=OrderSide.BUY,
-            quantity=Decimal("100"), account_id="U123",
+            symbol=opp.symbol,
+            side=OrderSide.BUY,
+            quantity=Decimal("100"),
+            account_id="U123",
         )
     return opp
 
@@ -68,7 +72,9 @@ async def test_uses_template_outside_window(notifier):
 @pytest.mark.asyncio
 async def test_skips_when_no_allowed_numbers():
     client = AsyncMock()
-    n = WhatsAppNotifier(client=client, allowed_numbers=[], action_level=ActionLevel.NOTIFY)
+    n = WhatsAppNotifier(
+        client=client, allowed_numbers=[], action_level=ActionLevel.NOTIFY
+    )
     await n.send(_make_opportunity())
     client.send_text.assert_not_called()
     client.send_template.assert_not_called()
@@ -80,6 +86,7 @@ async def test_send_text_calls_client():
     client.send_text = AsyncMock()
     from notifications.whatsapp import WhatsAppNotifier
     from agents.models import ActionLevel
+
     notifier = WhatsAppNotifier(
         client=client,
         allowed_numbers=["1234567890"],

@@ -1,18 +1,29 @@
 """Unit tests for PolymarketPaperBroker."""
+
 from __future__ import annotations
 
 import pytest
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
-from broker.models import AssetType, LimitOrder, MarketOrder, OrderSide, OrderStatus, Symbol, TIF
+from broker.models import (
+    AssetType,
+    LimitOrder,
+    MarketOrder,
+    OrderSide,
+    OrderStatus,
+    Symbol,
+    TIF,
+)
 
 
 def _prediction_symbol(ticker: str = "0xABC123") -> Symbol:
     return Symbol(ticker=ticker, asset_type=AssetType.PREDICTION)
 
 
-def _limit_order(ticker: str, side: OrderSide, price_prob: str, qty: int = 10) -> LimitOrder:
+def _limit_order(
+    ticker: str, side: OrderSide, price_prob: str, qty: int = 10
+) -> LimitOrder:
     return LimitOrder(
         symbol=_prediction_symbol(ticker),
         side=side,
@@ -27,6 +38,7 @@ class TestPolymarketPaperBrokerPlaceOrder:
     @pytest.mark.asyncio
     async def test_place_buy_returns_filled(self):
         from adapters.polymarket.paper import PolymarketPaperBroker
+
         store = AsyncMock()
         store.record_fill = AsyncMock()
         store.save_order = AsyncMock()
@@ -43,6 +55,7 @@ class TestPolymarketPaperBrokerPlaceOrder:
     @pytest.mark.asyncio
     async def test_place_order_records_fill_in_store(self):
         from adapters.polymarket.paper import PolymarketPaperBroker
+
         store = AsyncMock()
         store.record_fill = AsyncMock()
         store.save_order = AsyncMock()
@@ -59,6 +72,7 @@ class TestPolymarketPaperBrokerPlaceOrder:
     @pytest.mark.asyncio
     async def test_non_limit_order_is_rejected(self):
         from adapters.polymarket.paper import PolymarketPaperBroker
+
         store = AsyncMock()
         broker = PolymarketPaperBroker(store=store)
         order = MarketOrder(
@@ -75,6 +89,7 @@ class TestPolymarketPaperBrokerSlippage:
     @pytest.mark.asyncio
     async def test_slippage_applied_on_buy(self):
         from adapters.polymarket.paper import PolymarketPaperBroker
+
         store = AsyncMock()
         store.record_fill = AsyncMock()
         store.save_order = AsyncMock()
@@ -88,6 +103,7 @@ class TestPolymarketPaperBrokerSlippage:
     @pytest.mark.asyncio
     async def test_slippage_applied_on_sell(self):
         from adapters.polymarket.paper import PolymarketPaperBroker
+
         store = AsyncMock()
         store.record_fill = AsyncMock()
         store.save_order = AsyncMock()
@@ -101,6 +117,7 @@ class TestPolymarketPaperBrokerSlippage:
     @pytest.mark.asyncio
     async def test_slippage_clamped_to_bounds(self):
         from adapters.polymarket.paper import PolymarketPaperBroker
+
         store = AsyncMock()
         store.record_fill = AsyncMock()
         store.save_order = AsyncMock()
@@ -115,7 +132,11 @@ class TestPolymarketPaperBrokerSlippage:
 class TestPolymarketPaperBrokerResolution:
     @pytest.mark.asyncio
     async def test_yes_resolution(self):
-        from adapters.polymarket.paper import PolymarketPaperBroker, POLYMARKET_PAPER_ACCOUNT_ID
+        from adapters.polymarket.paper import (
+            PolymarketPaperBroker,
+            POLYMARKET_PAPER_ACCOUNT_ID,
+        )
+
         store = AsyncMock()
         store.record_binary_resolution = AsyncMock()
 
@@ -140,7 +161,11 @@ class TestPolymarketPaperBrokerResolution:
 
     @pytest.mark.asyncio
     async def test_no_resolution(self):
-        from adapters.polymarket.paper import PolymarketPaperBroker, POLYMARKET_PAPER_ACCOUNT_ID
+        from adapters.polymarket.paper import (
+            PolymarketPaperBroker,
+            POLYMARKET_PAPER_ACCOUNT_ID,
+        )
+
         store = AsyncMock()
         store.record_binary_resolution = AsyncMock()
 
@@ -159,7 +184,11 @@ class TestPolymarketPaperBrokerResolution:
 
     @pytest.mark.asyncio
     async def test_cancelled_resolution(self):
-        from adapters.polymarket.paper import PolymarketPaperBroker, POLYMARKET_PAPER_ACCOUNT_ID
+        from adapters.polymarket.paper import (
+            PolymarketPaperBroker,
+            POLYMARKET_PAPER_ACCOUNT_ID,
+        )
+
         store = AsyncMock()
         store.record_binary_resolution = AsyncMock()
 
@@ -174,13 +203,16 @@ class TestPolymarketPaperBrokerResolution:
             resolution="CANCELLED",
         )
         store.record_binary_resolution.assert_awaited_once()
-        assert store.record_binary_resolution.call_args.kwargs["resolution"] == "CANCELLED"
+        assert (
+            store.record_binary_resolution.call_args.kwargs["resolution"] == "CANCELLED"
+        )
 
 
 class TestPolymarketPaperBrokerCapabilities:
     @pytest.mark.asyncio
     async def test_capabilities_prediction_markets(self):
         from adapters.polymarket.paper import PolymarketPaperBroker
+
         store = AsyncMock()
         broker = PolymarketPaperBroker(store=store)
         caps = broker.capabilities()
@@ -189,6 +221,7 @@ class TestPolymarketPaperBrokerCapabilities:
     @pytest.mark.asyncio
     async def test_always_connected(self):
         from adapters.polymarket.paper import PolymarketPaperBroker
+
         store = AsyncMock()
         broker = PolymarketPaperBroker(store=store)
         assert broker.connection.is_connected() is True

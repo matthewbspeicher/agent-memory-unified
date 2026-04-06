@@ -4,9 +4,19 @@ from collections.abc import Callable
 from typing import Any
 
 from broker.models import (
-    Account, AccountBalance, Bar, BrokerCapabilities, ContractDetails,
-    OptionsChain, OrderBase, OrderHistoryFilter, OrderResult, OrderStatus,
-    Position, Quote, Symbol,
+    Account,
+    AccountBalance,
+    Bar,
+    BrokerCapabilities,
+    ContractDetails,
+    OptionsChain,
+    OrderBase,
+    OrderHistoryFilter,
+    OrderResult,
+    OrderStatus,
+    Position,
+    Quote,
+    Symbol,
 )
 
 
@@ -39,7 +49,9 @@ class AccountProvider(ABC):
 
     @abstractmethod
     async def get_order_history(
-        self, account_id: str, filters: OrderHistoryFilter | None = None,
+        self,
+        account_id: str,
+        filters: OrderHistoryFilter | None = None,
     ) -> list[OrderResult]: ...
 
 
@@ -52,17 +64,24 @@ class MarketDataProvider(ABC):
 
     @abstractmethod
     async def stream_quotes(
-        self, symbols: list[Symbol], callback: Callable[[Quote], Any],
+        self,
+        symbols: list[Symbol],
+        callback: Callable[[Quote], Any],
     ) -> None: ...
 
     @abstractmethod
     async def get_historical(
-        self, symbol: Symbol, timeframe: str, period: str,
+        self,
+        symbol: Symbol,
+        timeframe: str,
+        period: str,
     ) -> list[Bar]: ...
 
     @abstractmethod
     async def get_options_chain(
-        self, symbol: Symbol, expiry: str | None = None,
+        self,
+        symbol: Symbol,
+        expiry: str | None = None,
     ) -> OptionsChain: ...
 
     @abstractmethod

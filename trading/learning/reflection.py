@@ -23,7 +23,9 @@ class PredictionTracker:
         applies_to: list[str],
     ) -> None:
         if self._prompt_store:
-            await self._prompt_store.record_lesson(agent_name, opportunity_id, category, lesson, applies_to)
+            await self._prompt_store.record_lesson(
+                agent_name, opportunity_id, category, lesson, applies_to
+            )
         else:
             await self._db.execute(
                 """INSERT INTO llm_lessons (agent_name, opportunity_id, category, lesson, applies_to)
@@ -87,6 +89,7 @@ class PromptEvolver:
             self._llm = llm
         else:
             from llm.client import LLMClient as _LLMClient
+
             self._llm = _LLMClient()
         self._max_rules = max_rules
 
@@ -117,7 +120,7 @@ class PromptEvolver:
             content = (result.text or "").strip()
             if not content:
                 return []
-                
+
             match = __import__("re").search(r"\[.*\]", content, __import__("re").DOTALL)
             if match:
                 content = match.group(0)

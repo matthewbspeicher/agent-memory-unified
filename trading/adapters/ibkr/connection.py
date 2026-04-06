@@ -36,7 +36,9 @@ class IBKRConnection(BrokerConnection):
     async def connect(self) -> None:
         try:
             await self._ib.connectAsync(
-                self._host, self._port, clientId=self._client_id,
+                self._host,
+                self._port,
+                clientId=self._client_id,
             )
             logger.info("Connected to IBKR at %s:%s", self._host, self._port)
         except Exception as e:

@@ -12,7 +12,6 @@ from learning.ensemble_optimizer import (
     EnsembleConfig,
     EnsembleMethod,
     EnsembleOptimizer,
-    EnsembleSignal,
 )
 
 

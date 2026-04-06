@@ -4,11 +4,13 @@ from httpx import ASGITransport, AsyncClient
 from fastapi import FastAPI
 from api.routes.test import create_test_router
 
+
 @pytest.fixture
 def mock_wa_client():
     client = AsyncMock()
     client.send_text = AsyncMock(return_value=None)
     return client
+
 
 @pytest.fixture
 def app(mock_wa_client):
@@ -17,9 +19,12 @@ def app(mock_wa_client):
     app.include_router(router)
     return app
 
+
 @pytest.mark.asyncio
 async def test_whatsapp_smoke_sends_message(app, mock_wa_client):
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
         resp = await client.post("/test/whatsapp")
         assert resp.status_code == 200
         data = resp.json()
@@ -27,12 +32,15 @@ async def test_whatsapp_smoke_sends_message(app, mock_wa_client):
         assert data["to"] == "15551234567"
         mock_wa_client.send_text.assert_called_once()
 
+
 @pytest.mark.asyncio
 async def test_whatsapp_smoke_no_client():
     app = FastAPI()
     router = create_test_router(wa_client=None, allowed_numbers=None)
     app.include_router(router)
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
         resp = await client.post("/test/whatsapp")
         assert resp.status_code == 400
         assert "not configured" in resp.json()["detail"]

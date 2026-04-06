@@ -36,10 +36,18 @@ async def get_historical(
     _: str = Depends(verify_api_key),
     broker: Broker = Depends(get_broker),
 ):
-    bars = await broker.market_data.get_historical(Symbol(ticker=symbol), timeframe, period)
+    bars = await broker.market_data.get_historical(
+        Symbol(ticker=symbol), timeframe, period
+    )
     return [
-        {"open": str(b.open), "high": str(b.high), "low": str(b.low),
-         "close": str(b.close), "volume": b.volume, "timestamp": b.timestamp.isoformat()}
+        {
+            "open": str(b.open),
+            "high": str(b.high),
+            "low": str(b.low),
+            "close": str(b.close),
+            "volume": b.volume,
+            "timestamp": b.timestamp.isoformat(),
+        }
         for b in bars
     ]
 
@@ -67,7 +75,10 @@ async def get_contract_details(
 ):
     details = await broker.market_data.get_contract_details(Symbol(ticker=symbol))
     return {
-        "symbol": {"ticker": details.symbol.ticker, "asset_type": details.symbol.asset_type.value},
+        "symbol": {
+            "ticker": details.symbol.ticker,
+            "asset_type": details.symbol.asset_type.value,
+        },
         "long_name": details.long_name,
         "industry": details.industry,
         "category": details.category,

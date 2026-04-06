@@ -1,5 +1,4 @@
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from tournament.engine import TournamentEngine
 from tournament.store import TournamentStore
 from learning.config import TournamentConfig, TournamentStageConfig, LiveLimitedConfig
@@ -10,9 +9,15 @@ from datetime import datetime, timezone
 
 def _make_config(stages: dict | None = None) -> TournamentConfig:
     default_stages = {
-        1: TournamentStageConfig(min_sharpe=1.5, min_trades=50, max_drawdown=0.15, min_win_rate=0.45),
-        2: TournamentStageConfig(min_sharpe=1.8, min_trades=100, max_drawdown=0.12, min_win_rate=0.48),
-        3: TournamentStageConfig(min_sharpe=2.0, min_trades=200, max_drawdown=0.10, min_win_rate=0.50),
+        1: TournamentStageConfig(
+            min_sharpe=1.5, min_trades=50, max_drawdown=0.15, min_win_rate=0.45
+        ),
+        2: TournamentStageConfig(
+            min_sharpe=1.8, min_trades=100, max_drawdown=0.12, min_win_rate=0.48
+        ),
+        3: TournamentStageConfig(
+            min_sharpe=2.0, min_trades=200, max_drawdown=0.10, min_win_rate=0.50
+        ),
     }
     return TournamentConfig(
         enabled=True,
@@ -195,7 +200,7 @@ class TestPromoteDemote:
 class TestWhatsAppOverrideRouting:
     async def test_override_promote_command_parsed(self):
         """Verify the WhatsApp assistant routes OVERRIDE PROMOTE to TournamentEngine."""
-        from unittest.mock import patch, AsyncMock, MagicMock
+        from unittest.mock import AsyncMock, MagicMock
         from whatsapp.assistant import WhatsAppAssistant
 
         wa_client = MagicMock()
@@ -205,7 +210,9 @@ class TestWhatsAppOverrideRouting:
         wa_client.persist_session = AsyncMock()
 
         tournament_engine = MagicMock()
-        tournament_engine.override = AsyncMock(return_value="Override applied: agent1 promoted.")
+        tournament_engine.override = AsyncMock(
+            return_value="Override applied: agent1 promoted."
+        )
 
         assistant = WhatsAppAssistant(
             client=wa_client,

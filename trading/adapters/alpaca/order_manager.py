@@ -8,8 +8,16 @@ from typing import Any
 
 from broker.interfaces import OrderManager
 from broker.models import (
-    BracketOrder, LimitOrder, MarketOrder, OrderBase, OrderResult, OrderSide, OrderStatus,
-    StopLimitOrder, StopOrder, TIF, TrailingStopOrder,
+    BracketOrder,
+    LimitOrder,
+    MarketOrder,
+    OrderBase,
+    OrderResult,
+    OrderSide,
+    OrderStatus,
+    StopLimitOrder,
+    StopOrder,
+    TrailingStopOrder,
 )
 from adapters.alpaca.client import AlpacaClient
 from adapters.alpaca.errors import AlpacaAPIError
@@ -23,9 +31,11 @@ _SUPPORTED_TIF = {"day", "gtc"}
 
 
 class AlpacaOrderManager(OrderManager):
-
     def __init__(
-        self, client: AlpacaClient, order_timeout: float = 10.0, poll_interval: float = 1.0,
+        self,
+        client: AlpacaClient,
+        order_timeout: float = 10.0,
+        poll_interval: float = 1.0,
     ) -> None:
         self._client = client
         self._order_timeout = order_timeout
@@ -123,7 +133,11 @@ class AlpacaOrderManager(OrderManager):
             await self._client.cancel_order(order_id)
         except Exception:
             pass
-        return OrderResult(order_id=order_id, status=OrderStatus.CANCELLED, message="Adaptive poll timeout")
+        return OrderResult(
+            order_id=order_id,
+            status=OrderStatus.CANCELLED,
+            message="Adaptive poll timeout",
+        )
 
     async def modify_order(self, order_id: str, changes: dict) -> OrderResult:
         raise NotImplementedError("Alpaca order modification not implemented")
@@ -148,5 +162,7 @@ def _to_order_result(raw: dict) -> OrderResult:
         order_id=raw["id"],
         status=_STATUS_MAP.get(raw.get("status", ""), OrderStatus.SUBMITTED),
         filled_quantity=Decimal(raw.get("filled_qty", "0")),
-        avg_fill_price=Decimal(raw["filled_avg_price"]) if raw.get("filled_avg_price") else None,
+        avg_fill_price=Decimal(raw["filled_avg_price"])
+        if raw.get("filled_avg_price")
+        else None,
     )

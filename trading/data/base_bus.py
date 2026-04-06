@@ -4,8 +4,10 @@ from typing import Any, AsyncGenerator, Callable, Awaitable
 
 logger = logging.getLogger(__name__)
 
+
 class BasePubSubBus:
     """Base class for async pub/sub buses."""
+
     def __init__(self, max_queue_size: int = 1000, max_subscribers: int = 10):
         self._queues: set[asyncio.Queue] = set()
         self._max_queue_size = max_queue_size
@@ -14,7 +16,7 @@ class BasePubSubBus:
 
     async def publish(self, topic: str, data: Any) -> None:
         payload = {"topic": topic, "data": data}
-        
+
         # Notify queue-based subscribers
         for q in list(self._queues):
             if q.full():
@@ -26,7 +28,7 @@ class BasePubSubBus:
                 q.put_nowait(payload)
             except asyncio.QueueFull:
                 pass
-        
+
         # Notify callback-based subscribers
         for cb in self._callbacks:
             try:

@@ -35,6 +35,7 @@ async def cal_store():
 # Bucket assignment
 # ---------------------------------------------------------------------------
 
+
 class TestAssignBucket:
     def test_none_returns_unknown(self):
         assert assign_bucket(None) == "unknown"
@@ -86,6 +87,7 @@ class TestAssignBucket:
 # Sample quality classification
 # ---------------------------------------------------------------------------
 
+
 class TestClassifySampleQuality:
     def test_insufficient(self):
         assert classify_sample_quality(0) == "insufficient"
@@ -107,6 +109,7 @@ class TestClassifySampleQuality:
 # ---------------------------------------------------------------------------
 # Multiplier computation
 # ---------------------------------------------------------------------------
+
 
 class TestComputeMultiplier:
     def test_insufficient_returns_fallback(self, cfg):
@@ -163,6 +166,7 @@ class TestComputeMultiplier:
 # Calibrated score
 # ---------------------------------------------------------------------------
 
+
 class TestComputeCalibratedScore:
     def test_none_expectancy(self):
         assert compute_calibrated_score(None, "strong") is None
@@ -187,6 +191,7 @@ class TestComputeCalibratedScore:
 # ---------------------------------------------------------------------------
 # build_recommendation
 # ---------------------------------------------------------------------------
+
 
 class TestBuildRecommendation:
     def test_unknown_bucket(self, cfg):
@@ -240,6 +245,7 @@ class TestBuildRecommendation:
 # Composed Kelly cap
 # ---------------------------------------------------------------------------
 
+
 class TestApplyComposedKellyCap:
     def test_no_cap_needed(self):
         result = apply_composed_kelly_cap(0.25, 1.0, 0.50)
@@ -270,7 +276,14 @@ class TestApplyComposedKellyCap:
 # recompute_calibration_for_strategy
 # ---------------------------------------------------------------------------
 
-def _make_analytics_row(confidence: float | None, net_pnl: str, net_return: float, outcome: str, exit_time: str = "2026-03-25T14:00:00") -> dict:
+
+def _make_analytics_row(
+    confidence: float | None,
+    net_pnl: str,
+    net_return: float,
+    outcome: str,
+    exit_time: str = "2026-03-25T14:00:00",
+) -> dict:
     return {
         "confidence": confidence,
         "net_pnl": net_pnl,
@@ -297,7 +310,9 @@ class TestRecomputeCalibration:
         assert result["trade_count"] == 3
         assert result["win_rate"] == pytest.approx(2 / 3)
 
-    async def test_none_confidence_goes_to_unknown_bucket(self, cal_store: ConfidenceCalibrationStore):
+    async def test_none_confidence_goes_to_unknown_bucket(
+        self, cal_store: ConfidenceCalibrationStore
+    ):
         rows = [
             _make_analytics_row(None, "10.00", 0.005, "win"),
             _make_analytics_row(None, "-5.00", -0.002, "loss"),
@@ -318,7 +333,11 @@ class TestRecomputeCalibration:
         ]
 
         await recompute_calibration_for_strategy(
-            "rsi_agent", rows, cal_store, ConfidenceCalibrationConfig(), windows=["30d", "all"]
+            "rsi_agent",
+            rows,
+            cal_store,
+            ConfidenceCalibrationConfig(),
+            windows=["30d", "all"],
         )
 
         all_result = await cal_store.get("rsi_agent", "0.70-0.80", "all")
@@ -348,7 +367,9 @@ class TestRecomputeCalibration:
         assert r70 is not None and r70["trade_count"] == 1
         assert r80 is not None and r80["trade_count"] == 1
 
-    async def test_sample_quality_in_summary(self, cal_store: ConfidenceCalibrationStore):
+    async def test_sample_quality_in_summary(
+        self, cal_store: ConfidenceCalibrationStore
+    ):
         # 5 trades → insufficient
         rows = [_make_analytics_row(0.75, "10.00", 0.005, "win") for _ in range(5)]
         await recompute_calibration_for_strategy(

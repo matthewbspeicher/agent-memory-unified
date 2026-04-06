@@ -1,4 +1,5 @@
 """Unit tests for NewsAPISource."""
+
 from __future__ import annotations
 
 import pytest
@@ -9,6 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 class TestNewsSignalSchema:
     def test_news_signal_fields(self):
         from data.sources.newsapi import NewsSignal
+
         sig = NewsSignal(
             contract_ticker="MKT-001",
             headline="Fed raises rates",
@@ -26,6 +28,7 @@ class TestNewsSignalSchema:
 
     def test_news_signal_sentiment_values(self):
         from data.sources.newsapi import NewsSignal
+
         for sentiment in ("bullish_yes", "bearish_yes", "neutral"):
             sig = NewsSignal(
                 contract_ticker="X",
@@ -98,7 +101,11 @@ class TestNewsAPISourceScoring:
         from data.sources.newsapi import NewsAPISource, NewsSignal
 
         mock_llm = AsyncMock()
-        mock_llm.score_headline = AsyncMock(return_value=MagicMock(relevance=0.9, sentiment="bullish_yes", mispricing_score=0.35))
+        mock_llm.score_headline = AsyncMock(
+            return_value=MagicMock(
+                relevance=0.9, sentiment="bullish_yes", mispricing_score=0.35
+            )
+        )
         source = NewsAPISource(api_key="test-key", llm_client=mock_llm)
 
         signal = await source._score_headline(

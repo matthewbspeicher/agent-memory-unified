@@ -1,4 +1,5 @@
 """Unit tests for ExecutionCostStore."""
+
 from __future__ import annotations
 
 import aiosqlite
@@ -74,8 +75,12 @@ class TestExecutionCostStore:
         assert rows[0]["broker_id"] == "ib"
 
     async def test_filter_by_agent_name(self, store: ExecutionCostStore):
-        await store.insert(order_id="ord-001", **_event("ord-001", agent_name="rsi_agent"))
-        await store.insert(order_id="ord-002", **_event("ord-002", agent_name="macd_agent"))
+        await store.insert(
+            order_id="ord-001", **_event("ord-001", agent_name="rsi_agent")
+        )
+        await store.insert(
+            order_id="ord-002", **_event("ord-002", agent_name="macd_agent")
+        )
         rows = await store.list_events(agent_name="rsi_agent")
         assert len(rows) == 1
         assert rows[0]["agent_name"] == "rsi_agent"
@@ -150,6 +155,8 @@ class TestExecutionCostStore:
         rows = await store.list_events()
         assert rows == []
 
-    async def test_grouped_summary_invalid_group_raises(self, store: ExecutionCostStore):
+    async def test_grouped_summary_invalid_group_raises(
+        self, store: ExecutionCostStore
+    ):
         with pytest.raises(ValueError):
             await store.get_grouped_summary("invalid_column")

@@ -1,11 +1,11 @@
 """Tests for CrossPlatformArbAgent."""
+
 import pytest
 from datetime import datetime, timezone
-from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock
 
 from agents.models import ActionLevel, AgentConfig, OpportunityStatus
-from broker.models import AssetType, PredictionContract, Symbol
+from broker.models import PredictionContract
 
 
 def _make_config(params=None):
@@ -18,7 +18,9 @@ def _make_config(params=None):
     )
 
 
-def _make_contract(ticker, title, yes_bid=None, yes_ask=None, yes_last=None, volume_24h=1000):
+def _make_contract(
+    ticker, title, yes_bid=None, yes_ask=None, yes_last=None, volume_24h=1000
+):
     return PredictionContract(
         ticker=ticker,
         title=title,
@@ -39,25 +41,52 @@ def _make_ds(contracts):
 
 @pytest.fixture
 def kalshi_ds():
-    return _make_ds([
-        _make_contract("KALSHI-001", "Will inflation fall below 3% in 2026?", yes_bid=60, yes_ask=62),
-        _make_contract("KALSHI-002", "Will the Fed cut rates in Q2 2026?", yes_bid=40, yes_ask=42),
-    ])
+    return _make_ds(
+        [
+            _make_contract(
+                "KALSHI-001",
+                "Will inflation fall below 3% in 2026?",
+                yes_bid=60,
+                yes_ask=62,
+            ),
+            _make_contract(
+                "KALSHI-002",
+                "Will the Fed cut rates in Q2 2026?",
+                yes_bid=40,
+                yes_ask=42,
+            ),
+        ]
+    )
 
 
 @pytest.fixture
 def poly_ds():
-    return _make_ds([
-        _make_contract("poly-cond-001", "Will inflation drop below 3% in 2026?", yes_bid=74, yes_ask=76),
-        _make_contract("poly-cond-002", "Will the Federal Reserve cut interest rates Q2 2026?", yes_bid=41, yes_ask=43),
-    ])
+    return _make_ds(
+        [
+            _make_contract(
+                "poly-cond-001",
+                "Will inflation drop below 3% in 2026?",
+                yes_bid=74,
+                yes_ask=76,
+            ),
+            _make_contract(
+                "poly-cond-002",
+                "Will the Federal Reserve cut interest rates Q2 2026?",
+                yes_bid=41,
+                yes_ask=43,
+            ),
+        ]
+    )
 
 
 @pytest.fixture
 def agent(kalshi_ds, poly_ds):
     from strategies.cross_platform_arb import CrossPlatformArbAgent
+
     config = _make_config({"threshold_cents": 8, "min_match_similarity": 0.4})
-    return CrossPlatformArbAgent(config=config, kalshi_ds=kalshi_ds, polymarket_ds=poly_ds)
+    return CrossPlatformArbAgent(
+        config=config, kalshi_ds=kalshi_ds, polymarket_ds=poly_ds
+    )
 
 
 @pytest.mark.asyncio
@@ -99,15 +128,26 @@ async def test_cheaper_venue_is_target(agent):
 @pytest.mark.asyncio
 async def test_no_opportunity_when_below_threshold():
     """Gap <= threshold_cents → no opportunity emitted."""
-    kalshi_ds = _make_ds([
-        _make_contract("K-001", "Will event X happen in 2026?", yes_bid=50, yes_ask=52),
-    ])
-    poly_ds = _make_ds([
-        _make_contract("p-001", "Will event X happen in 2026?", yes_bid=54, yes_ask=56),
-    ])
+    kalshi_ds = _make_ds(
+        [
+            _make_contract(
+                "K-001", "Will event X happen in 2026?", yes_bid=50, yes_ask=52
+            ),
+        ]
+    )
+    poly_ds = _make_ds(
+        [
+            _make_contract(
+                "p-001", "Will event X happen in 2026?", yes_bid=54, yes_ask=56
+            ),
+        ]
+    )
     from strategies.cross_platform_arb import CrossPlatformArbAgent
+
     config = _make_config({"threshold_cents": 8, "min_match_similarity": 0.5})
-    agent = CrossPlatformArbAgent(config=config, kalshi_ds=kalshi_ds, polymarket_ds=poly_ds)
+    agent = CrossPlatformArbAgent(
+        config=config, kalshi_ds=kalshi_ds, polymarket_ds=poly_ds
+    )
     opps = await agent.scan(MagicMock())
     # Gap is ~5¢ (mid 51 vs 55), below threshold of 8
     assert opps == []
@@ -116,15 +156,26 @@ async def test_no_opportunity_when_below_threshold():
 @pytest.mark.asyncio
 async def test_no_opportunity_when_same_price():
     """Tie-breaking: identical prices → no opportunity."""
-    kalshi_ds = _make_ds([
-        _make_contract("K-001", "Will the same thing happen?", yes_bid=65, yes_ask=65),
-    ])
-    poly_ds = _make_ds([
-        _make_contract("p-001", "Will the same thing happen?", yes_bid=65, yes_ask=65),
-    ])
+    kalshi_ds = _make_ds(
+        [
+            _make_contract(
+                "K-001", "Will the same thing happen?", yes_bid=65, yes_ask=65
+            ),
+        ]
+    )
+    poly_ds = _make_ds(
+        [
+            _make_contract(
+                "p-001", "Will the same thing happen?", yes_bid=65, yes_ask=65
+            ),
+        ]
+    )
     from strategies.cross_platform_arb import CrossPlatformArbAgent
+
     config = _make_config({"threshold_cents": 0, "min_match_similarity": 0.5})
-    agent = CrossPlatformArbAgent(config=config, kalshi_ds=kalshi_ds, polymarket_ds=poly_ds)
+    agent = CrossPlatformArbAgent(
+        config=config, kalshi_ds=kalshi_ds, polymarket_ds=poly_ds
+    )
     opps = await agent.scan(MagicMock())
     assert opps == []
 
@@ -132,15 +183,26 @@ async def test_no_opportunity_when_same_price():
 @pytest.mark.asyncio
 async def test_fuzzy_match_respects_min_similarity():
     """Pairs below min_match_similarity are not matched."""
-    kalshi_ds = _make_ds([
-        _make_contract("K-001", "Will inflation fall in 2026?", yes_bid=60, yes_ask=62),
-    ])
-    poly_ds = _make_ds([
-        _make_contract("p-001", "Basketball championship winner 2026?", yes_bid=10, yes_ask=12),
-    ])
+    kalshi_ds = _make_ds(
+        [
+            _make_contract(
+                "K-001", "Will inflation fall in 2026?", yes_bid=60, yes_ask=62
+            ),
+        ]
+    )
+    poly_ds = _make_ds(
+        [
+            _make_contract(
+                "p-001", "Basketball championship winner 2026?", yes_bid=10, yes_ask=12
+            ),
+        ]
+    )
     from strategies.cross_platform_arb import CrossPlatformArbAgent
+
     config = _make_config({"threshold_cents": 5, "min_match_similarity": 0.75})
-    agent = CrossPlatformArbAgent(config=config, kalshi_ds=kalshi_ds, polymarket_ds=poly_ds)
+    agent = CrossPlatformArbAgent(
+        config=config, kalshi_ds=kalshi_ds, polymarket_ds=poly_ds
+    )
     opps = await agent.scan(MagicMock())
     assert opps == []
 
@@ -149,6 +211,7 @@ async def test_fuzzy_match_respects_min_similarity():
 async def test_no_opportunity_when_data_source_missing():
     """Missing data sources → empty result, no crash."""
     from strategies.cross_platform_arb import CrossPlatformArbAgent
+
     config = _make_config()
     agent = CrossPlatformArbAgent(config=config, kalshi_ds=None, polymarket_ds=None)
     # DataBus with no _kalshi_source / _polymarket_source attrs
@@ -169,6 +232,7 @@ async def test_opportunity_status_is_pending(agent):
 async def test_suggested_trade_is_limit_order_on_target(agent):
     """Suggested trade is a LimitOrder pointing at the target symbol/account."""
     from broker.models import LimitOrder
+
     opps = await agent.scan(MagicMock())
     for opp in opps:
         trade = opp.suggested_trade
@@ -185,20 +249,29 @@ async def test_scan_uses_ask_price_for_kalshi():
     from storage.db import init_db
     from storage.spreads import SpreadStore
     from strategies.cross_platform_arb import CrossPlatformArbAgent
-    from datetime import timedelta
 
     db = await aiosqlite.connect(":memory:")
     db.row_factory = aiosqlite.Row
     await init_db(db)
     store = SpreadStore(db)
 
-    k_contract = _make_contract("KASK", "Will the Fed raise rates?", yes_bid=38, yes_ask=42, volume_24h=1000)
-    p_contract = _make_contract("PASK", "Will the Fed raise rates?", yes_bid=60, yes_ask=62, volume_24h=5000)
+    k_contract = _make_contract(
+        "KASK", "Will the Fed raise rates?", yes_bid=38, yes_ask=42, volume_24h=1000
+    )
+    p_contract = _make_contract(
+        "PASK", "Will the Fed raise rates?", yes_bid=60, yes_ask=62, volume_24h=5000
+    )
 
     config = AgentConfig(
-        name="test_arb_ask", strategy="cross_platform_arb", schedule="on_demand",
+        name="test_arb_ask",
+        strategy="cross_platform_arb",
+        schedule="on_demand",
         action_level=ActionLevel.NOTIFY,
-        parameters={"threshold_cents": 3, "min_match_similarity": 0.0, "max_markets_per_platform": 5},
+        parameters={
+            "threshold_cents": 3,
+            "min_match_similarity": 0.0,
+            "max_markets_per_platform": 5,
+        },
     )
 
     kalshi_ds = _make_ds([k_contract])
@@ -211,7 +284,9 @@ async def test_scan_uses_ask_price_for_kalshi():
 
     history = await store.get_history("KASK", "PASK", hours=1)
     assert len(history) >= 1
-    assert history[0].kalshi_cents == 42, f"Expected 42 (ask), got {history[0].kalshi_cents}"
+    assert history[0].kalshi_cents == 42, (
+        f"Expected 42 (ask), got {history[0].kalshi_cents}"
+    )
     await db.close()
 
 
@@ -223,12 +298,28 @@ async def test_scan_records_spread_observation():
     from storage.spreads import SpreadStore
     from strategies.cross_platform_arb import CrossPlatformArbAgent
 
-    kalshi_ds = _make_ds([
-        _make_contract("KALSHI-001", "Will inflation fall below 3% in 2026?", yes_bid=60, yes_ask=62, volume_24h=5000),
-    ])
-    poly_ds = _make_ds([
-        _make_contract("poly-cond-001", "Will inflation drop below 3% in 2026?", yes_bid=74, yes_ask=76, volume_24h=4000),
-    ])
+    kalshi_ds = _make_ds(
+        [
+            _make_contract(
+                "KALSHI-001",
+                "Will inflation fall below 3% in 2026?",
+                yes_bid=60,
+                yes_ask=62,
+                volume_24h=5000,
+            ),
+        ]
+    )
+    poly_ds = _make_ds(
+        [
+            _make_contract(
+                "poly-cond-001",
+                "Will inflation drop below 3% in 2026?",
+                yes_bid=74,
+                yes_ask=76,
+                volume_24h=4000,
+            ),
+        ]
+    )
 
     db = await aiosqlite.connect(":memory:")
     db.row_factory = aiosqlite.Row

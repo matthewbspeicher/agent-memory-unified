@@ -241,11 +241,13 @@ async def _try_bedrock(
             client = boto3.client("bedrock-runtime", region_name=region)
 
         # Bedrock request format for Claude models
-        body = json.dumps({
-            "anthropic_version": "bedrock-2023-05-31",
-            "max_tokens": max_tokens,
-            "messages": [{"role": "user", "content": prompt}],
-        })
+        body = json.dumps(
+            {
+                "anthropic_version": "bedrock-2023-05-31",
+                "max_tokens": max_tokens,
+                "messages": [{"role": "user", "content": prompt}],
+            }
+        )
 
         response = client.invoke_model(
             modelId=model,
@@ -403,12 +405,14 @@ async def _try_bedrock_chat(
             client = boto3.client("bedrock-runtime", region_name=region)
 
         # Bedrock request format for Claude models with system prompt
-        body = json.dumps({
-            "anthropic_version": "bedrock-2023-05-31",
-            "max_tokens": max_tokens,
-            "system": system,
-            "messages": messages,
-        })
+        body = json.dumps(
+            {
+                "anthropic_version": "bedrock-2023-05-31",
+                "max_tokens": max_tokens,
+                "system": system,
+                "messages": messages,
+            }
+        )
 
         response = client.invoke_model(
             modelId=model,

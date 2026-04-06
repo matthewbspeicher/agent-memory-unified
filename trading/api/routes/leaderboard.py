@@ -1,4 +1,5 @@
 """GET /leaderboard — agent rivalry leaderboard."""
+
 from __future__ import annotations
 
 from dataclasses import asdict
@@ -19,7 +20,9 @@ async def leaderboard(
 ):
     engine = getattr(request.app.state, "leaderboard_engine", None)
     if engine is None:
-        return JSONResponse(status_code=501, content={"detail": "Leaderboard not configured"})
+        return JSONResponse(
+            status_code=501, content={"detail": "Leaderboard not configured"}
+        )
 
     sync = engine._remembr_sync
     runner = engine._runner
@@ -49,7 +52,11 @@ async def leaderboard(
 
     rankings = await engine.compute_rankings(profiles)
     if not rankings:
-        return {"rankings": [], "updated_at": datetime.now(timezone.utc).isoformat(), "source": "live"}
+        return {
+            "rankings": [],
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "source": "live",
+        }
 
     matches = engine.run_matches(rankings)
     rankings = engine.tally_results(matches, rankings)

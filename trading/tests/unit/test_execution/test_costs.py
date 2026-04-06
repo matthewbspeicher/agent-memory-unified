@@ -1,4 +1,5 @@
 """Unit tests for execution cost math helpers."""
+
 from __future__ import annotations
 
 from decimal import Decimal
@@ -105,16 +106,19 @@ class TestOrderTypeLabel:
     def test_market_order(self):
         class MarketOrder:
             pass
+
         assert order_type_label(MarketOrder()) == "market"
 
     def test_limit_order(self):
         class LimitOrder:
             pass
+
         assert order_type_label(LimitOrder()) == "limit"
 
     def test_stop_order(self):
         class StopOrder:
             pass
+
         assert order_type_label(StopOrder()) == "stop"
 
     def test_none_returns_unknown(self):
@@ -123,4 +127,5 @@ class TestOrderTypeLabel:
     def test_arbitrary_class(self):
         class MyCustomType:
             pass
+
         assert order_type_label(MyCustomType()) == "mycustomtype"

@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from api.auth import verify_api_key
 from storage.shadow import ShadowExecutionStore
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/shadow",

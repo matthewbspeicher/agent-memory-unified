@@ -193,11 +193,17 @@ class TaoshiScheduler:
 
             # --- Bridge to SignalBus (Track 17b) ---
             try:
-                from integrations.bittensor.signals import BittensorSignalPayload, create_bittensor_agent_signal
+                from integrations.bittensor.signals import (
+                    BittensorSignalPayload,
+                    create_bittensor_agent_signal,
+                )
+
                 # Map consensus direction score to string
                 direction = "flat"
-                if view.weighted_direction > 0.3: direction = "bullish"
-                elif view.weighted_direction < -0.3: direction = "bearish"
+                if view.weighted_direction > 0.3:
+                    direction = "bullish"
+                elif view.weighted_direction < -0.3:
+                    direction = "bearish"
 
                 payload = BittensorSignalPayload(
                     symbol=symbol,
@@ -206,11 +212,11 @@ class TaoshiScheduler:
                     confidence=view.agreement_ratio,
                     expected_return=view.weighted_expected_return,
                     window_id=window_id,
-                    miner_count=len(verified_forecasts)
+                    miner_count=len(verified_forecasts),
                 )
-                
-                # We need a reference to the signal_bus. 
-                # For now, we'll try to get it from the app state if possible, 
+
+                # We need a reference to the signal_bus.
+                # For now, we'll try to get it from the app state if possible,
                 # but better to inject it in __init__.
                 if hasattr(self, "_signal_bus") and self._signal_bus:
                     signal = create_bittensor_agent_signal(payload)

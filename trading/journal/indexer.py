@@ -24,10 +24,12 @@ def _load_sentence_transformer_class():
         return SentenceTransformer
     try:
         from sentence_transformers import SentenceTransformer as _ST
+
         SentenceTransformer = _ST
     except ImportError:
         SentenceTransformer = None  # type: ignore[assignment]
     return SentenceTransformer
+
 
 if TYPE_CHECKING:
     from data.events import EventBus
@@ -113,13 +115,16 @@ class JournalIndexer:
         """Non-blocking startup: loads model, inits index, starts background tasks."""
         ST = _load_sentence_transformer_class()
         if ST is None:
-            logger.error("sentence-transformers not installed — JournalIndexer disabled")
+            logger.error(
+                "sentence-transformers not installed — JournalIndexer disabled"
+            )
             return
 
         def load_model():
             device = "cpu"
             try:
                 import torch
+
                 if self._gpu_enabled and torch.cuda.is_available():
                     device = "cuda"
             except ImportError:
@@ -131,6 +136,7 @@ class JournalIndexer:
         self._dim = self._model.get_sentence_embedding_dimension()
 
         import hnswlib
+
         loaded = await self.load()
         if not loaded:
             self._index = hnswlib.Index(space=self._space, dim=self._dim)
@@ -175,7 +181,9 @@ class JournalIndexer:
 
         try:
             while True:
-                resp = await self._remembr_client.list(page=page, tags=["trade_journal"])
+                resp = await self._remembr_client.list(
+                    page=page, tags=["trade_journal"]
+                )
                 entries = resp.get("data", [])
                 if not entries:
                     break
@@ -184,13 +192,15 @@ class JournalIndexer:
                     mid = entry.get("id")
                     if not mid or mid in self._metadata:
                         continue
-                    
+
                     batch_mids.append(mid)
                     batch_contents.append(entry.get("value", ""))
                     batch_metadatas.append(entry.get("metadata", {}))
 
                     if len(batch_mids) >= self._batch_size:
-                        await self._add_entries_batch_async(batch_mids, batch_contents, batch_metadatas)
+                        await self._add_entries_batch_async(
+                            batch_mids, batch_contents, batch_metadatas
+                        )
                         batch_mids, batch_contents, batch_metadatas = [], [], []
 
                 total_pages = resp.get("total_pages", 1)
@@ -200,10 +210,15 @@ class JournalIndexer:
 
             # Flush remaining
             if batch_mids:
-                await self._add_entries_batch_async(batch_mids, batch_contents, batch_metadatas)
+                await self._add_entries_batch_async(
+                    batch_mids, batch_contents, batch_metadatas
+                )
 
         except Exception:
-            logger.exception("JournalIndexer: rehydration failed at page %d — continuing with partial data", page)
+            logger.exception(
+                "JournalIndexer: rehydration failed at page %d — continuing with partial data",
+                page,
+            )
 
         # Drain event buffer atomically
         buffer, self._event_buffer = self._event_buffer, []
@@ -220,7 +235,10 @@ class JournalIndexer:
         if self._next_label > 0:
             await self.persist()
 
-        logger.info("JournalIndexer: rehydration complete — %d entries indexed", self._next_label)
+        logger.info(
+            "JournalIndexer: rehydration complete — %d entries indexed",
+            self._next_label,
+        )
 
     async def rebuild(self) -> None:
         """Nuke local state and rehydrate from remembr."""
@@ -236,6 +254,7 @@ class JournalIndexer:
             self._meta_size_bytes = 0
 
             import hnswlib
+
             self._index = hnswlib.Index(space=self._space, dim=self._dim)
             self._index.init_index(
                 max_elements=self._max_elements,
@@ -252,18 +271,28 @@ class JournalIndexer:
 
         await self._rehydrate()
 
-    async def _add_entry_async(self, memory_id: str, content: str, metadata: dict) -> None:
+    async def _add_entry_async(
+        self, memory_id: str, content: str, metadata: dict
+    ) -> None:
         """Async wrapper around single entry add."""
         await self._add_entries_batch_async([memory_id], [content], [metadata])
 
-    async def _add_entries_batch_async(self, memory_ids: list[str], contents: list[str], metadatas: list[dict]) -> None:
+    async def _add_entries_batch_async(
+        self, memory_ids: list[str], contents: list[str], metadatas: list[dict]
+    ) -> None:
         """Async wrapper around vectorized batch entry add with lock safety."""
-        await asyncio.to_thread(self._add_entries_batch_sync, memory_ids, contents, metadatas)
+        await asyncio.to_thread(
+            self._add_entries_batch_sync, memory_ids, contents, metadatas
+        )
 
-    def _add_entries_batch_sync(self, memory_ids: list[str], contents: list[str], metadatas: list[dict]) -> None:
+    def _add_entries_batch_sync(
+        self, memory_ids: list[str], contents: list[str], metadatas: list[dict]
+    ) -> None:
         """Synchronous vectorized batch add: embed batch, insert into HNSW, update caches."""
         with self._lock:
-            valid_indices = [i for i, mid in enumerate(memory_ids) if mid not in self._id_map]
+            valid_indices = [
+                i for i, mid in enumerate(memory_ids) if mid not in self._id_map
+            ]
             if not valid_indices:
                 return
 
@@ -274,7 +303,9 @@ class JournalIndexer:
 
             # Auto-resize at 90% capacity
             if self._next_label + num_new >= int(self._max_elements * 0.9):
-                new_cap = max(int(self._max_elements * 1.5), self._next_label + num_new + 1000)
+                new_cap = max(
+                    int(self._max_elements * 1.5), self._next_label + num_new + 1000
+                )
                 self._index.resize_index(new_cap)
                 self._max_elements = new_cap
                 logger.info("JournalIndexer: resized index to %d", new_cap)
@@ -321,7 +352,11 @@ class JournalIndexer:
                 try:
                     self._index.mark_deleted(old_label)
                 except Exception as e:
-                    logger.warning("JournalIndexer: failed to mark label %d as deleted: %s", old_label, e)
+                    logger.warning(
+                        "JournalIndexer: failed to mark label %d as deleted: %s",
+                        old_label,
+                        e,
+                    )
 
             # Auto-resize if needed
             if self._next_label + 1 >= int(self._max_elements * 0.9):
@@ -350,7 +385,12 @@ class JournalIndexer:
             self._next_label += 1
             self._tombstone_count += 1
 
-            logger.debug("JournalIndexer: re-embedded memory_id %s (label %d -> %d)", memory_id, old_label, new_label)
+            logger.debug(
+                "JournalIndexer: re-embedded memory_id %s (label %d -> %d)",
+                memory_id,
+                old_label,
+                new_label,
+            )
 
     def _is_tombstoned(self, memory_id: str) -> bool:
         status = self._metadata.get(memory_id, {}).get("status", "")
@@ -376,12 +416,14 @@ class JournalIndexer:
             if mid is None or self._is_tombstoned(mid):
                 continue
             score = max(0.0, 1.0 - float(dist))
-            results.append(SearchResult(
-                memory_id=mid,
-                score=score,
-                content=self._content.get(mid, ""),
-                metadata=self._metadata.get(mid, {}),
-            ))
+            results.append(
+                SearchResult(
+                    memory_id=mid,
+                    score=score,
+                    content=self._content.get(mid, ""),
+                    metadata=self._metadata.get(mid, {}),
+                )
+            )
             if len(results) >= limit:
                 break
 
@@ -421,7 +463,11 @@ class JournalIndexer:
                 json.dump(state, f)
             os.replace(meta_tmp, meta_path)
 
-            logger.info("JournalIndexer: persisted %d entries to %s", self._next_label, self._index_path)
+            logger.info(
+                "JournalIndexer: persisted %d entries to %s",
+                self._next_label,
+                self._index_path,
+            )
 
     async def load(self) -> bool:
         """Load HNSW index + metadata from disk. Returns True on success."""
@@ -456,9 +502,15 @@ class JournalIndexer:
                 self._index.set_ef(self._ef_search)
 
                 # Recompute incremental metadata size counter
-                self._meta_size_bytes = len(json.dumps(self._metadata, default=str).encode()) if self._metadata else 0
+                self._meta_size_bytes = (
+                    len(json.dumps(self._metadata, default=str).encode())
+                    if self._metadata
+                    else 0
+                )
 
-            logger.info("JournalIndexer: loaded %d entries from disk cache", self._next_label)
+            logger.info(
+                "JournalIndexer: loaded %d entries from disk cache", self._next_label
+            )
             return True
 
         except Exception as e:
@@ -480,12 +532,14 @@ class JournalIndexer:
         for mid in memory_ids:
             if self._is_tombstoned(mid):
                 continue
-            results.append(SearchResult(
-                memory_id=mid,
-                score=None,
-                content=self._content.get(mid, ""),
-                metadata=self._metadata.get(mid, {}),
-            ))
+            results.append(
+                SearchResult(
+                    memory_id=mid,
+                    score=None,
+                    content=self._content.get(mid, ""),
+                    metadata=self._metadata.get(mid, {}),
+                )
+            )
 
         def _ts_key(r: SearchResult) -> str:
             return r.metadata.get("decision", {}).get("timestamp", "")
@@ -513,11 +567,15 @@ class JournalIndexer:
 
         # Check if content changed. If so, re-embed.
         if content is not None and content != self._content.get(memory_id):
-            await asyncio.to_thread(self._update_entry_sync, memory_id, content, metadata)
+            await asyncio.to_thread(
+                self._update_entry_sync, memory_id, content, metadata
+            )
         else:
+
             def _update_meta():
                 with self._lock:
                     self._metadata[memory_id] = metadata
+
             await asyncio.to_thread(_update_meta)
 
     async def _run_subscriber(self) -> None:

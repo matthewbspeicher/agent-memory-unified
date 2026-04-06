@@ -1,6 +1,5 @@
 from datetime import date
 from decimal import Decimal
-import pytest
 
 from broker.models import Symbol, AssetType, OptionRight
 from adapters.ibkr.symbols import to_contract, from_contract
@@ -22,9 +21,12 @@ class TestToContract:
 
     def test_option(self):
         s = Symbol(
-            ticker="AAPL", asset_type=AssetType.OPTION,
-            expiry=date(2026, 4, 17), strike=Decimal("200"),
-            right=OptionRight.CALL, multiplier=100,
+            ticker="AAPL",
+            asset_type=AssetType.OPTION,
+            expiry=date(2026, 4, 17),
+            strike=Decimal("200"),
+            right=OptionRight.CALL,
+            multiplier=100,
         )
         c = to_contract(s)
         assert c.symbol == "AAPL"
@@ -42,7 +44,12 @@ class TestToContract:
         assert c.exchange == "IDEALPRO"
 
     def test_future(self):
-        s = Symbol(ticker="ES", asset_type=AssetType.FUTURE, expiry=date(2026, 12, 1), exchange="CME")
+        s = Symbol(
+            ticker="ES",
+            asset_type=AssetType.FUTURE,
+            expiry=date(2026, 12, 1),
+            exchange="CME",
+        )
         c = to_contract(s)
         assert c.symbol == "ES"
         assert c.secType == "FUT"

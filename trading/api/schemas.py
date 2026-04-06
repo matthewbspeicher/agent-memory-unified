@@ -86,9 +86,17 @@ class OrderRequestSchema(BaseModel):
         if ot == "stop" and self.stop_price is None:
             raise ValueError("stop_price required for stop orders")
         if ot == "stop_limit" and (self.stop_price is None or self.limit_price is None):
-            raise ValueError("stop_price and limit_price required for stop_limit orders")
-        if ot == "trailing_stop" and self.trail_amount is None and self.trail_percent is None:
-            raise ValueError("trail_amount or trail_percent required for trailing_stop orders")
+            raise ValueError(
+                "stop_price and limit_price required for stop_limit orders"
+            )
+        if (
+            ot == "trailing_stop"
+            and self.trail_amount is None
+            and self.trail_percent is None
+        ):
+            raise ValueError(
+                "trail_amount or trail_percent required for trailing_stop orders"
+            )
         return self
 
 

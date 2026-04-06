@@ -1,4 +1,5 @@
 """Sizing API — recommended position size for an agent."""
+
 from __future__ import annotations
 import logging
 from decimal import Decimal

@@ -1,4 +1,5 @@
 """Test PaperStore.record_binary_resolution() idempotency."""
+
 from __future__ import annotations
 
 import pytest
@@ -9,10 +10,12 @@ from broker.models import Symbol, AssetType, OrderSide
 @pytest.fixture
 async def paper_store(tmp_path):
     import aiosqlite
+
     db_path = str(tmp_path / "test.db")
     async with aiosqlite.connect(db_path) as db:
         db.row_factory = aiosqlite.Row
         from storage.paper import PaperStore
+
         store = PaperStore(db)
         await store.init_tables()
         yield store, db

@@ -1,8 +1,8 @@
-import asyncio
 from datetime import datetime, timedelta, timezone
 import pytest
 from agents.models import AgentSignal
 from data.signal_bus import SignalBus
+
 
 @pytest.mark.asyncio
 async def test_signal_bus_publish_and_query():
@@ -12,13 +12,14 @@ async def test_signal_bus_publish_and_query():
         source_agent="sentiment_scout",
         signal_type="sentiment",
         payload={"score": 0.8},
-        expires_at=now + timedelta(minutes=5)
+        expires_at=now + timedelta(minutes=5),
     )
     await bus.publish(sig)
-    
+
     active = bus.query(signal_type="sentiment")
     assert len(active) == 1
     assert active[0].payload["score"] == 0.8
+
 
 @pytest.mark.asyncio
 async def test_signal_bus_ignores_expired():
@@ -28,10 +29,10 @@ async def test_signal_bus_ignores_expired():
         source_agent="sentiment_scout",
         signal_type="sentiment",
         payload={"score": 0.8},
-        expires_at=now - timedelta(minutes=1) # Already expired
+        expires_at=now - timedelta(minutes=1),  # Already expired
     )
     await bus.publish(sig)
-    
+
     active = bus.query(signal_type="sentiment")
     assert len(active) == 0
 

@@ -1,4 +1,5 @@
 """Backtest API — runs strategies against historical data."""
+
 from __future__ import annotations
 
 import json
@@ -29,6 +30,7 @@ class SandboxRequest(BaseModel):
     creates a temporary agent from the strategy registry, evaluates it,
     and discards it. Designed for Hermes parameter exploration.
     """
+
     strategy: str
     parameters: dict = {}
     symbols: list[str] = ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA"]
@@ -38,16 +40,23 @@ class SandboxRequest(BaseModel):
 
 
 @router.post("/backtest")
-async def run_backtest(req: BacktestRequest, request: Request, runner=Depends(get_agent_runner)):
+async def run_backtest(
+    req: BacktestRequest, request: Request, runner=Depends(get_agent_runner)
+):
     """Run a backtest for an agent strategy against historical data."""
     from data.backtest import (
-        BacktestEngine, HistoricalDataSource, ReplayDataBus, score_backtest_run,
+        BacktestEngine,
+        HistoricalDataSource,
+        ReplayDataBus,
+        score_backtest_run,
     )
     from broker.models import Symbol, AssetType
 
     agent = runner._agents.get(req.agent_name)
     if not agent:
-        raise HTTPException(status_code=404, detail=f"Agent '{req.agent_name}' not found")
+        raise HTTPException(
+            status_code=404, detail=f"Agent '{req.agent_name}' not found"
+        )
 
     data_bus = getattr(request.app.state, "data_bus", None)
     if not data_bus:
@@ -73,9 +82,7 @@ async def run_backtest(req: BacktestRequest, request: Request, runner=Depends(ge
     engine = BacktestEngine(bus=replay_bus, agents=[agent])
 
     # Collect all timestamps across all symbols
-    all_times = sorted({
-        b.timestamp for bars in bars_by_symbol.values() for b in bars
-    })
+    all_times = sorted({b.timestamp for bars in bars_by_symbol.values() for b in bars})
 
     raw = await engine.run(all_times)
 
@@ -97,17 +104,32 @@ async def run_backtest(req: BacktestRequest, request: Request, runner=Depends(ge
                 max_drawdown, win_rate, total_trades, run_date, data_start, data_end)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
-                result.agent_name, json.dumps(result.parameters),
-                result.sharpe_ratio, result.profit_factor, str(result.total_pnl),
-                result.max_drawdown, result.win_rate, result.total_trades,
-                result.run_date.isoformat(), str(result.data_start), str(result.data_end),
+                result.agent_name,
+                json.dumps(result.parameters),
+                result.sharpe_ratio,
+                result.profit_factor,
+                str(result.total_pnl),
+                result.max_drawdown,
+                result.win_rate,
+                result.total_trades,
+                result.run_date.isoformat(),
+                str(result.data_start),
+                str(result.data_end),
             ),
         )
         await db.commit()
 
     settings = getattr(request.app.state, "settings", None)
-    min_sharpe = settings.backtest_min_sharpe if settings and hasattr(settings, "backtest_min_sharpe") else 1.0
-    min_trades = settings.backtest_min_trades if settings and hasattr(settings, "backtest_min_trades") else 50
+    min_sharpe = (
+        settings.backtest_min_sharpe
+        if settings and hasattr(settings, "backtest_min_sharpe")
+        else 1.0
+    )
+    min_trades = (
+        settings.backtest_min_trades
+        if settings and hasattr(settings, "backtest_min_trades")
+        else 50
+    )
 
     return {
         "agent_name": result.agent_name,
@@ -117,14 +139,18 @@ async def run_backtest(req: BacktestRequest, request: Request, runner=Depends(ge
         "sharpe_ratio": round(result.sharpe_ratio, 4),
         "max_drawdown": round(result.max_drawdown, 4),
         "profit_factor": round(result.profit_factor, 4),
-        "is_deployable": result.is_deployable(min_sharpe=min_sharpe, min_trades=min_trades),
+        "is_deployable": result.is_deployable(
+            min_sharpe=min_sharpe, min_trades=min_trades
+        ),
         "data_start": str(result.data_start),
         "data_end": str(result.data_end),
     }
 
 
 @router.get("/backtest/results")
-async def list_backtest_results(request: Request, agent_name: str | None = None, limit: int = 20):
+async def list_backtest_results(
+    request: Request, agent_name: str | None = None, limit: int = 20
+):
     """Return stored backtest results, optionally filtered by agent."""
     db = getattr(request.app.state, "db", None)
     if not db:
@@ -136,7 +162,8 @@ async def list_backtest_results(request: Request, agent_name: str | None = None,
         )
     else:
         cursor = await db.execute(
-            "SELECT * FROM backtest_results ORDER BY run_date DESC LIMIT ?", (limit,),
+            "SELECT * FROM backtest_results ORDER BY run_date DESC LIMIT ?",
+            (limit,),
         )
     return [dict(r) for r in await cursor.fetchall()]
 
@@ -197,4 +224,3 @@ async def run_sandbox(req: SandboxRequest, request: Request):
             logger.warning("Failed to persist sandbox result: %s", exc)
 
     return result.to_dict()
-

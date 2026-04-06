@@ -29,7 +29,7 @@ class MeanReversionAgent(StructuredAgent):
 
     async def scan(self, data: DataBus) -> list[Opportunity]:
         bb_period = self.parameters.get("bb_period", 20)
-        bb_std = self.parameters.get("bb_std", 2.0)
+        self.parameters.get("bb_std", 2.0)
         rsi_threshold = self.parameters.get("rsi_threshold", 35)
         rsi_period = self.parameters.get("rsi_period", 14)
 
@@ -54,35 +54,41 @@ class MeanReversionAgent(StructuredAgent):
                 # Fire on the first bar where price crosses below the band (not while staying below)
                 if below_band and not was_below and rsi < rsi_threshold:
                     band_width = float(bb.upper) - lower_band
-                    distance_pct = (lower_band - current_price) / band_width if band_width > 0 else 0
+                    distance_pct = (
+                        (lower_band - current_price) / band_width
+                        if band_width > 0
+                        else 0
+                    )
                     rsi_score = (rsi_threshold - rsi) / rsi_threshold
                     confidence = min((distance_pct + rsi_score) / 2, 1.0)
 
-                    opportunities.append(Opportunity(
-                        id=str(uuid.uuid4()),
-                        agent_name=self.name,
-                        symbol=symbol,
-                        signal="MEAN_REVERSION_OVERSOLD",
-                        confidence=confidence,
-                        reasoning=(
-                            f"{symbol.ticker} crossed below lower BB ({current_price:.2f} < {lower_band:.2f}), "
-                            f"RSI({rsi_period}) = {rsi:.1f} (< {rsi_threshold})"
-                        ),
-                        data={
-                            "price": current_price,
-                            "lower_band": lower_band,
-                            "middle_band": middle_band,
-                            "rsi": rsi,
-                            "rsi_threshold": rsi_threshold,
-                        },
-                        timestamp=now,
-                        suggested_trade=MarketOrder(
+                    opportunities.append(
+                        Opportunity(
+                            id=str(uuid.uuid4()),
+                            agent_name=self.name,
                             symbol=symbol,
-                            side=OrderSide.BUY,
-                            quantity=Decimal("1"),
-                            account_id="",
-                        ),
-                    ))
+                            signal="MEAN_REVERSION_OVERSOLD",
+                            confidence=confidence,
+                            reasoning=(
+                                f"{symbol.ticker} crossed below lower BB ({current_price:.2f} < {lower_band:.2f}), "
+                                f"RSI({rsi_period}) = {rsi:.1f} (< {rsi_threshold})"
+                            ),
+                            data={
+                                "price": current_price,
+                                "lower_band": lower_band,
+                                "middle_band": middle_band,
+                                "rsi": rsi,
+                                "rsi_threshold": rsi_threshold,
+                            },
+                            timestamp=now,
+                            suggested_trade=MarketOrder(
+                                symbol=symbol,
+                                side=OrderSide.BUY,
+                                quantity=Decimal("1"),
+                                account_id="",
+                            ),
+                        )
+                    )
 
                 self._was_below_band[symbol.ticker] = below_band
 

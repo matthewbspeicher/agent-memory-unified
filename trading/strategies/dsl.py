@@ -10,6 +10,7 @@ from data.bus import DataBus
 
 logger = logging.getLogger(__name__)
 
+
 class DSLAgent(StructuredAgent):
     """
     Executes declarative strategies defined in YAML/JSON parameters.
@@ -24,6 +25,7 @@ class DSLAgent(StructuredAgent):
         }
     ]
     """
+
     @property
     def description(self) -> str:
         return "Executes declarative YAML DSL strategies"
@@ -31,13 +33,15 @@ class DSLAgent(StructuredAgent):
     async def scan(self, data: DataBus) -> list[Opportunity]:
         opportunities = []
         rules = self.parameters.get("rules", [])
-        
+
         # Handle string or list of symbols
-        univ_names = self.universe if isinstance(self.universe, list) else [self.universe]
-        
+        univ_names = (
+            self.universe if isinstance(self.universe, list) else [self.universe]
+        )
+
         symbols = []
         for name in univ_names:
-            if name: # Avoid passing empty string
+            if name:  # Avoid passing empty string
                 try:
                     symbols.extend(data.get_universe(name))
                 except Exception:
@@ -54,10 +58,12 @@ class DSLAgent(StructuredAgent):
                     action_str = rule.get("action", "BUY").upper()
                     side = OrderSide.BUY if action_str == "BUY" else OrderSide.SELL
                     qty = Decimal(str(rule.get("quantity", 10)))
-                    
+
                     # Need a current timestamp
-                    now = getattr(data, "current_time", None) or datetime.now(timezone.utc)
-                    
+                    now = getattr(data, "current_time", None) or datetime.now(
+                        timezone.utc
+                    )
+
                     opp = Opportunity(
                         id=f"{self.name}_{symbol.ticker}_{action_str}_{int(now.timestamp())}",
                         agent_name=self.name,
@@ -68,26 +74,25 @@ class DSLAgent(StructuredAgent):
                         data={"rule": rule},
                         timestamp=now,
                         suggested_trade=MarketOrder(
-                            symbol=symbol,
-                            side=side,
-                            quantity=qty,
-                            account_id=""
-                        )
+                            symbol=symbol, side=side, quantity=qty, account_id=""
+                        ),
                     )
                     opportunities.append(opp)
-                    
+
         return opportunities
 
-    async def _evaluate_rule(self, rule: dict[str, Any], symbol: Symbol, data: DataBus) -> bool:
+    async def _evaluate_rule(
+        self, rule: dict[str, Any], symbol: Symbol, data: DataBus
+    ) -> bool:
         conditions = rule.get("conditions", [])
         if not conditions:
             return False
-            
+
         for cond in conditions:
             ind = str(cond.get("indicator")).lower()
             op = cond.get("operator")
             target_val = float(cond.get("value", 0.0))
-            
+
             actual_val = 0.0
             if ind == "rsi":
                 actual_val = await data.get_rsi(symbol)
@@ -103,17 +108,22 @@ class DSLAgent(StructuredAgent):
                 return False
 
             if op == "<":
-                if not (actual_val < target_val): return False
+                if not (actual_val < target_val):
+                    return False
             elif op == ">":
-                if not (actual_val > target_val): return False
+                if not (actual_val > target_val):
+                    return False
             elif op == "<=":
-                if not (actual_val <= target_val): return False
+                if not (actual_val <= target_val):
+                    return False
             elif op == ">=":
-                if not (actual_val >= target_val): return False
+                if not (actual_val >= target_val):
+                    return False
             elif op == "==":
-                if not (actual_val == target_val): return False
+                if not (actual_val == target_val):
+                    return False
             else:
                 logger.warning("Unsupported DSL operator: %s", op)
                 return False
-                
+
         return True

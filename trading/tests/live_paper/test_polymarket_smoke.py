@@ -4,9 +4,9 @@ Polymarket CLOB smoke tests.
 Marked @pytest.mark.live_paper — not run in normal CI.
 Requires: STA_POLYMARKET_PRIVATE_KEY, STA_POLYMARKET_DRY_RUN=true
 """
+
 from __future__ import annotations
 
-import os
 
 import pytest
 
@@ -48,14 +48,16 @@ def test_get_markets_returns_results(polymarket_client):
 def test_get_orderbook_for_market():
     """Picks the first market token; get_orderbook() returns bids/asks structure. Hits mainnet API directly to bypass testnet emptyness."""
     from adapters.polymarket.client import PolymarketClient
-    import os
-    mainnet_client = PolymarketClient("0x" + "0"*64, dry_run=True) # Fake PK is fine for read-only
-    
+
+    mainnet_client = PolymarketClient(
+        "0x" + "0" * 64, dry_run=True
+    )  # Fake PK is fine for read-only
+
     data = mainnet_client.get_markets(active=True, limit=20)
     markets = data.get("data", []) if isinstance(data, dict) else data
     if not markets:
         pytest.skip("No active Polymarket mainnet markets returned")
-    
+
     for market in markets:
         tokens = market.get("tokens", [])
         if not tokens:
@@ -81,9 +83,10 @@ async def test_get_quote_via_data_source():
     from adapters.polymarket.data_source import PolymarketDataSource
     from adapters.polymarket.client import PolymarketClient
     from broker.models import AssetType, Symbol
-    import os
 
-    mainnet_client = PolymarketClient("0x" + "0"*64, dry_run=True) # Fake PK is fine for read-only
+    mainnet_client = PolymarketClient(
+        "0x" + "0" * 64, dry_run=True
+    )  # Fake PK is fine for read-only
     ds = PolymarketDataSource(mainnet_client)
     data = mainnet_client.get_markets(active=True, limit=5)
     markets = data.get("data", []) if isinstance(data, dict) else data
@@ -118,7 +121,6 @@ async def test_dry_run_order_returns_submitted(polymarket_broker):
     if not condition_id:
         pytest.skip("First market has no condition_id")
 
-
     sym = Symbol(ticker=condition_id, asset_type=AssetType.PREDICTION)
     order = LimitOrder(
         symbol=sym,
@@ -129,8 +131,7 @@ async def test_dry_run_order_returns_submitted(polymarket_broker):
         time_in_force=TIF.GTC,
     )
     result = await polymarket_broker.orders.place_order(
-        account_id=PolymarketAccount.ACCOUNT_ID,
-        order=order
+        account_id=PolymarketAccount.ACCOUNT_ID, order=order
     )
     assert result.status == OrderStatus.SUBMITTED
     assert result.order_id.startswith("dry-run-")
@@ -140,7 +141,6 @@ async def test_dry_run_order_returns_submitted(polymarket_broker):
 @pytest.mark.timeout(30)
 async def test_dry_run_cancel_returns_true(polymarket_broker):
     """cancel_order('dry-run-xyz') returns True without hitting network."""
-    from broker.models import OrderStatus
     result = await polymarket_broker.orders.cancel_order("dry-run-xyz")
     # Cancel of a dry-run order returns True directly
     assert result is True

@@ -2,6 +2,7 @@
 TradingRemembrClient — specialized client for the Remembr Trading Vertical.
 Implements the ledger-based trading journal spec (2026-03-31).
 """
+
 from __future__ import annotations
 
 import logging
@@ -41,18 +42,26 @@ class TradingRemembrClient(AsyncRemembrClient):
         payload = {
             "ticker": ticker,
             "direction": direction,
-            "entry_price": float(price),  # Spec uses entry_price for the execution price
+            "entry_price": float(
+                price
+            ),  # Spec uses entry_price for the execution price
             "quantity": float(quantity),
             "entry_at": (timestamp or datetime.utcnow()).isoformat(),
             "paper": paper,
             "fees": float(fees),
         }
-        if strategy: payload["strategy"] = strategy
-        if confidence is not None: payload["confidence"] = confidence
-        if parent_trade_id: payload["parent_trade_id"] = parent_trade_id
-        if decision_memory_id: payload["decision_memory_id"] = decision_memory_id
-        if outcome_memory_id: payload["outcome_memory_id"] = outcome_memory_id
-        if metadata: payload["metadata"] = metadata
+        if strategy:
+            payload["strategy"] = strategy
+        if confidence is not None:
+            payload["confidence"] = confidence
+        if parent_trade_id:
+            payload["parent_trade_id"] = parent_trade_id
+        if decision_memory_id:
+            payload["decision_memory_id"] = decision_memory_id
+        if outcome_memory_id:
+            payload["outcome_memory_id"] = outcome_memory_id
+        if metadata:
+            payload["metadata"] = metadata
 
         resp = await self.client.post("/trading/trades", json=payload)
         if resp.is_error:
@@ -74,12 +83,18 @@ class TradingRemembrClient(AsyncRemembrClient):
         PATCH /v1/trading/trades/{id}
         """
         payload = {}
-        if decision_memory_id: payload["decision_memory_id"] = decision_memory_id
-        if outcome_memory_id: payload["outcome_memory_id"] = outcome_memory_id
-        if strategy: payload["strategy"] = strategy
-        if confidence is not None: payload["confidence"] = confidence
-        if metadata: payload["metadata"] = metadata
-        if status: payload["status"] = status
+        if decision_memory_id:
+            payload["decision_memory_id"] = decision_memory_id
+        if outcome_memory_id:
+            payload["outcome_memory_id"] = outcome_memory_id
+        if strategy:
+            payload["strategy"] = strategy
+        if confidence is not None:
+            payload["confidence"] = confidence
+        if metadata:
+            payload["metadata"] = metadata
+        if status:
+            payload["status"] = status
 
         resp = await self.client.patch(f"/trading/trades/{trade_id}", json=payload)
         if resp.is_error:
@@ -97,15 +112,19 @@ class TradingRemembrClient(AsyncRemembrClient):
             _handle_error(resp)
         return resp.json()
 
-    async def list_trades(self, ticker: Optional[str] = None, status: Optional[str] = None) -> List[Dict[str, Any]]:
+    async def list_trades(
+        self, ticker: Optional[str] = None, status: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
         """
         List agent's trades with filters.
         GET /v1/trading/trades
         """
         params = {}
-        if ticker: params["ticker"] = ticker
-        if status: params["status"] = status
-        
+        if ticker:
+            params["ticker"] = ticker
+        if status:
+            params["status"] = status
+
         resp = await self.client.get("/trading/trades", params=params)
         if resp.is_error:
             _handle_error(resp)

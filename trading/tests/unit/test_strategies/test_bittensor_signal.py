@@ -2,7 +2,6 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
 
 from agents.models import AgentConfig, ActionLevel, OpportunityStatus
 from integrations.bittensor.models import DerivedBittensorView
@@ -40,13 +39,21 @@ def _make_view(
     age_seconds: int = 0,
 ) -> DerivedBittensorView:
     return DerivedBittensorView(
-        symbol="BTCUSD", timeframe="5m", window_id="w1",
+        symbol="BTCUSD",
+        timeframe="5m",
+        window_id="w1",
         timestamp=datetime.now(timezone.utc) - timedelta(seconds=age_seconds),
-        responder_count=responders, bullish_count=3, bearish_count=1, flat_count=1,
-        weighted_direction=direction, weighted_expected_return=expected_return,
-        agreement_ratio=agreement, equal_weight_direction=direction * 0.9,
+        responder_count=responders,
+        bullish_count=3,
+        bearish_count=1,
+        flat_count=1,
+        weighted_direction=direction,
+        weighted_expected_return=expected_return,
+        agreement_ratio=agreement,
+        equal_weight_direction=direction * 0.9,
         equal_weight_expected_return=expected_return * 0.9,
-        is_low_confidence=False, derivation_version="v1",
+        is_low_confidence=False,
+        derivation_version="v1",
     )
 
 
@@ -60,6 +67,7 @@ def _make_data_bus(view=None):
 
 async def test_returns_empty_when_no_source():
     from strategies.bittensor_signal import BittensorSignalAgent
+
     agent = BittensorSignalAgent(_make_config())
     bus = MagicMock(spec=[])
     result = await agent.scan(bus)
@@ -68,6 +76,7 @@ async def test_returns_empty_when_no_source():
 
 async def test_returns_empty_when_no_view():
     from strategies.bittensor_signal import BittensorSignalAgent
+
     agent = BittensorSignalAgent(_make_config())
     result = await agent.scan(_make_data_bus(view=None))
     assert result == []
@@ -75,6 +84,7 @@ async def test_returns_empty_when_no_view():
 
 async def test_returns_empty_when_stale():
     from strategies.bittensor_signal import BittensorSignalAgent
+
     agent = BittensorSignalAgent(_make_config())
     view = _make_view(age_seconds=700)
     result = await agent.scan(_make_data_bus(view))
@@ -83,6 +93,7 @@ async def test_returns_empty_when_stale():
 
 async def test_accepts_timezone_aware_timestamps():
     from strategies.bittensor_signal import BittensorSignalAgent
+
     agent = BittensorSignalAgent(_make_config())
     view = _make_view(direction=0.5, expected_return=0.005, agreement=0.8)
     view = DerivedBittensorView(
@@ -108,6 +119,7 @@ async def test_accepts_timezone_aware_timestamps():
 
 async def test_returns_empty_when_low_agreement():
     from strategies.bittensor_signal import BittensorSignalAgent
+
     agent = BittensorSignalAgent(_make_config())
     view = _make_view(agreement=0.4)
     result = await agent.scan(_make_data_bus(view))
@@ -116,6 +128,7 @@ async def test_returns_empty_when_low_agreement():
 
 async def test_returns_empty_when_weak_direction():
     from strategies.bittensor_signal import BittensorSignalAgent
+
     agent = BittensorSignalAgent(_make_config())
     view = _make_view(direction=0.1)
     result = await agent.scan(_make_data_bus(view))
@@ -124,6 +137,7 @@ async def test_returns_empty_when_weak_direction():
 
 async def test_returns_empty_when_tiny_return():
     from strategies.bittensor_signal import BittensorSignalAgent
+
     agent = BittensorSignalAgent(_make_config())
     view = _make_view(expected_return=0.001)
     result = await agent.scan(_make_data_bus(view))
@@ -132,6 +146,7 @@ async def test_returns_empty_when_tiny_return():
 
 async def test_returns_empty_when_too_few_responders():
     from strategies.bittensor_signal import BittensorSignalAgent
+
     agent = BittensorSignalAgent(_make_config())
     view = _make_view(responders=2)
     result = await agent.scan(_make_data_bus(view))
@@ -140,6 +155,7 @@ async def test_returns_empty_when_too_few_responders():
 
 async def test_emits_buy_opportunity():
     from strategies.bittensor_signal import BittensorSignalAgent
+
     agent = BittensorSignalAgent(_make_config())
     view = _make_view(direction=0.5, expected_return=0.005, agreement=0.8)
     result = await agent.scan(_make_data_bus(view))
@@ -155,6 +171,7 @@ async def test_emits_buy_opportunity():
 
 async def test_emits_sell_opportunity():
     from strategies.bittensor_signal import BittensorSignalAgent
+
     agent = BittensorSignalAgent(_make_config())
     view = _make_view(direction=-0.5, expected_return=-0.005)
     result = await agent.scan(_make_data_bus(view))
@@ -164,6 +181,7 @@ async def test_emits_sell_opportunity():
 
 async def test_rejects_short_when_disabled():
     from strategies.bittensor_signal import BittensorSignalAgent
+
     agent = BittensorSignalAgent(_make_config(allow_short_signals=False))
     view = _make_view(direction=-0.5, expected_return=-0.005)
     result = await agent.scan(_make_data_bus(view))
@@ -172,6 +190,7 @@ async def test_rejects_short_when_disabled():
 
 async def test_uses_equal_weight_by_default():
     from strategies.bittensor_signal import BittensorSignalAgent
+
     agent = BittensorSignalAgent(_make_config())
     view = _make_view(direction=0.5)
     result = await agent.scan(_make_data_bus(view))

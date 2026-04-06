@@ -212,13 +212,9 @@ class BacktestSandbox:
                     sym, timeframe="1d", period=period
                 )
                 if bars:
-                    bars_by_ticker[sym.ticker] = sorted(
-                        bars, key=lambda b: b.timestamp
-                    )
+                    bars_by_ticker[sym.ticker] = sorted(bars, key=lambda b: b.timestamp)
             except Exception as exc:
-                logger.warning(
-                    "Sandbox: failed to fetch %s: %s", sym.ticker, exc
-                )
+                logger.warning("Sandbox: failed to fetch %s: %s", sym.ticker, exc)
 
         if not bars_by_ticker:
             raise ValueError("No historical data available for any requested symbol")
@@ -242,11 +238,9 @@ class BacktestSandbox:
         agent = factory(agent_config)
 
         # 6. Collect all unique timestamps across all symbols
-        all_times = sorted({
-            b.timestamp
-            for bars in bars_by_ticker.values()
-            for b in bars
-        })
+        all_times = sorted(
+            {b.timestamp for bars in bars_by_ticker.values() for b in bars}
+        )
 
         if not all_times:
             raise ValueError("No timestamps found in historical data")
@@ -279,7 +273,9 @@ class BacktestSandbox:
         equities = [float(s["equity"]) for s in raw["snapshots"]]
         initial_eq = float(raw["initial_equity"])
         final_eq = float(raw["final_equity"])
-        total_return_pct = ((final_eq - initial_eq) / initial_eq * 100) if initial_eq else 0.0
+        total_return_pct = (
+            ((final_eq - initial_eq) / initial_eq * 100) if initial_eq else 0.0
+        )
 
         # Sortino ratio (downside only)
         if len(equities) > 2:
@@ -291,6 +287,7 @@ class BacktestSandbox:
             downside = [r for r in returns if r < 0]
             if downside:
                 import math
+
                 avg_r = sum(returns) / len(returns)
                 dd_var = sum(r**2 for r in downside) / len(returns)
                 dd_dev = math.sqrt(dd_var) if dd_var > 0 else 0.0

@@ -1,4 +1,5 @@
 """SignalFeatureStore — persists signal-time feature rows keyed by opportunity_id."""
+
 from __future__ import annotations
 
 import json
@@ -34,17 +35,23 @@ class SignalFeatureStore:
             ordered_fields["created_at"] = ordered_fields["updated_at"]
 
         # Ensure feature_payload is stored as JSON string
-        if "feature_payload" in ordered_fields and isinstance(ordered_fields["feature_payload"], dict):
-            ordered_fields["feature_payload"] = json.dumps(ordered_fields["feature_payload"])
+        if "feature_payload" in ordered_fields and isinstance(
+            ordered_fields["feature_payload"], dict
+        ):
+            ordered_fields["feature_payload"] = json.dumps(
+                ordered_fields["feature_payload"]
+            )
         elif "feature_payload" not in ordered_fields:
             ordered_fields["feature_payload"] = "{}"
 
         columns = list(ordered_fields.keys())
         placeholders = ", ".join("?" for _ in columns)
         col_names = ", ".join(columns)
-        
+
         # Build ON CONFLICT DO UPDATE clause
-        update_set = ", ".join(f"{c} = excluded.{c}" for c in columns if c != "opportunity_id")
+        update_set = ", ".join(
+            f"{c} = excluded.{c}" for c in columns if c != "opportunity_id"
+        )
 
         await self._db.execute(
             f"INSERT INTO signal_features ({col_names}) VALUES ({placeholders}) "
@@ -155,7 +162,9 @@ class SignalFeatureStore:
             _decode_payload(r)
         return rows
 
-    async def get_join_for_opportunity(self, opportunity_id: str) -> dict[str, Any] | None:
+    async def get_join_for_opportunity(
+        self, opportunity_id: str
+    ) -> dict[str, Any] | None:
         """Join signal_features with opportunities for attribution research.
 
         Returns a merged dict of both tables for the given opportunity_id.

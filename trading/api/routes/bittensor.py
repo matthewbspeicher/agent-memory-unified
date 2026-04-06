@@ -32,7 +32,8 @@ async def bittensor_status(
             "running": getattr(scheduler, "_running", False),
             "last_window_collected": (
                 scheduler.last_success_at.isoformat()
-                if getattr(scheduler, "last_success_at", None) else None
+                if getattr(scheduler, "last_success_at", None)
+                else None
             ),
             "next_window": next_hash_window(now).isoformat(),
             "windows_collected_total": getattr(scheduler, "windows_collected_total", 0),
@@ -45,7 +46,8 @@ async def bittensor_status(
             "running": getattr(evaluator, "_running", False),
             "last_evaluation": (
                 evaluator.last_success_at.isoformat()
-                if getattr(evaluator, "last_success_at", None) else None
+                if getattr(evaluator, "last_success_at", None)
+                else None
             ),
             "unevaluated_windows": getattr(evaluator, "unevaluated_count", 0),
             "windows_evaluated_total": getattr(evaluator, "windows_evaluated_total", 0),
@@ -53,8 +55,12 @@ async def bittensor_status(
 
     # Miners section
     miners_data: dict = {
-        "total_in_metagraph": getattr(scheduler, "last_window_miner_count", 0) if scheduler else 0,
-        "responded_last_window": getattr(scheduler, "last_window_responder_count", 0) if scheduler else 0,
+        "total_in_metagraph": getattr(scheduler, "last_window_miner_count", 0)
+        if scheduler
+        else 0,
+        "responded_last_window": getattr(scheduler, "last_window_responder_count", 0)
+        if scheduler
+        else 0,
         "response_rate": 0.0,
         "top_miners": [],
     }

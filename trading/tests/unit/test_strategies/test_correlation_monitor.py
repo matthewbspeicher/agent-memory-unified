@@ -1,15 +1,13 @@
 from __future__ import annotations
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 from datetime import datetime, timedelta, timezone
-from decimal import Decimal
 import pytest
 
 from agents.models import ActionLevel, AgentConfig
-from broker.models import Bar, Symbol
+from broker.models import Symbol
 from strategies.correlation_monitor import (
     StrategyCorrelationMonitor,
     AgentSignalRecord,
-    CorrelationResult,
 )
 
 TEST_SYMBOL = Symbol(ticker="AAPL")
@@ -310,7 +308,7 @@ class TestStrategyCorrelationMonitor:
 
     def test_negative_correlation_generates_buy_signal(self):
         """Test negative correlation generates buy alert."""
-        config = _make_config(
+        _make_config(
             parameters={
                 "correlation_window_minutes": 60,
                 "high_correlation_threshold": 0.7,

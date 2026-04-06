@@ -20,7 +20,9 @@ def _sign_action(api_key: str, opportunity_id: str, action: str) -> tuple[str, i
 
 
 class SlackNotifier(Notifier):
-    def __init__(self, webhook_url: str, api_base_url: str | None = None, api_key: str = ""):
+    def __init__(
+        self, webhook_url: str, api_base_url: str | None = None, api_key: str = ""
+    ):
         self.webhook_url = webhook_url
         self.api_base_url = api_base_url
         self._api_key = api_key
@@ -42,19 +44,29 @@ class SlackNotifier(Notifier):
                 "fields": [
                     {"type": "mrkdwn", "text": f"*Agent:*\n{opportunity.agent_name}"},
                     {"type": "mrkdwn", "text": f"*Signal:*\n{opportunity.signal}"},
-                    {"type": "mrkdwn", "text": f"*Confidence:*\n{opportunity.confidence:.2f}"},
+                    {
+                        "type": "mrkdwn",
+                        "text": f"*Confidence:*\n{opportunity.confidence:.2f}",
+                    },
                     {"type": "mrkdwn", "text": f"*Status:*\n{opportunity.status}"},
                 ],
             },
             {
                 "type": "section",
-                "text": {"type": "mrkdwn", "text": f"*Reasoning:*\n{opportunity.reasoning}"},
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"*Reasoning:*\n{opportunity.reasoning}",
+                },
             },
         ]
 
         if self.api_base_url and self._api_key:
-            approve_sig, approve_ts = _sign_action(self._api_key, str(opportunity.id), "approve")
-            reject_sig, reject_ts = _sign_action(self._api_key, str(opportunity.id), "reject")
+            approve_sig, approve_ts = _sign_action(
+                self._api_key, str(opportunity.id), "approve"
+            )
+            reject_sig, reject_ts = _sign_action(
+                self._api_key, str(opportunity.id), "reject"
+            )
             approve_url = (
                 f"{self.api_base_url}/opportunities/{opportunity.id}/approve"
                 f"?ts={approve_ts}&sig={approve_sig}"
@@ -63,25 +75,27 @@ class SlackNotifier(Notifier):
                 f"{self.api_base_url}/opportunities/{opportunity.id}/reject"
                 f"?ts={reject_ts}&sig={reject_sig}"
             )
-            blocks.append({
-                "type": "actions",
-                "elements": [
-                    {
-                        "type": "button",
-                        "text": {"type": "plain_text", "text": "Approve"},
-                        "style": "primary",
-                        "action_id": "approve_opp",
-                        "url": approve_url,
-                    },
-                    {
-                        "type": "button",
-                        "text": {"type": "plain_text", "text": "Reject"},
-                        "style": "danger",
-                        "action_id": "reject_opp",
-                        "url": reject_url,
-                    },
-                ],
-            })
+            blocks.append(
+                {
+                    "type": "actions",
+                    "elements": [
+                        {
+                            "type": "button",
+                            "text": {"type": "plain_text", "text": "Approve"},
+                            "style": "primary",
+                            "action_id": "approve_opp",
+                            "url": approve_url,
+                        },
+                        {
+                            "type": "button",
+                            "text": {"type": "plain_text", "text": "Reject"},
+                            "style": "danger",
+                            "action_id": "reject_opp",
+                            "url": reject_url,
+                        },
+                    ],
+                }
+            )
 
         payload = {"blocks": blocks}
         try:

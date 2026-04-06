@@ -1,5 +1,5 @@
 """Tests for exit rules: StopLoss, TakeProfit, TrailingStop, TimeExit."""
-import pytest
+
 from decimal import Decimal
 from datetime import datetime, timezone, timedelta
 from exits.rules import StopLoss, TakeProfit, TrailingStop, TimeExit
@@ -95,12 +95,22 @@ class TestTimeExit:
     def test_triggers_after_expiry(self):
         past = datetime.now(timezone.utc) - timedelta(hours=1)
         rule = TimeExit(expires_at=past)
-        assert rule.should_exit(current_price=Decimal("100"), current_time=datetime.now(timezone.utc)) is True
+        assert (
+            rule.should_exit(
+                current_price=Decimal("100"), current_time=datetime.now(timezone.utc)
+            )
+            is True
+        )
 
     def test_no_trigger_before_expiry(self):
         future = datetime.now(timezone.utc) + timedelta(hours=1)
         rule = TimeExit(expires_at=future)
-        assert rule.should_exit(current_price=Decimal("100"), current_time=datetime.now(timezone.utc)) is False
+        assert (
+            rule.should_exit(
+                current_price=Decimal("100"), current_time=datetime.now(timezone.utc)
+            )
+            is False
+        )
 
     def test_name_is_time_exit(self):
         rule = TimeExit(expires_at=datetime.now(timezone.utc))

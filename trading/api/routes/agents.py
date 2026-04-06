@@ -61,7 +61,8 @@ def get_runner_status(runner: AgentRunner = Depends(get_agent_runner)):
         "running_count": sum(1 for a in agents if a.status == AgentStatus.RUNNING),
         "stopped_count": sum(1 for a in agents if a.status == AgentStatus.STOPPED),
         "error_count": sum(1 for a in agents if a.status == AgentStatus.ERROR),
-        "polling_active": runner._poll_task is not None and not runner._poll_task.done(),
+        "polling_active": runner._poll_task is not None
+        and not runner._poll_task.done(),
         "agents": [
             {
                 "name": a.name,
@@ -160,7 +161,9 @@ async def scan_agent(name: str, runner: AgentRunner = Depends(get_agent_runner))
 
 
 @router.post("/{name}/evolve")
-async def evolve_agent(name: str, request: Request, runner: AgentRunner = Depends(get_agent_runner)):
+async def evolve_agent(
+    name: str, request: Request, runner: AgentRunner = Depends(get_agent_runner)
+):
     """Generate and evaluate parameter variants for an agent.
 
     Gemini design §3.1: Allows Hermes to explore strategy improvements.
@@ -185,32 +188,44 @@ async def evolve_agent(name: str, request: Request, runner: AgentRunner = Depend
     trade_store = TradeStore(db)
     settings = _get_settings()
     tuner = AdaptiveTuner(
-        runner, opp_store, trade_store,
+        runner,
+        opp_store,
+        trade_store,
         anthropic_key=settings.anthropic_api_key,
         groq_key=settings.groq_api_key,
-        ollama_url=settings.ollama_base_url
+        ollama_url=settings.ollama_base_url,
     )
     sandbox = BacktestSandbox(data_bus=data_bus)
 
     # Get trailing performance
     history = await perf_store.get_history(name, limit=1)
     if not history:
-        raise HTTPException(status_code=400, detail=f"No performance history for agent '{name}'")
+        raise HTTPException(
+            status_code=400, detail=f"No performance history for agent '{name}'"
+        )
 
     latest = history[0]
     config = agent_info.config
     strategy = config.strategy
     base_params = config.parameters.copy()
     universe = config.universe
-    symbols = universe if isinstance(universe, list) else [universe] if isinstance(universe, str) else ["AAPL", "MSFT", "GOOGL"]
+    symbols = (
+        universe
+        if isinstance(universe, list)
+        else [universe]
+        if isinstance(universe, str)
+        else ["AAPL", "MSFT", "GOOGL"]
+    )
 
     # Generate parameter variants via LLM
     snapshot = {
         "sharpe_ratio": latest.sharpe_ratio,
         "win_rate": latest.win_rate,
-        "total_trades": latest.total_trades
+        "total_trades": latest.total_trades,
     }
-    variants = await tuner.generate_parameter_variants(name, strategy, base_params, snapshot)
+    variants = await tuner.generate_parameter_variants(
+        name, strategy, base_params, snapshot
+    )
     if not variants:
         return {"agent_name": name, "variants": [], "message": "No variants generated"}
 
@@ -227,7 +242,7 @@ async def evolve_agent(name: str, request: Request, runner: AgentRunner = Depend
         "agent_name": name,
         "current_sharpe": latest.sharpe_ratio,
         "variants": [r.to_dict() for r in results],
-        "message": f"Generated and evaluated {len(results)} variants"
+        "message": f"Generated and evaluated {len(results)} variants",
     }
 
 

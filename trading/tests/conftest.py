@@ -1,4 +1,5 @@
 import os
+
 # Prevent libomp fatal abort when hnswlib and torch (via sentence-transformers)
 # both link duplicate OpenMP runtimes — standard macOS/Homebrew workaround.
 os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
@@ -18,7 +19,12 @@ def mock_broker():
     broker.connection.disconnect = AsyncMock()
     broker.connection._reconnecting = False
     broker.capabilities.return_value = BrokerCapabilities(
-        stocks=True, options=True, futures=True, forex=True, bonds=True, streaming=True,
+        stocks=True,
+        options=True,
+        futures=True,
+        forex=True,
+        bonds=True,
+        streaming=True,
     )
     return broker
 
@@ -28,6 +34,7 @@ def client(mock_broker):
     os.environ["STA_API_KEY"] = "test-key"
     from api.app import create_app
     from api.deps import _init_state
+
     app = create_app(mock_broker)
     _init_state(app.state)
     return TestClient(app)

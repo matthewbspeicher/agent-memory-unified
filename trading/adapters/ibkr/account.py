@@ -4,7 +4,11 @@ from ib_async import IB
 
 from broker.interfaces import AccountProvider
 from broker.models import (
-    Account, AccountBalance, OrderHistoryFilter, OrderResult, Position,
+    Account,
+    AccountBalance,
+    OrderHistoryFilter,
+    OrderResult,
+    Position,
 )
 from adapters.ibkr.symbols import from_contract
 from adapters.ibkr.orders import to_order_result
@@ -25,9 +29,15 @@ class IBKRAccountProvider(AccountProvider):
                 symbol=from_contract(p.contract),
                 quantity=Decimal(str(p.position)),
                 avg_cost=Decimal(str(p.avgCost)),
-                market_value=Decimal(str(p.marketValue)) if hasattr(p, "marketValue") else Decimal("0"),
-                unrealized_pnl=Decimal(str(p.unrealizedPNL)) if hasattr(p, "unrealizedPNL") else Decimal("0"),
-                realized_pnl=Decimal(str(p.realizedPNL)) if hasattr(p, "realizedPNL") else Decimal("0"),
+                market_value=Decimal(str(p.marketValue))
+                if hasattr(p, "marketValue")
+                else Decimal("0"),
+                unrealized_pnl=Decimal(str(p.unrealizedPNL))
+                if hasattr(p, "unrealizedPNL")
+                else Decimal("0"),
+                realized_pnl=Decimal(str(p.realizedPNL))
+                if hasattr(p, "realizedPNL")
+                else Decimal("0"),
             )
             for p in ib_positions
         ]
@@ -44,7 +54,9 @@ class IBKRAccountProvider(AccountProvider):
         )
 
     async def get_order_history(
-        self, account_id: str, filters: OrderHistoryFilter | None = None,
+        self,
+        account_id: str,
+        filters: OrderHistoryFilter | None = None,
     ) -> list[OrderResult]:
         trades = self._ib.trades()
         results = [to_order_result(t) for t in trades]

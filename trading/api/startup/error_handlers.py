@@ -1,4 +1,5 @@
 """Register exception handlers for broker-specific errors."""
+
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 

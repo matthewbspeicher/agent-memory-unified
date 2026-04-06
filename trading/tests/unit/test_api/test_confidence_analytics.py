@@ -1,4 +1,5 @@
 """Tests for confidence calibration analytics API routes."""
+
 from __future__ import annotations
 
 import os
@@ -17,6 +18,7 @@ from storage.confidence_calibration import ConfidenceCalibrationStore
 def _env():
     os.environ["STA_API_KEY"] = "test-key"
     from api.auth import _get_settings
+
     _get_settings.cache_clear()
     yield
     _get_settings.cache_clear()
@@ -76,7 +78,9 @@ async def app_with_calibration(_env):
 class TestListStrategiesCalibration:
     async def test_returns_all_rows_default_window(self, app_with_calibration):
         client = TestClient(app_with_calibration)
-        resp = client.get("/analytics/confidence/strategies", headers={"X-API-Key": "test-key"})
+        resp = client.get(
+            "/analytics/confidence/strategies", headers={"X-API-Key": "test-key"}
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert isinstance(data, list)

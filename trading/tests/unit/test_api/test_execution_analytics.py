@@ -1,4 +1,5 @@
 """Tests for execution analytics API routes."""
+
 from __future__ import annotations
 
 import os
@@ -17,6 +18,7 @@ from storage.execution_costs import ExecutionCostStore
 def _env():
     os.environ["STA_API_KEY"] = "test-key"
     from api.auth import _get_settings
+
     _get_settings.cache_clear()
     yield
     _get_settings.cache_clear()
@@ -60,10 +62,34 @@ async def app_with_events(_env):
     app.state.db = db
 
     store = ExecutionCostStore(db)
-    await store.insert(order_id="ord-001", **_event("ord-001", symbol="AAPL", broker_id="ib", slippage_bps=20.0))
-    await store.insert(order_id="ord-002", **_event("ord-002", symbol="TSLA", broker_id="ib", slippage_bps=5.0))
-    await store.insert(order_id="ord-003", **_event("ord-003", symbol="AAPL", broker_id="alpaca", slippage_bps=50.0, agent_name="macd_agent"))
-    await store.insert(order_id="ord-004", **_event("ord-004", symbol="MSFT", broker_id="ib", slippage_bps=15.0, order_type="limit"))
+    await store.insert(
+        order_id="ord-001",
+        **_event("ord-001", symbol="AAPL", broker_id="ib", slippage_bps=20.0),
+    )
+    await store.insert(
+        order_id="ord-002",
+        **_event("ord-002", symbol="TSLA", broker_id="ib", slippage_bps=5.0),
+    )
+    await store.insert(
+        order_id="ord-003",
+        **_event(
+            "ord-003",
+            symbol="AAPL",
+            broker_id="alpaca",
+            slippage_bps=50.0,
+            agent_name="macd_agent",
+        ),
+    )
+    await store.insert(
+        order_id="ord-004",
+        **_event(
+            "ord-004",
+            symbol="MSFT",
+            broker_id="ib",
+            slippage_bps=15.0,
+            order_type="limit",
+        ),
+    )
 
     yield app
     await db.close()
@@ -195,7 +221,9 @@ class TestWorstEndpoint:
         data = resp.json()
         assert len(data) >= 1
         # First result should have highest avg_slippage_bps
-        slippages = [d["avg_slippage_bps"] for d in data if d["avg_slippage_bps"] is not None]
+        slippages = [
+            d["avg_slippage_bps"] for d in data if d["avg_slippage_bps"] is not None
+        ]
         assert slippages == sorted(slippages, reverse=True)
 
     async def test_worst_respects_limit(self, app_with_events):

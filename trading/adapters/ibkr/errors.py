@@ -1,6 +1,10 @@
 from broker.errors import (
-    BrokerError, InsufficientFunds, InvalidSymbol, MarketClosed,
-    OrderRejected, RateLimitExceeded,
+    BrokerError,
+    InsufficientFunds,
+    InvalidSymbol,
+    MarketClosed,
+    OrderRejected,
+    RateLimitExceeded,
 )
 
 

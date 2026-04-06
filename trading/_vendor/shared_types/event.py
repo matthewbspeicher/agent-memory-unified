@@ -12,29 +12,29 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, constr
 
 
 class Source(Enum):
-    api = 'api'
-    trading = 'trading'
+    api = "api"
+    trading = "trading"
 
 
 class Metadata(BaseModel):
-    correlation_id: str | None = Field(None, description='Request trace ID')
+    correlation_id: str | None = Field(None, description="Request trace ID")
     causation_id: str | None = Field(
-        None, description='Parent event ID that caused this'
+        None, description="Parent event ID that caused this"
     )
 
 
 class Event(BaseModel):
     model_config = ConfigDict(
-        extra='forbid',
+        extra="forbid",
     )
-    id: UUID = Field(..., description='Event ID (UUID)')
-    type: constr(pattern=r'^[a-z]+\.[a-z]+$') = Field(
-        ..., description='Event type (trade.opened, memory.created, etc.)'
+    id: UUID = Field(..., description="Event ID (UUID)")
+    type: constr(pattern=r"^[a-z]+\.[a-z]+$") = Field(
+        ..., description="Event type (trade.opened, memory.created, etc.)"
     )
-    version: constr(pattern=r'^\d+\.\d+$') | None = Field(
-        '1.0', description="Event schema version (e.g., '1.0')"
+    version: constr(pattern=r"^\d+\.\d+$") | None = Field(
+        "1.0", description="Event schema version (e.g., '1.0')"
     )
     timestamp: AwareDatetime
     source: Source = Field(..., description="Source service ('api', 'trading')")
-    payload: dict[str, Any] = Field(..., description='Event-specific data')
+    payload: dict[str, Any] = Field(..., description="Event-specific data")
     metadata: Metadata | None = None

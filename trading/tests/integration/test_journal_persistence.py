@@ -16,6 +16,7 @@ async def test_persistence_task_lifecycle():
     settings = Config(journal_index_enabled=True, journal_index_persist_interval=300)
 
     call_count = 0
+
     async def mock_sleep(delay):
         nonlocal call_count
         call_count += 1
@@ -27,6 +28,7 @@ async def test_persistence_task_lifecycle():
             await journal_persistence_loop(indexer, settings)
 
     indexer.persist.assert_awaited_once()
+
 
 @pytest.mark.asyncio
 async def test_persistence_task_disabled():

@@ -1,8 +1,7 @@
 # python/tests/unit/test_api/test_markets_browser.py
 from __future__ import annotations
-import asyncio
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi.testclient import TestClient
 from fastapi import FastAPI
@@ -11,11 +10,17 @@ from broker.models import PredictionContract
 from api.routes.markets_browser import router
 
 
-def _contract(ticker: str, title: str = "Test", yes_bid: int = 50) -> PredictionContract:
+def _contract(
+    ticker: str, title: str = "Test", yes_bid: int = 50
+) -> PredictionContract:
     return PredictionContract(
-        ticker=ticker, title=title, category="politics",
+        ticker=ticker,
+        title=title,
+        category="politics",
         close_time=datetime(2026, 6, 1, tzinfo=timezone.utc),
-        yes_bid=yes_bid, yes_ask=yes_bid + 4, yes_last=yes_bid,
+        yes_bid=yes_bid,
+        yes_ask=yes_bid + 4,
+        yes_last=yes_bid,
         volume_24h=1000,
     )
 
@@ -33,15 +38,21 @@ HEADERS = {"X-API-Key": "test-key"}
 @pytest.fixture
 def client(app):
     import os
+
     os.environ["STA_API_KEY"] = "test-key"
     # Clear lru_cache so the test key takes effect
     from api.auth import _get_settings
+
     _get_settings.cache_clear()
 
     kalshi_source = AsyncMock()
-    kalshi_source.get_markets = AsyncMock(return_value=[_contract("K1", "Fed rate hike May", 48)])
+    kalshi_source.get_markets = AsyncMock(
+        return_value=[_contract("K1", "Fed rate hike May", 48)]
+    )
     poly_source = AsyncMock()
-    poly_source.get_markets = AsyncMock(return_value=[_contract("P1", "Fed rate hike May", 62)])
+    poly_source.get_markets = AsyncMock(
+        return_value=[_contract("P1", "Fed rate hike May", 62)]
+    )
 
     bus = MagicMock()
     bus._kalshi_source = kalshi_source
@@ -95,15 +106,22 @@ class TestSpreadHistory:
         assert data["observations"] == []
 
     def test_returns_history_from_store(self, client, app):
-        from storage.spreads import SpreadObservation, SpreadStore
+        from storage.spreads import SpreadObservation
+
         mock_store = AsyncMock()
-        mock_store.get_history = AsyncMock(return_value=[
-            SpreadObservation(
-                kalshi_ticker="K1", poly_ticker="P1", match_score=0.7,
-                kalshi_cents=48, poly_cents=60, gap_cents=12,
-                observed_at="2026-03-28T10:00:00+00:00",
-            )
-        ])
+        mock_store.get_history = AsyncMock(
+            return_value=[
+                SpreadObservation(
+                    kalshi_ticker="K1",
+                    poly_ticker="P1",
+                    match_score=0.7,
+                    kalshi_cents=48,
+                    poly_cents=60,
+                    gap_cents=12,
+                    observed_at="2026-03-28T10:00:00+00:00",
+                )
+            ]
+        )
         app.state.spread_store = mock_store
         r = client.get(
             "/markets/spreads/history?kalshi_ticker=K1&poly_ticker=P1&hours=24",
@@ -125,11 +143,19 @@ class TestTopSpreads:
 
     def test_returns_top_spreads(self, client, app):
         mock_store = AsyncMock()
-        mock_store.get_top_spreads = AsyncMock(return_value=[
-            {"kalshi_ticker": "K1", "poly_ticker": "P1", "gap_cents": 15,
-             "match_score": 0.8, "kalshi_cents": 45, "poly_cents": 60,
-             "observed_at": "2026-03-28T10:00:00+00:00"},
-        ])
+        mock_store.get_top_spreads = AsyncMock(
+            return_value=[
+                {
+                    "kalshi_ticker": "K1",
+                    "poly_ticker": "P1",
+                    "gap_cents": 15,
+                    "match_score": 0.8,
+                    "kalshi_cents": 45,
+                    "poly_cents": 60,
+                    "observed_at": "2026-03-28T10:00:00+00:00",
+                },
+            ]
+        )
         app.state.spread_store = mock_store
         r = client.get("/markets/spreads/top", headers=HEADERS)
         assert r.status_code == 200

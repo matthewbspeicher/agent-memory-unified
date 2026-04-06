@@ -4,10 +4,11 @@ These tests exercise the adapter logic only — no real PostgreSQL connection is
 needed.  The asyncpg pool is replaced with a lightweight AsyncMock so that we
 can verify argument passing without an external database.
 """
+
 from __future__ import annotations
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 from storage.postgres import PostgresDB
 
@@ -33,7 +34,9 @@ class TestConvertPlaceholders:
         assert result == "SELECT * FROM trades WHERE agent_name = $1 AND status = $2"
 
     def test_three_placeholders(self):
-        sql = "INSERT INTO risk_events (event_type, details, created_at) VALUES (?, ?, ?)"
+        sql = (
+            "INSERT INTO risk_events (event_type, details, created_at) VALUES (?, ?, ?)"
+        )
         result = PostgresDB._convert_placeholders(sql)
         assert result == (
             "INSERT INTO risk_events (event_type, details, created_at) VALUES ($1, $2, $3)"
@@ -170,7 +173,9 @@ async def test_execute_as_context_manager_returns_cursor():
     fake_rows = [{"id": 1, "symbol": "AAPL"}, {"id": 2, "symbol": "TSLA"}]
     conn.fetch = AsyncMock(return_value=fake_rows)
 
-    async with db.execute("SELECT * FROM external_balances WHERE broker = ?", ["fidelity"]) as cursor:
+    async with db.execute(
+        "SELECT * FROM external_balances WHERE broker = ?", ["fidelity"]
+    ) as cursor:
         rows = await cursor.fetchall()
 
     assert rows == fake_rows
@@ -184,7 +189,9 @@ async def test_execute_as_context_manager_fetchone():
     fake_rows = [{"id": 1, "net_liquidation": "100000.00"}]
     conn.fetch = AsyncMock(return_value=fake_rows)
 
-    async with db.execute("SELECT * FROM paper_accounts WHERE account_id = ?", ["PAPER"]) as cursor:
+    async with db.execute(
+        "SELECT * FROM paper_accounts WHERE account_id = ?", ["PAPER"]
+    ) as cursor:
         row = await cursor.fetchone()
 
     assert row == {"id": 1, "net_liquidation": "100000.00"}
@@ -196,7 +203,9 @@ async def test_execute_as_context_manager_empty_result():
     db, pool, conn = _make_db()
     conn.fetch = AsyncMock(return_value=[])
 
-    async with db.execute("SELECT * FROM paper_accounts WHERE account_id = ?", ["MISSING"]) as cursor:
+    async with db.execute(
+        "SELECT * FROM paper_accounts WHERE account_id = ?", ["MISSING"]
+    ) as cursor:
         row = await cursor.fetchone()
 
     assert row is None
@@ -233,7 +242,9 @@ async def test_await_select_returns_cursor():
     fake_rows = [{"agent_name": "momentum", "status": "normal"}]
     conn.fetch = AsyncMock(return_value=fake_rows)
 
-    cursor = await db.execute("SELECT * FROM strategy_health WHERE agent_name = ?", ["momentum"])
+    cursor = await db.execute(
+        "SELECT * FROM strategy_health WHERE agent_name = ?", ["momentum"]
+    )
     row = await cursor.fetchone()
     assert row == {"agent_name": "momentum", "status": "normal"}
 
@@ -244,7 +255,9 @@ async def test_await_select_empty_returns_cursor_with_none():
     db, pool, conn = _make_db()
     conn.fetch = AsyncMock(return_value=[])
 
-    cursor = await db.execute("SELECT * FROM strategy_health WHERE agent_name = ?", ["missing"])
+    cursor = await db.execute(
+        "SELECT * FROM strategy_health WHERE agent_name = ?", ["missing"]
+    )
     row = await cursor.fetchone()
     assert row is None
 

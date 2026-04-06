@@ -11,6 +11,7 @@ Usage::
     source = MassiveDataSource(client)
     data_bus = DataBus(sources=[source, broker_source], ...)
 """
+
 from __future__ import annotations
 
 import logging
@@ -44,30 +45,30 @@ class MassiveDataSource(DataSource):
 
     # Maps DataBus period strings to approximate calendar-day offsets.
     _PERIOD_DAYS: dict[str, int] = {
-        "1d":   1,
-        "5d":   5,
-        "1mo":  30,
-        "3mo":  90,
-        "6mo":  180,
-        "1y":   365,
-        "2y":   730,
-        "5y":   1825,
-        "10y":  3650,
-        "max":  3650,  # cap at 10 years; callers wanting more can use get_historical_bars directly
+        "1d": 1,
+        "5d": 5,
+        "1mo": 30,
+        "3mo": 90,
+        "6mo": 180,
+        "1y": 365,
+        "2y": 730,
+        "5y": 1825,
+        "10y": 3650,
+        "max": 3650,  # cap at 10 years; callers wanting more can use get_historical_bars directly
     }
 
     # Maps DataBus timeframe strings to Massive (Polygon) timespan + multiplier.
     _TIMEFRAME_MAP: dict[str, tuple[int, str]] = {
-        "1m":   (1,  "minute"),
-        "2m":   (2,  "minute"),
-        "5m":   (5,  "minute"),
-        "15m":  (15, "minute"),
-        "30m":  (30, "minute"),
-        "60m":  (1,  "hour"),
-        "1h":   (1,  "hour"),
-        "1d":   (1,  "day"),
-        "1wk":  (1,  "week"),
-        "1mo":  (1,  "month"),
+        "1m": (1, "minute"),
+        "2m": (2, "minute"),
+        "5m": (5, "minute"),
+        "15m": (15, "minute"),
+        "30m": (30, "minute"),
+        "60m": (1, "hour"),
+        "1h": (1, "hour"),
+        "1d": (1, "day"),
+        "1wk": (1, "week"),
+        "1mo": (1, "month"),
     }
 
     def __init__(self, client) -> None:
@@ -90,9 +91,8 @@ class MassiveDataSource(DataSource):
             last_trade = snap.get("lastTrade", {}) or {}
             last_quote = snap.get("lastQuote", {}) or {}
 
-            last_price = (
-                Decimal(str(last_trade.get("p", 0) or 0))
-                or Decimal(str(day.get("c", 0) or 0))
+            last_price = Decimal(str(last_trade.get("p", 0) or 0)) or Decimal(
+                str(day.get("c", 0) or 0)
             )
             # Polygon lastQuote field convention: P = ask price, p = bid price
             ask = Decimal(str(last_quote.get("P", 0) or 0))
@@ -115,7 +115,11 @@ class MassiveDataSource(DataSource):
                 timestamp=ts,
             )
         except Exception as exc:
-            logger.warning("MassiveDataSource.get_quote snapshot failed for %s: %s", symbol.ticker, exc)
+            logger.warning(
+                "MassiveDataSource.get_quote snapshot failed for %s: %s",
+                symbol.ticker,
+                exc,
+            )
             raise
 
     async def get_historical(
@@ -131,6 +135,7 @@ class MassiveDataSource(DataSource):
         days = self._PERIOD_DAYS.get(period, 90)
 
         from datetime import timedelta
+
         today = datetime.now(tz=timezone.utc).date()
         from_date = (today - timedelta(days=days)).isoformat()
         to_date = today.isoformat()
@@ -178,7 +183,9 @@ class MassiveDataSource(DataSource):
         if symbol is None:
             symbol = Symbol(ticker=ticker)
 
-        raw = await self._client.get_bars(ticker, multiplier, timespan, from_date, to_date)
+        raw = await self._client.get_bars(
+            ticker, multiplier, timespan, from_date, to_date
+        )
         bars: list[Bar] = []
         for r in raw:
             try:
@@ -195,7 +202,9 @@ class MassiveDataSource(DataSource):
                 )
                 bars.append(bar)
             except Exception as exc:
-                logger.warning("MassiveDataSource: skipping malformed bar %s: %s", r, exc)
+                logger.warning(
+                    "MassiveDataSource: skipping malformed bar %s: %s", r, exc
+                )
 
         return sorted(bars, key=lambda b: b.timestamp)
 

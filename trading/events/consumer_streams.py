@@ -6,6 +6,7 @@ Replaces consumer.py (Pub/Sub) with Streams-based implementation:
 - DLQ for failed messages
 - Automatic retries (3 max)
 """
+
 import asyncio
 import json
 import logging
@@ -60,7 +61,9 @@ class StreamsEventConsumer:
                 raise
 
         self._running = True
-        logger.info(f"Consumer started: {self.stream}/{self.group}/{self.consumer_name}")
+        logger.info(
+            f"Consumer started: {self.stream}/{self.group}/{self.consumer_name}"
+        )
 
         while self._running:
             try:
@@ -139,9 +142,7 @@ class StreamsEventConsumer:
             else:
                 # Pending info unavailable — leave unacked for retry on next iteration.
                 # Do NOT ack here: that would silently drop messages on first failure.
-                logger.warning(
-                    f"Could not check pending info for {msg_id}, will retry"
-                )
+                logger.warning(f"Could not check pending info for {msg_id}, will retry")
 
 
 # Example handler
@@ -151,7 +152,7 @@ async def handle_agent_deactivated(data: dict):
     agent_name = data.get("agent_name")
 
     logger.info(
-        f"AgentDeactivated event received",
+        "AgentDeactivated event received",
         extra={"agent_id": agent_id, "agent_name": agent_name},
     )
 

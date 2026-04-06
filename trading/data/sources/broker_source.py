@@ -19,7 +19,10 @@ class BrokerSource(DataSource):
         return await self._broker.market_data.get_quote(symbol)
 
     async def get_historical(
-        self, symbol: Symbol, timeframe: str = "1d", period: str = "3mo",
+        self,
+        symbol: Symbol,
+        timeframe: str = "1d",
+        period: str = "3mo",
     ) -> list[Bar]:
         return await self._broker.market_data.get_historical(symbol, timeframe, period)
 

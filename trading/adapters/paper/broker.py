@@ -9,6 +9,7 @@ simulated P&L appears in the same tables as live IBKR paper trades.
 This adapter is intentionally standalone: it does NOT wrap a real broker.
 Wire it into app.py when settings.paper_trading is True.
 """
+
 from __future__ import annotations
 
 import logging
@@ -55,6 +56,7 @@ PAPER_ACCOUNT_ID = "PAPER"
 # Connection — always "connected" (no real network dependency)
 # ---------------------------------------------------------------------------
 
+
 class PaperConnection(BrokerConnection):
     def __init__(self) -> None:
         self._connected = False
@@ -83,6 +85,7 @@ class PaperConnection(BrokerConnection):
 # Account — delegates to PaperStore
 # ---------------------------------------------------------------------------
 
+
 class PaperAccountProvider(AccountProvider):
     def __init__(self, store: PaperStore) -> None:
         self._store = store
@@ -106,6 +109,7 @@ class PaperAccountProvider(AccountProvider):
 # Market data — delegates to DataBus (injected at construction time)
 # ---------------------------------------------------------------------------
 
+
 class PaperMarketData(MarketDataProvider):
     """Thin shim that forwards market-data calls to the DataBus."""
 
@@ -118,7 +122,9 @@ class PaperMarketData(MarketDataProvider):
         try:
             return await self._data_bus.get_quote(symbol)
         except Exception as exc:
-            logger.warning("PaperMarketData.get_quote failed for %s: %s", symbol.ticker, exc)
+            logger.warning(
+                "PaperMarketData.get_quote failed for %s: %s", symbol.ticker, exc
+            )
             return None
 
     async def get_quotes(self, symbols: list[Symbol]) -> list[Quote]:
@@ -133,6 +139,7 @@ class PaperMarketData(MarketDataProvider):
         self, symbols: list[Symbol], callback: Callable[[Quote], Any]
     ) -> None:
         import asyncio
+
         while True:
             for sym in symbols:
                 q = await self.get_quote(sym)
@@ -146,7 +153,9 @@ class PaperMarketData(MarketDataProvider):
         if self._data_bus is None:
             return []
         try:
-            return await self._data_bus.get_historical(symbol, timeframe=timeframe, period=period)
+            return await self._data_bus.get_historical(
+                symbol, timeframe=timeframe, period=period
+            )
         except Exception:
             return []
 
@@ -162,6 +171,7 @@ class PaperMarketData(MarketDataProvider):
 # ---------------------------------------------------------------------------
 # Orders — simulate fills with slippage
 # ---------------------------------------------------------------------------
+
 
 class PaperOrderManager(OrderManager):
     """Simulates immediate fills at current market price + random slippage."""
@@ -200,13 +210,14 @@ class PaperOrderManager(OrderManager):
             raw_price = order.stop_price
         else:
             # Fallback: use quote last or limit_price if available
-            raw_price = (
-                getattr(order, "limit_price", None)
-                or (quote.last if quote else None)
+            raw_price = getattr(order, "limit_price", None) or (
+                quote.last if quote else None
             )
 
         if raw_price is None:
-            logger.warning("PaperBroker: no price available for %s", order.symbol.ticker)
+            logger.warning(
+                "PaperBroker: no price available for %s", order.symbol.ticker
+            )
             result = OrderResult(
                 order_id=order_id,
                 status=OrderStatus.REJECTED,
@@ -279,6 +290,7 @@ class PaperOrderManager(OrderManager):
 # Composite broker
 # ---------------------------------------------------------------------------
 
+
 class SimulatedBroker(Broker):
     """
     A fully self-contained paper trading broker.
@@ -345,6 +357,4 @@ class SimulatedBroker(Broker):
             (PAPER_ACCOUNT_ID, initial, initial, initial),
         )
         await db.commit()
-        logger.info(
-            "PaperBroker: account reset to $%.2f", self._initial_balance
-        )
+        logger.info("PaperBroker: account reset to $%.2f", self._initial_balance)

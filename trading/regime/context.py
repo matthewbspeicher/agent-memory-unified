@@ -5,6 +5,7 @@ fetches under load. SPY is used as the equity regime proxy for all equity strate
 For prediction-market symbols, equity dimensions are set to "n/a" and the
 LiquidityRegime is used for liquidity_regime.
 """
+
 from __future__ import annotations
 
 import logging
@@ -28,8 +29,8 @@ _TREND_MAP: dict[MarketRegime, str] = {
     MarketRegime.TRENDING_UP: "uptrend",
     MarketRegime.TRENDING_DOWN: "downtrend",
     MarketRegime.SIDEWAYS: "range",
-    MarketRegime.HIGH_VOLATILITY: "range",   # high-vol without clear direction → range
-    MarketRegime.LOW_VOLATILITY: "range",    # low-vol without clear direction → range
+    MarketRegime.HIGH_VOLATILITY: "range",  # high-vol without clear direction → range
+    MarketRegime.LOW_VOLATILITY: "range",  # low-vol without clear direction → range
     MarketRegime.UNKNOWN: "unknown",
 }
 
@@ -67,6 +68,7 @@ class RegimeContext:
         source_version: resolver version for forward-compat
         as_of: UTC timestamp when this context was produced
     """
+
     trend_regime: str
     volatility_regime: str
     liquidity_regime: str
@@ -91,7 +93,9 @@ def _build_market_state(trend: str, vol: str, liq: str) -> str:
     return f"{trend}_{vol}_vol_{liq}_liq"
 
 
-def _normalize_equity(regime: MarketRegime, liquidity_regime: str = "medium") -> RegimeContext:
+def _normalize_equity(
+    regime: MarketRegime, liquidity_regime: str = "medium"
+) -> RegimeContext:
     """Map an equity MarketRegime to normalized RegimeContext."""
     trend = _TREND_MAP.get(regime, "unknown")
     vol = _VOL_MAP.get(regime, "unknown")
@@ -148,7 +152,9 @@ class RegimeContextResolver:
         self._ttl = ttl_seconds
         self._cache: dict[str, tuple[RegimeContext, datetime]] = {}
 
-    def resolve_from_regime(self, regime: MarketRegime, cache_key: str = "equity") -> RegimeContext:
+    def resolve_from_regime(
+        self, regime: MarketRegime, cache_key: str = "equity"
+    ) -> RegimeContext:
         """Normalize an already-detected MarketRegime into RegimeContext.
 
         Useful when the caller has already fetched bars and detected the regime.
@@ -162,7 +168,9 @@ class RegimeContextResolver:
         self._put_cache(cache_key, ctx)
         return ctx
 
-    def resolve_from_snapshot(self, snapshot, cache_key: str = "equity") -> RegimeContext:
+    def resolve_from_snapshot(
+        self, snapshot, cache_key: str = "equity"
+    ) -> RegimeContext:
         """Normalize a RegimeSnapshot into RegimeContext."""
         cached = self._get_cached(cache_key)
         if cached is not None:

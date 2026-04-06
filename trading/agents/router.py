@@ -1378,7 +1378,7 @@ class ConsensusRouter:
         )
 
     async def route(self, opportunity: Opportunity, action_level: ActionLevel) -> None:
-        with tracer.start_as_current_span("consensus_route") as span:
+        with tracer.start_as_current_span("consensus_route"):
             if not opportunity.suggested_trade:
                 await self._target.route(opportunity, action_level)
                 return

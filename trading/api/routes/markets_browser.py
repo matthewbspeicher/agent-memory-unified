@@ -1,4 +1,5 @@
 """Prediction markets browser endpoints."""
+
 from __future__ import annotations
 
 import asyncio
@@ -65,6 +66,7 @@ async def list_prediction_markets(
 
     if include_matches:
         from strategies.matching import match_markets
+
         candidates = match_markets(kalshi_contracts, poly_contracts, min_score=0.35)
         k_lookup = {m.ticker: m for m in kalshi_contracts}
         p_lookup = {m.ticker: m for m in poly_contracts}
@@ -76,14 +78,16 @@ async def list_prediction_markets(
                 continue
             k_cents = k.yes_bid or 0
             p_cents = p.yes_bid or 0
-            matches.append({
-                "kalshi_ticker": cand.kalshi_ticker,
-                "poly_ticker": cand.poly_ticker,
-                "final_score": round(cand.final_score, 4),
-                "kalshi_cents": k_cents,
-                "poly_cents": p_cents,
-                "gap_cents": abs(k_cents - p_cents),
-            })
+            matches.append(
+                {
+                    "kalshi_ticker": cand.kalshi_ticker,
+                    "poly_ticker": cand.poly_ticker,
+                    "final_score": round(cand.final_score, 4),
+                    "kalshi_cents": k_cents,
+                    "poly_cents": p_cents,
+                    "gap_cents": abs(k_cents - p_cents),
+                }
+            )
         response["matches"] = matches
 
     return response
@@ -161,12 +165,14 @@ async def list_kalshi_paper_positions(
         for p in positions:
             if p.symbol.asset_type != AssetType.PREDICTION:
                 continue
-            result.append({
-                "ticker": p.symbol.ticker,
-                "quantity": float(p.quantity),
-                "avg_cost": float(p.avg_cost),
-                "realized_pnl": float(p.realized_pnl),
-            })
+            result.append(
+                {
+                    "ticker": p.symbol.ticker,
+                    "quantity": float(p.quantity),
+                    "avg_cost": float(p.avg_cost),
+                    "realized_pnl": float(p.realized_pnl),
+                }
+            )
         return {"positions": result}
     except Exception as exc:
         logger.error("kalshi/positions failed: %s", exc)
@@ -186,4 +192,7 @@ async def list_kalshi_signals(
     news_source = getattr(bus, "_news_source", None)
     if not news_source:
         return {"signals": []}
-    return {"signals": [], "note": "signals are streamed via EventBus; historical store not yet implemented"}
+    return {
+        "signals": [],
+        "note": "signals are streamed via EventBus; historical store not yet implemented",
+    }

@@ -58,7 +58,13 @@ class TrackedPositionStore:
         return cursor.lastrowid
 
     async def close_position(
-        self, position_id: int, *, exit_price: str, exit_fees: str, exit_time: str, exit_reason: str
+        self,
+        position_id: int,
+        *,
+        exit_price: str,
+        exit_fees: str,
+        exit_time: str,
+        exit_reason: str,
     ) -> None:
         """UPDATE position status to 'closed' with exit details."""
         await self._db.execute(
@@ -71,11 +77,15 @@ class TrackedPositionStore:
 
     async def get(self, position_id: int) -> dict[str, Any] | None:
         """SELECT position by id."""
-        async with self._db.execute("SELECT * FROM tracked_positions WHERE id = ?", (position_id,)) as cursor:
+        async with self._db.execute(
+            "SELECT * FROM tracked_positions WHERE id = ?", (position_id,)
+        ) as cursor:
             row = await cursor.fetchone()
             return dict(row) if row else None
 
-    async def list_open(self, agent_name: str | None = None, symbol: str | None = None) -> list[dict[str, Any]]:
+    async def list_open(
+        self, agent_name: str | None = None, symbol: str | None = None
+    ) -> list[dict[str, Any]]:
         """SELECT open positions with optional filters. ORDER BY entry_time ASC."""
         query = "SELECT * FROM tracked_positions WHERE status = 'open'"
         params: list[str | None] = []
@@ -93,7 +103,9 @@ class TrackedPositionStore:
         async with self._db.execute(query, params) as cursor:
             return [dict(row) for row in await cursor.fetchall()]
 
-    async def list_closed(self, agent_name: str | None = None, limit: int = 100, since: str | None = None) -> list[dict[str, Any]]:
+    async def list_closed(
+        self, agent_name: str | None = None, limit: int = 100, since: str | None = None
+    ) -> list[dict[str, Any]]:
         """SELECT closed positions with optional agent filter. ORDER BY exit_time DESC."""
         query = "SELECT * FROM tracked_positions WHERE status = 'closed'"
         params: list = []

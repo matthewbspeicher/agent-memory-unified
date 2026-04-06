@@ -23,7 +23,12 @@ class PromptStore(ABC):
 
     @abstractmethod
     async def record_lesson(
-        self, agent_name: str, opportunity_id: str, category: str, lesson: str, applies_to: list[str],
+        self,
+        agent_name: str,
+        opportunity_id: str,
+        category: str,
+        lesson: str,
+        applies_to: list[str],
     ) -> None: ...
 
 
@@ -75,11 +80,16 @@ class SqlPromptStore(PromptStore):
         existing = self._prompts.get(agent_name, "")
         sections = ["## Learned Rules\n" + "\n".join(f"- {r}" for r in rules)]
         if "## Recent Lessons" in existing:
-            sections.append(existing[existing.index("## Recent Lessons"):])
+            sections.append(existing[existing.index("## Recent Lessons") :])
         self._prompts[agent_name] = "\n\n".join(sections)
 
     async def record_lesson(
-        self, agent_name: str, opportunity_id: str, category: str, lesson: str, applies_to: list[str],
+        self,
+        agent_name: str,
+        opportunity_id: str,
+        category: str,
+        lesson: str,
+        applies_to: list[str],
     ) -> None:
         """Record a lesson into llm_lessons table."""
         await self._db.execute(
@@ -114,7 +124,9 @@ class SqlPromptStore(PromptStore):
             return []
         return json.loads(row[0])
 
-    async def get_version_history(self, agent_name: str, limit: int = 10) -> list[dict[str, Any]]:
+    async def get_version_history(
+        self, agent_name: str, limit: int = 10
+    ) -> list[dict[str, Any]]:
         """Return version history rows as dicts."""
         cursor = await self._db.execute(
             """SELECT id, agent_name, version, rules, performance_at_creation, created_at

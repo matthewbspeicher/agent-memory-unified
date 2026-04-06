@@ -3,15 +3,21 @@ from decimal import Decimal
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
 from agents.models import AgentConfig, ActionLevel
 from broker.models import Bar, Symbol, OrderSide
 
 
-def _make_bars(closes: list[float], volumes: list[int], symbol_ticker: str = "AAPL") -> list[Bar]:
+def _make_bars(
+    closes: list[float], volumes: list[int], symbol_ticker: str = "AAPL"
+) -> list[Bar]:
     sym = Symbol(ticker=symbol_ticker)
     return [
-        Bar(symbol=sym, close=Decimal(str(c)), volume=v, timestamp=datetime(2026, 3, 30, tzinfo=timezone.utc))
+        Bar(
+            symbol=sym,
+            close=Decimal(str(c)),
+            volume=v,
+            timestamp=datetime(2026, 3, 30, tzinfo=timezone.utc),
+        )
         for c, v in zip(closes, volumes)
     ]
 
@@ -20,7 +26,9 @@ def _make_config(**overrides) -> AgentConfig:
     params = {"lookback_days": 20, "volume_threshold": 1.5, "cooldown_hours": 24}
     params.update(overrides)
     return AgentConfig(
-        name="momentum_test", strategy="momentum", schedule="cron",
+        name="momentum_test",
+        strategy="momentum",
+        schedule="cron",
         action_level=ActionLevel.NOTIFY,
         universe=["AAPL"],
         parameters=params,

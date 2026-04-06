@@ -3,6 +3,7 @@ Polymarket Data Source for DataBus.
 
 Provides PredictionContract polling and token ID caching.
 """
+
 from __future__ import annotations
 
 import logging
@@ -10,11 +11,10 @@ import time
 import asyncio
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Optional, Dict, Tuple
+from typing import Optional, Dict
 
 from adapters.polymarket.client import PolymarketClient
-from broker.interfaces import MarketDataProvider
-from broker.models import PredictionContract, Symbol, AssetType
+from broker.models import PredictionContract, Quote, Symbol
 
 logger = logging.getLogger(__name__)
 
@@ -30,13 +30,16 @@ class ThreadSafeQuoteCache:
     Sub-millisecond O(1) lookup cache for Polymarket quotes.
     Thread-safe via asyncio.Lock.
     """
+
     def __init__(self):
         self._cache: Dict[str, QuoteEntry] = {}
         self._lock = asyncio.Lock()
 
     async def update(self, condition_id: str, price: int):
         async with self._lock:
-            self._cache[condition_id] = QuoteEntry(price=price, last_updated=time.time())
+            self._cache[condition_id] = QuoteEntry(
+                price=price, last_updated=time.time()
+            )
 
     async def get(self, condition_id: str, max_age: float = 2.0) -> Optional[int]:
         async with self._lock:
@@ -96,7 +99,9 @@ class PolymarketDataSource:
                 mkt = self.client.get_market(condition_id)
                 self._cache_tokens(mkt)
             except Exception as e:
-                logger.error("Polymarket: Failed to resolve token ID for %s: %s", condition_id, e)
+                logger.error(
+                    "Polymarket: Failed to resolve token ID for %s: %s", condition_id, e
+                )
                 return None
 
         tokens = self._token_id_cache.get(condition_id)
@@ -111,22 +116,22 @@ class PolymarketDataSource:
             tokens = mkt.get("tokens", [])
             if not tokens:
                 return None
-            
+
             self._cache_tokens(mkt)
 
             tags = mkt.get("tags", [])
             category = tags[0] if tags else "unknown"
 
             # price is mid/last from the tokens array (0-1). We convert to cents for PredictionContract.
-            condition_id = mkt.get("condition_id", "")
-            # We skip the live cache here because _map_contract is sync and 
+            mkt.get("condition_id", "")
+            # We skip the live cache here because _map_contract is sync and
             # the live cache is async. get_live_quote should be used for the latest data.
             yes_price_prob = Decimal(str(tokens[0].get("price", 0)))
             yes_cents = int(yes_price_prob * 100)
 
             closed = mkt.get("closed", False)
             active = mkt.get("active", True)
-            
+
             # Figure out winner if resolved
             # winner token lookup
             result = None
@@ -143,21 +148,35 @@ class PolymarketDataSource:
                 close_time=mkt.get("end_date_iso", ""),
                 yes_bid=yes_cents,
                 volume_24h=int(Decimal(str(mkt.get("volume_24hr", "0")))),
-                result=result
+                result=result,
             )
         except Exception as e:
-            logger.debug("Polymarket: Skipping malformed market %s: %s", mkt.get("condition_id"), e)
+            logger.debug(
+                "Polymarket: Skipping malformed market %s: %s",
+                mkt.get("condition_id"),
+                e,
+            )
             return None
 
-    async def get_markets(self, tag: str = None, closed: bool = False, next_cursor: str = "", limit: int = 100) -> list[PredictionContract]:
+    async def get_markets(
+        self,
+        tag: str = None,
+        closed: bool = False,
+        next_cursor: str = "",
+        limit: int = 100,
+    ) -> list[PredictionContract]:
         """Fetch markets from Polymarket CLOB (non-blocking via asyncio.to_thread)."""
         import asyncio as _asyncio
+
         res = await _asyncio.to_thread(
             self.client.get_markets,
-            tag=tag, active=not closed, next_cursor=next_cursor, limit=limit,
+            tag=tag,
+            active=not closed,
+            next_cursor=next_cursor,
+            limit=limit,
         )
         data = res.get("data", [])
-        
+
         contracts = []
         for m in data:
             c = self._map_contract(m)
@@ -171,7 +190,9 @@ class PolymarketDataSource:
             mkt = self.client.get_market(condition_id)
             return self._map_contract(mkt)
         except Exception as exc:
-            logger.warning("get_market failed for condition_id=%s: %s", condition_id, exc)
+            logger.warning(
+                "get_market failed for condition_id=%s: %s", condition_id, exc
+            )
             return None
 
     def get_market_by_slug(self, slug: str) -> PredictionContract | None:
@@ -185,27 +206,39 @@ class PolymarketDataSource:
             logger.warning("get_market_by_slug failed for slug=%s: %s", slug, exc)
             return None
 
-    async def search_markets(self, query: str, limit: int = 30) -> list[PredictionContract]:
+    async def search_markets(
+        self, query: str, limit: int = 30
+    ) -> list[PredictionContract]:
         """Search markets by title text (client-side filter on recent active markets)."""
         # Polymarket doesn't have a great full-text search endpoint on the CLOB.
         # We fetch active markets and client-side filter.
         contracts = await self.get_markets(limit=200)
         q = query.lower()
-        matches = [c for c in contracts if q in c.ticker.lower() or q in c.title.lower()]
+        matches = [
+            c for c in contracts if q in c.ticker.lower() or q in c.title.lower()
+        ]
         return matches[:limit]
 
     async def get_quote(self, symbol: Symbol) -> "Quote | None":
         """Fetch quote by condition_id (ticker)."""
         import asyncio
+
         mkt = await asyncio.to_thread(self.get_market, symbol.ticker)
         if not mkt:
             return None
         from broker.models import Quote
         from decimal import Decimal
+
         return Quote(
             symbol=symbol,
-            bid=Decimal(str(mkt.yes_bid)) / Decimal("100") if mkt.yes_bid is not None else None,
-            ask=Decimal(str(mkt.yes_ask)) / Decimal("100") if mkt.yes_ask is not None else None,
-            last=Decimal(str(mkt.yes_last)) / Decimal("100") if mkt.yes_last is not None else None,
+            bid=Decimal(str(mkt.yes_bid)) / Decimal("100")
+            if mkt.yes_bid is not None
+            else None,
+            ask=Decimal(str(mkt.yes_ask)) / Decimal("100")
+            if mkt.yes_ask is not None
+            else None,
+            last=Decimal(str(mkt.yes_last)) / Decimal("100")
+            if mkt.yes_last is not None
+            else None,
             volume=mkt.volume_24h,
         )

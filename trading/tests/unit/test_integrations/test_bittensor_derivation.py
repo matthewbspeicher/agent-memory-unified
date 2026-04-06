@@ -5,7 +5,12 @@ from integrations.bittensor.derivation import derive_consensus_view
 from integrations.bittensor.models import RawMinerForecast
 
 
-def _forecast(hotkey: str, predictions: list[float], incentive: float = 0.5, hash_verified: bool = True) -> RawMinerForecast:
+def _forecast(
+    hotkey: str,
+    predictions: list[float],
+    incentive: float = 0.5,
+    hash_verified: bool = True,
+) -> RawMinerForecast:
     return RawMinerForecast(
         window_id="w1",
         request_uuid="req1",

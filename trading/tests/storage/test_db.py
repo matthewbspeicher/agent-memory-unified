@@ -1,6 +1,7 @@
 """
 Tests for storage/db.py - DatabaseConnection accepts Config parameter
 """
+
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 import aiosqlite
@@ -36,7 +37,9 @@ class TestDatabaseConnectionConnect:
         config = Config(db_path=":memory:")
         db_conn = DatabaseConnection(config)
 
-        with patch("storage.db.aiosqlite.connect", new_callable=AsyncMock) as mock_connect:
+        with patch(
+            "storage.db.aiosqlite.connect", new_callable=AsyncMock
+        ) as mock_connect:
             mock_db = AsyncMock(spec=aiosqlite.Connection)
             mock_connect.return_value = mock_db
 
@@ -55,16 +58,23 @@ class TestDatabaseConnectionConnect:
         db_conn = DatabaseConnection(config)
 
         mock_pool = AsyncMock()
-        with patch("asyncpg.create_pool", new_callable=AsyncMock, return_value=mock_pool) as mock_create_pool:
+        with patch(
+            "asyncpg.create_pool", new_callable=AsyncMock, return_value=mock_pool
+        ) as mock_create_pool:
             with patch("storage.db.PostgresDB") as mock_postgres_cls:
                 mock_postgres_db = MagicMock()
                 mock_postgres_cls.return_value = mock_postgres_db
 
-                with patch("storage.db.run_migrations", new_callable=AsyncMock) as mock_migrations:
+                with patch(
+                    "storage.db.run_migrations", new_callable=AsyncMock
+                ) as mock_migrations:
                     db = await db_conn.connect()
 
                     mock_create_pool.assert_called_once()
-                    assert mock_create_pool.call_args[0][0] == "postgresql://user:pass@host/db"
+                    assert (
+                        mock_create_pool.call_args[0][0]
+                        == "postgresql://user:pass@host/db"
+                    )
                     mock_postgres_cls.assert_called_once_with(mock_pool)
                     mock_migrations.assert_called_once_with(mock_postgres_db)
                     assert db == mock_postgres_db
@@ -80,7 +90,9 @@ class TestDatabaseConnectionConnect:
         db_conn = DatabaseConnection(config)
 
         mock_pool = AsyncMock()
-        with patch("asyncpg.create_pool", new_callable=AsyncMock, return_value=mock_pool) as mock_create_pool:
+        with patch(
+            "asyncpg.create_pool", new_callable=AsyncMock, return_value=mock_pool
+        ) as mock_create_pool:
             with patch("storage.db._ssl.create_default_context") as mock_ssl:
                 mock_ssl_ctx = MagicMock()
                 mock_ssl.return_value = mock_ssl_ctx
@@ -108,7 +120,9 @@ class TestDatabaseConnectionConnect:
         db_conn = DatabaseConnection(config)
 
         mock_pool = AsyncMock()
-        with patch("asyncpg.create_pool", new_callable=AsyncMock, return_value=mock_pool):
+        with patch(
+            "asyncpg.create_pool", new_callable=AsyncMock, return_value=mock_pool
+        ):
             with patch("storage.db._ssl.create_default_context") as mock_ssl:
                 mock_ssl_ctx = MagicMock()
                 mock_ssl.return_value = mock_ssl_ctx
@@ -121,13 +135,14 @@ class TestDatabaseConnectionConnect:
                         assert mock_ssl_ctx.check_hostname is False
                         assert mock_ssl_ctx.verify_mode == 0  # ssl.CERT_NONE
 
-
     @pytest.mark.asyncio
     async def test_connect_sets_row_factory_for_sqlite(self):
         config = Config(db_path=":memory:")
         db_conn = DatabaseConnection(config)
 
-        with patch("storage.db.aiosqlite.connect", new_callable=AsyncMock) as mock_connect:
+        with patch(
+            "storage.db.aiosqlite.connect", new_callable=AsyncMock
+        ) as mock_connect:
             mock_db = AsyncMock(spec=aiosqlite.Connection)
             mock_connect.return_value = mock_db
 
@@ -142,7 +157,9 @@ class TestDatabaseConnectionConnect:
         config = Config(db_path=":memory:")
         db_conn = DatabaseConnection(config)
 
-        with patch("storage.db.aiosqlite.connect", new_callable=AsyncMock) as mock_connect:
+        with patch(
+            "storage.db.aiosqlite.connect", new_callable=AsyncMock
+        ) as mock_connect:
             mock_db = AsyncMock(spec=aiosqlite.Connection)
             mock_connect.return_value = mock_db
 
@@ -157,12 +174,16 @@ class TestDatabaseConnectionConnect:
         db_conn = DatabaseConnection(config)
 
         mock_pool = AsyncMock()
-        with patch("asyncpg.create_pool", new_callable=AsyncMock, return_value=mock_pool):
+        with patch(
+            "asyncpg.create_pool", new_callable=AsyncMock, return_value=mock_pool
+        ):
             with patch("storage.db.PostgresDB") as mock_postgres_cls:
                 mock_postgres_db = MagicMock()
                 mock_postgres_cls.return_value = mock_postgres_db
 
-                with patch("storage.db.run_migrations", new_callable=AsyncMock) as mock_migrations:
+                with patch(
+                    "storage.db.run_migrations", new_callable=AsyncMock
+                ) as mock_migrations:
                     await db_conn.connect()
 
                     mock_migrations.assert_called_once_with(mock_postgres_db)
@@ -214,7 +235,9 @@ class TestDatabaseConnectionContextManager:
         config = Config(db_path=":memory:")
         db_conn = DatabaseConnection(config)
 
-        with patch("storage.db.aiosqlite.connect", new_callable=AsyncMock) as mock_connect:
+        with patch(
+            "storage.db.aiosqlite.connect", new_callable=AsyncMock
+        ) as mock_connect:
             mock_db = AsyncMock(spec=aiosqlite.Connection)
             mock_connect.return_value = mock_db
 

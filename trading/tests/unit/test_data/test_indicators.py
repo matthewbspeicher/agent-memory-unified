@@ -5,8 +5,13 @@ import pytest
 
 from broker.models import Bar, Symbol
 from data.indicators import (
-    MACD, BollingerBands,
-    compute_sma, compute_ema, compute_rsi, compute_macd, compute_bollinger,
+    MACD,
+    BollingerBands,
+    compute_sma,
+    compute_ema,
+    compute_rsi,
+    compute_macd,
+    compute_bollinger,
 )
 
 _BASE_DT = datetime(2026, 1, 1)
@@ -16,9 +21,15 @@ def _make_bars(closes: list[float]) -> list[Bar]:
     """Helper: create Bar list from close prices."""
     sym = Symbol(ticker="TEST")
     return [
-        Bar(symbol=sym, close=Decimal(str(c)), open=Decimal(str(c)),
-            high=Decimal(str(c)), low=Decimal(str(c)), volume=1000,
-            timestamp=_BASE_DT + timedelta(days=i))
+        Bar(
+            symbol=sym,
+            close=Decimal(str(c)),
+            open=Decimal(str(c)),
+            high=Decimal(str(c)),
+            low=Decimal(str(c)),
+            volume=1000,
+            timestamp=_BASE_DT + timedelta(days=i),
+        )
         for i, c in enumerate(closes)
     ]
 
@@ -40,8 +51,22 @@ class TestSMA:
 
 class TestEMA:
     def test_basic(self):
-        bars = _make_bars([22, 22.27, 22.19, 22.08, 22.17, 22.18, 22.13,
-                           22.23, 22.43, 22.24, 22.29, 22.15])
+        bars = _make_bars(
+            [
+                22,
+                22.27,
+                22.19,
+                22.08,
+                22.17,
+                22.18,
+                22.13,
+                22.23,
+                22.43,
+                22.24,
+                22.29,
+                22.15,
+            ]
+        )
         result = compute_ema(bars, 10)
         assert isinstance(result, float)
         assert 22.0 < result < 23.0
@@ -64,8 +89,24 @@ class TestRSI:
 
     def test_known_range(self):
         # Mixed prices should yield RSI between 0 and 100
-        prices = [44, 44.34, 44.09, 43.61, 44.33, 44.83, 45.10, 45.42,
-                  45.84, 46.08, 45.89, 46.03, 45.61, 46.28, 46.28, 46.00]
+        prices = [
+            44,
+            44.34,
+            44.09,
+            43.61,
+            44.33,
+            44.83,
+            45.10,
+            45.42,
+            45.84,
+            46.08,
+            45.89,
+            46.03,
+            45.61,
+            46.28,
+            46.28,
+            46.00,
+        ]
         bars = _make_bars(prices)
         result = compute_rsi(bars, 14)
         assert 0 < result < 100

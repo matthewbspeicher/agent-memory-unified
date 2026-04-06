@@ -1,8 +1,6 @@
 from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
-
 
 async def test_connect_authenticates():
     from adapters.alpaca.stream import AlpacaStream

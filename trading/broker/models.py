@@ -114,10 +114,15 @@ class BracketOrder(OrderBase):
     take_profit_price and stop_loss_price are REQUIRED — no defaults.
     A BracketOrder with stop-loss at $0 would trigger immediately.
     """
+
     entry_type: str = "market"
     entry_limit_price: Decimal | None = None
-    take_profit_price: Decimal = field(default=Decimal("-1"))  # sentinel — validated in __post_init__
-    stop_loss_price: Decimal = field(default=Decimal("-1"))    # sentinel — validated in __post_init__
+    take_profit_price: Decimal = field(
+        default=Decimal("-1")
+    )  # sentinel — validated in __post_init__
+    stop_loss_price: Decimal = field(
+        default=Decimal("-1")
+    )  # sentinel — validated in __post_init__
     stop_loss_limit_price: Decimal | None = None
 
     def __post_init__(self):
@@ -305,9 +310,10 @@ class BrokerCapabilities:
 @dataclass(frozen=True)
 class PredictionContract:
     """Represents a Kalshi or Polymarket binary contract."""
-    ticker: str           # e.g. "HIGHNY-25MAR26-B72"
-    title: str            # Human-readable question
-    category: str         # "economics", "politics", "climate", …
+
+    ticker: str  # e.g. "HIGHNY-25MAR26-B72"
+    title: str  # Human-readable question
+    category: str  # "economics", "politics", "climate", …
     close_time: datetime
     # Cents-based probability (0–100). None if market not yet open.
     yes_bid: int | None = None

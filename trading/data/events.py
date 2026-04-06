@@ -6,7 +6,11 @@ MAX_SUBSCRIBERS = 10
 
 
 class EventBus:
-    def __init__(self, max_queue_size: int = MAX_QUEUE_SIZE, max_subscribers: int = MAX_SUBSCRIBERS):
+    def __init__(
+        self,
+        max_queue_size: int = MAX_QUEUE_SIZE,
+        max_subscribers: int = MAX_SUBSCRIBERS,
+    ):
         self._queues: set[asyncio.Queue] = set()
         self._max_queue_size = max_queue_size
         self._max_subscribers = max_subscribers

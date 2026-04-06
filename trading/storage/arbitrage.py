@@ -1,4 +1,5 @@
 """ArbStore — persists dual-leg arbitrage trades and their execution states."""
+
 from __future__ import annotations
 
 import json
@@ -13,6 +14,7 @@ from broker.models import OrderBase
 
 logger = logging.getLogger(__name__)
 
+
 class ArbStore:
     def __init__(self, db: aiosqlite.Connection) -> None:
         self._db = db
@@ -26,17 +28,26 @@ class ArbStore:
                    (id, symbol_a, symbol_b, expected_profit_bps, sequencing, state, error_message, created_at, updated_at)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
-                    trade.id, trade.symbol_a, trade.symbol_b, trade.expected_profit_bps,
-                    trade.sequencing.value, trade.state.value, trade.error_message,
-                    trade.created_at.isoformat(), trade.updated_at.isoformat()
-                )
+                    trade.id,
+                    trade.symbol_a,
+                    trade.symbol_b,
+                    trade.expected_profit_bps,
+                    trade.sequencing.value,
+                    trade.state.value,
+                    trade.error_message,
+                    trade.created_at.isoformat(),
+                    trade.updated_at.isoformat(),
+                ),
             )
 
             import dataclasses
             from enum import Enum
+
             def _encoder(obj):
-                if isinstance(obj, Decimal): return str(obj)
-                if isinstance(obj, Enum): return obj.value
+                if isinstance(obj, Decimal):
+                    return str(obj)
+                if isinstance(obj, Enum):
+                    return obj.value
                 return str(obj)
 
             # 2. Save legs
@@ -48,23 +59,30 @@ class ArbStore:
                        (trade_id, leg_name, broker_id, order_data, fill_price, fill_quantity, status, external_order_id)
                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
                     (
-                        trade.id, leg_name, leg.broker_id, order_json,
+                        trade.id,
+                        leg_name,
+                        leg.broker_id,
+                        order_json,
                         str(leg.fill_price) if leg.fill_price else None,
-                        str(leg.fill_quantity), leg.status, leg.external_order_id
-                    )
+                        str(leg.fill_quantity),
+                        leg.status,
+                        leg.external_order_id,
+                    ),
                 )
-            
+
             await self._db.commit()
         except Exception as exc:
             logger.error("ArbStore.save_trade failed: %s", exc)
             raise
 
-    async def update_trade_state(self, trade_id: str, state: ArbState, error_message: Optional[str] = None) -> None:
+    async def update_trade_state(
+        self, trade_id: str, state: ArbState, error_message: Optional[str] = None
+    ) -> None:
         """Update the state of an existing trade."""
         now = datetime.now(timezone.utc).isoformat()
         await self._db.execute(
             "UPDATE arb_trades SET state = ?, error_message = ?, updated_at = ? WHERE id = ?",
-            (state.value, error_message, now, trade_id)
+            (state.value, error_message, now, trade_id),
         )
         await self._db.commit()
 
@@ -76,17 +94,22 @@ class ArbStore:
                WHERE trade_id = ? AND leg_name = ?""",
             (
                 str(leg.fill_price) if leg.fill_price else None,
-                str(leg.fill_quantity), leg.status, leg.external_order_id,
-                trade_id, leg_name
-            )
+                str(leg.fill_quantity),
+                leg.status,
+                leg.external_order_id,
+                trade_id,
+                leg_name,
+            ),
         )
         await self._db.commit()
 
-    async def update_leg_atomic(self, trade_id: str, leg_name: str, leg: ArbLeg) -> None:
+    async def update_leg_atomic(
+        self, trade_id: str, leg_name: str, leg: ArbLeg
+    ) -> None:
         """Atomic, column-level update for a specific leg and marks trade as updated."""
         try:
             now = datetime.now(timezone.utc).isoformat()
-            
+
             # 1. Update the leg columns
             await self._db.execute(
                 """UPDATE arb_legs SET 
@@ -94,49 +117,61 @@ class ArbStore:
                    WHERE trade_id = ? AND leg_name = ?""",
                 (
                     str(leg.fill_price) if leg.fill_price else None,
-                    str(leg.fill_quantity), leg.status, leg.external_order_id,
-                    trade_id, leg_name
-                )
+                    str(leg.fill_quantity),
+                    leg.status,
+                    leg.external_order_id,
+                    trade_id,
+                    leg_name,
+                ),
             )
 
             # 2. Update the trade updated_at field
             await self._db.execute(
-                "UPDATE arb_trades SET updated_at = ? WHERE id = ?",
-                (now, trade_id)
+                "UPDATE arb_trades SET updated_at = ? WHERE id = ?", (now, trade_id)
             )
-            
+
             await self._db.commit()
         except Exception as exc:
-            logger.error("ArbStore.update_leg_atomic failed for %s:%s: %s", trade_id, leg_name, exc)
+            logger.error(
+                "ArbStore.update_leg_atomic failed for %s:%s: %s",
+                trade_id,
+                leg_name,
+                exc,
+            )
             raise
 
     async def get_trade(self, trade_id: str) -> Optional[ArbTrade]:
         """Retrieve a full ArbTrade object with its legs."""
-        cursor = await self._db.execute("SELECT * FROM arb_trades WHERE id = ?", (trade_id,))
+        cursor = await self._db.execute(
+            "SELECT * FROM arb_trades WHERE id = ?", (trade_id,)
+        )
         row = await cursor.fetchone()
         if not row:
             return None
 
         # Fetch legs
-        cursor = await self._db.execute("SELECT * FROM arb_legs WHERE trade_id = ?", (trade_id,))
+        cursor = await self._db.execute(
+            "SELECT * FROM arb_legs WHERE trade_id = ?", (trade_id,)
+        )
         leg_rows = await cursor.fetchall()
-        
+
         legs = {}
         for lr in leg_rows:
             order_dict = json.loads(lr["order_data"])
             # Reconstruct basic order (Note: specialized types might need more care)
             order = OrderBase(**order_dict)
-            
+
             legs[lr["leg_name"]] = ArbLeg(
                 broker_id=lr["broker_id"],
                 order=order,
                 fill_price=Decimal(lr["fill_price"]) if lr["fill_price"] else None,
                 fill_quantity=Decimal(lr["fill_quantity"]),
                 status=lr["status"],
-                external_order_id=lr["external_order_id"]
+                external_order_id=lr["external_order_id"],
             )
 
         from execution.models import SequencingStrategy
+
         return ArbTrade(
             id=row["id"],
             symbol_a=row["symbol_a"],
@@ -148,5 +183,5 @@ class ArbStore:
             state=ArbState(row["state"]),
             created_at=datetime.fromisoformat(row["created_at"]),
             updated_at=datetime.fromisoformat(row["updated_at"]),
-            error_message=row["error_message"]
+            error_message=row["error_message"],
         )

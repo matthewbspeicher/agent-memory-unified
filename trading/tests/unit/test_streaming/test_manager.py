@@ -2,7 +2,6 @@ from __future__ import annotations
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
 
 from broker.models import Quote, Symbol
 
@@ -45,7 +44,9 @@ async def test_fan_out_updates_databus_and_eventbus():
         event_bus=mock_event_bus,
     )
 
-    quote = Quote(symbol=Symbol(ticker="AAPL"), bid=Decimal("150.0"), ask=Decimal("150.5"))
+    quote = Quote(
+        symbol=Symbol(ticker="AAPL"), bid=Decimal("150.0"), ask=Decimal("150.5")
+    )
     await mgr._on_quote("AAPL", quote)
 
     mock_data_bus.update_quote_cache.assert_called_once()

@@ -1,5 +1,5 @@
 """Tests for RegimeDetector — TDD phase."""
-import pytest
+
 from datetime import datetime, timezone
 from decimal import Decimal
 
@@ -7,9 +7,15 @@ from regime.models import MarketRegime
 from regime.detector import RegimeDetector
 
 
-def _make_bar(close: float, high: float | None = None, low: float | None = None, ts: datetime | None = None):
+def _make_bar(
+    close: float,
+    high: float | None = None,
+    low: float | None = None,
+    ts: datetime | None = None,
+):
     """Create a minimal bar dict for testing."""
     from broker.models import Bar, Symbol, AssetType
+
     return Bar(
         symbol=Symbol(ticker="SPY", asset_type=AssetType.STOCK),
         timestamp=ts or datetime.now(timezone.utc),
@@ -35,6 +41,7 @@ def _sideways_bars(n: int = 60) -> list:
     """Generate sideways/choppy bars."""
     bars = []
     import math
+
     for i in range(n):
         close = 400.0 + math.sin(i * 0.5) * 2.0  # Oscillates ±2 around 400
         bars.append(_make_bar(close))
@@ -86,7 +93,11 @@ class TestRegimeDetector:
         detector = RegimeDetector()
         bars = _volatile_bars(60)
         regime = detector.detect(bars)
-        assert regime in (MarketRegime.HIGH_VOLATILITY, MarketRegime.TRENDING_DOWN, MarketRegime.SIDEWAYS)
+        assert regime in (
+            MarketRegime.HIGH_VOLATILITY,
+            MarketRegime.TRENDING_DOWN,
+            MarketRegime.SIDEWAYS,
+        )
         # Volatile bars should not be TRENDING_UP or LOW_VOLATILITY
 
     def test_trending_down_bars(self):

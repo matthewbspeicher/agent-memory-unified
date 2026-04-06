@@ -231,9 +231,7 @@ def load_agents_config(path: str, prompt_store: Any = None) -> list[Agent]:
     return agents
 
 
-async def apply_overrides(
-    config: AgentConfig, store: AgentStore
-) -> AgentConfig:
+async def apply_overrides(config: AgentConfig, store: AgentStore) -> AgentConfig:
     """
     Merge DB-persisted overrides on top of YAML-loaded config.
 

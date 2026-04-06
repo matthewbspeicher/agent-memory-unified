@@ -67,7 +67,9 @@ async def test_record_entry_creates_tracked_position(tracker, db):
     )
     position_id = await tracker.record_entry(opp, result, "buy")
 
-    cursor = await db.execute("SELECT * FROM tracked_positions WHERE id = ?", (position_id,))
+    cursor = await db.execute(
+        "SELECT * FROM tracked_positions WHERE id = ?", (position_id,)
+    )
     row = dict(await cursor.fetchone())
     assert row["agent_name"] == "test-agent"
     assert row["opportunity_id"] == "opp-001"
@@ -100,7 +102,9 @@ async def test_record_exit_closes_position(tracker, db):
     )
     await tracker.record_exit(position_id, exit_result, "take_profit")
 
-    cursor = await db.execute("SELECT * FROM tracked_positions WHERE id = ?", (position_id,))
+    cursor = await db.execute(
+        "SELECT * FROM tracked_positions WHERE id = ?", (position_id,)
+    )
     row = dict(await cursor.fetchone())
     assert row["status"] == "closed"
     assert row["exit_price"] == "155"

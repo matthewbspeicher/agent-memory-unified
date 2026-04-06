@@ -74,7 +74,11 @@ def derive_analytics_row(
 
     slippage_bps = None
     if execution_fills:
-        valid = [f["slippage_bps"] for f in execution_fills if f.get("slippage_bps") is not None]
+        valid = [
+            f["slippage_bps"]
+            for f in execution_fills
+            if f.get("slippage_bps") is not None
+        ]
         if valid:
             slippage_bps = sum(valid) / len(valid)
 
@@ -88,10 +92,13 @@ def derive_analytics_row(
         opp_data = opportunity.get("data")
         if isinstance(opp_data, str):
             import json
+
             try:
                 opp_data = json.loads(opp_data)
                 opp_payload = opp_data if isinstance(opp_data, dict) else {}
-                regime_data = opp_data.get("regime", {}) if isinstance(opp_data, dict) else {}
+                regime_data = (
+                    opp_data.get("regime", {}) if isinstance(opp_data, dict) else {}
+                )
             except (json.JSONDecodeError, TypeError):
                 pass
         elif isinstance(opp_data, dict):
@@ -111,7 +118,10 @@ def derive_analytics_row(
         except (json.JSONDecodeError, TypeError):
             suggested_trade = None
     if isinstance(suggested_trade, dict):
-        if suggested_trade.get("limit_price") is not None and suggested_trade.get("stop_price") is not None:
+        if (
+            suggested_trade.get("limit_price") is not None
+            and suggested_trade.get("stop_price") is not None
+        ):
             order_type = "stop_limit"
         elif suggested_trade.get("limit_price") is not None:
             order_type = "limit"
@@ -196,8 +206,12 @@ def compute_summary(trades: list[dict]) -> StrategySummary:
     avg_gross_pnl = gross_pnl / trade_count if trade_count else ZERO
     avg_net_pnl = net_pnl / trade_count if trade_count else ZERO
 
-    win_pnls = [Decimal(t["net_pnl"]) for t in sorted_trades if t["realized_outcome"] == "win"]
-    loss_pnls = [Decimal(t["net_pnl"]) for t in sorted_trades if t["realized_outcome"] == "loss"]
+    win_pnls = [
+        Decimal(t["net_pnl"]) for t in sorted_trades if t["realized_outcome"] == "win"
+    ]
+    loss_pnls = [
+        Decimal(t["net_pnl"]) for t in sorted_trades if t["realized_outcome"] == "loss"
+    ]
 
     avg_win = sum(win_pnls, ZERO) / len(win_pnls) if win_pnls else ZERO
     avg_loss = sum(loss_pnls, ZERO) / len(loss_pnls) if loss_pnls else ZERO
@@ -214,7 +228,9 @@ def compute_summary(trades: list[dict]) -> StrategySummary:
         profit_factor = float(sum_wins / sum_losses) if sum_losses else None
 
     hold_minutes_list = [float(t["hold_minutes"]) for t in sorted_trades]
-    avg_hold = sum(hold_minutes_list) / len(hold_minutes_list) if hold_minutes_list else 0.0
+    avg_hold = (
+        sum(hold_minutes_list) / len(hold_minutes_list) if hold_minutes_list else 0.0
+    )
     median_hold = statistics.median(hold_minutes_list) if hold_minutes_list else 0.0
 
     best_trade = max(net_pnls)
@@ -262,7 +278,9 @@ def compute_equity_curve(trades: list[dict], cap: int = 500) -> list[RollingPoin
     cumulative = ZERO
     for t in sorted_trades:
         cumulative += Decimal(t["net_pnl"])
-        points.append(RollingPoint(exit_time=t["exit_time"], cumulative_net_pnl=str(cumulative)))
+        points.append(
+            RollingPoint(exit_time=t["exit_time"], cumulative_net_pnl=str(cumulative))
+        )
     # Down-sample if over cap
     if len(points) > cap:
         step = len(points) / cap
@@ -272,15 +290,25 @@ def compute_equity_curve(trades: list[dict], cap: int = 500) -> list[RollingPoin
     return points
 
 
-def compute_rolling_expectancy(trades: list[dict], window: int = 20) -> list[RollingPoint]:
+def compute_rolling_expectancy(
+    trades: list[dict], window: int = 20
+) -> list[RollingPoint]:
     """Compute rolling expectancy over a sliding window of N trades."""
     sorted_trades = sorted(trades, key=lambda t: t["exit_time"])
     points: list[RollingPoint] = []
     for i in range(window, len(sorted_trades) + 1):
         window_trades = sorted_trades[i - window : i]
         w_count = len(window_trades)
-        wins = [Decimal(t["net_pnl"]) for t in window_trades if t["realized_outcome"] == "win"]
-        losses = [Decimal(t["net_pnl"]) for t in window_trades if t["realized_outcome"] == "loss"]
+        wins = [
+            Decimal(t["net_pnl"])
+            for t in window_trades
+            if t["realized_outcome"] == "win"
+        ]
+        losses = [
+            Decimal(t["net_pnl"])
+            for t in window_trades
+            if t["realized_outcome"] == "loss"
+        ]
         win_rate = Decimal(len(wins)) / Decimal(w_count)
         loss_rate = Decimal(len(losses)) / Decimal(w_count)
         avg_win = sum(wins, ZERO) / len(wins) if wins else ZERO
@@ -317,8 +345,16 @@ def compute_symbol_breakdown(trades: list[dict]) -> list[SymbolBreakdown]:
 
         win_rate_d = Decimal(len(wins)) / Decimal(count) if count else ZERO
         loss_rate_d = Decimal(len(losses)) / Decimal(count) if count else ZERO
-        avg_win = sum((Decimal(t["net_pnl"]) for t in wins), ZERO) / len(wins) if wins else ZERO
-        avg_loss = sum((Decimal(t["net_pnl"]) for t in losses), ZERO) / len(losses) if losses else ZERO
+        avg_win = (
+            sum((Decimal(t["net_pnl"]) for t in wins), ZERO) / len(wins)
+            if wins
+            else ZERO
+        )
+        avg_loss = (
+            sum((Decimal(t["net_pnl"]) for t in losses), ZERO) / len(losses)
+            if losses
+            else ZERO
+        )
         exp = win_rate_d * avg_win + loss_rate_d * avg_loss
 
         results.append(
@@ -399,7 +435,9 @@ async def backfill_analytics(
                 fills = await execution_quality_store.get_fills_for_agent(
                     pos["agent_name"], limit=50
                 )
-                fills = [f for f in fills if f.get("opportunity_id") == pos["opportunity_id"]]
+                fills = [
+                    f for f in fills if f.get("opportunity_id") == pos["opportunity_id"]
+                ]
             except Exception:
                 pass
 
@@ -457,7 +495,9 @@ async def derive_and_upsert_for_position(
                 fills = await execution_quality_store.get_fills_for_agent(
                     pos["agent_name"], limit=50
                 )
-                fills = [f for f in fills if f.get("opportunity_id") == pos["opportunity_id"]]
+                fills = [
+                    f for f in fills if f.get("opportunity_id") == pos["opportunity_id"]
+                ]
             except Exception:
                 pass
 

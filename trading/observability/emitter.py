@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 class TradeEvent:
     agent_name: str
     symbol: str
-    action: str          # buy / sell / short / cover
+    action: str  # buy / sell / short / cover
     fill_price: float
     expected_price: float
     slippage_bps: int
@@ -81,7 +81,9 @@ class ObservabilityEmitter:
         }
         await self._sb_insert("trade_events", row)
 
-    async def heartbeat(self, agent_name: str, status: str, cycle_count: int = 0) -> None:
+    async def heartbeat(
+        self, agent_name: str, status: str, cycle_count: int = 0
+    ) -> None:
         row = {
             "agent_name": agent_name,
             "last_seen": datetime.now(timezone.utc).isoformat(),

@@ -1,4 +1,5 @@
 """Execution cost computation — decision price, spread, and slippage math."""
+
 from __future__ import annotations
 
 from decimal import Decimal

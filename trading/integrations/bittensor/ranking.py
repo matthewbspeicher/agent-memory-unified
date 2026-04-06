@@ -1,4 +1,5 @@
 """Pure ranking computation — no store, no EventBus, no metagraph SDK objects."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -47,18 +48,20 @@ def compute_rankings(
         alpha = _compute_alpha(inp.windows_evaluated, config)
         hybrid = alpha * norm_incentives[i] + (1.0 - alpha) * internal
 
-        results.append(MinerRanking(
-            miner_hotkey=inp.miner_hotkey,
-            windows_evaluated=inp.windows_evaluated,
-            direction_accuracy=inp.direction_accuracy,
-            mean_magnitude_error=inp.mean_magnitude_error,
-            mean_path_correlation=inp.mean_path_correlation,
-            internal_score=internal,
-            latest_incentive_score=inp.raw_incentive_score,
-            hybrid_score=hybrid,
-            alpha_used=alpha,
-            updated_at=now,
-        ))
+        results.append(
+            MinerRanking(
+                miner_hotkey=inp.miner_hotkey,
+                windows_evaluated=inp.windows_evaluated,
+                direction_accuracy=inp.direction_accuracy,
+                mean_magnitude_error=inp.mean_magnitude_error,
+                mean_path_correlation=inp.mean_path_correlation,
+                internal_score=internal,
+                latest_incentive_score=inp.raw_incentive_score,
+                hybrid_score=hybrid,
+                alpha_used=alpha,
+                updated_at=now,
+            )
+        )
     return results
 
 

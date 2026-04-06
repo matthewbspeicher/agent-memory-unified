@@ -10,6 +10,7 @@ Run as a separate process:
 
 Or via systemd -- see scripts/stock-trading-watchdog.service
 """
+
 import asyncio
 import logging
 import os
@@ -42,7 +43,8 @@ async def send_whatsapp_alert(message: str) -> None:
     async with httpx.AsyncClient() as client:
         try:
             resp = await client.post(
-                url, json=payload,
+                url,
+                json=payload,
                 headers={"Authorization": f"Bearer {WA_TOKEN}"},
                 timeout=10,
             )
@@ -71,7 +73,10 @@ async def run() -> None:
             logger.warning("Health check failed (%.0fs silent): %s", elapsed, exc)
             if elapsed > SILENCE_THRESHOLD:
                 # Avoid spamming -- send at most once per silence window
-                if alert_sent_at is None or (time.monotonic() - alert_sent_at) > SILENCE_THRESHOLD:
+                if (
+                    alert_sent_at is None
+                    or (time.monotonic() - alert_sent_at) > SILENCE_THRESHOLD
+                ):
                     alert_sent_at = time.monotonic()
                     await send_whatsapp_alert(
                         f"WATCHDOG: Stock Trading API has been silent for "

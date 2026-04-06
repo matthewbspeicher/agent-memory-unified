@@ -8,6 +8,7 @@ Registered alongside YahooFinanceSource and BrokerSource. Agents can call:
 The source wraps KalshiClient and translates raw API dicts into
 PredictionContract + Quote objects.
 """
+
 from __future__ import annotations
 
 import logging
@@ -47,7 +48,7 @@ class KalshiDataSource:
             if "yes_dollars" in fp or "no_dollars" in fp:
                 yes_bids = fp.get("yes_dollars", [])
                 no_bids = fp.get("no_dollars", [])
-                
+
                 if yes_bids:
                     bid = Decimal(str(yes_bids[0][0]))
                 if no_bids:
@@ -55,11 +56,13 @@ class KalshiDataSource:
             else:
                 yes_bids = ob.get("yes", [])
                 no_bids = ob.get("no", [])
-                
+
                 if yes_bids:
                     bid = Decimal(str(yes_bids[0][0])) / Decimal("100")
                 if no_bids:
-                    ask = (Decimal("100") - Decimal(str(no_bids[0][0]))) / Decimal("100")
+                    ask = (Decimal("100") - Decimal(str(no_bids[0][0]))) / Decimal(
+                        "100"
+                    )
 
             last = None
             try:
@@ -73,11 +76,13 @@ class KalshiDataSource:
                         pr = Decimal(str(raw_price))
                         last = pr / Decimal("100") if pr >= 1 else pr
             except Exception:
-                pass # it's fine if trades endpoint 404s for new markets
-                
+                pass  # it's fine if trades endpoint 404s for new markets
+
             return Quote(symbol=symbol, bid=bid, ask=ask, last=last)
         except Exception as exc:
-            logger.warning("KalshiDataSource.get_quote(%s) failed: %s", symbol.ticker, exc)
+            logger.warning(
+                "KalshiDataSource.get_quote(%s) failed: %s", symbol.ticker, exc
+            )
             return None
 
     # ------------------------------------------------------------------

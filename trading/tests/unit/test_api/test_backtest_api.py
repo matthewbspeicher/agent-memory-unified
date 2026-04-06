@@ -1,4 +1,5 @@
 """Integration tests for api/routes/backtest.py."""
+
 from __future__ import annotations
 
 import os
@@ -10,7 +11,7 @@ from fastapi import FastAPI
 
 from api.auth import verify_api_key
 from api.routes.backtest import router as backtest_router
-from api.deps import set_agent_runner, get_agent_runner
+from api.deps import get_agent_runner
 from storage.db import init_db
 
 
@@ -22,13 +23,31 @@ _INSERT = """
 """
 
 _ROW_A = (
-    "agent_a", "{}", 1.5, 1.2, "500.00", 0.1, 0.6, 10,
-    "2026-01-01T00:00:00", "2025-07-01", "2025-12-31",
+    "agent_a",
+    "{}",
+    1.5,
+    1.2,
+    "500.00",
+    0.1,
+    0.6,
+    10,
+    "2026-01-01T00:00:00",
+    "2025-07-01",
+    "2025-12-31",
 )
 
 _ROW_B = (
-    "agent_b", "{}", 0.8, 0.9, "-200.00", 0.2, 0.4, 5,
-    "2026-01-02T00:00:00", "2025-07-01", "2025-12-31",
+    "agent_b",
+    "{}",
+    0.8,
+    0.9,
+    "-200.00",
+    0.2,
+    0.4,
+    5,
+    "2026-01-02T00:00:00",
+    "2025-07-01",
+    "2025-12-31",
 )
 
 
@@ -62,13 +81,16 @@ async def app_and_db():
 @pytest.fixture
 async def client(app_and_db):
     app, db = app_and_db
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as c:
         yield c, db
 
 
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_list_backtest_results_empty(client):

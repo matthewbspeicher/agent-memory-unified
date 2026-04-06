@@ -1,6 +1,5 @@
 # tests/unit/test_agents/test_config.py
 import yaml
-import pytest
 
 from agents.config import AgentConfigSchema, load_agents_config
 from agents.models import ActionLevel, TrustLevel

@@ -6,7 +6,10 @@ from datetime import datetime, timezone
 
 from data.coingecko import SYMBOL_TO_COINGECKO
 from integrations.bittensor.models import (
-    MinerAccuracyRecord, MinerRankingInput, RankingConfig, RealizedWindowSnapshot,
+    MinerAccuracyRecord,
+    MinerRankingInput,
+    RankingConfig,
+    RealizedWindowSnapshot,
 )
 from integrations.bittensor.ranking import compute_rankings, DIRECTION_HEAVY
 
@@ -16,6 +19,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Pure scoring functions
 # ---------------------------------------------------------------------------
+
 
 def compute_direction_correct(predicted: list[float], actual: list[float]) -> bool:
     """Return True if the sign of total predicted change matches actual change."""
@@ -33,7 +37,9 @@ def compute_magnitude_error(predicted_return: float, actual_return: float) -> fl
     return abs(predicted_return - actual_return)
 
 
-def compute_path_correlation(predicted: list[float], actual: list[float]) -> float | None:
+def compute_path_correlation(
+    predicted: list[float], actual: list[float]
+) -> float | None:
     """Return Pearson correlation between predicted and actual price paths.
 
     Returns None if either series is too short (< 2) or has zero variance.
@@ -56,12 +62,13 @@ def compute_path_correlation(predicted: list[float], actual: list[float]) -> flo
     if var_p == 0.0 or var_a == 0.0:
         return None
 
-    return cov / (var_p ** 0.5 * var_a ** 0.5)
+    return cov / (var_p**0.5 * var_a**0.5)
 
 
 # ---------------------------------------------------------------------------
 # BittensorEvaluator
 # ---------------------------------------------------------------------------
+
 
 class BittensorEvaluator:
     """Periodically scores miner forecasts against realized market data.
@@ -135,7 +142,9 @@ class BittensorEvaluator:
         expired = await self._store.expire_stale_windows(now=now, ttl_hours=2)
         if expired:
             logger.info("BittensorEvaluator: expired %d stale windows", expired)
-            await self._event_bus.publish("bittensor.window_expired", {"count": expired})
+            await self._event_bus.publish(
+                "bittensor.window_expired", {"count": expired}
+            )
 
         windows = await self._store.get_unevaluated_windows(
             now=now,
@@ -177,7 +186,9 @@ class BittensorEvaluator:
             return
 
         coin_id = SYMBOL_TO_COINGECKO[window.symbol]
-        realized = await self._coingecko.get_ohlc_closes(coin_id, window.prediction_size)
+        realized = await self._coingecko.get_ohlc_closes(
+            coin_id, window.prediction_size
+        )
 
         if len(realized) < window.prediction_size * 0.9:
             logger.warning(
@@ -215,11 +226,17 @@ class BittensorEvaluator:
                 miner_hotkey=forecast.miner_hotkey,
                 symbol=window.symbol,
                 timeframe=window.timeframe,
-                direction_correct=compute_direction_correct(forecast.predictions, realized),
+                direction_correct=compute_direction_correct(
+                    forecast.predictions, realized
+                ),
                 predicted_return=predicted_return,
                 actual_return=actual_return,
-                magnitude_error=compute_magnitude_error(predicted_return, actual_return),
-                path_correlation=compute_path_correlation(forecast.predictions, realized),
+                magnitude_error=compute_magnitude_error(
+                    predicted_return, actual_return
+                ),
+                path_correlation=compute_path_correlation(
+                    forecast.predictions, realized
+                ),
                 outcome_bars=len(realized),
                 scoring_version=self._scoring_version,
                 evaluated_at=now,
@@ -243,14 +260,16 @@ class BittensorEvaluator:
             rollup = rollups.get(hk)
             if rollup is None:
                 continue
-            inputs.append(MinerRankingInput(
-                miner_hotkey=hk,
-                windows_evaluated=rollup["windows_evaluated"],
-                direction_accuracy=rollup["direction_accuracy"],
-                mean_magnitude_error=rollup["mean_magnitude_error"],
-                mean_path_correlation=rollup["mean_path_correlation"],
-                raw_incentive_score=incentive_scores.get(hk, 0.0),
-            ))
+            inputs.append(
+                MinerRankingInput(
+                    miner_hotkey=hk,
+                    windows_evaluated=rollup["windows_evaluated"],
+                    direction_accuracy=rollup["direction_accuracy"],
+                    mean_magnitude_error=rollup["mean_magnitude_error"],
+                    mean_path_correlation=rollup["mean_path_correlation"],
+                    raw_incentive_score=incentive_scores.get(hk, 0.0),
+                )
+            )
 
         rankings = compute_rankings(inputs, DIRECTION_HEAVY, self._ranking_config, now)
         for ranking in rankings:

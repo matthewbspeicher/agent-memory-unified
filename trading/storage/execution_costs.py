@@ -1,4 +1,5 @@
 """ExecutionCostStore — persistence and query layer for execution_cost_events."""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -48,7 +49,7 @@ class ExecutionCostStore:
             INSERT INTO execution_cost_events ({col_names})
             VALUES ({placeholders})
             ON CONFLICT(order_id) DO UPDATE SET
-            {', '.join(f'{c}=excluded.{c}' for c in columns if c not in ('order_id', 'created_at'))}
+            {", ".join(f"{c}=excluded.{c}" for c in columns if c not in ("order_id", "created_at"))}
             """,
             tuple(fields[c] for c in columns),
         )

@@ -3,10 +3,28 @@ from collections.abc import Callable
 from typing import Any
 from decimal import Decimal
 
-from broker.interfaces import Broker, BrokerConnection, AccountProvider, MarketDataProvider, OrderManager
+from broker.interfaces import (
+    Broker,
+    BrokerConnection,
+    AccountProvider,
+    MarketDataProvider,
+    OrderManager,
+)
 from broker.models import (
-    Account, AccountBalance, BrokerCapabilities, FeeModel, OrderBase, OrderResult, OrderStatus,
-    OrderHistoryFilter, Position, MarketOrder, LimitOrder, StopOrder, ComboOrder, ZeroFeeModel,
+    Account,
+    AccountBalance,
+    BrokerCapabilities,
+    FeeModel,
+    OrderBase,
+    OrderResult,
+    OrderStatus,
+    OrderHistoryFilter,
+    Position,
+    MarketOrder,
+    LimitOrder,
+    StopOrder,
+    ComboOrder,
+    ZeroFeeModel,
 )
 from storage.paper import PaperStore
 
@@ -44,7 +62,9 @@ class PaperAccountProvider(AccountProvider):
     async def get_balances(self, account_id: str) -> AccountBalance:
         return await self.store.get_balance(account_id)
 
-    async def get_order_history(self, account_id: str, filters: OrderHistoryFilter | None = None) -> list[OrderResult]:
+    async def get_order_history(
+        self, account_id: str, filters: OrderHistoryFilter | None = None
+    ) -> list[OrderResult]:
         return await self.store.get_order_history(account_id)
 
 
@@ -83,14 +103,24 @@ class PaperOrderManager(OrderManager):
                     if leg.side.value == "BUY":
                         leg_price = leg_quote.ask if leg_quote.ask else leg_quote.last
                         if not leg_price:
-                            raise ValueError(f"No market data available for {leg.symbol.ticker}")
+                            raise ValueError(
+                                f"No market data available for {leg.symbol.ticker}"
+                            )
                         combo_fill_price += leg_price * leg.ratio
                     else:
                         leg_price = leg_quote.bid if leg_quote.bid else leg_quote.last
                         if not leg_price:
-                            raise ValueError(f"No market data available for {leg.symbol.ticker}")
+                            raise ValueError(
+                                f"No market data available for {leg.symbol.ticker}"
+                            )
                         combo_fill_price -= leg_price * leg.ratio
-                    await self.store.record_fill(account_id, leg.symbol, leg.side, order.quantity * leg.ratio, leg_price)
+                    await self.store.record_fill(
+                        account_id,
+                        leg.symbol,
+                        leg.side,
+                        order.quantity * leg.ratio,
+                        leg_price,
+                    )
                 fill_price = combo_fill_price
             else:
                 fill_price = None
@@ -104,10 +134,19 @@ class PaperOrderManager(OrderManager):
                     fill_price = order.stop_price
 
                 if not fill_price:
-                    raise ValueError(f"No market data available for {order.symbol.ticker}")
+                    raise ValueError(
+                        f"No market data available for {order.symbol.ticker}"
+                    )
 
                 commission = self._fee_model.calculate(order, fill_price)
-                await self.store.record_fill(account_id, order.symbol, order.side, order.quantity, fill_price, commission=commission)
+                await self.store.record_fill(
+                    account_id,
+                    order.symbol,
+                    order.side,
+                    order.quantity,
+                    fill_price,
+                    commission=commission,
+                )
 
             result = OrderResult(
                 order_id=order_id,
@@ -116,7 +155,16 @@ class PaperOrderManager(OrderManager):
                 avg_fill_price=fill_price,
                 commission=commission,
             )
-            await self.store.save_order(order_id, account_id, order.symbol, order.side, order.quantity, result.status.value, result.filled_quantity, result.avg_fill_price)
+            await self.store.save_order(
+                order_id,
+                account_id,
+                order.symbol,
+                order.side,
+                order.quantity,
+                result.status.value,
+                result.filled_quantity,
+                result.avg_fill_price,
+            )
 
             await db.commit()
         except Exception:
@@ -145,14 +193,18 @@ class PaperOrderManager(OrderManager):
 
 
 class PaperBroker(Broker):
-    def __init__(self, real_broker: Broker, store: PaperStore, fee_model: FeeModel | None = None):
+    def __init__(
+        self, real_broker: Broker, store: PaperStore, fee_model: FeeModel | None = None
+    ):
         self._real_broker = real_broker
         self._store = store
 
         self._connection = PaperBrokerConnection(real_broker.connection)
         self._account = PaperAccountProvider(self._store)
         self._market_data = real_broker.market_data
-        self._orders = PaperOrderManager(self._market_data, self._store, fee_model=fee_model)
+        self._orders = PaperOrderManager(
+            self._market_data, self._store, fee_model=fee_model
+        )
 
     @property
     def connection(self) -> BrokerConnection:
@@ -178,5 +230,5 @@ class PaperBroker(Broker):
             futures=c.futures,
             forex=c.forex,
             bonds=c.bonds,
-            streaming=c.streaming
+            streaming=c.streaming,
         )

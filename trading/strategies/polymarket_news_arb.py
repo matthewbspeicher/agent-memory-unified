@@ -5,6 +5,7 @@ Scans open Polymarket markets and compares market prices with LLM-derived
 probabilities from recent RSS news headlines. Emits an Opportunity if the gap
 exceeds `threshold_cents`.
 """
+
 from __future__ import annotations
 
 import logging
@@ -16,8 +17,10 @@ from broker.models import LimitOrder, OrderSide
 
 logger = logging.getLogger(__name__)
 
+
 class PolymarketNewsArbAgent(StructuredAgent):
     description = "News arbitrage matching LLMs against Polymarket CLOB feeds."
+
     def __init__(self, config: AgentConfig, settings=None, **kwargs):
         super().__init__(config, **kwargs)
 
@@ -43,7 +46,9 @@ class PolymarketNewsArbAgent(StructuredAgent):
         # Find the data source among databus providers
         ds = getattr(data, "_polymarket_source", None)
         if not ds:
-            logger.debug("PolymarketNewsArbAgent: PolymarketDataSource not found in DataBus.")
+            logger.debug(
+                "PolymarketNewsArbAgent: PolymarketDataSource not found in DataBus."
+            )
             return []
 
         # Gather recent headlines
@@ -58,7 +63,9 @@ class PolymarketNewsArbAgent(StructuredAgent):
 
         # Scan tags
         for tag in self.tags:
-            markets = await ds.get_markets(tag=tag, closed=False, limit=self.max_markets)
+            markets = await ds.get_markets(
+                tag=tag, closed=False, limit=self.max_markets
+            )
             for mkt in markets:
                 if scanned >= self.max_markets:
                     break
@@ -68,15 +75,17 @@ class PolymarketNewsArbAgent(StructuredAgent):
 
                 if mkt.close_time:
                     try:
-                        ct = datetime.fromisoformat(mkt.close_time.replace("Z", "+00:00"))
+                        ct = datetime.fromisoformat(
+                            mkt.close_time.replace("Z", "+00:00")
+                        )
                         days_diff = (ct - now).days
                         if days_diff < self.min_days:
                             continue
                     except ValueError:
                         pass
-                
+
                 scanned += 1
-                
+
                 # Ask LLM
                 prompt = self._build_prompt(mkt, headlines)
                 response = await self.structured_call(
@@ -85,20 +94,29 @@ class PolymarketNewsArbAgent(StructuredAgent):
                     schema={
                         "type": "object",
                         "properties": {
-                            "implied_probability": {"type": "integer", "description": "Probability of YES from 0 to 100"},
-                            "confidence": {"type": "integer", "description": "Confidence from 0 to 100"},
-                            "reasoning": {"type": "string", "description": "Short explanation"}
+                            "implied_probability": {
+                                "type": "integer",
+                                "description": "Probability of YES from 0 to 100",
+                            },
+                            "confidence": {
+                                "type": "integer",
+                                "description": "Confidence from 0 to 100",
+                            },
+                            "reasoning": {
+                                "type": "string",
+                                "description": "Short explanation",
+                            },
                         },
-                        "required": ["implied_probability", "confidence", "reasoning"]
-                    }
+                        "required": ["implied_probability", "confidence", "reasoning"],
+                    },
                 )
 
                 if not response:
                     continue
-                
+
                 llm_prob = response.get("implied_probability", 50)
                 confidence = response.get("confidence", 0)
-                
+
                 if confidence < self.min_confidence:
                     continue
 
@@ -106,42 +124,69 @@ class PolymarketNewsArbAgent(StructuredAgent):
                 delta = abs(llm_prob - market_prob)
 
                 if delta > self.threshold_cents:
-                    logger.info("Polymarket News Arb Match: %s (LLM: %d, Mkt: %d, Conf: %d)", mkt.ticker, llm_prob, market_prob, confidence)
-                    
+                    logger.info(
+                        "Polymarket News Arb Match: %s (LLM: %d, Mkt: %d, Conf: %d)",
+                        mkt.ticker,
+                        llm_prob,
+                        market_prob,
+                        confidence,
+                    )
+
                     # Target price is mid of gap
-                    target_cents = market_prob + (self.threshold_cents if llm_prob > market_prob else -self.threshold_cents)
+                    target_cents = market_prob + (
+                        self.threshold_cents
+                        if llm_prob > market_prob
+                        else -self.threshold_cents
+                    )
                     # Convert to 0-1 for polymarket
                     limit_price = round(target_cents / 100.0, 3)
-                    
+
                     sym = mkt.as_symbol
-                    order_side = OrderSide.BUY if llm_prob > market_prob else OrderSide.SELL # SELL = Buy NO in proxy
-                    
-                    opportunities.append(Opportunity(
-                        id=f"poly_news_{mkt.ticker}_{now.timestamp()}",
-                        agent_name=self.name,
-                        symbol=sym,
-                        signal=order_side.value,
-                        confidence=confidence / 100.0,
-                        reasoning=response.get("reasoning", ""),
-                        broker_id="polymarket",
-                        suggested_trade=LimitOrder(symbol=sym, side=order_side, quantity=10, account_id="POLY", limit_price=limit_price),
-                        data={
-                            "market_prob": market_prob,
-                            "llm_prob": llm_prob,
-                        },
-                        timestamp=now
-                    ))
-        
+                    order_side = (
+                        OrderSide.BUY if llm_prob > market_prob else OrderSide.SELL
+                    )  # SELL = Buy NO in proxy
+
+                    opportunities.append(
+                        Opportunity(
+                            id=f"poly_news_{mkt.ticker}_{now.timestamp()}",
+                            agent_name=self.name,
+                            symbol=sym,
+                            signal=order_side.value,
+                            confidence=confidence / 100.0,
+                            reasoning=response.get("reasoning", ""),
+                            broker_id="polymarket",
+                            suggested_trade=LimitOrder(
+                                symbol=sym,
+                                side=order_side,
+                                quantity=10,
+                                account_id="POLY",
+                                limit_price=limit_price,
+                            ),
+                            data={
+                                "market_prob": market_prob,
+                                "llm_prob": llm_prob,
+                            },
+                            timestamp=now,
+                        )
+                    )
+
         return opportunities
 
-    async def _fetch_newsapi_headlines(self, query: str, page_size: int = 5) -> list[str]:
+    async def _fetch_newsapi_headlines(
+        self, query: str, page_size: int = 5
+    ) -> list[str]:
         """Fetch top headlines from NewsAPI for a given query."""
         import httpx
+
         try:
             async with httpx.AsyncClient(timeout=8.0) as client:
                 resp = await client.get(
                     "https://newsapi.org/v2/top-headlines",
-                    params={"q": query, "apiKey": self.newsapi_key, "pageSize": page_size},
+                    params={
+                        "q": query,
+                        "apiKey": self.newsapi_key,
+                        "pageSize": page_size,
+                    },
                 )
                 resp.raise_for_status()
             articles = resp.json().get("articles", [])
@@ -158,6 +203,7 @@ class PolymarketNewsArbAgent(StructuredAgent):
         # Fall back to RSS feeds
         import httpx
         import xml.etree.ElementTree as ET
+
         headlines = []
         async with httpx.AsyncClient() as client:
             for feed in self.rss_feeds:
@@ -171,7 +217,9 @@ class PolymarketNewsArbAgent(StructuredAgent):
                         if title is not None and title.text:
                             headlines.append(title.text)
                 except Exception as e:
-                    logger.debug("PolymarketNewsArbAgent failed to fetch RSS %s: %s", feed, e)
+                    logger.debug(
+                        "PolymarketNewsArbAgent failed to fetch RSS %s: %s", feed, e
+                    )
         return headlines
 
     def _build_prompt(self, mkt, headlines: list[str]) -> str:

@@ -1,4 +1,5 @@
 """Strategy analytics API routes — scorecard, drilldown, trades, symbols."""
+
 from __future__ import annotations
 
 from dataclasses import asdict
@@ -66,11 +67,19 @@ async def get_scorecard(
     broker_id: str | None = None,
     symbol: str | None = None,
     side: str | None = None,
-    trend_regime: str | None = Query(None, description="Filter by trend_regime: uptrend|downtrend|range"),
-    volatility_regime: str | None = Query(None, description="Filter by volatility_regime: low|medium|high"),
-    liquidity_regime: str | None = Query(None, description="Filter by liquidity_regime: low|medium|high"),
+    trend_regime: str | None = Query(
+        None, description="Filter by trend_regime: uptrend|downtrend|range"
+    ),
+    volatility_regime: str | None = Query(
+        None, description="Filter by volatility_regime: low|medium|high"
+    ),
+    liquidity_regime: str | None = Query(
+        None, description="Filter by liquidity_regime: low|medium|high"
+    ),
     limit: int = Query(50, ge=1, le=200),
-    sort: str = Query("expectancy", pattern="^(expectancy|net_pnl|win_rate|profit_factor)$"),
+    sort: str = Query(
+        "expectancy", pattern="^(expectancy|net_pnl|win_rate|profit_factor)$"
+    ),
     _: str = Depends(verify_api_key),
 ):
     store = _get_store(request)
@@ -86,7 +95,9 @@ async def get_scorecard(
             trades = [t for t in trades if t["symbol"] == symbol]
         if side:
             trades = [t for t in trades if t["side"] == side]
-        trades = _filter_by_regime(trades, trend_regime, volatility_regime, liquidity_regime)
+        trades = _filter_by_regime(
+            trades, trend_regime, volatility_regime, liquidity_regime
+        )
         if not trades:
             continue
         summaries.append(asdict(compute_summary(trades)))
@@ -147,7 +158,9 @@ async def get_strategy_trades(
 ):
     store = _get_store(request)
     ws = _window_start(window)
-    trades = await store.list_by_strategy(agent_name, window_start=ws, limit=limit + offset)
+    trades = await store.list_by_strategy(
+        agent_name, window_start=ws, limit=limit + offset
+    )
     return trades[offset : offset + limit]
 
 

@@ -1,10 +1,10 @@
 """Unit tests for PreExpiryExit, ProbabilityTrailingStop, and PartialExitRule."""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 
-import pytest
 
 from exits.rules import (
     PreExpiryExit,
@@ -25,6 +25,7 @@ def _past(hours: float) -> datetime:
 # ---------------------------------------------------------------------------
 # PreExpiryExit
 # ---------------------------------------------------------------------------
+
 
 class TestPreExpiryExit:
     def test_well_before_window_no_trigger(self):
@@ -105,6 +106,7 @@ class TestPreExpiryExit:
 # ProbabilityTrailingStop
 # ---------------------------------------------------------------------------
 
+
 class TestProbabilityTrailingStop:
     def test_no_peak_no_trigger(self):
         """Before any update(), peak is 0 → should never trigger."""
@@ -180,6 +182,7 @@ class TestProbabilityTrailingStop:
 # ---------------------------------------------------------------------------
 # PartialExitRule
 # ---------------------------------------------------------------------------
+
 
 class TestPartialExitRule:
     def test_buy_triggers_at_target(self):

@@ -44,7 +44,9 @@ class ExternalPortfolioStore:
                     pos["symbol"],
                     pos.get("description", ""),
                     str(pos["quantity"]),
-                    str(pos["cost_basis"]) if pos.get("cost_basis") is not None else None,
+                    str(pos["cost_basis"])
+                    if pos.get("cost_basis") is not None
+                    else None,
                     str(pos["current_value"]),
                     str(pos["last_price"]),
                     imported_at,

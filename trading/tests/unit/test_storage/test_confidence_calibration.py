@@ -127,7 +127,9 @@ class TestConfidenceCalibrationStore:
         macd_rows = await cal_store.list_by_strategy("macd_agent")
         assert len(macd_rows) == 1
 
-    async def test_list_by_strategy_with_window_filter(self, cal_store: ConfidenceCalibrationStore):
+    async def test_list_by_strategy_with_window_filter(
+        self, cal_store: ConfidenceCalibrationStore
+    ):
         for wl in ["30d", "90d", "all"]:
             await cal_store.upsert(
                 agent_name="rsi_agent",
@@ -140,15 +142,26 @@ class TestConfidenceCalibrationStore:
         assert len(rows_30d) == 1
         assert rows_30d[0]["window_label"] == "30d"
 
-    async def test_list_all_with_window_filter(self, cal_store: ConfidenceCalibrationStore):
+    async def test_list_all_with_window_filter(
+        self, cal_store: ConfidenceCalibrationStore
+    ):
         await cal_store.upsert(
-            agent_name="rsi_agent", confidence_bucket="0.70-0.80", window_label="30d", **_make_row()
+            agent_name="rsi_agent",
+            confidence_bucket="0.70-0.80",
+            window_label="30d",
+            **_make_row(),
         )
         await cal_store.upsert(
-            agent_name="rsi_agent", confidence_bucket="0.70-0.80", window_label="all", **_make_row()
+            agent_name="rsi_agent",
+            confidence_bucket="0.70-0.80",
+            window_label="all",
+            **_make_row(),
         )
         await cal_store.upsert(
-            agent_name="macd_agent", confidence_bucket="0.50-0.60", window_label="all", **_make_row()
+            agent_name="macd_agent",
+            confidence_bucket="0.50-0.60",
+            window_label="all",
+            **_make_row(),
         )
 
         all_rows = await cal_store.list_all(window_label="all")

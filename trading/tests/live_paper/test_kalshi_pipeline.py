@@ -7,15 +7,14 @@ Marked @pytest.mark.live_paper — not run in normal CI.
 Requires: STA_KALSHI_DEMO=true (set to prevent accidental production runs).
 Actual API credentials are optional; tests that need them are gated by skip_no_kalshi.
 """
+
 from __future__ import annotations
 
-import os
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from tests.live_paper.conftest import skip_no_kalshi
 
 pytestmark = [
     pytest.mark.live_paper,
@@ -25,6 +24,7 @@ pytestmark = [
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_agent(name: str = "kalshi_calibration_test"):
     """Build a KalshiCalibrationAgent with minimal config."""
@@ -55,7 +55,6 @@ def _make_mock_data_bus(kalshi_source):
 
 async def _build_router(live_db, broker):
     """Wire up a minimal OpportunityRouter with risk engine and paper broker."""
-    import aiosqlite
 
     from notifications.log_notifier import LogNotifier
     from risk.engine import RiskEngine
@@ -85,6 +84,7 @@ async def _build_router(live_db, broker):
 # Test 1 — Agent scan produces a list (may be empty if no Metaculus matches)
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.timeout(60)
 async def test_kalshi_agent_scan_returns_list(kalshi_client):
     """
@@ -110,6 +110,7 @@ async def test_kalshi_agent_scan_returns_list(kalshi_client):
 # ---------------------------------------------------------------------------
 # Test 2 — Router saves opportunity to store (no broker needed)
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.timeout(30)
 async def test_router_saves_opportunity_to_store(live_db, kalshi_paper_broker):
@@ -158,8 +159,11 @@ async def test_router_saves_opportunity_to_store(live_db, kalshi_paper_broker):
 # Test 3 — Full AUTO_EXECUTE path reaches paper broker and gets FILLED
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.timeout(60)
-async def test_auto_execute_fills_via_paper_broker(live_db, kalshi_paper_broker, kalshi_client):
+async def test_auto_execute_fills_via_paper_broker(
+    live_db, kalshi_paper_broker, kalshi_client
+):
     """
     An AUTO_EXECUTE opportunity with a passing risk check should be routed
     all the way to KalshiPaperBroker and return an EXECUTED status in the store.
@@ -171,14 +175,24 @@ async def test_auto_execute_fills_via_paper_broker(live_db, kalshi_paper_broker,
     from datetime import datetime, timezone
 
     from agents.models import ActionLevel, Opportunity, OpportunityStatus
-    from broker.models import AccountBalance, AssetType, LimitOrder, OrderSide, Quote, Symbol, TIF
+    from broker.models import (
+        AccountBalance,
+        AssetType,
+        LimitOrder,
+        OrderSide,
+        Quote,
+        Symbol,
+        TIF,
+    )
     from storage.opportunities import OpportunityStore
 
     # Grab a real ticker so the paper broker looks up real market data
     page = await kalshi_client.get_markets(status="open", limit=1)
     markets = page.get("markets", [])
     if not markets:
-        pytest.skip("No open markets returned by Kalshi demo — cannot test auto-execute")
+        pytest.skip(
+            "No open markets returned by Kalshi demo — cannot test auto-execute"
+        )
 
     ticker = markets[0]["ticker"]
     sym = Symbol(ticker=ticker, asset_type=AssetType.PREDICTION)
@@ -186,7 +200,9 @@ async def test_auto_execute_fills_via_paper_broker(live_db, kalshi_paper_broker,
     # Mock DataBus that returns a plausible Quote and empty positions/balance
     mock_bus = MagicMock()
     mock_bus.get_quote = AsyncMock(
-        return_value=Quote(symbol=sym, bid=Decimal("0.40"), ask=Decimal("0.42"), last=Decimal("0.41"))
+        return_value=Quote(
+            symbol=sym, bid=Decimal("0.40"), ask=Decimal("0.42"), last=Decimal("0.41")
+        )
     )
     mock_bus.get_positions = AsyncMock(return_value=[])
     mock_bus.get_balances = AsyncMock(
@@ -252,6 +268,7 @@ async def test_auto_execute_fills_via_paper_broker(live_db, kalshi_paper_broker,
 # Test 4 — Risk engine blocks an oversized order
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.timeout(30)
 async def test_risk_engine_blocks_oversized_order(live_db, kalshi_paper_broker):
     """
@@ -262,7 +279,15 @@ async def test_risk_engine_blocks_oversized_order(live_db, kalshi_paper_broker):
     from datetime import datetime, timezone
 
     from agents.models import ActionLevel, Opportunity, OpportunityStatus
-    from broker.models import AccountBalance, AssetType, LimitOrder, OrderSide, Quote, Symbol, TIF
+    from broker.models import (
+        AccountBalance,
+        AssetType,
+        LimitOrder,
+        OrderSide,
+        Quote,
+        Symbol,
+        TIF,
+    )
     from storage.opportunities import OpportunityStore
 
     sym = Symbol(ticker="KXBIG-99999-YES", asset_type=AssetType.PREDICTION)
@@ -270,7 +295,9 @@ async def test_risk_engine_blocks_oversized_order(live_db, kalshi_paper_broker):
     # DataBus returns a quote so risk engine can evaluate dollar value
     mock_bus = MagicMock()
     mock_bus.get_quote = AsyncMock(
-        return_value=Quote(symbol=sym, bid=Decimal("0.50"), ask=Decimal("0.52"), last=Decimal("0.51"))
+        return_value=Quote(
+            symbol=sym, bid=Decimal("0.50"), ask=Decimal("0.52"), last=Decimal("0.51")
+        )
     )
     mock_bus.get_positions = AsyncMock(return_value=[])
     mock_bus.get_balances = AsyncMock(

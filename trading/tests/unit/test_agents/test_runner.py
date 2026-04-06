@@ -1,6 +1,6 @@
 # tests/unit/test_agents/test_runner.py
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 import pytest
 import aiosqlite
 
@@ -128,7 +128,7 @@ async def paper_store_memory():
 class TestAgentRunnerWithPaperBroker:
     async def test_runner_with_fidelity_paper_broker(self, paper_store_memory):
         store, mock_broker = paper_store_memory
-        broker = PaperBroker(mock_broker, store, fee_model=FidelityFeeModel())
+        PaperBroker(mock_broker, store, fee_model=FidelityFeeModel())
         runner = AgentRunner(data_bus=MagicMock(), router=MagicMock())
         agent = _mock_agent("fidelity-agent")
         runner.register(agent)
@@ -140,7 +140,7 @@ class TestAgentRunnerWithPaperBroker:
 
     async def test_runner_with_ibkr_paper_broker(self, paper_store_memory):
         store, mock_broker = paper_store_memory
-        broker = PaperBroker(mock_broker, store, fee_model=IBKRFeeModel())
+        PaperBroker(mock_broker, store, fee_model=IBKRFeeModel())
         runner = AgentRunner(data_bus=MagicMock(), router=MagicMock())
         agent = _mock_agent("ibkr-agent")
         runner.register(agent)

@@ -1,4 +1,5 @@
 """GET /journal — trade journal with AI autopsies."""
+
 from __future__ import annotations
 
 from dataclasses import asdict
@@ -20,7 +21,9 @@ async def list_journal(
 ):
     service = getattr(request.app.state, "journal_service", None)
     if service is None:
-        return JSONResponse(status_code=501, content={"detail": "Trade journal not configured"})
+        return JSONResponse(
+            status_code=501, content={"detail": "Trade journal not configured"}
+        )
 
     entries = await service.list_trades(agent_name=agent, limit=limit)
     return {"trades": [asdict(e) for e in entries]}
@@ -36,7 +39,9 @@ async def search_journal(
     """Semantic search over the journal index."""
     manager = getattr(request.app.state, "journal_manager", None)
     if manager is None:
-        return JSONResponse(status_code=501, content={"detail": "Journal manager not configured"})
+        return JSONResponse(
+            status_code=501, content={"detail": "Journal manager not configured"}
+        )
 
     # We want to force local search here to avoid infinite recursion
     # If this is the Oracle node, it will have a local indexer.
@@ -48,7 +53,9 @@ async def search_journal(
 async def index_status(request: Request, _: str = Depends(verify_api_key)):
     indexer = getattr(request.app.state, "journal_indexer", None)
     if indexer is None:
-        return JSONResponse(status_code=503, content={"detail": "Journal indexer not configured"})
+        return JSONResponse(
+            status_code=503, content={"detail": "Journal indexer not configured"}
+        )
     return {
         "ready": indexer.is_ready,
         "entries": indexer.entry_count,
@@ -60,12 +67,16 @@ async def index_status(request: Request, _: str = Depends(verify_api_key)):
 async def rebuild_index(request: Request, _: str = Depends(verify_api_key)):
     indexer = getattr(request.app.state, "journal_indexer", None)
     if indexer is None:
-        return JSONResponse(status_code=503, content={"detail": "Journal indexer not configured"})
+        return JSONResponse(
+            status_code=503, content={"detail": "Journal indexer not configured"}
+        )
 
     # Guard against concurrent rebuilds
     existing_task = getattr(request.app.state, "_rebuild_task", None)
     if existing_task and not existing_task.done():
-        return JSONResponse(status_code=409, content={"detail": "Rebuild already in progress"})
+        return JSONResponse(
+            status_code=409, content={"detail": "Rebuild already in progress"}
+        )
 
     import asyncio
     import logging
@@ -91,11 +102,15 @@ async def get_journal_detail(
 ):
     service = getattr(request.app.state, "journal_service", None)
     if service is None:
-        return JSONResponse(status_code=501, content={"detail": "Trade journal not configured"})
+        return JSONResponse(
+            status_code=501, content={"detail": "Trade journal not configured"}
+        )
 
     detail = await service.get_trade_detail(position_id)
     if detail is None:
-        return JSONResponse(status_code=404, content={"detail": "Trade not found or still open"})
+        return JSONResponse(
+            status_code=404, content={"detail": "Trade not found or still open"}
+        )
 
     result = asdict(detail)
     # Convert Decimals to floats for JSON serialization
@@ -106,6 +121,7 @@ async def get_journal_detail(
         result["entry"]["pnl"] = float(result["entry"]["pnl"])
     return {"trade": result}
 
+
 @router.post("/journal/{position_id}/publish")
 async def publish_journal_autopsy(
     request: Request,
@@ -114,18 +130,26 @@ async def publish_journal_autopsy(
 ):
     service = getattr(request.app.state, "journal_service", None)
     if service is None:
-        return JSONResponse(status_code=501, content={"detail": "Trade journal not configured"})
+        return JSONResponse(
+            status_code=501, content={"detail": "Trade journal not configured"}
+        )
 
     detail = await service.get_trade_detail(position_id)
     if detail is None or not detail.autopsy:
-        return JSONResponse(status_code=404, content={"detail": "Trade autopsy not found"})
+        return JSONResponse(
+            status_code=404, content={"detail": "Trade autopsy not found"}
+        )
 
     from api.auth import _get_settings
+
     settings = _get_settings()
     if not settings.remembr_agent_token:
-        return JSONResponse(status_code=400, content={"detail": "Remembr global token not configured."})
+        return JSONResponse(
+            status_code=400, content={"detail": "Remembr global token not configured."}
+        )
 
     import httpx
+
     async with httpx.AsyncClient() as client:
         try:
             payload = {
@@ -135,16 +159,19 @@ async def publish_journal_autopsy(
                     "ticker": detail.entry.symbol,
                     "agent": detail.entry.agent_name,
                     "pnl": str(detail.entry.pnl),
-                    "type": "autopsy"
-                }
+                    "type": "autopsy",
+                },
             }
             resp = await client.post(
                 f"{settings.remembr_base_url}/memories",
                 json=payload,
                 headers={"Authorization": f"Bearer {settings.remembr_agent_token}"},
-                timeout=settings.remembr_timeout
+                timeout=settings.remembr_timeout,
             )
             resp.raise_for_status()
             return {"status": "success", "id": position_id}
         except httpx.HTTPError as e:
-            return JSONResponse(status_code=502, content={"detail": f"Failed to publish to Remembr: {str(e)}"})
+            return JSONResponse(
+                status_code=502,
+                content={"detail": f"Failed to publish to Remembr: {str(e)}"},
+            )

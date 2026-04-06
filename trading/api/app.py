@@ -43,11 +43,13 @@ async def lifespan(app: FastAPI):
     enabled = getattr(app.state, "enable_agent_framework", False)
 
     from utils.background_tasks import BackgroundTaskManager
+
     task_mgr = BackgroundTaskManager()
     app.state.task_manager = task_mgr
 
     # Initialize deps module with app.state reference
     from api.deps import _init_state
+
     _init_state(app.state)
 
     # Telemetry setup - conditional, deferred from import time
@@ -63,7 +65,6 @@ async def lifespan(app: FastAPI):
 
         _log = logging.getLogger(__name__)
         _app_root = pathlib.Path(__file__).resolve().parent.parent
-
 
         config_loader = ConfigLoader(app_root=_app_root)
 
@@ -111,6 +112,7 @@ async def lifespan(app: FastAPI):
         app.state.learning_config = _learning_cfg
 
         from llm.client import LLMClient
+
         llm_client = LLMClient(
             anthropic_key=config.anthropic_api_key,
             groq_key=config.groq_api_key,
@@ -133,7 +135,6 @@ async def lifespan(app: FastAPI):
         if broker:
             set_broker(broker)
             app.state.broker = broker
-
 
         # Data sources (Yahoo always available, broker source optional)
         opp_store = OpportunityStore(db)
@@ -212,7 +213,9 @@ async def lifespan(app: FastAPI):
         app.state.shadow_execution_store = shadow_store
         app.state.shadow_executor = shadow_executor
         app.state.shadow_outcome_resolver = shadow_outcome_resolver
-        task_mgr.create_task(_shadow_outcome_resolver_loop(), name="shadow_outcome_resolver")
+        task_mgr.create_task(
+            _shadow_outcome_resolver_loop(), name="shadow_outcome_resolver"
+        )
 
         from storage.signal_features import SignalFeatureStore as _SFStore
         from learning.signal_features import SignalFeatureCapture as _SFCapture
@@ -328,12 +331,11 @@ async def lifespan(app: FastAPI):
 
         # --- Kalshi Integration ---
         from api.startup.integrations import setup_kalshi
-        
+
         _kalshi_source, _kalshi_client = await setup_kalshi(
             config=config,
             data_bus=data_bus,
         )
-
 
         # Wire RSS news source if Kalshi is available
         if getattr(data_bus, "_kalshi_source", None):
@@ -351,7 +353,7 @@ async def lifespan(app: FastAPI):
                         kalshi_source=data_bus._kalshi_source,
                         event_bus=event_bus,
                     ),
-                    name="rss_news_source"
+                    name="rss_news_source",
                 )
                 _log.info(
                     "RSSNewsSource started (%d feeds, %ds interval)",
@@ -363,7 +365,7 @@ async def lifespan(app: FastAPI):
 
         # --- Polymarket Integration ---
         from api.startup.integrations import setup_polymarket
-        
+
         _polymarket_source, polymarket_broker = await setup_polymarket(
             config=config,
             data_bus=data_bus,
@@ -392,7 +394,7 @@ async def lifespan(app: FastAPI):
 
         # --- Journal Setup ---
         from api.startup.observability import setup_journal
-        
+
         journal_manager, journal_indexer = await setup_journal(
             config=config,
             event_bus=event_bus,
@@ -402,7 +404,6 @@ async def lifespan(app: FastAPI):
             app.state.journal_manager = journal_manager
         if journal_indexer:
             app.state.journal_indexer = journal_indexer
-
 
         # Streaming quotes (optional — opt-in per broker)
         _streams: dict = {}
@@ -506,7 +507,9 @@ async def lifespan(app: FastAPI):
                             _tok_exc,
                         )
                         _token_ids = []
-                    task_mgr.create_task(_ws_feed.run(_token_ids), name="polymarket_ws_feed")
+                    task_mgr.create_task(
+                        _ws_feed.run(_token_ids), name="polymarket_ws_feed"
+                    )
                     _log.info(
                         "PolymarketWebSocketFeed started (%d tokens)", len(_token_ids)
                     )
@@ -530,6 +533,7 @@ async def lifespan(app: FastAPI):
             # Create minimal RiskEngine with no rules
             from risk.engine import RiskEngine
             from risk.kill_switch import KillSwitch
+
             risk_engine = RiskEngine(rules=[], kill_switch=KillSwitch())
         else:
             risk_engine = load_risk_config(
@@ -572,7 +576,7 @@ async def lifespan(app: FastAPI):
 
         # --- WhatsApp Setup ---
         from api.startup.observability import setup_whatsapp
-        
+
         wa_client, wa_numbers = await setup_whatsapp(
             config=config,
             db=db,
@@ -580,7 +584,7 @@ async def lifespan(app: FastAPI):
         if wa_client:
             from notifications.whatsapp import WhatsAppNotifier
             from agents.models import ActionLevel
-            
+
             active_notifiers.append(
                 WhatsAppNotifier(
                     client=wa_client,
@@ -593,7 +597,7 @@ async def lifespan(app: FastAPI):
 
         # --- Observability Setup ---
         from api.startup.observability import setup_observability
-        
+
         _emitter = await setup_observability(
             config=config,
             event_bus=event_bus,
@@ -687,7 +691,7 @@ async def lifespan(app: FastAPI):
 
                 async def _make_reflector(agent_name: str) -> TradeReflector:
                     agent_token = config.remembr_api_key
-                    
+
                     # Try to get or register agent-specific token
                     if remembr_sync and agent_name != "_global":
                         try:
@@ -696,9 +700,13 @@ async def lifespan(app: FastAPI):
                             tokens = await remembr_sync.get_agent_tokens()
                             if agent_name in tokens:
                                 agent_token = tokens[agent_name]
-                                _log.debug(f"Using autonomous token for agent {agent_name}")
+                                _log.debug(
+                                    f"Using autonomous token for agent {agent_name}"
+                                )
                         except Exception as e:
-                            _log.warning(f"Failed to get autonomous token for {agent_name}, falling back: {e}")
+                            _log.warning(
+                                f"Failed to get autonomous token for {agent_name}, falling back: {e}"
+                            )
 
                     _private = AsyncRemembrClient(
                         agent_token=agent_token,
@@ -822,10 +830,13 @@ async def lifespan(app: FastAPI):
 
         # Autonomous Team Setup (requires owner token)
         if remembr_sync and config.remembr_owner_token:
+
             async def _setup_remembr_team():
                 try:
                     agent_names = [a.name for a in runner.list_agents()]
-                    await remembr_sync.ensure_team_setup("stock-trading-api", agent_names)
+                    await remembr_sync.ensure_team_setup(
+                        "stock-trading-api", agent_names
+                    )
                 except Exception as e:
                     _log.warning(f"Autonomous team setup failed: {e}")
 
@@ -902,6 +913,9 @@ async def lifespan(app: FastAPI):
             app.include_router(create_tournament_router(tournament_engine))
 
         if wa_client:
+            from whatsapp.assistant import WhatsAppAssistant
+            from whatsapp.webhook import create_webhook_router
+
             # remembr.dev memory for WhatsApp assistant (optional)
             wa_remembr = None
             if config.remembr_api_key:
@@ -979,10 +993,14 @@ async def lifespan(app: FastAPI):
         # To fully eliminate duplicate reads, we would need to refactor load_agents_config() to accept
         # parsed data instead of a path, which is outside the scope of this task.
         if _agents_path is None:
-            _log.error("CRITICAL: agents.yaml path is None, cannot load agent configurations")
+            _log.error(
+                "CRITICAL: agents.yaml path is None, cannot load agent configurations"
+            )
             agent_configs = []
         else:
-            agent_configs = load_agents_config(str(_agents_path), prompt_store=prompt_store)
+            agent_configs = load_agents_config(
+                str(_agents_path), prompt_store=prompt_store
+            )
 
         for a in agent_configs:
             runner.register(a)
@@ -1110,7 +1128,9 @@ async def lifespan(app: FastAPI):
                     event_bus=event_bus,
                     poll_interval_seconds=600,
                 )
-                task_mgr.create_task(_resolution_tracker.run(), name="resolution_tracker")
+                task_mgr.create_task(
+                    _resolution_tracker.run(), name="resolution_tracker"
+                )
                 _log.info("ResolutionTracker started (poll interval: 600s)")
 
         # Start Fidelity file watcher as a background task
@@ -1150,7 +1170,7 @@ async def lifespan(app: FastAPI):
 
         # --- Bittensor Integration ---
         from api.startup.integrations import setup_bittensor
-        
+
         bittensor_enabled_runtime, bittensor_components = await setup_bittensor(
             config=config,
             db=db,
@@ -1158,7 +1178,7 @@ async def lifespan(app: FastAPI):
             event_bus=event_bus,
             signal_bus=signal_bus,
         )
-        
+
         if bittensor_enabled_runtime:
             app.state.bittensor_store = bittensor_components["store"]
             app.state.bittensor_source = bittensor_components["source"]
@@ -1166,23 +1186,24 @@ async def lifespan(app: FastAPI):
             app.state.bittensor_scheduler = bittensor_components["scheduler"]
             app.state.bittensor_evaluator = bittensor_components["evaluator"]
             app.state.bittensor_ranking_config = bittensor_components["ranking_config"]
-            
+
             task_mgr.create_task(
-                bittensor_components["scheduler"].run(),
-                name="bittensor_scheduler"
+                bittensor_components["scheduler"].run(), name="bittensor_scheduler"
             )
             task_mgr.create_task(
-                bittensor_components["evaluator"].run(),
-                name="bittensor_evaluator"
+                bittensor_components["evaluator"].run(), name="bittensor_evaluator"
             )
             if bittensor_components.get("weight_setter"):
-                app.state.bittensor_weight_setter = bittensor_components["weight_setter"]
+                app.state.bittensor_weight_setter = bittensor_components[
+                    "weight_setter"
+                ]
                 task_mgr.create_task(
                     bittensor_components["weight_setter"].run(),
-                    name="bittensor_weight_setter"
+                    name="bittensor_weight_setter",
                 )
         elif config.bittensor_mock and not bittensor_enabled_runtime:
             from integrations.bittensor.mock_source import MockBittensorSource
+
             _bt_mock = MockBittensorSource(signal_bus=signal_bus)
             task_mgr.create_task(_bt_mock.start(), name="bittensor_mock")
             _log.info("MockBittensorSource started (real integration not active)")
@@ -1204,7 +1225,7 @@ async def lifespan(app: FastAPI):
         redis=redis_client,
         stream="events",
         group="trading-service",
-        consumer_name="worker-1"
+        consumer_name="worker-1",
     )
 
     # Register event handlers
@@ -1371,6 +1392,7 @@ def create_app(
 </body></html>""")
 
     from api.startup.error_handlers import register_error_handlers
+
     register_error_handlers(app)
 
     return app

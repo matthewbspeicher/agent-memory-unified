@@ -5,6 +5,7 @@ Scans Kalshi and Polymarket, matches markets with EnhancedMatcher,
 normalises contracts, records spread observations, and emits Opportunity
 objects when the gap exceeds threshold_cents.
 """
+
 from __future__ import annotations
 
 import logging
@@ -39,8 +40,12 @@ class CrossPlatformArbAgent(StructuredAgent):
         params = config.parameters or {}
         self.threshold = params.get("threshold_cents", 8)
         self.min_similarity = params.get("min_match_similarity", 0.35)
-        self.kalshi_categories = params.get("kalshi_categories", ["economics", "politics", "climate"])
-        self.poly_tags = params.get("polymarket_tags", ["politics", "crypto", "climate"])
+        self.kalshi_categories = params.get(
+            "kalshi_categories", ["economics", "politics", "climate"]
+        )
+        self.poly_tags = params.get(
+            "polymarket_tags", ["politics", "crypto", "climate"]
+        )
         self.max_markets = params.get("max_markets_per_platform", 50)
         self.alert_on_spread = params.get("alert_on_spread", True)
 
@@ -84,6 +89,7 @@ class CrossPlatformArbAgent(StructuredAgent):
             # Record spread observation for every matched pair (history building)
             if self.spread_store is not None:
                 from storage.spreads import SpreadObservation
+
                 obs = SpreadObservation(
                     kalshi_ticker=cand.kalshi_ticker,
                     poly_ticker=cand.poly_ticker,
@@ -100,7 +106,9 @@ class CrossPlatformArbAgent(StructuredAgent):
                 continue
 
             target_broker = "kalshi" if k_cents < p_cents else "polymarket"
-            target_ticker = cand.kalshi_ticker if target_broker == "kalshi" else cand.poly_ticker
+            target_ticker = (
+                cand.kalshi_ticker if target_broker == "kalshi" else cand.poly_ticker
+            )
             target_account = "KALSHI" if target_broker == "kalshi" else "POLYMARKET"
             target_cents = min(k_cents, p_cents)
             limit_price = Decimal(str(target_cents)) / Decimal("100")
@@ -108,39 +116,41 @@ class CrossPlatformArbAgent(StructuredAgent):
             sym = Symbol(ticker=target_ticker, asset_type=AssetType.PREDICTION)
             confidence = compute_confidence(gap_cents=gap, k_norm=k_norm, p_norm=p_norm)
 
-            opportunities.append(Opportunity(
-                id=f"x_arb_{target_ticker}_{now.timestamp()}",
-                agent_name=self.name,
-                symbol=sym,
-                signal="BUY",
-                confidence=confidence,
-                reasoning=(
-                    f"Kalshi: {k_cents}¢ | Polymarket: {p_cents}¢ | "
-                    f"Gap: {gap}¢ | Target: {target_broker} | "
-                    f"Match: {cand.final_score:.2f}\n"
-                    f"Q: {k_mkt.title}"
-                ),
-                broker_id=target_broker,
-                suggested_trade=LimitOrder(
+            opportunities.append(
+                Opportunity(
+                    id=f"x_arb_{target_ticker}_{now.timestamp()}",
+                    agent_name=self.name,
                     symbol=sym,
-                    side=OrderSide.BUY,
-                    quantity=Decimal("10"),
-                    account_id=target_account,
-                    limit_price=limit_price,
-                    time_in_force=TIF.GTC,
-                ),
-                data={
-                    "kalshi_ticker": cand.kalshi_ticker,
-                    "poly_ticker": cand.poly_ticker,
-                    "kalshi_cents": k_cents,
-                    "polymarket_cents": p_cents,
-                    "gap_cents": gap,
-                    "target_broker": target_broker,
-                    "match_score": cand.final_score,
-                },
-                timestamp=now,
-                status=OpportunityStatus.PENDING,
-            ))
+                    signal="BUY",
+                    confidence=confidence,
+                    reasoning=(
+                        f"Kalshi: {k_cents}¢ | Polymarket: {p_cents}¢ | "
+                        f"Gap: {gap}¢ | Target: {target_broker} | "
+                        f"Match: {cand.final_score:.2f}\n"
+                        f"Q: {k_mkt.title}"
+                    ),
+                    broker_id=target_broker,
+                    suggested_trade=LimitOrder(
+                        symbol=sym,
+                        side=OrderSide.BUY,
+                        quantity=Decimal("10"),
+                        account_id=target_account,
+                        limit_price=limit_price,
+                        time_in_force=TIF.GTC,
+                    ),
+                    data={
+                        "kalshi_ticker": cand.kalshi_ticker,
+                        "poly_ticker": cand.poly_ticker,
+                        "kalshi_cents": k_cents,
+                        "polymarket_cents": p_cents,
+                        "gap_cents": gap,
+                        "target_broker": target_broker,
+                        "match_score": cand.final_score,
+                    },
+                    timestamp=now,
+                    status=OpportunityStatus.PENDING,
+                )
+            )
 
         opportunities.sort(key=lambda o: o.data["gap_cents"], reverse=True)
         return opportunities

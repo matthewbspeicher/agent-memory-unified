@@ -5,6 +5,7 @@ Gathers context from: portfolio, journal, leaderboard, opportunities, markets.
 Uses the unified LLMClient for resilient multi-provider LLM access.
 Cached in daily_briefs SQLite table.
 """
+
 from __future__ import annotations
 import logging
 from datetime import date, datetime
@@ -42,6 +43,7 @@ class BriefGenerator:
             self._llm = llm
         else:
             from llm.client import LLMClient as _LLMClient
+
             self._llm = _LLMClient()
 
     async def get_or_generate(self) -> dict:
@@ -52,7 +54,12 @@ class BriefGenerator:
         )
         row = await row.fetchone()
         if row:
-            return {"date": today, "brief": row[0], "created_at": row[1], "cached": True}
+            return {
+                "date": today,
+                "brief": row[0],
+                "created_at": row[1],
+                "cached": True,
+            }
 
         brief_text = await self.generate()
         now = datetime.utcnow().isoformat()
@@ -113,7 +120,9 @@ class BriefGenerator:
                 sharpe = float(p[1]) if p[1] else 0
                 pnl = float(p[2]) if p[2] else 0
                 wr = float(p[3]) if p[3] else 0
-                perf_lines.append(f"  {p[0]}: Sharpe={sharpe:.2f}, P&L=${pnl:+,.2f}, WR={wr:.0%}")
+                perf_lines.append(
+                    f"  {p[0]}: Sharpe={sharpe:.2f}, P&L=${pnl:+,.2f}, WR={wr:.0%}"
+                )
             sections.append("Agent Performance:\n" + "\n".join(perf_lines))
 
         # Pending opportunities
@@ -124,7 +133,9 @@ class BriefGenerator:
         opps = await cursor.fetchall()
         if opps:
             opp_lines = [f"  {o[0]}: {o[2]} {o[1]} (conf={o[3]:.0%})" for o in opps]
-            sections.append(f"Pending Opportunities ({len(opps)}):\n" + "\n".join(opp_lines))
+            sections.append(
+                f"Pending Opportunities ({len(opps)}):\n" + "\n".join(opp_lines)
+            )
         else:
             sections.append("Pending Opportunities: none")
 
@@ -142,7 +153,9 @@ class BriefGenerator:
     def _fallback_brief(self, context: str) -> str:
         """Simple summary when no LLM is available."""
         lines = context.split("\n")
-        summary_parts = [l.strip() for l in lines if l.strip() and not l.startswith(" ")]
+        summary_parts = [
+            l.strip() for l in lines if l.strip() and not l.startswith(" ")
+        ]
         return "Morning Brief: " + ". ".join(summary_parts[:4]) + "."
 
     async def get_history(self, days: int = 7) -> list[dict]:

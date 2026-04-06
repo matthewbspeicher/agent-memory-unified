@@ -1,7 +1,6 @@
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from decimal import Decimal
-from datetime import datetime, timezone
 from whatsapp.assistant import WhatsAppAssistant
 from broker.models import Position, Symbol, AssetType, AccountBalance
 
@@ -10,21 +9,27 @@ from broker.models import Position, Symbol, AssetType, AccountBalance
 def deps():
     client = AsyncMock()
     broker = MagicMock()
-    broker.account.get_positions = AsyncMock(return_value=[
-        Position(
-            symbol=Symbol(ticker="AAPL", asset_type=AssetType.STOCK),
-            quantity=Decimal("100"), avg_cost=Decimal("150"),
-            market_value=Decimal("15200"), unrealized_pnl=Decimal("200"),
-            realized_pnl=Decimal("0"),
+    broker.account.get_positions = AsyncMock(
+        return_value=[
+            Position(
+                symbol=Symbol(ticker="AAPL", asset_type=AssetType.STOCK),
+                quantity=Decimal("100"),
+                avg_cost=Decimal("150"),
+                market_value=Decimal("15200"),
+                unrealized_pnl=Decimal("200"),
+                realized_pnl=Decimal("0"),
+            )
+        ]
+    )
+    broker.account.get_balances = AsyncMock(
+        return_value=AccountBalance(
+            account_id="U123",
+            net_liquidation=Decimal("100000"),
+            cash=Decimal("50000"),
+            buying_power=Decimal("50000"),
+            maintenance_margin=Decimal("0"),
         )
-    ])
-    broker.account.get_balances = AsyncMock(return_value=AccountBalance(
-        account_id="U123",
-        net_liquidation=Decimal("100000"),
-        cash=Decimal("50000"),
-        buying_power=Decimal("50000"),
-        maintenance_margin=Decimal("0"),
-    ))
+    )
     runner = MagicMock()
     runner.list_agents = MagicMock(return_value=[])
     opp_store = AsyncMock()
@@ -50,26 +55,30 @@ def assistant(deps):
 @pytest.fixture
 def external_store():
     store = AsyncMock()
-    store.get_balances = AsyncMock(return_value=[
-        {
-            "account_id": "X12345",
-            "account_name": "INDIVIDUAL",
-            "net_liquidation": "50000.00",
-            "cash": "5000.00",
-            "broker": "fidelity",
-        }
-    ])
-    store.get_positions = AsyncMock(return_value=[
-        {
-            "account_id": "X12345",
-            "symbol": "MSFT",
-            "description": "Microsoft Corp",
-            "quantity": "50",
-            "last_price": "400.00",
-            "current_value": "20000.00",
-            "cost_basis": "18000.00",
-        }
-    ])
+    store.get_balances = AsyncMock(
+        return_value=[
+            {
+                "account_id": "X12345",
+                "account_name": "INDIVIDUAL",
+                "net_liquidation": "50000.00",
+                "cash": "5000.00",
+                "broker": "fidelity",
+            }
+        ]
+    )
+    store.get_positions = AsyncMock(
+        return_value=[
+            {
+                "account_id": "X12345",
+                "symbol": "MSFT",
+                "description": "Microsoft Corp",
+                "quantity": "50",
+                "last_price": "400.00",
+                "current_value": "20000.00",
+                "cost_basis": "18000.00",
+            }
+        ]
+    )
     store.get_import_age = AsyncMock(return_value=2.5)
     return store
 
@@ -99,7 +108,9 @@ async def test_portfolio_command(assistant, deps):
 
 
 @pytest.mark.asyncio
-async def test_portfolio_summary_with_external(assistant_with_external, deps, external_store):
+async def test_portfolio_summary_with_external(
+    assistant_with_external, deps, external_store
+):
     client = deps[0]
     await assistant_with_external.handle("15551234567", "/portfolio", "msg-1")
     client.send_text.assert_called_once()
@@ -149,9 +160,13 @@ async def test_portfolio_staleness_warning(deps):
     store.get_positions = AsyncMock(return_value=[])
     store.get_import_age = AsyncMock(return_value=30.0)  # 30 hours old
     a = WhatsAppAssistant(
-        client=client, broker=broker, runner=runner,
-        opp_store=opp_store, risk_engine=risk_engine,
-        account_id="U123", external_store=store,
+        client=client,
+        broker=broker,
+        runner=runner,
+        opp_store=opp_store,
+        risk_engine=risk_engine,
+        account_id="U123",
+        external_store=store,
     )
     await a.handle("15551234567", "/portfolio", "msg-1")
     msg = client.send_text.call_args[0][1]
@@ -180,7 +195,7 @@ async def test_buy_command_creates_confirmation(assistant, deps):
 
 @pytest.mark.asyncio
 async def test_approve_command(assistant, deps):
-    client = deps[0]
+    deps[0]
     opp_store = deps[3]
     opp_store.get = AsyncMock(return_value={"id": "opp-1", "status": "pending"})
     await assistant.handle("15551234567", "/approve opp-1", "msg-4")

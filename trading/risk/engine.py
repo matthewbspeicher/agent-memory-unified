@@ -53,7 +53,9 @@ class RiskEngine:
         # Phase 2: Cancel open orders across all registered brokers
         for broker_name, broker in self._brokers.items():
             try:
-                if hasattr(broker, "orders") and hasattr(broker.orders, "cancel_all_orders"):
+                if hasattr(broker, "orders") and hasattr(
+                    broker.orders, "cancel_all_orders"
+                ):
                     await broker.orders.cancel_all_orders()
                     logger.info("Cancelled all orders on broker: %s", broker_name)
             except Exception as exc:
@@ -61,10 +63,13 @@ class RiskEngine:
                     "Failed to cancel orders on broker %s: %s", broker_name, exc
                 )
 
-    async def evaluate(self, trade: OrderBase, quote: Quote, ctx: PortfolioContext) -> RiskResult:
+    async def evaluate(
+        self, trade: OrderBase, quote: Quote, ctx: PortfolioContext
+    ) -> RiskResult:
         if self._kill_active or self._kill_switch.is_enabled:
             return RiskResult(
-                passed=False, rule_name="kill_switch",
+                passed=False,
+                rule_name="kill_switch",
                 reason=f"Kill switch is enabled: {self._kill_switch.reason}",
             )
 
@@ -75,17 +80,22 @@ class RiskEngine:
                 result = await rule.evaluate(trade, quote, ctx)
             else:
                 result = rule.evaluate(trade, quote, ctx)
-                
+
             if not result.passed:
                 logger.info("Risk rule %s blocked trade: %s", rule.name, result.reason)
                 # Auto-trigger kill switch if rule specifies it
                 if hasattr(rule, "action") and rule.action == "kill_switch":
-                    self._kill_switch.enable(f"Triggered by {rule.name}: {result.reason}")
+                    self._kill_switch.enable(
+                        f"Triggered by {rule.name}: {result.reason}"
+                    )
                 return result
-            
+
             # If rule suggests a smaller quantity, apply it and continue
             if result.adjusted_quantity is not None:
-                if final_result.adjusted_quantity is None or result.adjusted_quantity < final_result.adjusted_quantity:
+                if (
+                    final_result.adjusted_quantity is None
+                    or result.adjusted_quantity < final_result.adjusted_quantity
+                ):
                     final_result.adjusted_quantity = result.adjusted_quantity
                     # Update the trade quantity for subsequent rules to evaluate the NEW size
                     trade.quantity = result.adjusted_quantity

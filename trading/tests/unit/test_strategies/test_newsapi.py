@@ -1,4 +1,5 @@
 """Tests for NewsAPI wiring in kalshi_news_arb and polymarket_news_arb (Task 3)."""
+
 from __future__ import annotations
 
 import pytest
@@ -20,6 +21,7 @@ def _make_config(strategy: str, **params) -> AgentConfig:
 # ---------------------------------------------------------------------------
 # _fetch_newsapi_headlines (module-level helper in kalshi_news_arb)
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_kalshi_fetch_newsapi_headlines_returns_titles():
@@ -64,17 +66,20 @@ async def test_kalshi_fetch_newsapi_headlines_returns_empty_on_error():
 # KalshiNewsArbAgent — NewsAPI preference over RSS
 # ---------------------------------------------------------------------------
 
+
 class TestKalshiNewsArbNewsAPI:
     def _agent(self, **params):
         from strategies.kalshi_news_arb import KalshiNewsArbAgent
-        defaults = dict(threshold_cents=15, min_volume=100, max_markets_per_scan=5, rss_feeds=[])
+
+        defaults = dict(
+            threshold_cents=15, min_volume=100, max_markets_per_scan=5, rss_feeds=[]
+        )
         cfg = _make_config("kalshi_news_arb", **{**defaults, **params})
         return KalshiNewsArbAgent(cfg)
 
     @pytest.mark.asyncio
     async def test_uses_newsapi_when_key_in_params(self):
         """With newsapi_key in params, _fetch_newsapi_headlines is called (not RSS)."""
-        from strategies.kalshi_news_arb import KalshiNewsArbAgent
         agent = self._agent(newsapi_key="news-key", rss_feeds=["http://rss.feed"])
         bus = MagicMock()
         bus._kalshi_source = AsyncMock()
@@ -82,13 +87,16 @@ class TestKalshiNewsArbNewsAPI:
         bus._settings = None
         bus._anthropic_key = "sk-test"
 
-        with patch(
-            "strategies.kalshi_news_arb._fetch_newsapi_headlines",
-            new=AsyncMock(return_value=["NewsAPI headline"]),
-        ) as mock_newsapi, patch(
-            "strategies.kalshi_news_arb._fetch_headlines",
-            new=AsyncMock(return_value=["RSS headline"]),
-        ) as mock_rss:
+        with (
+            patch(
+                "strategies.kalshi_news_arb._fetch_newsapi_headlines",
+                new=AsyncMock(return_value=["NewsAPI headline"]),
+            ) as mock_newsapi,
+            patch(
+                "strategies.kalshi_news_arb._fetch_headlines",
+                new=AsyncMock(return_value=["RSS headline"]),
+            ) as mock_rss,
+        ):
             await agent.scan(bus)
 
         mock_newsapi.assert_awaited_once()
@@ -104,13 +112,16 @@ class TestKalshiNewsArbNewsAPI:
         bus._settings = None
         bus._anthropic_key = "sk-test"
 
-        with patch(
-            "strategies.kalshi_news_arb._fetch_newsapi_headlines",
-            new=AsyncMock(return_value=[]),
-        ) as mock_newsapi, patch(
-            "strategies.kalshi_news_arb._fetch_headlines",
-            new=AsyncMock(return_value=["RSS headline"]),
-        ) as mock_rss:
+        with (
+            patch(
+                "strategies.kalshi_news_arb._fetch_newsapi_headlines",
+                new=AsyncMock(return_value=[]),
+            ) as mock_newsapi,
+            patch(
+                "strategies.kalshi_news_arb._fetch_headlines",
+                new=AsyncMock(return_value=["RSS headline"]),
+            ) as mock_rss,
+        ):
             await agent.scan(bus)
 
         mock_newsapi.assert_not_awaited()
@@ -141,10 +152,14 @@ class TestKalshiNewsArbNewsAPI:
 # PolymarketNewsArbAgent — NewsAPI preference over RSS
 # ---------------------------------------------------------------------------
 
+
 class TestPolymarketNewsArbNewsAPI:
     def _agent(self, settings=None, **params):
         from strategies.polymarket_news_arb import PolymarketNewsArbAgent
-        defaults = dict(threshold_cents=15, min_volume=100, max_markets_per_scan=5, rss_feeds=[])
+
+        defaults = dict(
+            threshold_cents=15, min_volume=100, max_markets_per_scan=5, rss_feeds=[]
+        )
         cfg = _make_config("polymarket_news_arb", **{**defaults, **params})
         return PolymarketNewsArbAgent(cfg, settings=settings)
 
@@ -155,9 +170,7 @@ class TestPolymarketNewsArbNewsAPI:
 
         mock_response = MagicMock()
         mock_response.raise_for_status = MagicMock()
-        mock_response.json.return_value = {
-            "articles": [{"title": "NewsAPI Headline"}]
-        }
+        mock_response.json.return_value = {"articles": [{"title": "NewsAPI Headline"}]}
         mock_client = AsyncMock()
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
@@ -171,7 +184,6 @@ class TestPolymarketNewsArbNewsAPI:
     @pytest.mark.asyncio
     async def test_falls_back_to_rss_when_no_newsapi_key(self):
         """Without newsapi_key, _fetch_recent_headlines uses RSS feeds."""
-        import xml.etree.ElementTree as ET
 
         agent = self._agent(rss_feeds=["http://rss.feed"])
         assert agent.newsapi_key is None

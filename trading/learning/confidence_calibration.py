@@ -1,4 +1,5 @@
 """Confidence calibration logic: bucketing, sample quality, and sizing recommendations."""
+
 from __future__ import annotations
 
 import math
@@ -197,7 +198,11 @@ def build_recommendation(
             f"threshold ({trade_count} < {cfg.min_trades_for_hard_reject}); size reduced to 0.25x."
         )
     else:
-        exp_str = f"{expectancy_per_notional:.4f}" if expectancy_per_notional is not None else "N/A"
+        exp_str = (
+            f"{expectancy_per_notional:.4f}"
+            if expectancy_per_notional is not None
+            else "N/A"
+        )
         reason = (
             f"Bucket {bucket}: {sample_quality} sample ({trade_count} trades), "
             f"expectancy={exp_str}; multiplier={multiplier:.2f}x."
@@ -258,7 +263,9 @@ def _compute_bucket_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
     win_rate = len(wins) / trade_count if trade_count > 0 else 0.0
 
     net_pnls = [float(r["net_pnl"]) for r in rows if r.get("net_pnl") is not None]
-    net_returns = [float(r["net_return_pct"]) for r in rows if r.get("net_return_pct") is not None]
+    net_returns = [
+        float(r["net_return_pct"]) for r in rows if r.get("net_return_pct") is not None
+    ]
 
     avg_net_pnl = sum(net_pnls) / len(net_pnls) if net_pnls else 0.0
     avg_net_return_pct = sum(net_returns) / len(net_returns) if net_returns else 0.0
@@ -289,8 +296,12 @@ def _compute_bucket_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "avg_net_return_pct": avg_net_return_pct,
         "expectancy": str(round(expectancy, 6)),
         "profit_factor": round(profit_factor, 4) if profit_factor is not None else None,
-        "max_drawdown": str(round(max_drawdown, 6)) if max_drawdown is not None else None,
-        "calibrated_score": round(calibrated_score, 6) if calibrated_score is not None else None,
+        "max_drawdown": str(round(max_drawdown, 6))
+        if max_drawdown is not None
+        else None,
+        "calibrated_score": round(calibrated_score, 6)
+        if calibrated_score is not None
+        else None,
         "sample_quality": sample_quality,
     }
 
@@ -323,7 +334,9 @@ async def recompute_calibration_for_strategy(
 
         # Filter rows to window
         if ws is not None:
-            window_rows = [r for r in analytics_rows if (r.get("exit_time") or "") >= ws]
+            window_rows = [
+                r for r in analytics_rows if (r.get("exit_time") or "") >= ws
+            ]
         else:
             window_rows = list(analytics_rows)
 

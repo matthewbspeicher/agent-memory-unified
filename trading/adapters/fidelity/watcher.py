@@ -15,6 +15,7 @@ Usage (wired in api/app.py lifespan):
     watcher = FidelityFileWatcher(store=ext_store, import_dir=settings.import_dir)
     asyncio.create_task(watcher.run())
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -69,6 +70,7 @@ class FidelityFileWatcher:
             return
 
         import time
+
         now = time.time()
 
         for path in candidates:
@@ -95,16 +97,21 @@ class FidelityFileWatcher:
 
             # Group positions by account
             from collections import defaultdict
+
             by_account: dict[str, list] = defaultdict(list)
             for p in positions:
-                by_account[p.account_id].append({
-                    "symbol": p.symbol,
-                    "description": p.description,
-                    "quantity": str(p.quantity),
-                    "last_price": str(p.last_price),
-                    "current_value": str(p.current_value),
-                    "cost_basis": str(p.cost_basis) if p.cost_basis is not None else None,
-                })
+                by_account[p.account_id].append(
+                    {
+                        "symbol": p.symbol,
+                        "description": p.description,
+                        "quantity": str(p.quantity),
+                        "last_price": str(p.last_price),
+                        "current_value": str(p.current_value),
+                        "cost_basis": str(p.cost_basis)
+                        if p.cost_basis is not None
+                        else None,
+                    }
+                )
 
             total_positions = 0
             total_accounts = 0
@@ -144,14 +151,20 @@ class FidelityFileWatcher:
             shutil.move(str(path), str(dest))
             logger.info(
                 "FidelityFileWatcher: imported %d accounts, %d positions from %s → processed/",
-                total_accounts, total_positions, path.name,
+                total_accounts,
+                total_positions,
+                path.name,
             )
 
         except Exception as exc:
-            logger.error("FidelityFileWatcher: failed to process %s: %s", path.name, exc)
+            logger.error(
+                "FidelityFileWatcher: failed to process %s: %s", path.name, exc
+            )
             ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
             dest = self._failed_dir / f"{path.stem}_{ts}{path.suffix}"
             try:
                 shutil.move(str(path), str(dest))
             except Exception as move_exc:
-                logger.error("FidelityFileWatcher: also failed to move to failed/: %s", move_exc)
+                logger.error(
+                    "FidelityFileWatcher: also failed to move to failed/: %s", move_exc
+                )

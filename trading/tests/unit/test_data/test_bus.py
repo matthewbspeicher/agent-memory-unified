@@ -4,7 +4,7 @@ from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock
 import pytest
 
-from broker.models import Bar, Position, AccountBalance, Quote, Symbol
+from broker.models import Bar, AccountBalance, Quote, Symbol
 from data.bus import DataBus
 from data.sources.base import DataSource
 
@@ -24,17 +24,25 @@ def _mock_source(name="mock", quotes=True, historical=True, options=False):
 def _make_quote(ticker="AAPL"):
     return Quote(
         symbol=Symbol(ticker=ticker),
-        last=Decimal("150.00"), bid=Decimal("149.99"),
-        ask=Decimal("150.01"), volume=1000000,
+        last=Decimal("150.00"),
+        bid=Decimal("149.99"),
+        ask=Decimal("150.01"),
+        volume=1000000,
     )
 
 
 def _make_bars(ticker="AAPL", count=20):
     sym = Symbol(ticker=ticker)
     return [
-        Bar(symbol=sym, open=Decimal(str(100 + i)), high=Decimal(str(101 + i)),
-            low=Decimal(str(99 + i)), close=Decimal(str(100 + i)),
-            volume=1000, timestamp=datetime(2026, 1, i + 1))
+        Bar(
+            symbol=sym,
+            open=Decimal(str(100 + i)),
+            high=Decimal(str(101 + i)),
+            low=Decimal(str(99 + i)),
+            close=Decimal(str(100 + i)),
+            volume=1000,
+            timestamp=datetime(2026, 1, i + 1),
+        )
         for i in range(count)
     ]
 
@@ -119,8 +127,10 @@ class TestDataBusPortfolio:
     async def test_get_balances(self):
         broker = MagicMock()
         balance = AccountBalance(
-            account_id="U123", net_liquidation=Decimal("100000"),
-            buying_power=Decimal("50000"), cash=Decimal("30000"),
+            account_id="U123",
+            net_liquidation=Decimal("100000"),
+            buying_power=Decimal("50000"),
+            cash=Decimal("30000"),
             maintenance_margin=Decimal("20000"),
         )
         broker.account.get_balances = AsyncMock(return_value=balance)

@@ -1,4 +1,5 @@
 """Tests for CoinGeckoClient (Task 5)."""
+
 from __future__ import annotations
 
 import pytest
@@ -10,6 +11,7 @@ from data.coingecko import CoinGeckoClient
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_mock_client(json_data: dict, status_code: int = 200):
     """Return a context-manager mock httpx.AsyncClient that yields one response."""
@@ -27,6 +29,7 @@ def _make_mock_client(json_data: dict, status_code: int = 200):
 # ---------------------------------------------------------------------------
 # Initialisation
 # ---------------------------------------------------------------------------
+
 
 def test_init_stores_api_key():
     client = CoinGeckoClient(api_key="CG-test")
@@ -53,6 +56,7 @@ def test_headers_no_demo_key_when_none():
 # ---------------------------------------------------------------------------
 # get_price
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_get_price_returns_parsed_json():
@@ -111,6 +115,7 @@ async def test_get_price_no_key_omits_header():
 # get_market_chart
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_get_market_chart_returns_parsed_json():
     payload = {
@@ -121,7 +126,9 @@ async def test_get_market_chart_returns_parsed_json():
     mock_client = _make_mock_client(payload)
 
     with patch("httpx.AsyncClient", return_value=mock_client):
-        result = await CoinGeckoClient(api_key="CG-key").get_market_chart("bitcoin", days=7)
+        result = await CoinGeckoClient(api_key="CG-key").get_market_chart(
+            "bitcoin", days=7
+        )
 
     assert result == payload
     assert "prices" in result

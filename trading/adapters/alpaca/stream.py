@@ -37,13 +37,15 @@ class AlpacaStream(BrokerStream):
     async def connect(self) -> None:
         self._ws = await websockets.connect(self._url)
         # Authenticate
-        auth_msg = json.dumps({
-            "action": "auth",
-            "key": self._api_key,
-            "secret": self._secret_key,
-        })
+        auth_msg = json.dumps(
+            {
+                "action": "auth",
+                "key": self._api_key,
+                "secret": self._secret_key,
+            }
+        )
         await self._ws.send(auth_msg)
-        resp = await self._ws.recv()
+        await self._ws.recv()
         self._connected = True
         logger.info("AlpacaStream connected and authenticated")
         # Start listening

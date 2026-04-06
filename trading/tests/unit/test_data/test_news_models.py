@@ -1,10 +1,12 @@
 """Unit tests for shared news models."""
+
 from datetime import datetime, timezone
 
 
 class TestNewsSignalImport:
     def test_import_from_models(self):
         from data.sources.models import NewsSignal
+
         sig = NewsSignal(
             contract_ticker="MKT-001",
             headline="Fed raises rates",
@@ -20,6 +22,7 @@ class TestNewsSignalImport:
 
     def test_backward_compat_import_from_newsapi(self):
         from data.sources.newsapi import NewsSignal
+
         sig = NewsSignal(
             contract_ticker="X",
             headline="test",

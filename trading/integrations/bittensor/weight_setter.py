@@ -80,7 +80,8 @@ class WeightSetter:
         if len(rankings) < self._min_rankings:
             logger.info(
                 "WeightSetter: only %d rankings (min %d), skipping",
-                len(rankings), self._min_rankings,
+                len(rankings),
+                self._min_rankings,
             )
             return False
 
@@ -109,7 +110,9 @@ class WeightSetter:
                 self.total_weight_sets += 1
                 logger.info(
                     "WeightSetter: set weights for %d miners at block %s (total sets: %d)",
-                    len(uids), block, self.total_weight_sets,
+                    len(uids),
+                    block,
+                    self.total_weight_sets,
                 )
             else:
                 logger.warning("WeightSetter: set_weights returned failure: %s", msg)
@@ -124,7 +127,9 @@ class WeightSetter:
         interval_secs = self._interval_blocks * 12
         logger.info(
             "WeightSetter started (interval=%d blocks / %d secs, netuid=%d)",
-            self._interval_blocks, interval_secs, self._netuid,
+            self._interval_blocks,
+            interval_secs,
+            self._netuid,
         )
         try:
             while self._running:

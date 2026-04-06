@@ -1,4 +1,5 @@
 """Memory API — exposes agent memory store and shared market observations."""
+
 from __future__ import annotations
 
 import logging
@@ -10,11 +11,13 @@ from api.auth import verify_api_key
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/memory", tags=["memory"], dependencies=[Depends(verify_api_key)])
+router = APIRouter(
+    prefix="/api/memory", tags=["memory"], dependencies=[Depends(verify_api_key)]
+)
 
 # Injected at startup by app.py
-_memory_client_registry: dict[str, Any] = {}   # agent_name -> TradingMemoryClient
-_shared_memory_client: Any = None              # TradingMemoryClient for market:observations
+_memory_client_registry: dict[str, Any] = {}  # agent_name -> TradingMemoryClient
+_shared_memory_client: Any = None  # TradingMemoryClient for market:observations
 
 
 def register_memory_client(agent_name: str, client: Any) -> None:
@@ -35,7 +38,9 @@ async def search_memories(
     """Semantic search across agent private + shared market observations."""
     client = _memory_client_registry.get(agent)
     if not client:
-        raise HTTPException(status_code=503, detail="Memory system not available for this agent")
+        raise HTTPException(
+            status_code=503, detail="Memory system not available for this agent"
+        )
     try:
         results = await client.search_both(q, top_k=top_k)
         return {"agent": agent, "query": q, "results": results}
@@ -51,7 +56,9 @@ async def list_market_observations(
 ) -> dict:
     """List shared market observations, optionally filtered by symbol."""
     if not _shared_memory_client:
-        raise HTTPException(status_code=503, detail="Shared memory system not configured")
+        raise HTTPException(
+            status_code=503, detail="Shared memory system not configured"
+        )
     try:
         tag_list = [symbol] if symbol else None
         result = await _shared_memory_client._shared.list(tags=tag_list)
@@ -71,7 +78,9 @@ async def list_agent_memories(
     """List recent memories for a specific agent."""
     client = _memory_client_registry.get(agent_name)
     if not client:
-        raise HTTPException(status_code=503, detail="Memory system not available for this agent")
+        raise HTTPException(
+            status_code=503, detail="Memory system not available for this agent"
+        )
     try:
         tag_list = [t.strip() for t in tags.split(",")] if tags else None
         result = await client._private.list(tags=tag_list)

@@ -8,9 +8,13 @@ from ib_async import IB
 
 from broker.interfaces import MarketDataProvider
 from broker.models import (
-    Bar, ContractDetails, OptionsChain, Quote, Symbol,
+    Bar,
+    ContractDetails,
+    OptionsChain,
+    Quote,
+    Symbol,
 )
-from adapters.ibkr.symbols import to_contract, from_contract
+from adapters.ibkr.symbols import to_contract
 
 
 class IBKRMarketDataProvider(MarketDataProvider):
@@ -61,7 +65,9 @@ class IBKRMarketDataProvider(MarketDataProvider):
         return [await self.get_quote(s) for s in symbols]
 
     async def stream_quotes(
-        self, symbols: list[Symbol], callback: Callable[[Quote], Any],
+        self,
+        symbols: list[Symbol],
+        callback: Callable[[Quote], Any],
     ) -> None:
         await self._ensure_delayed_data()
         for symbol in symbols:
@@ -83,7 +89,10 @@ class IBKRMarketDataProvider(MarketDataProvider):
             ticker.updateEvent += on_update
 
     async def get_historical(
-        self, symbol: Symbol, timeframe: str, period: str,
+        self,
+        symbol: Symbol,
+        timeframe: str,
+        period: str,
     ) -> list[Bar]:
         contract = to_contract(symbol)
         await self._ib.qualifyContractsAsync(contract)
@@ -103,27 +112,36 @@ class IBKRMarketDataProvider(MarketDataProvider):
                 low=Decimal(str(b.low)),
                 close=Decimal(str(b.close)),
                 volume=b.volume,
-                timestamp=b.date if isinstance(b.date, datetime) else datetime.combine(b.date, datetime.min.time()),
+                timestamp=b.date
+                if isinstance(b.date, datetime)
+                else datetime.combine(b.date, datetime.min.time()),
             )
             for b in (bars or [])
         ]
 
     async def get_options_chain(
-        self, symbol: Symbol, expiry: str | None = None,
+        self,
+        symbol: Symbol,
+        expiry: str | None = None,
     ) -> OptionsChain:
-        contract = to_contract(Symbol(ticker=symbol.ticker, asset_type=symbol.asset_type))
+        contract = to_contract(
+            Symbol(ticker=symbol.ticker, asset_type=symbol.asset_type)
+        )
         await self._ib.qualifyContractsAsync(contract)
         chains = await self._ib.reqSecDefOptParamsAsync(
-            contract.symbol, "", contract.secType, contract.conId,
+            contract.symbol,
+            "",
+            contract.secType,
+            contract.conId,
         )
         chain = chains[0] if chains else None
         if not chain:
             return OptionsChain(symbol=symbol)
 
         from datetime import date
+
         expirations = [
-            date(int(e[:4]), int(e[4:6]), int(e[6:8]))
-            for e in chain.expirations
+            date(int(e[:4]), int(e[4:6]), int(e[6:8])) for e in chain.expirations
         ]
         strikes = [Decimal(str(s)) for s in chain.strikes]
         return OptionsChain(symbol=symbol, expirations=expirations, strikes=strikes)
@@ -134,6 +152,7 @@ class IBKRMarketDataProvider(MarketDataProvider):
         details_list = await self._ib.reqContractDetailsAsync(contract)
         if not details_list:
             from broker.errors import InvalidSymbol
+
             raise InvalidSymbol(f"No contract found for {symbol.ticker}")
         d = details_list[0]
         return ContractDetails(

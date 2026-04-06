@@ -3,9 +3,16 @@ from datetime import date, datetime
 import pytest
 
 from broker.models import (
-    Symbol, AssetType, OptionRight, OrderSide, TIF,
-    MarketOrder, LimitOrder, StopOrder, StopLimitOrder, TrailingStopOrder,
-    Quote, Bar, Position, AccountBalance, OrderResult, OrderStatus,
+    Symbol,
+    AssetType,
+    OptionRight,
+    OrderSide,
+    TIF,
+    MarketOrder,
+    LimitOrder,
+    TrailingStopOrder,
+    OrderResult,
+    OrderStatus,
 )
 
 
@@ -41,22 +48,30 @@ class TestSymbol:
 class TestOrders:
     def test_market_order(self):
         s = Symbol(ticker="AAPL")
-        o = MarketOrder(symbol=s, side=OrderSide.BUY, quantity=Decimal("100"), account_id="U12345")
+        o = MarketOrder(
+            symbol=s, side=OrderSide.BUY, quantity=Decimal("100"), account_id="U12345"
+        )
         assert o.time_in_force == TIF.DAY
 
     def test_limit_order(self):
         s = Symbol(ticker="AAPL")
         o = LimitOrder(
-            symbol=s, side=OrderSide.BUY, quantity=Decimal("100"),
-            account_id="U12345", limit_price=Decimal("150.00"),
+            symbol=s,
+            side=OrderSide.BUY,
+            quantity=Decimal("100"),
+            account_id="U12345",
+            limit_price=Decimal("150.00"),
         )
         assert o.limit_price == Decimal("150.00")
 
     def test_trailing_stop_with_amount(self):
         s = Symbol(ticker="AAPL")
         o = TrailingStopOrder(
-            symbol=s, side=OrderSide.SELL, quantity=Decimal("50"),
-            account_id="U12345", trail_amount=Decimal("5.00"),
+            symbol=s,
+            side=OrderSide.SELL,
+            quantity=Decimal("50"),
+            account_id="U12345",
+            trail_amount=Decimal("5.00"),
         )
         assert o.trail_amount == Decimal("5.00")
         assert o.trail_percent is None
@@ -65,15 +80,21 @@ class TestOrders:
         s = Symbol(ticker="AAPL")
         with pytest.raises(ValueError, match="exactly one"):
             TrailingStopOrder(
-                symbol=s, side=OrderSide.SELL, quantity=Decimal("50"),
-                account_id="U12345", trail_amount=Decimal("5"), trail_percent=Decimal("1"),
+                symbol=s,
+                side=OrderSide.SELL,
+                quantity=Decimal("50"),
+                account_id="U12345",
+                trail_amount=Decimal("5"),
+                trail_percent=Decimal("1"),
             )
 
     def test_trailing_stop_neither_raises(self):
         s = Symbol(ticker="AAPL")
         with pytest.raises(ValueError, match="exactly one"):
             TrailingStopOrder(
-                symbol=s, side=OrderSide.SELL, quantity=Decimal("50"),
+                symbol=s,
+                side=OrderSide.SELL,
+                quantity=Decimal("50"),
                 account_id="U12345",
             )
 

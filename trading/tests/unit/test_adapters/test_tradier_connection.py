@@ -9,9 +9,11 @@ async def test_connect_success():
 
     mock_client = MagicMock()
     mock_client.open = AsyncMock()
-    mock_client.get_profile = AsyncMock(return_value={
-        "profile": {"account": {"account_number": "acc1"}},
-    })
+    mock_client.get_profile = AsyncMock(
+        return_value={
+            "profile": {"account": {"account_number": "acc1"}},
+        }
+    )
 
     conn = TradierConnection(mock_client)
     await conn.connect()

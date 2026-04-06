@@ -23,7 +23,7 @@ class _PostgresCursor:
         return None
 
     async def fetchall(self) -> list[dict]:
-        remaining = self._rows[self._index:]
+        remaining = self._rows[self._index :]
         self._index = len(self._rows)
         return remaining
 
@@ -156,7 +156,11 @@ class PostgresDB:
     # Tables with composite primary keys — used by _convert_insert_or_replace
     # to generate the correct ON CONFLICT clause.
     _COMPOSITE_PKS: dict[str, list[str]] = {
-        "strategy_confidence_calibration": ["agent_name", "confidence_bucket", "window_label"],
+        "strategy_confidence_calibration": [
+            "agent_name",
+            "confidence_bucket",
+            "window_label",
+        ],
         "consensus_votes": ["symbol", "side", "agent_name"],
     }
 
@@ -166,7 +170,8 @@ class PostgresDB:
         INSERT INTO t (...) VALUES (...) ON CONFLICT DO UPDATE SET ..."""
         m = re.match(
             r"\s*INSERT\s+OR\s+REPLACE\s+INTO\s+(\w+)\s*\(([^)]+)\)",
-            sql, re.IGNORECASE | re.DOTALL,
+            sql,
+            re.IGNORECASE | re.DOTALL,
         )
         if not m:
             return sql
@@ -184,7 +189,9 @@ class PostgresDB:
         new_sql = re.sub(
             r"INSERT\s+OR\s+REPLACE\s+INTO",
             "INSERT INTO",
-            sql, count=1, flags=re.IGNORECASE,
+            sql,
+            count=1,
+            flags=re.IGNORECASE,
         )
         # Append ON CONFLICT clause
         new_sql = new_sql.rstrip().rstrip(";")
@@ -199,7 +206,9 @@ class PostgresDB:
         new_sql = re.sub(
             r"INSERT\s+OR\s+IGNORE\s+INTO",
             "INSERT INTO",
-            sql, count=1, flags=re.IGNORECASE,
+            sql,
+            count=1,
+            flags=re.IGNORECASE,
         )
         new_sql = new_sql.rstrip().rstrip(";")
         new_sql += " ON CONFLICT DO NOTHING"

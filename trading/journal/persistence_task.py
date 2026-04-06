@@ -6,6 +6,7 @@ from journal.indexer import JournalIndexer
 
 logger = logging.getLogger(__name__)
 
+
 async def journal_persistence_loop(indexer: JournalIndexer, config: Config) -> None:
     """Background task to periodically persist the HNSW index to disk."""
     if not config.journal_index_enabled:
@@ -25,7 +26,11 @@ async def journal_persistence_loop(indexer: JournalIndexer, config: Config) -> N
                 if indexer.is_ready:
                     await indexer.persist()
             except Exception as e:
-                logger.error("Error during background journal persistence: %s", str(e), exc_info=True)
+                logger.error(
+                    "Error during background journal persistence: %s",
+                    str(e),
+                    exc_info=True,
+                )
     except asyncio.CancelledError:
         logger.info("Journal persistence loop cancelled.")
         raise

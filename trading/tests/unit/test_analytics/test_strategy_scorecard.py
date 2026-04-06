@@ -2,10 +2,8 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from analytics.models import StrategySummary
 from analytics.strategy_scorecard import (
     compute_equity_curve,
-    compute_exit_reason_breakdown,
     compute_rolling_expectancy,
     compute_summary,
     compute_symbol_breakdown,
@@ -50,10 +48,30 @@ def make_trade(
 class TestComputeSummaryBasic:
     def test_compute_summary_basic(self) -> None:
         trades = [
-            make_trade(net_pnl="100", gross_pnl="110", realized_outcome="win", exit_time="2026-03-25T10:00:00Z"),
-            make_trade(net_pnl="50", gross_pnl="60", realized_outcome="win", exit_time="2026-03-25T11:00:00Z"),
-            make_trade(net_pnl="-30", gross_pnl="-25", realized_outcome="loss", exit_time="2026-03-25T12:00:00Z"),
-            make_trade(net_pnl="0", gross_pnl="0", realized_outcome="flat", exit_time="2026-03-25T13:00:00Z"),
+            make_trade(
+                net_pnl="100",
+                gross_pnl="110",
+                realized_outcome="win",
+                exit_time="2026-03-25T10:00:00Z",
+            ),
+            make_trade(
+                net_pnl="50",
+                gross_pnl="60",
+                realized_outcome="win",
+                exit_time="2026-03-25T11:00:00Z",
+            ),
+            make_trade(
+                net_pnl="-30",
+                gross_pnl="-25",
+                realized_outcome="loss",
+                exit_time="2026-03-25T12:00:00Z",
+            ),
+            make_trade(
+                net_pnl="0",
+                gross_pnl="0",
+                realized_outcome="flat",
+                exit_time="2026-03-25T13:00:00Z",
+            ),
         ]
         s = compute_summary(trades)
         assert s.trade_count == 4
@@ -68,16 +86,26 @@ class TestComputeSummaryBasic:
 
     def test_compute_summary_no_losses(self) -> None:
         trades = [
-            make_trade(net_pnl="100", realized_outcome="win", exit_time="2026-03-25T10:00:00Z"),
-            make_trade(net_pnl="50", realized_outcome="win", exit_time="2026-03-25T11:00:00Z"),
+            make_trade(
+                net_pnl="100", realized_outcome="win", exit_time="2026-03-25T10:00:00Z"
+            ),
+            make_trade(
+                net_pnl="50", realized_outcome="win", exit_time="2026-03-25T11:00:00Z"
+            ),
         ]
         s = compute_summary(trades)
         assert s.profit_factor is None
 
     def test_compute_summary_no_wins(self) -> None:
         trades = [
-            make_trade(net_pnl="-100", realized_outcome="loss", exit_time="2026-03-25T10:00:00Z"),
-            make_trade(net_pnl="-50", realized_outcome="loss", exit_time="2026-03-25T11:00:00Z"),
+            make_trade(
+                net_pnl="-100",
+                realized_outcome="loss",
+                exit_time="2026-03-25T10:00:00Z",
+            ),
+            make_trade(
+                net_pnl="-50", realized_outcome="loss", exit_time="2026-03-25T11:00:00Z"
+            ),
         ]
         s = compute_summary(trades)
         assert s.profit_factor == 0.0
@@ -99,11 +127,21 @@ class TestComputeSummaryDrawdown:
         # drawdown:            0,    0,  80, 120,   0
         # max drawdown = -120
         trades = [
-            make_trade(net_pnl="100", realized_outcome="win", exit_time="2026-03-25T10:00:00Z"),
-            make_trade(net_pnl="50", realized_outcome="win", exit_time="2026-03-25T11:00:00Z"),
-            make_trade(net_pnl="-80", realized_outcome="loss", exit_time="2026-03-25T12:00:00Z"),
-            make_trade(net_pnl="-40", realized_outcome="loss", exit_time="2026-03-25T13:00:00Z"),
-            make_trade(net_pnl="200", realized_outcome="win", exit_time="2026-03-25T14:00:00Z"),
+            make_trade(
+                net_pnl="100", realized_outcome="win", exit_time="2026-03-25T10:00:00Z"
+            ),
+            make_trade(
+                net_pnl="50", realized_outcome="win", exit_time="2026-03-25T11:00:00Z"
+            ),
+            make_trade(
+                net_pnl="-80", realized_outcome="loss", exit_time="2026-03-25T12:00:00Z"
+            ),
+            make_trade(
+                net_pnl="-40", realized_outcome="loss", exit_time="2026-03-25T13:00:00Z"
+            ),
+            make_trade(
+                net_pnl="200", realized_outcome="win", exit_time="2026-03-25T14:00:00Z"
+            ),
         ]
         s = compute_summary(trades)
         assert Decimal(s.max_drawdown) == Decimal("-120")
@@ -127,9 +165,15 @@ class TestComputeEquityCurve:
 class TestComputeRollingExpectancy:
     def test_compute_rolling_expectancy(self) -> None:
         trades = [
-            make_trade(net_pnl="100", realized_outcome="win", exit_time="2026-03-25T10:00:00Z"),
-            make_trade(net_pnl="-50", realized_outcome="loss", exit_time="2026-03-25T11:00:00Z"),
-            make_trade(net_pnl="80", realized_outcome="win", exit_time="2026-03-25T12:00:00Z"),
+            make_trade(
+                net_pnl="100", realized_outcome="win", exit_time="2026-03-25T10:00:00Z"
+            ),
+            make_trade(
+                net_pnl="-50", realized_outcome="loss", exit_time="2026-03-25T11:00:00Z"
+            ),
+            make_trade(
+                net_pnl="80", realized_outcome="win", exit_time="2026-03-25T12:00:00Z"
+            ),
         ]
         points = compute_rolling_expectancy(trades, window=2)
         assert len(points) == 2
@@ -250,7 +294,9 @@ class TestDeriveAnalyticsRow:
         assert row["execution_slippage_bps"] == 10.0
 
     def test_flat_trade(self) -> None:
-        pos = _make_position(entry_price="100", exit_price="101", entry_fees="5", exit_fees="5")
+        pos = _make_position(
+            entry_price="100", exit_price="101", entry_fees="5", exit_fees="5"
+        )
         row = derive_analytics_row(pos)
         # gross = (101-100)*10 = 10, net = 10-5-5 = 0
         assert Decimal(row["net_pnl"]) == Decimal("0")

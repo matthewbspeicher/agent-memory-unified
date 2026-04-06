@@ -9,6 +9,7 @@ from decimal import Decimal
 from broker.models import OrderBase
 from pydantic import BaseModel, Field as PydanticField
 
+
 class ArbState(Enum):
     INIT = "init"
     TOXICITY_CHECK = "toxicity_check"
@@ -24,10 +25,12 @@ class ArbState(Enum):
     UNWOUND = "unwound"
     FAILED = "failed"
 
+
 class SequencingStrategy(Enum):
     LESS_LIQUID_FIRST = "less_liquid_first"
     KALSHI_FIRST = "kalshi_first"
     POLY_FIRST = "poly_first"
+
 
 @dataclass
 class ArbLeg:
@@ -37,6 +40,7 @@ class ArbLeg:
     fill_quantity: Decimal = Decimal("0")
     status: str = "pending"
     external_order_id: Optional[str] = None
+
 
 @dataclass
 class ArbTrade:
@@ -63,14 +67,17 @@ class ArbTrade:
             "state": self.state.value,
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
-            "error_message": self.error_message
+            "error_message": self.error_message,
         }
+
 
 class ArbStateMessage(BaseModel):
     trade_id: str
     symbol_a: str
     symbol_b: str
     state: str
-    timestamp: datetime = PydanticField(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = PydanticField(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )
     error_message: Optional[str] = None
     expected_profit_bps: Optional[int] = None

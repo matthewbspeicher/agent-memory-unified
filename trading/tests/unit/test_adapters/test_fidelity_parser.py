@@ -1,12 +1,9 @@
 from decimal import Decimal
-import asyncio
 import pytest
 from pathlib import Path
 import tempfile
 
 from adapters.fidelity.parser import (
-    FidelityBalance,
-    FidelityPosition,
     _clean_decimal,
     extract_balances,
     normalize_ticker,
@@ -18,21 +15,22 @@ SAMPLE_CSV = (
     "Last Price Change,Current Value,Today's Gain/Loss Dollar,Today's Gain/Loss Percent,"
     "Total Gain/Loss Dollar,Total Gain/Loss Percent,Percent Of Account,Cost Basis Total,"
     "Average Cost Basis,Type\r\n"
-    "X12345678,Individual - TOD,SPAXX**,HELD IN MONEY MARKET,,,,\"$5,000.00\",,,,,,,,Cash\r\n"
-    "X12345678,Individual - TOD,AAPL,APPLE INC,100,$187.50,+$1.00,\"$18,750.00\",$100.00,0.54%,"
-    "+$3,750.00,+25.00%,46.43%,\"$15,000.00\",$150.00,Cash\r\n"
-    "X12345678,Individual - TOD,MSFT,MICROSOFT CORP,50,$420.00,-$2.00,\"$21,000.00\",-$100.00,-0.47%,"
-    "+$3,000.00,+16.67%,52.00%,\"$18,000.00\",$360.00,Cash\r\n"
-    "X87654321,Roth IRA,GOOGL,ALPHABET INC CL A,25,$175.00,-$5.00,\"$4,375.00\",-$125.00,-2.78%,"
-    "-$125.00,-2.78%,100.00%,\"$3,500.00\",$140.00,Cash\r\n"
+    'X12345678,Individual - TOD,SPAXX**,HELD IN MONEY MARKET,,,,"$5,000.00",,,,,,,,Cash\r\n'
+    'X12345678,Individual - TOD,AAPL,APPLE INC,100,$187.50,+$1.00,"$18,750.00",$100.00,0.54%,'
+    '+$3,750.00,+25.00%,46.43%,"$15,000.00",$150.00,Cash\r\n'
+    'X12345678,Individual - TOD,MSFT,MICROSOFT CORP,50,$420.00,-$2.00,"$21,000.00",-$100.00,-0.47%,'
+    '+$3,000.00,+16.67%,52.00%,"$18,000.00",$360.00,Cash\r\n'
+    'X87654321,Roth IRA,GOOGL,ALPHABET INC CL A,25,$175.00,-$5.00,"$4,375.00",-$125.00,-2.78%,'
+    '-$125.00,-2.78%,100.00%,"$3,500.00",$140.00,Cash\r\n'
     "\r\n"
-    "\"Date downloaded Mar-26-2026 3:37 p.m ET\"\r\n"
+    '"Date downloaded Mar-26-2026 3:37 p.m ET"\r\n'
 )
 
 
 # ---------------------------------------------------------------------------
 # _clean_decimal
 # ---------------------------------------------------------------------------
+
 
 def test_clean_decimal_with_dollar_sign():
     assert _clean_decimal("$1,234.56") == Decimal("1234.56")
@@ -54,6 +52,7 @@ def test_clean_decimal_blank():
 # normalize_ticker
 # ---------------------------------------------------------------------------
 
+
 def test_normalize_ticker():
     assert normalize_ticker("BRK/B") == "BRK.B"
     assert normalize_ticker("SPAXX**") == "SPAXX"
@@ -64,6 +63,7 @@ def test_normalize_ticker():
 # ---------------------------------------------------------------------------
 # parse_fidelity_csv
 # ---------------------------------------------------------------------------
+
 
 def test_parse_fidelity_csv():
     positions = parse_fidelity_csv(SAMPLE_CSV)
@@ -111,7 +111,7 @@ def test_parse_fidelity_csv_missing_cost_basis():
         "Total Gain/Loss Dollar,Total Gain/Loss Percent,Percent Of Account,Cost Basis Total,"
         "Average Cost Basis,Type\r\n"
         'X11111111,Individual,NVDA,NVIDIA CORP,5,$800.00,+$5.00,"$4,000.00",$25.00,0.63%,'
-        '--,--,100.00%,--,--,Cash\r\n'
+        "--,--,100.00%,--,--,Cash\r\n"
     )
     positions = parse_fidelity_csv(csv)
     assert len(positions) == 1
@@ -123,12 +123,15 @@ def test_parse_fidelity_csv_missing_cost_basis():
 # extract_balances
 # ---------------------------------------------------------------------------
 
+
 def test_extract_balances():
     balances = extract_balances(SAMPLE_CSV)
     assert len(balances) == 2
     ind = balances["X12345678"]
     assert ind.cash == Decimal("5000.00")
-    assert ind.net_liquidation == Decimal("18750.00") + Decimal("21000.00") + Decimal("5000.00")
+    assert ind.net_liquidation == Decimal("18750.00") + Decimal("21000.00") + Decimal(
+        "5000.00"
+    )
     roth = balances["X87654321"]
     assert roth.cash == Decimal("0")
     assert roth.net_liquidation == Decimal("4375.00")
@@ -141,6 +144,7 @@ def test_extract_balances_empty():
 # ---------------------------------------------------------------------------
 # FidelityFileWatcher integration tests
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_watcher_processes_csv_file():
@@ -155,7 +159,9 @@ async def test_watcher_processes_csv_file():
         csv_path = import_dir / "fidelity_export.csv"
         csv_path.write_text(SAMPLE_CSV, encoding="utf-8")
 
-        watcher = FidelityFileWatcher(store=store, import_dir=str(import_dir), min_age_seconds=0)
+        watcher = FidelityFileWatcher(
+            store=store, import_dir=str(import_dir), min_age_seconds=0
+        )
         await watcher._scan()
 
         # File should have been moved to processed/
@@ -182,7 +188,9 @@ async def test_watcher_moves_bad_csv_to_failed():
         csv_path = import_dir / "bad.csv"
         csv_path.write_text(SAMPLE_CSV, encoding="utf-8")
 
-        watcher = FidelityFileWatcher(store=store, import_dir=str(import_dir), min_age_seconds=0)
+        watcher = FidelityFileWatcher(
+            store=store, import_dir=str(import_dir), min_age_seconds=0
+        )
         await watcher._scan()
 
         remaining = list(import_dir.glob("*.csv"))
@@ -204,7 +212,9 @@ async def test_watcher_skips_young_files():
         csv_path = import_dir / "new.csv"
         csv_path.write_text(SAMPLE_CSV, encoding="utf-8")
 
-        watcher = FidelityFileWatcher(store=store, import_dir=str(import_dir), min_age_seconds=9999)
+        watcher = FidelityFileWatcher(
+            store=store, import_dir=str(import_dir), min_age_seconds=9999
+        )
         await watcher._scan()
 
         # File still present — too young

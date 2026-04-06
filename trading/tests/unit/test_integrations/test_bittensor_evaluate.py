@@ -1,8 +1,7 @@
 from __future__ import annotations
-from datetime import datetime, timezone
+from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
 
 from integrations.bittensor.models import (
     BittensorEvaluationWindow,
@@ -12,14 +11,22 @@ from integrations.bittensor.models import (
 
 def _make_forecast(hotkey: str, predictions: list[float]) -> RawMinerForecast:
     return RawMinerForecast(
-        window_id="w1", request_uuid="req1",
+        window_id="w1",
+        request_uuid="req1",
         collected_at=datetime(2026, 3, 28, 12, 0),
-        miner_uid=1, miner_hotkey=hotkey,
-        stream_id="BTCUSD-5m", topic_id=1, schema_id=1,
-        symbol="BTCUSD", timeframe="5m",
-        feature_ids=[1, 2, 3, 4, 5], prediction_size=5,
-        predictions=predictions, hashed_predictions=None,
-        hash_verified=True, incentive_score=0.5,
+        miner_uid=1,
+        miner_hotkey=hotkey,
+        stream_id="BTCUSD-5m",
+        topic_id=1,
+        schema_id=1,
+        symbol="BTCUSD",
+        timeframe="5m",
+        feature_ids=[1, 2, 3, 4, 5],
+        prediction_size=5,
+        predictions=predictions,
+        hashed_predictions=None,
+        hash_verified=True,
+        incentive_score=0.5,
     )
 
 
@@ -54,8 +61,11 @@ async def test_evaluate_window_scores_miners():
     )
 
     window = BittensorEvaluationWindow(
-        window_id="w1", symbol="BTCUSD", timeframe="5m",
-        collected_at=datetime(2026, 3, 28, 12, 0), prediction_size=5,
+        window_id="w1",
+        symbol="BTCUSD",
+        timeframe="5m",
+        collected_at=datetime(2026, 3, 28, 12, 0),
+        prediction_size=5,
     )
 
     await evaluator._evaluate_window(window)
@@ -76,9 +86,11 @@ async def test_evaluate_window_skips_insufficient_candles():
     from integrations.bittensor.evaluator import BittensorEvaluator
 
     mock_store = MagicMock()
-    mock_store.get_raw_forecasts_by_window = AsyncMock(return_value=[
-        _make_forecast("hk1", [100, 101, 102, 103, 104]),
-    ])
+    mock_store.get_raw_forecasts_by_window = AsyncMock(
+        return_value=[
+            _make_forecast("hk1", [100, 101, 102, 103, 104]),
+        ]
+    )
     mock_store.save_realized_window = AsyncMock()
     mock_store.save_accuracy_records = AsyncMock()
 
@@ -86,13 +98,18 @@ async def test_evaluate_window_skips_insufficient_candles():
     mock_coingecko.get_ohlc_closes = AsyncMock(return_value=[100.0, 101.0])
 
     evaluator = BittensorEvaluator(
-        store=mock_store, data_bus=MagicMock(), event_bus=MagicMock(),
+        store=mock_store,
+        data_bus=MagicMock(),
+        event_bus=MagicMock(),
         coingecko=mock_coingecko,
     )
 
     window = BittensorEvaluationWindow(
-        window_id="w1", symbol="BTCUSD", timeframe="5m",
-        collected_at=datetime(2026, 3, 28, 12, 0), prediction_size=5,
+        window_id="w1",
+        symbol="BTCUSD",
+        timeframe="5m",
+        collected_at=datetime(2026, 3, 28, 12, 0),
+        prediction_size=5,
     )
     await evaluator._evaluate_window(window)
 
@@ -104,9 +121,11 @@ async def test_evaluate_window_updates_counters():
     from integrations.bittensor.evaluator import BittensorEvaluator
 
     mock_store = MagicMock()
-    mock_store.get_raw_forecasts_by_window = AsyncMock(return_value=[
-        _make_forecast("hk1", [100, 101, 102, 103, 104]),
-    ])
+    mock_store.get_raw_forecasts_by_window = AsyncMock(
+        return_value=[
+            _make_forecast("hk1", [100, 101, 102, 103, 104]),
+        ]
+    )
     mock_store.save_realized_window = AsyncMock()
     mock_store.save_accuracy_records = AsyncMock()
     mock_store.update_miner_ranking = AsyncMock()
@@ -120,13 +139,18 @@ async def test_evaluate_window_updates_counters():
     mock_event_bus.publish = AsyncMock()
 
     evaluator = BittensorEvaluator(
-        store=mock_store, data_bus=MagicMock(), event_bus=mock_event_bus,
+        store=mock_store,
+        data_bus=MagicMock(),
+        event_bus=mock_event_bus,
         coingecko=mock_coingecko,
     )
 
     window = BittensorEvaluationWindow(
-        window_id="w1", symbol="BTCUSD", timeframe="5m",
-        collected_at=datetime(2026, 3, 28, 12, 0), prediction_size=5,
+        window_id="w1",
+        symbol="BTCUSD",
+        timeframe="5m",
+        collected_at=datetime(2026, 3, 28, 12, 0),
+        prediction_size=5,
     )
     await evaluator._evaluate_window(window)
 
@@ -138,12 +162,17 @@ async def test_evaluate_window_skips_unknown_symbol():
     from integrations.bittensor.evaluator import BittensorEvaluator
 
     evaluator = BittensorEvaluator(
-        store=MagicMock(), data_bus=MagicMock(), event_bus=MagicMock(),
+        store=MagicMock(),
+        data_bus=MagicMock(),
+        event_bus=MagicMock(),
         coingecko=None,
     )
 
     window = BittensorEvaluationWindow(
-        window_id="w1", symbol="UNKNOWN", timeframe="5m",
-        collected_at=datetime(2026, 3, 28, 12, 0), prediction_size=5,
+        window_id="w1",
+        symbol="UNKNOWN",
+        timeframe="5m",
+        collected_at=datetime(2026, 3, 28, 12, 0),
+        prediction_size=5,
     )
     await evaluator._evaluate_window(window)

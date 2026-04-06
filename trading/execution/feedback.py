@@ -1,4 +1,5 @@
 """SlippageFeedbackLoop — auto-downgrades agent trust when slippage eats edge."""
+
 from __future__ import annotations
 
 import logging
@@ -167,7 +168,9 @@ class SlippageFeedbackLoop:
         if current == original:
             return None  # Already at ceiling
         curr_idx = self.TRUST_ORDER.index(current) if current in self.TRUST_ORDER else 0
-        orig_idx = self.TRUST_ORDER.index(original) if original in self.TRUST_ORDER else 0
+        orig_idx = (
+            self.TRUST_ORDER.index(original) if original in self.TRUST_ORDER else 0
+        )
         new_idx = min(curr_idx + 1, orig_idx)  # Don't exceed original trust ceiling
         new_trust = self.TRUST_ORDER[new_idx]
         if new_trust == current:

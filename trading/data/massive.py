@@ -12,6 +12,7 @@ Usage::
     bars = await client.get_bars("AAPL", 1, "day", "2024-01-01", "2024-03-01")
     await client.close()
 """
+
 from __future__ import annotations
 
 import logging
@@ -50,7 +51,9 @@ class MassiveClient:
             p.update(extra)
         return p
 
-    async def _get(self, path: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+    async def _get(
+        self, path: str, params: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """Perform a single GET and return the parsed JSON dict."""
         resp = await self._client.get(
             f"{self.BASE_URL}{path}",
@@ -146,7 +149,9 @@ class MassiveClient:
 
         GET /v2/snapshot/locale/us/markets/stocks/tickers/{ticker}
         """
-        data = await self._get(f"/v2/snapshot/locale/us/markets/stocks/tickers/{ticker}")
+        data = await self._get(
+            f"/v2/snapshot/locale/us/markets/stocks/tickers/{ticker}"
+        )
         return data.get("ticker", data)
 
     async def get_market_snapshot(self) -> list[dict]:

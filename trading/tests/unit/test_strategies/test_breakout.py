@@ -3,7 +3,6 @@ from decimal import Decimal
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
 from agents.models import AgentConfig, ActionLevel
 from broker.models import Bar, Symbol, OrderSide
 
@@ -11,7 +10,12 @@ from broker.models import Bar, Symbol, OrderSide
 def _make_bars(closes, volumes, ticker="AAPL"):
     sym = Symbol(ticker=ticker)
     return [
-        Bar(symbol=sym, close=Decimal(str(c)), volume=v, timestamp=datetime(2026, 3, 30, tzinfo=timezone.utc))
+        Bar(
+            symbol=sym,
+            close=Decimal(str(c)),
+            volume=v,
+            timestamp=datetime(2026, 3, 30, tzinfo=timezone.utc),
+        )
         for c, v in zip(closes, volumes)
     ]
 
@@ -20,14 +24,18 @@ async def test_detects_resistance_breakout():
     from strategies.breakout import BreakoutAgent
 
     config = AgentConfig(
-        name="bo_test", strategy="breakout", schedule="cron",
+        name="bo_test",
+        strategy="breakout",
+        schedule="cron",
         action_level=ActionLevel.NOTIFY,
         universe=["AAPL"],
         parameters={"lookback_days": 50, "volume_threshold": 2.0},
     )
     agent = BreakoutAgent(config)
 
-    closes = [100 + (i % 10) * 0.5 for i in range(50)] + [110.0]  # last bar breaks above range
+    closes = [100 + (i % 10) * 0.5 for i in range(50)] + [
+        110.0
+    ]  # last bar breaks above range
     volumes = [1000] * 50 + [5000]  # 5x volume
 
     data = MagicMock()
@@ -44,7 +52,9 @@ async def test_no_signal_insufficient_volume():
     from strategies.breakout import BreakoutAgent
 
     config = AgentConfig(
-        name="bo_test", strategy="breakout", schedule="cron",
+        name="bo_test",
+        strategy="breakout",
+        schedule="cron",
         action_level=ActionLevel.NOTIFY,
         universe=["AAPL"],
         parameters={"lookback_days": 50, "volume_threshold": 2.0},
@@ -66,7 +76,9 @@ async def test_cooldown_prevents_repeat():
     from strategies.breakout import BreakoutAgent
 
     config = AgentConfig(
-        name="bo_test", strategy="breakout", schedule="cron",
+        name="bo_test",
+        strategy="breakout",
+        schedule="cron",
         action_level=ActionLevel.NOTIFY,
         universe=["AAPL"],
         parameters={"lookback_days": 50, "volume_threshold": 2.0, "cooldown_hours": 24},

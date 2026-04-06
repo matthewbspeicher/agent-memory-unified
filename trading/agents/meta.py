@@ -34,7 +34,9 @@ class MetaAgent(ManagerAgent):
         self.signal_bus.subscribe(self.handle_signal)
 
         self._boost_delta: float = config.parameters.get("boost_delta", 0.05)
-        self._max_cumulative: float = config.parameters.get("max_cumulative_boost", 0.15)
+        self._max_cumulative: float = config.parameters.get(
+            "max_cumulative_boost", 0.15
+        )
         self._boost_ttl_minutes: int = config.parameters.get("boost_ttl_minutes", 15)
 
         # Track active boosts: {agent_name: [(delta, expires_at, baseline_before_boost)]}
@@ -77,7 +79,10 @@ class MetaAgent(ManagerAgent):
             if ticker not in universe:
                 # Try fuzzy matching for Bittensor (e.g. BTCUSD vs BTC/USD)
                 clean_ticker = ticker.replace("/", "").replace("-", "")
-                if not any(u.replace("/", "").replace("-", "") == clean_ticker for u in universe):
+                if not any(
+                    u.replace("/", "").replace("-", "") == clean_ticker
+                    for u in universe
+                ):
                     continue
 
             baseline = config.parameters.get("confidence_threshold", 0.7)
@@ -88,7 +93,8 @@ class MetaAgent(ManagerAgent):
             if cumulative >= self._max_cumulative:
                 logger.debug(
                     "MetaAgent: %s already at max cumulative boost (%.2f)",
-                    agent_info.name, cumulative,
+                    agent_info.name,
+                    cumulative,
                 )
                 continue
 
@@ -96,7 +102,9 @@ class MetaAgent(ManagerAgent):
             boost_mult = 1.0
             if signal.signal_type == "bittensor_consensus":
                 # Scale boost by consensus agreement ratio
-                boost_mult = signal.payload.get("confidence", 1.0) * 2.0 # up to 2x normal boost
+                boost_mult = (
+                    signal.payload.get("confidence", 1.0) * 2.0
+                )  # up to 2x normal boost
 
             if direction == "bullish":
                 delta = -self._boost_delta * boost_mult
@@ -107,9 +115,10 @@ class MetaAgent(ManagerAgent):
             new_cumulative = abs((current + delta) - baseline)
             if new_cumulative > self._max_cumulative:
                 delta = (
-                    (-self._max_cumulative if direction == "bullish" else self._max_cumulative)
-                    - (current - baseline)
-                )
+                    -self._max_cumulative
+                    if direction == "bullish"
+                    else self._max_cumulative
+                ) - (current - baseline)
 
             new_threshold = round(current + delta, 2)
             new_threshold = max(0.1, min(0.95, new_threshold))
@@ -121,8 +130,13 @@ class MetaAgent(ManagerAgent):
 
             logger.info(
                 "MetaAgent: %s boost %+.2f on %s (ticker=%s, %s). Threshold: %.2f -> %.2f",
-                agent_info.name, delta, signal.signal_type, ticker, direction,
-                current, new_threshold,
+                agent_info.name,
+                delta,
+                signal.signal_type,
+                ticker,
+                direction,
+                current,
+                new_threshold,
             )
 
     def decay_expired_boosts(self) -> None:
@@ -162,7 +176,8 @@ class MetaAgent(ManagerAgent):
 
             logger.info(
                 "MetaAgent: decayed %d expired boosts for %s. Threshold -> %.2f",
-                len(expired), agent_name,
+                len(expired),
+                agent_name,
                 config.runtime_overrides.get(
                     "confidence_threshold",
                     config.parameters.get("confidence_threshold", 0.7),
@@ -197,13 +212,17 @@ class MetaAgent(ManagerAgent):
 
         final_score = min(1.0, signal_toxicity + external_toxicity)
         if final_score > 0.3:
-            logger.warning(f"MetaAgent: Toxicity detected for {ticker}: {final_score:.2f}")
-        
+            logger.warning(
+                f"MetaAgent: Toxicity detected for {ticker}: {final_score:.2f}"
+            )
+
         return final_score
 
     def _prune_signal_cache(self) -> None:
         now = datetime.now(timezone.utc)
         for ticker in list(self._signal_cache.keys()):
-            self._signal_cache[ticker] = [s for s in self._signal_cache[ticker] if s.expires_at > now]
+            self._signal_cache[ticker] = [
+                s for s in self._signal_cache[ticker] if s.expires_at > now
+            ]
             if not self._signal_cache[ticker]:
                 del self._signal_cache[ticker]

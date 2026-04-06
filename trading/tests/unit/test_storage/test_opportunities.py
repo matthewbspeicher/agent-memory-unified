@@ -21,9 +21,14 @@ async def store():
 
 def _opp(id="test-1", ticker="AAPL", signal="RSI_OVERSOLD"):
     return Opportunity(
-        id=id, agent_name="test-agent", symbol=Symbol(ticker=ticker),
-        signal=signal, confidence=0.85, reasoning="Test",
-        data={"rsi": 25.0}, timestamp=datetime.now(timezone.utc),
+        id=id,
+        agent_name="test-agent",
+        symbol=Symbol(ticker=ticker),
+        signal=signal,
+        confidence=0.85,
+        reasoning="Test",
+        data={"rsi": 25.0},
+        timestamp=datetime.now(timezone.utc),
     )
 
 
@@ -72,9 +77,15 @@ class TestOpportunityStore:
             account_id="test-account",
         )
         opp = Opportunity(
-            id="test-st", agent_name="test-agent", symbol=Symbol(ticker="AAPL"),
-            signal="RSI_OVERSOLD", confidence=0.9, reasoning="Test",
-            data={}, timestamp=datetime.now(timezone.utc), suggested_trade=trade,
+            id="test-st",
+            agent_name="test-agent",
+            symbol=Symbol(ticker="AAPL"),
+            signal="RSI_OVERSOLD",
+            confidence=0.9,
+            reasoning="Test",
+            data={},
+            timestamp=datetime.now(timezone.utc),
+            suggested_trade=trade,
         )
         await store.save(opp)
         result = await store.get(opp.id)

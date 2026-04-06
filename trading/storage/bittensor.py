@@ -72,7 +72,9 @@ class BittensorStore:
             )
         await self._db.commit()
 
-    async def get_raw_forecasts_by_window(self, window_id: str) -> list[RawMinerForecast]:
+    async def get_raw_forecasts_by_window(
+        self, window_id: str
+    ) -> list[RawMinerForecast]:
         cursor = await self._db.execute(
             "SELECT * FROM bittensor_raw_forecasts WHERE window_id = ?",
             (window_id,),
@@ -173,7 +175,9 @@ class BittensorStore:
         )
         await self._db.commit()
 
-    async def get_latest_view(self, symbol: str, timeframe: str) -> DerivedBittensorView | None:
+    async def get_latest_view(
+        self, symbol: str, timeframe: str
+    ) -> DerivedBittensorView | None:
         cursor = await self._db.execute(
             """SELECT * FROM bittensor_derived_views
                WHERE symbol = ? AND timeframe = ?
@@ -259,7 +263,9 @@ class BittensorStore:
                     symbol=r["symbol"],
                     timeframe=r["timeframe"],
                     collected_at=datetime.fromisoformat(r["timestamp"]),
-                    prediction_size=r["prediction_size"] if r["prediction_size"] is not None else prediction_size,
+                    prediction_size=r["prediction_size"]
+                    if r["prediction_size"] is not None
+                    else prediction_size,
                 )
             )
         return result
@@ -330,7 +336,9 @@ class BittensorStore:
             )
         await self._db.commit()
 
-    async def get_accuracy_for_window(self, window_id: str) -> list[MinerAccuracyRecord]:
+    async def get_accuracy_for_window(
+        self, window_id: str
+    ) -> list[MinerAccuracyRecord]:
         cursor = await self._db.execute(
             "SELECT * FROM bittensor_accuracy_records WHERE window_id = ?",
             (window_id,),

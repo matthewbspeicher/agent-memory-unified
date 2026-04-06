@@ -1,9 +1,11 @@
 from __future__ import annotations
-from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
 
-from integrations.bittensor.adapter import TaoshiProtocolAdapter, HASH_WINDOWS, FORWARD_WINDOWS
+from integrations.bittensor.adapter import (
+    TaoshiProtocolAdapter,
+    HASH_WINDOWS,
+    FORWARD_WINDOWS,
+)
 
 
 def test_protocol_constants():
@@ -52,7 +54,7 @@ async def test_validate_tensor_with_inf():
 import hashlib
 import json
 
-from integrations.bittensor.adapter import TaoshiProtocolAdapter, FORWARD_DELAY_SECONDS
+from integrations.bittensor.adapter import FORWARD_DELAY_SECONDS
 
 
 def test_forward_delay_constant():
@@ -76,7 +78,9 @@ def test_verify_hash_commitment_valid():
 
 def test_verify_hash_commitment_invalid():
     predictions = [0.1, 0.2, 0.3]
-    assert TaoshiProtocolAdapter.verify_hash_commitment("wrong_hash", predictions) is False
+    assert (
+        TaoshiProtocolAdapter.verify_hash_commitment("wrong_hash", predictions) is False
+    )
 
 
 def test_verify_hash_commitment_none():
@@ -87,9 +91,14 @@ def test_verify_hash_commitment_none():
 class TestGetIncentiveScores:
     def test_returns_scores_for_known_hotkeys(self):
         from unittest.mock import MagicMock
+
         adapter = TaoshiProtocolAdapter(
-            network="finney", endpoint="ws://localhost:9944",
-            wallet_name="w", hotkey_path="", hotkey="h", subnet_uid=8,
+            network="finney",
+            endpoint="ws://localhost:9944",
+            wallet_name="w",
+            hotkey_path="",
+            hotkey="h",
+            subnet_uid=8,
         )
         mg = MagicMock()
         mg.hotkeys = ["5Fhot1", "5Fhot2", "5Fhot3"]
@@ -101,9 +110,14 @@ class TestGetIncentiveScores:
 
     def test_missing_hotkey_returns_zero(self):
         from unittest.mock import MagicMock
+
         adapter = TaoshiProtocolAdapter(
-            network="finney", endpoint="ws://localhost:9944",
-            wallet_name="w", hotkey_path="", hotkey="h", subnet_uid=8,
+            network="finney",
+            endpoint="ws://localhost:9944",
+            wallet_name="w",
+            hotkey_path="",
+            hotkey="h",
+            subnet_uid=8,
         )
         mg = MagicMock()
         mg.hotkeys = ["5Fhot1"]
@@ -116,8 +130,12 @@ class TestGetIncentiveScores:
 
     def test_no_metagraph_returns_all_zeros(self):
         adapter = TaoshiProtocolAdapter(
-            network="finney", endpoint="ws://localhost:9944",
-            wallet_name="w", hotkey_path="", hotkey="h", subnet_uid=8,
+            network="finney",
+            endpoint="ws://localhost:9944",
+            wallet_name="w",
+            hotkey_path="",
+            hotkey="h",
+            subnet_uid=8,
         )
         adapter._metagraph = None
         scores = adapter.get_incentive_scores(["5Fhot1"])

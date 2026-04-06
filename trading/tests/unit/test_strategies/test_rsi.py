@@ -1,15 +1,17 @@
 from unittest.mock import AsyncMock, MagicMock
-import pytest
 
-from agents.models import ActionLevel, AgentConfig, OpportunityStatus
+from agents.models import ActionLevel, AgentConfig
 from broker.models import Symbol
 from strategies.rsi import RSIAgent
 
 
 def _make_config(**overrides):
     defaults = dict(
-        name="rsi-test", strategy="rsi", schedule="on_demand",
-        action_level=ActionLevel.NOTIFY, universe=["AAPL", "MSFT"],
+        name="rsi-test",
+        strategy="rsi",
+        schedule="on_demand",
+        action_level=ActionLevel.NOTIFY,
+        universe=["AAPL", "MSFT"],
         parameters={"period": 14, "oversold": 30, "overbought": 70},
     )
     defaults.update(overrides)
@@ -23,7 +25,9 @@ class TestRSIAgent:
 
     async def test_scan_oversold(self):
         bus = MagicMock()
-        bus.get_universe = MagicMock(return_value=[Symbol(ticker="AAPL"), Symbol(ticker="MSFT")])
+        bus.get_universe = MagicMock(
+            return_value=[Symbol(ticker="AAPL"), Symbol(ticker="MSFT")]
+        )
         bus.get_rsi = AsyncMock(side_effect=[25.0, 55.0])  # AAPL oversold, MSFT normal
         bus.get_quote = AsyncMock(return_value=MagicMock(last=150))
 

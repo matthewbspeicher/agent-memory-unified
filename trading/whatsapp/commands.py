@@ -3,10 +3,33 @@ from dataclasses import dataclass
 
 
 KNOWN_COMMANDS = {
-    "portfolio", "opportunities", "agents", "kill", "unkill",
-    "approve", "reject", "buy", "sell", "chart", "start", "stop", "help",
-    "pnl", "performance", "trust", "optimize", "tournament", "import", "markets",
-    "rank", "journal", "brief", "warroom", "backtest", "regime", "paper",
+    "portfolio",
+    "opportunities",
+    "agents",
+    "kill",
+    "unkill",
+    "approve",
+    "reject",
+    "buy",
+    "sell",
+    "chart",
+    "start",
+    "stop",
+    "help",
+    "pnl",
+    "performance",
+    "trust",
+    "optimize",
+    "tournament",
+    "import",
+    "markets",
+    "rank",
+    "journal",
+    "brief",
+    "warroom",
+    "backtest",
+    "regime",
+    "paper",
 }
 
 

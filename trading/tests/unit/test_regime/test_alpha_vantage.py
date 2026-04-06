@@ -1,4 +1,5 @@
 """Tests for Alpha Vantage economic indicator enrichment in RegimeDetector (Task 4)."""
+
 from __future__ import annotations
 
 import pytest
@@ -12,6 +13,7 @@ from regime.models import MarketRegime, RegimeSnapshot
 
 def _make_bar(close: float):
     from broker.models import Bar, Symbol, AssetType
+
     return Bar(
         symbol=Symbol(ticker="SPY", asset_type=AssetType.STOCK),
         timestamp=datetime.now(timezone.utc),
@@ -31,6 +33,7 @@ def _trending_bars(n: int = 60) -> list:
 # __init__ accepts alpha_vantage_key
 # ---------------------------------------------------------------------------
 
+
 def test_init_accepts_alpha_vantage_key():
     detector = RegimeDetector(alpha_vantage_key="AV-KEY")
     assert detector._alpha_vantage_key == "AV-KEY"
@@ -45,6 +48,7 @@ def test_init_default_key_is_none():
 # detect_with_snapshot_enriched
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_enriched_snapshot_contains_economic_data():
     """When AV key is set, detect_with_snapshot_enriched populates economic_data."""
@@ -54,7 +58,9 @@ async def test_enriched_snapshot_contains_economic_data():
         "gdp": {"date": "2025-10-01", "value": "23500.0"},
         "fed_rate": {"date": "2025-12-01", "value": "5.33"},
     }
-    with patch.object(detector, "_fetch_economic_indicators", new=AsyncMock(return_value=fake_econ)):
+    with patch.object(
+        detector, "_fetch_economic_indicators", new=AsyncMock(return_value=fake_econ)
+    ):
         snapshot = await detector.detect_with_snapshot_enriched(_trending_bars())
 
     assert snapshot.economic_data == fake_econ
@@ -66,7 +72,9 @@ async def test_enriched_snapshot_skips_fetch_when_no_key():
     """Without AV key, _fetch_economic_indicators is never called."""
     detector = RegimeDetector()  # no key
 
-    with patch.object(detector, "_fetch_economic_indicators", new=AsyncMock()) as mock_fetch:
+    with patch.object(
+        detector, "_fetch_economic_indicators", new=AsyncMock()
+    ) as mock_fetch:
         snapshot = await detector.detect_with_snapshot_enriched(_trending_bars())
 
     mock_fetch.assert_not_awaited()
@@ -79,7 +87,9 @@ async def test_enriched_snapshot_handles_fetch_failure_gracefully():
     detector = RegimeDetector(alpha_vantage_key="AV-KEY")
 
     with patch.object(
-        detector, "_fetch_economic_indicators", new=AsyncMock(return_value={"gdp": None, "fed_rate": None})
+        detector,
+        "_fetch_economic_indicators",
+        new=AsyncMock(return_value={"gdp": None, "fed_rate": None}),
     ):
         snapshot = await detector.detect_with_snapshot_enriched(_trending_bars())
 
@@ -91,12 +101,23 @@ async def test_enriched_snapshot_handles_fetch_failure_gracefully():
 # _fetch_economic_indicators
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_fetch_economic_indicators_returns_latest_entries():
     detector = RegimeDetector(alpha_vantage_key="AV-KEY")
 
-    gdp_json = {"data": [{"date": "2025-10-01", "value": "23500.0"}, {"date": "2025-07-01", "value": "23100.0"}]}
-    rate_json = {"data": [{"date": "2025-12-01", "value": "5.33"}, {"date": "2025-11-01", "value": "5.33"}]}
+    gdp_json = {
+        "data": [
+            {"date": "2025-10-01", "value": "23500.0"},
+            {"date": "2025-07-01", "value": "23100.0"},
+        ]
+    }
+    rate_json = {
+        "data": [
+            {"date": "2025-12-01", "value": "5.33"},
+            {"date": "2025-11-01", "value": "5.33"},
+        ]
+    }
 
     call_count = 0
 
@@ -149,11 +170,15 @@ async def test_fetch_economic_indicators_handles_http_error():
 # RegimeSnapshot.economic_data in to_dict()
 # ---------------------------------------------------------------------------
 
+
 def test_regime_snapshot_to_dict_includes_economic_data():
     snap = RegimeSnapshot(
         regime=MarketRegime.SIDEWAYS,
         detected_at=datetime.now(timezone.utc),
-        economic_data={"gdp": {"date": "2025-10-01", "value": "23500.0"}, "fed_rate": None},
+        economic_data={
+            "gdp": {"date": "2025-10-01", "value": "23500.0"},
+            "fed_rate": None,
+        },
     )
     d = snap.to_dict()
     assert "economic_data" in d

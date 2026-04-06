@@ -11,19 +11,19 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, constr
 
 class Agent(BaseModel):
     model_config = ConfigDict(
-        extra='forbid',
+        extra="forbid",
     )
-    id: UUID = Field(..., description='Unique agent identifier')
+    id: UUID = Field(..., description="Unique agent identifier")
     name: constr(min_length=1, max_length=255) = Field(
-        ..., description='Agent display name'
+        ..., description="Agent display name"
     )
-    owner_id: UUID = Field(..., description='User who owns this agent')
+    owner_id: UUID = Field(..., description="User who owns this agent")
     token_hash: constr(min_length=64, max_length=64) | None = Field(
-        None, description='SHA256 hash of agent token (amc_*)'
+        None, description="SHA256 hash of agent token (amc_*)"
     )
-    is_active: bool = Field(..., description='Whether agent can make API calls')
-    scopes: list[constr(pattern=r'^[a-z]+:(read|write|execute)$')] | None = Field(
-        None, description='Permitted operations (memories:write, trading:execute)'
+    is_active: bool = Field(..., description="Whether agent can make API calls")
+    scopes: list[constr(pattern=r"^[a-z]+:(read|write|execute)$")] | None = Field(
+        None, description="Permitted operations (memories:write, trading:execute)"
     )
     created_at: AwareDatetime | None = None
     updated_at: AwareDatetime | None = None

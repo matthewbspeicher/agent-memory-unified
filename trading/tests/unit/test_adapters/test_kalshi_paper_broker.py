@@ -1,9 +1,9 @@
 """Unit tests for KalshiPaperBroker."""
+
 from __future__ import annotations
 
 import pytest
 from decimal import Decimal
-from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock
 
 from broker.models import AssetType, LimitOrder, OrderSide, OrderStatus, Symbol, TIF
@@ -13,7 +13,9 @@ def _prediction_symbol(ticker: str = "HIGHNY-26MAR-B72") -> Symbol:
     return Symbol(ticker=ticker, asset_type=AssetType.PREDICTION)
 
 
-def _limit_order(ticker: str, side: OrderSide, price_prob: str, qty: int = 10) -> LimitOrder:
+def _limit_order(
+    ticker: str, side: OrderSide, price_prob: str, qty: int = 10
+) -> LimitOrder:
     return LimitOrder(
         symbol=_prediction_symbol(ticker),
         side=side,
@@ -28,6 +30,7 @@ class TestKalshiPaperBrokerPlaceOrder:
     @pytest.mark.asyncio
     async def test_place_buy_yes_returns_filled(self):
         from adapters.kalshi.paper import KalshiPaperBroker
+
         store = AsyncMock()
         store.get_balance = AsyncMock(return_value=MagicMock(cash=Decimal("1000")))
         store.record_fill = AsyncMock()
@@ -47,6 +50,7 @@ class TestKalshiPaperBrokerPlaceOrder:
     @pytest.mark.asyncio
     async def test_place_order_records_fill_in_store(self):
         from adapters.kalshi.paper import KalshiPaperBroker
+
         store = AsyncMock()
         store.get_balance = AsyncMock(return_value=MagicMock(cash=Decimal("1000")))
         store.record_fill = AsyncMock()
@@ -67,6 +71,7 @@ class TestKalshiPaperBrokerResolution:
     async def test_yes_resolution_credits_full_dollar(self):
         """YES resolution pays $1.00 per contract regardless of entry price."""
         from adapters.kalshi.paper import KalshiPaperBroker, KALSHI_PAPER_ACCOUNT_ID
+
         store = AsyncMock()
         store.get_balance = AsyncMock(return_value=MagicMock(cash=Decimal("1000")))
         store.record_fill = AsyncMock()
@@ -96,6 +101,7 @@ class TestKalshiPaperBrokerResolution:
     async def test_no_resolution_loses_entry_price(self):
         """NO resolution: YES holders lose their entry price."""
         from adapters.kalshi.paper import KalshiPaperBroker, KALSHI_PAPER_ACCOUNT_ID
+
         store = AsyncMock()
         store.record_binary_resolution = AsyncMock()
 
@@ -117,6 +123,7 @@ class TestKalshiPaperBrokerResolution:
     async def test_cancelled_resolution_refunds_entry_price(self):
         """CANCELLED resolution refunds at entry price."""
         from adapters.kalshi.paper import KalshiPaperBroker, KALSHI_PAPER_ACCOUNT_ID
+
         store = AsyncMock()
         store.record_binary_resolution = AsyncMock()
 
@@ -138,6 +145,7 @@ class TestKalshiPaperBrokerResolution:
     async def test_slippage_applied_on_buy(self):
         """Buy fills at limit_price + slippage_cents/100."""
         from adapters.kalshi.paper import KalshiPaperBroker
+
         store = AsyncMock()
         store.get_balance = AsyncMock(return_value=MagicMock(cash=Decimal("1000")))
         store.record_fill = AsyncMock()
@@ -153,6 +161,7 @@ class TestKalshiPaperBrokerResolution:
     async def test_slippage_applied_on_sell(self):
         """Sell fills at limit_price - slippage_cents/100."""
         from adapters.kalshi.paper import KalshiPaperBroker
+
         store = AsyncMock()
         store.get_balance = AsyncMock(return_value=MagicMock(cash=Decimal("1000")))
         store.record_fill = AsyncMock()
@@ -168,6 +177,7 @@ class TestKalshiPaperBrokerResolution:
     async def test_non_limit_order_is_rejected(self):
         from adapters.kalshi.paper import KalshiPaperBroker
         from broker.models import MarketOrder
+
         store = AsyncMock()
         broker = KalshiPaperBroker(store=store)
         order = MarketOrder(
@@ -186,7 +196,7 @@ class TestPaperStoreKalshiResolution:
         """Real in-memory PaperStore with a seeded prediction position."""
         import aiosqlite
         from storage.paper import PaperStore
-        from broker.models import Symbol, AssetType, OrderSide
+
         db_path = str(tmp_path / "test.db")
         async with aiosqlite.connect(db_path) as db:
             db.row_factory = aiosqlite.Row
@@ -198,6 +208,7 @@ class TestPaperStoreKalshiResolution:
     async def test_yes_resolution_pnl_calculation(self, store_with_position):
         """record_kalshi_resolution with YES: payout=$1.00/contract, P&L=payout-cost."""
         from broker.models import Symbol, AssetType, OrderSide
+
         store, db = store_with_position
         sym = Symbol(ticker="MKT-001", asset_type=AssetType.PREDICTION)
 
@@ -226,6 +237,7 @@ class TestPaperStoreKalshiResolution:
     async def test_no_resolution_pnl_is_negative_entry_cost(self, store_with_position):
         """record_kalshi_resolution with NO: payout=$0, realized=-entry_cost."""
         from broker.models import Symbol, AssetType, OrderSide
+
         store, db = store_with_position
         sym = Symbol(ticker="MKT-002", asset_type=AssetType.PREDICTION)
 

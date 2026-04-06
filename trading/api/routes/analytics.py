@@ -9,13 +9,17 @@ from storage.performance import PerformanceSnapshot, PerformanceStore
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
+
 @router.get("/digest", response_class=HTMLResponse)
 async def get_daily_digest(request: Request, _: str = Depends(verify_api_key)):
     db = request.app.state.db
     generator = DigestGenerator(db)
     return await generator.generate_daily_digest()
 
-@router.get("/agents/{agent_name}/performance", response_model=list[PerformanceSnapshot])
+
+@router.get(
+    "/agents/{agent_name}/performance", response_model=list[PerformanceSnapshot]
+)
 async def get_agent_performance(
     request: Request,
     agent_name: str,

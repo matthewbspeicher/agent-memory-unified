@@ -1,7 +1,6 @@
 from __future__ import annotations
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 from datetime import datetime, timezone, timedelta
-from decimal import Decimal
 import pytest
 
 from agents.models import ActionLevel, AgentConfig
@@ -328,7 +327,7 @@ class TestEnsembleOptimizer:
         assert optimizer._cached_weights is None
 
         # Scan will try to fetch performance (returns empty in test)
-        opportunities = await optimizer.scan(data_bus)
+        await optimizer.scan(data_bus)
 
         # No agents with data, so no weights
         assert optimizer._cached_weights is None

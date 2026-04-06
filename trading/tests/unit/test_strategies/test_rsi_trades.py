@@ -2,7 +2,6 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock
 from decimal import Decimal
 
-import pytest
 from agents.models import AgentConfig, ActionLevel
 from broker.models import OrderSide
 
@@ -11,7 +10,9 @@ async def test_rsi_oversold_includes_buy_trade():
     from strategies.rsi import RSIAgent
 
     config = AgentConfig(
-        name="test_rsi", strategy="rsi", schedule="cron",
+        name="test_rsi",
+        strategy="rsi",
+        schedule="cron",
         action_level=ActionLevel.AUTO_EXECUTE,
         parameters={"oversold": 30, "overbought": 70, "period": 14},
     )
@@ -34,7 +35,9 @@ async def test_rsi_overbought_no_trade():
     from strategies.rsi import RSIAgent
 
     config = AgentConfig(
-        name="test_rsi", strategy="rsi", schedule="cron",
+        name="test_rsi",
+        strategy="rsi",
+        schedule="cron",
         action_level=ActionLevel.AUTO_EXECUTE,
         parameters={"oversold": 30, "overbought": 70, "period": 14},
     )

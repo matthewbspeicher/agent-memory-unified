@@ -4,6 +4,7 @@ NormalizedContract — comparable probability + liquidity representation.
 Normalises PredictionContract fields from Kalshi and Polymarket into
 a unified view used by CrossPlatformArbAgent and SpreadTracker.
 """
+
 from __future__ import annotations
 
 import math
@@ -20,14 +21,14 @@ class NormalizedContract:
     ticker: str
     platform: Literal["kalshi", "polymarket"]
     title: str
-    category: str                   # normalised category string
+    category: str  # normalised category string
     close_time: datetime
-    mid_prob: float                 # 0.0–1.0, best available mid
-    bid_prob: float | None          # 0.0–1.0
-    ask_prob: float | None          # 0.0–1.0
-    spread_prob: float | None       # ask_prob - bid_prob, or None
-    volume_usd_24h: float           # always in USD notional
-    liquidity_score: float          # 0.0–1.0 composite
+    mid_prob: float  # 0.0–1.0, best available mid
+    bid_prob: float | None  # 0.0–1.0
+    ask_prob: float | None  # 0.0–1.0
+    spread_prob: float | None  # ask_prob - bid_prob, or None
+    volume_usd_24h: float  # always in USD notional
+    liquidity_score: float  # 0.0–1.0 composite
 
 
 def _mid(bid: int | None, ask: int | None, last: int | None) -> float:
@@ -57,7 +58,11 @@ def normalize_contract(
 ) -> NormalizedContract:
     bid_prob = c.yes_bid / 100 if c.yes_bid is not None else None
     ask_prob = c.yes_ask / 100 if c.yes_ask is not None else None
-    spread_prob = (ask_prob - bid_prob) if (bid_prob is not None and ask_prob is not None) else None
+    spread_prob = (
+        (ask_prob - bid_prob)
+        if (bid_prob is not None and ask_prob is not None)
+        else None
+    )
     mid = _mid(c.yes_bid, c.yes_ask, c.yes_last)
 
     # Volume normalisation
@@ -76,8 +81,9 @@ def normalize_contract(
         platform=platform,
         title=c.title,
         category=normalize_category(c.category),
-        close_time=c.close_time if isinstance(c.close_time, datetime)
-            else datetime.fromisoformat(str(c.close_time).replace("Z", "+00:00")),
+        close_time=c.close_time
+        if isinstance(c.close_time, datetime)
+        else datetime.fromisoformat(str(c.close_time).replace("Z", "+00:00")),
         mid_prob=mid,
         bid_prob=bid_prob,
         ask_prob=ask_prob,

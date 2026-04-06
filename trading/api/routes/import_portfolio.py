@@ -22,16 +22,19 @@ def create_import_router(store: ExternalPortfolioStore) -> APIRouter:
 
         # Group positions by account
         from collections import defaultdict
+
         by_account: dict[str, list] = defaultdict(list)
         for p in positions:
-            by_account[p.account_id].append({
-                "symbol": p.symbol,
-                "description": p.description,
-                "quantity": str(p.quantity),
-                "last_price": str(p.last_price),
-                "current_value": str(p.current_value),
-                "cost_basis": str(p.cost_basis) if p.cost_basis else None,
-            })
+            by_account[p.account_id].append(
+                {
+                    "symbol": p.symbol,
+                    "description": p.description,
+                    "quantity": str(p.quantity),
+                    "last_price": str(p.last_price),
+                    "current_value": str(p.current_value),
+                    "cost_basis": str(p.cost_basis) if p.cost_basis else None,
+                }
+            )
 
         accounts_summary = []
         for account_id, acct_positions in by_account.items():
@@ -46,12 +49,14 @@ def create_import_router(store: ExternalPortfolioStore) -> APIRouter:
                     "cash": str(bal.cash) if bal else "0",
                 },
             )
-            accounts_summary.append({
-                "id": account_id,
-                "name": bal.account_name if bal else "",
-                "positions": len(acct_positions),
-                "value": str(bal.net_liquidation) if bal else "0",
-            })
+            accounts_summary.append(
+                {
+                    "id": account_id,
+                    "name": bal.account_name if bal else "",
+                    "positions": len(acct_positions),
+                    "value": str(bal.net_liquidation) if bal else "0",
+                }
+            )
 
         # Import cash-only accounts that have balances but no positions
         for account_id, bal in balances.items():
@@ -66,12 +71,14 @@ def create_import_router(store: ExternalPortfolioStore) -> APIRouter:
                         "cash": str(bal.cash),
                     },
                 )
-                accounts_summary.append({
-                    "id": account_id,
-                    "name": bal.account_name,
-                    "positions": 0,
-                    "value": str(bal.net_liquidation),
-                })
+                accounts_summary.append(
+                    {
+                        "id": account_id,
+                        "name": bal.account_name,
+                        "positions": 0,
+                        "value": str(bal.net_liquidation),
+                    }
+                )
 
         return {
             "accounts_imported": len(accounts_summary),

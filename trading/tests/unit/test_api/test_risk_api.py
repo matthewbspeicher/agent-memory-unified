@@ -10,6 +10,7 @@ from risk.rules import MaxPositionSize
 @pytest.fixture
 def risk_client(mock_broker):
     import os
+
     os.environ["STA_API_KEY"] = "test-key"
     from api.app import create_app
     from api.routes.risk import router as risk_router
@@ -45,7 +46,11 @@ class TestRiskAPI:
 
     def test_disable_kill_switch(self, risk_client):
         # Enable first, then disable
-        risk_client.post("/risk/kill-switch", json={"enabled": True}, headers={"X-API-Key": "test-key"})
+        risk_client.post(
+            "/risk/kill-switch",
+            json={"enabled": True},
+            headers={"X-API-Key": "test-key"},
+        )
         resp = risk_client.post(
             "/risk/kill-switch",
             json={"enabled": False},

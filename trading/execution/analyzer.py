@@ -1,4 +1,5 @@
 """ExecutionAnalyzer — detects edge erosion from persistent slippage."""
+
 from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
@@ -34,7 +35,9 @@ class ExecutionAnalyzer:
         if eroding:
             logger.warning(
                 "Edge erosion detected for %s: avg slippage=%.1f bps (threshold=%.1f bps)",
-                agent_name, avg, self._threshold,
+                agent_name,
+                avg,
+                self._threshold,
             )
         return eroding
 

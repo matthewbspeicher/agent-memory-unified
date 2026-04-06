@@ -12,7 +12,9 @@ from api.deps import get_opportunity_store
 router = APIRouter(prefix="/opportunities", tags=["opportunities"])
 
 
-def _verify_signature(api_key: str, opportunity_id: str, action: str, ts: str, sig: str) -> bool:
+def _verify_signature(
+    api_key: str, opportunity_id: str, action: str, ts: str, sig: str
+) -> bool:
     try:
         ts_int = int(ts)
     except ValueError:
@@ -36,7 +38,9 @@ async def list_opportunities(
     _: str = Depends(verify_api_key),
 ):
     store = get_opportunity_store()
-    return await store.list(agent_name=agent_name, symbol=symbol, signal=signal, limit=limit)
+    return await store.list(
+        agent_name=agent_name, symbol=symbol, signal=signal, limit=limit
+    )
 
 
 @router.get("/{opportunity_id}")
@@ -110,36 +114,42 @@ async def reject_opportunity_authenticated(opportunity_id: str):
 
 
 @router.get("/{opportunity_id}/snapshot")
-async def get_opportunity_snapshot(opportunity_id: str, _: str = Depends(verify_api_key)):
+async def get_opportunity_snapshot(
+    opportunity_id: str, _: str = Depends(verify_api_key)
+):
     store = get_opportunity_store()
     snapshot = await store.get_snapshot(opportunity_id)
     if not snapshot:
         raise HTTPException(status_code=404, detail="Snapshot not found")
     return snapshot
 
+
 @router.get("/{opportunity_id}/consensus")
-async def get_opportunity_consensus(opportunity_id: str, _: str = Depends(verify_api_key)):
+async def get_opportunity_consensus(
+    opportunity_id: str, _: str = Depends(verify_api_key)
+):
     store = get_opportunity_store()
     opp = await store.get(opportunity_id)
     if not opp:
         raise HTTPException(status_code=404, detail="Opportunity not found")
-        
+
     settings = _get_settings()
     if not settings.remembr_agent_token:
         return {"status": "disabled", "data": []}
-        
+
     ticker = opp.symbol.ticker if opp.symbol else ""
     if not ticker:
         return {"status": "ok", "data": []}
-        
+
     import httpx
+
     async with httpx.AsyncClient() as client:
         try:
             resp = await client.get(
                 f"{settings.remembr_base_url}/search",
                 params={"q": ticker},
                 headers={"Authorization": f"Bearer {settings.remembr_agent_token}"},
-                timeout=settings.remembr_timeout
+                timeout=settings.remembr_timeout,
             )
             resp.raise_for_status()
             data = resp.json()

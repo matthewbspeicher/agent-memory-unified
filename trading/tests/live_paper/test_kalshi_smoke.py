@@ -4,9 +4,9 @@ Kalshi demo API smoke tests.
 Marked @pytest.mark.live_paper — not run in normal CI.
 Requires: STA_KALSHI_KEY_ID, STA_KALSHI_PRIVATE_KEY_PATH, STA_KALSHI_DEMO=true
 """
+
 from __future__ import annotations
 
-import os
 
 import pytest
 
@@ -36,7 +36,11 @@ async def test_rsa_auth_balance(kalshi_client):
     balance = await kalshi_client.get_balance()
     assert isinstance(balance, dict)
     # Kalshi demo balance has at least one of these keys
-    assert "available_balance" in balance or "portfolio_value" in balance or "balance" in balance
+    assert (
+        "available_balance" in balance
+        or "portfolio_value" in balance
+        or "balance" in balance
+    )
 
 
 @pytest.mark.timeout(30)
@@ -59,6 +63,7 @@ async def test_get_quote_via_data_source(kalshi_client):
     """KalshiDataSource.get_quote() returns a Quote with non-None bid or ask."""
     from adapters.kalshi.data_source import KalshiDataSource
     from broker.models import AssetType, Symbol
+
     ds = KalshiDataSource(kalshi_client)
     page = await kalshi_client.get_markets(status="open", limit=10)
     markets = page.get("markets", [])
@@ -114,6 +119,9 @@ async def test_place_and_cancel_paper_order(kalshi_paper_broker, kalshi_client):
         time_in_force=TIF.GTC,
     )
     from broker.models import OrderStatus
-    result = await kalshi_paper_broker.orders.place_order(KALSHI_PAPER_ACCOUNT_ID, order)
+
+    result = await kalshi_paper_broker.orders.place_order(
+        KALSHI_PAPER_ACCOUNT_ID, order
+    )
     assert result.status == OrderStatus.FILLED
     assert result.filled_quantity == Decimal("5")

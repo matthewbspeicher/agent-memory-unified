@@ -21,6 +21,7 @@ agents.yaml example:
       min_volume: 300
       categories: ["economics", "politics"]
 """
+
 from __future__ import annotations
 
 import logging
@@ -74,20 +75,21 @@ class KalshiTimeDecayAgent(StructuredAgent):
                 yes_price = contract.yes_bid
                 if yes_price is None:
                     continue
-                    
+
                 if yes_price <= max_price:
                     action = OrderSide.SELL
                     target_cents = yes_price
                     direction = "SELL_YES"
-                    score_base = 100 - yes_price
+                    100 - yes_price
                     reason = f"Selling YES to capture {yes_price}¢ time value."
                 elif yes_price >= (100 - max_price):
                     no_price = 100 - yes_price
                     action = OrderSide.BUY
                     target_cents = no_price
                     direction = "SELL_NO"
-                    score_base = yes_price
-                    reason = f"Selling NO (Buying NO) to capture {no_price}¢ time value."
+                    reason = (
+                        f"Selling NO (Buying NO) to capture {no_price}¢ time value."
+                    )
                 else:
                     continue
 
@@ -114,31 +116,39 @@ class KalshiTimeDecayAgent(StructuredAgent):
                 )
 
                 # Confidence scales with: extreme price & very near expiry
-                price_extremity = (max_price - yes_price) / max_price if direction == "SELL_YES" else (yes_price - (100 - max_price)) / max_price
+                price_extremity = (
+                    (max_price - yes_price) / max_price
+                    if direction == "SELL_YES"
+                    else (yes_price - (100 - max_price)) / max_price
+                )
                 price_extremity = max(0.0, price_extremity)
-                confidence = round((0.2 + 0.8 * price_extremity) * (1 - days_left / max_days) * 0.85, 3)
+                confidence = round(
+                    (0.2 + 0.8 * price_extremity) * (1 - days_left / max_days) * 0.85, 3
+                )
 
-                opportunities.append(Opportunity(
-                    id=str(uuid.uuid4()),
-                    agent_name=self.name,
-                    symbol=symbol,
-                    signal=direction,
-                    confidence=confidence,
-                    reasoning=(
-                        f"Near-certain market expiring in {days_left:.1f}d at {yes_price}¢. "
-                        f"{reason}\nQ: {contract.title}"
-                    ),
-                    data={
-                        "category": contract.category,
-                        "yes_price_cents": yes_price,
-                        "days_to_close": round(days_left, 2),
-                        "volume_24h": contract.volume_24h,
-                        "close_time": contract.close_time.isoformat(),
-                    },
-                    timestamp=datetime.now(timezone.utc),
-                    suggested_trade=suggested,
-                    status=OpportunityStatus.PENDING,
-                ))
+                opportunities.append(
+                    Opportunity(
+                        id=str(uuid.uuid4()),
+                        agent_name=self.name,
+                        symbol=symbol,
+                        signal=direction,
+                        confidence=confidence,
+                        reasoning=(
+                            f"Near-certain market expiring in {days_left:.1f}d at {yes_price}¢. "
+                            f"{reason}\nQ: {contract.title}"
+                        ),
+                        data={
+                            "category": contract.category,
+                            "yes_price_cents": yes_price,
+                            "days_to_close": round(days_left, 2),
+                            "volume_24h": contract.volume_24h,
+                            "close_time": contract.close_time.isoformat(),
+                        },
+                        timestamp=datetime.now(timezone.utc),
+                        suggested_trade=suggested,
+                        status=OpportunityStatus.PENDING,
+                    )
+                )
 
         # Sort by highest confidence (lowest price, nearest expiry)
         opportunities.sort(key=lambda o: o.confidence, reverse=True)

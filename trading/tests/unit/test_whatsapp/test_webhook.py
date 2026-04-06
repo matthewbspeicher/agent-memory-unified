@@ -15,6 +15,7 @@ ALLOWED = "15551234567"
 @pytest.fixture
 def app():
     from unittest.mock import AsyncMock
+
     assistant = AsyncMock()
     wa_router = create_webhook_router(
         assistant=assistant,
@@ -30,11 +31,14 @@ def app():
 def test_verify_challenge(app):
     fast_app, _ = app
     client = TestClient(fast_app)
-    resp = client.get("/webhook/whatsapp", params={
-        "hub.mode": "subscribe",
-        "hub.verify_token": VERIFY_TOKEN,
-        "hub.challenge": "challenge-123",
-    })
+    resp = client.get(
+        "/webhook/whatsapp",
+        params={
+            "hub.mode": "subscribe",
+            "hub.verify_token": VERIFY_TOKEN,
+            "hub.challenge": "challenge-123",
+        },
+    )
     assert resp.status_code == 200
     assert resp.text == "challenge-123"
 
@@ -42,11 +46,14 @@ def test_verify_challenge(app):
 def test_verify_wrong_token(app):
     fast_app, _ = app
     client = TestClient(fast_app)
-    resp = client.get("/webhook/whatsapp", params={
-        "hub.mode": "subscribe",
-        "hub.verify_token": "wrong",
-        "hub.challenge": "challenge-123",
-    })
+    resp = client.get(
+        "/webhook/whatsapp",
+        params={
+            "hub.mode": "subscribe",
+            "hub.verify_token": "wrong",
+            "hub.challenge": "challenge-123",
+        },
+    )
     assert resp.status_code == 403
 
 
@@ -56,18 +63,24 @@ def _sign(body: bytes, secret: str) -> str:
 
 def _make_payload(phone: str, text: str, msg_id: str = "msg-1"):
     return {
-        "entry": [{
-            "changes": [{
-                "value": {
-                    "messages": [{
-                        "from": phone,
-                        "type": "text",
-                        "text": {"body": text},
-                        "id": msg_id,
-                    }]
-                }
-            }]
-        }]
+        "entry": [
+            {
+                "changes": [
+                    {
+                        "value": {
+                            "messages": [
+                                {
+                                    "from": phone,
+                                    "type": "text",
+                                    "text": {"body": text},
+                                    "id": msg_id,
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        ]
     }
 
 
@@ -91,7 +104,10 @@ def test_post_invalid_signature(app):
     resp = client.post(
         "/webhook/whatsapp",
         content=body,
-        headers={"X-Hub-Signature-256": "sha256=wrong", "Content-Type": "application/json"},
+        headers={
+            "X-Hub-Signature-256": "sha256=wrong",
+            "Content-Type": "application/json",
+        },
     )
     assert resp.status_code == 401
 

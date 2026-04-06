@@ -25,10 +25,10 @@ class AnalyticsAgent(Agent):
     def __init__(
         self,
         config: AgentConfig | dict[str, Any],
-        runner: 'AgentRunner | None' = None,
-        opp_store: 'OpportunityStore | None' = None,
-        perf_store: 'PerformanceStore | None' = None,
-        trade_store: 'TradeStore | None' = None,
+        runner: "AgentRunner | None" = None,
+        opp_store: "OpportunityStore | None" = None,
+        perf_store: "PerformanceStore | None" = None,
+        trade_store: "TradeStore | None" = None,
     ):
         super().__init__(config)
         self._runner = runner
@@ -102,7 +102,7 @@ class AnalyticsAgent(Agent):
                 pnl_values.append(-gross - commission)
         return pnl_values
 
-    async def scan(self, data_bus: 'DataBus') -> list[Opportunity]:
+    async def scan(self, data_bus: "DataBus") -> list[Opportunity]:
         if not self._runner or not self._opp_store or not self._perf_store:
             logger.warning("AnalyticsAgent missing dependencies, skipping scan")
             return []
@@ -133,7 +133,10 @@ class AnalyticsAgent(Agent):
             await self._perf_store.save(snapshot)
             logger.info(
                 "Saved performance snapshot for %s: win_rate=%.2f sharpe=%.4f max_dd=%.4f",
-                agent_info.name, win_rate, sharpe, max_dd,
+                agent_info.name,
+                win_rate,
+                sharpe,
+                max_dd,
             )
 
         return []

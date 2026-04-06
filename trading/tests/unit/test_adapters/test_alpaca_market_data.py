@@ -11,15 +11,17 @@ async def test_get_quote_maps_correctly():
     from adapters.alpaca.market_data import AlpacaMarketDataProvider
 
     mock_client = MagicMock()
-    mock_client.get_quote = AsyncMock(return_value={
-        "quote": {
-            "ap": 150.50,
-            "bp": 150.45,
-            "as": 100,
-            "bs": 200,
-            "t": "2026-03-30T12:00:00Z",
+    mock_client.get_quote = AsyncMock(
+        return_value={
+            "quote": {
+                "ap": 150.50,
+                "bp": 150.45,
+                "as": 100,
+                "bs": 200,
+                "t": "2026-03-30T12:00:00Z",
+            }
         }
-    })
+    )
 
     provider = AlpacaMarketDataProvider(mock_client)
     quote = await provider.get_quote(Symbol(ticker="AAPL"))
@@ -34,10 +36,26 @@ async def test_get_historical_maps_bars():
     from adapters.alpaca.market_data import AlpacaMarketDataProvider
 
     mock_client = MagicMock()
-    mock_client.get_bars = AsyncMock(return_value=[
-        {"t": "2026-03-30T12:00:00Z", "o": 150.0, "h": 151.0, "l": 149.0, "c": 150.5, "v": 1000},
-        {"t": "2026-03-30T12:01:00Z", "o": 150.5, "h": 152.0, "l": 150.0, "c": 151.5, "v": 1200},
-    ])
+    mock_client.get_bars = AsyncMock(
+        return_value=[
+            {
+                "t": "2026-03-30T12:00:00Z",
+                "o": 150.0,
+                "h": 151.0,
+                "l": 149.0,
+                "c": 150.5,
+                "v": 1000,
+            },
+            {
+                "t": "2026-03-30T12:01:00Z",
+                "o": 150.5,
+                "h": 152.0,
+                "l": 150.0,
+                "c": 151.5,
+                "v": 1200,
+            },
+        ]
+    )
 
     provider = AlpacaMarketDataProvider(mock_client)
     bars = await provider.get_historical(Symbol(ticker="AAPL"), "1d", "3mo")

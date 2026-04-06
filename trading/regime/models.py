@@ -1,4 +1,5 @@
 """Market regime models."""
+
 from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
@@ -7,6 +8,7 @@ from enum import Enum
 
 class MarketRegime(str, Enum):
     """Current market regime classification."""
+
     TRENDING_UP = "trending_up"
     TRENDING_DOWN = "trending_down"
     SIDEWAYS = "sideways"
@@ -18,13 +20,16 @@ class MarketRegime(str, Enum):
 @dataclass
 class RegimeSnapshot:
     """A detected regime with supporting indicator values."""
+
     regime: MarketRegime
     detected_at: datetime
-    adx: float | None = None          # Average Directional Index (trend strength)
+    adx: float | None = None  # Average Directional Index (trend strength)
     volatility_pct: float | None = None  # Annualized volatility estimate
-    sma_slope: float | None = None    # Slope of 50-bar SMA (normalized)
+    sma_slope: float | None = None  # Slope of 50-bar SMA (normalized)
     bars_analyzed: int = 0
-    economic_data: dict | None = None  # Supplementary Alpha Vantage data (GDP, Fed rate)
+    economic_data: dict | None = (
+        None  # Supplementary Alpha Vantage data (GDP, Fed rate)
+    )
 
     def to_dict(self) -> dict:
         return {
@@ -40,6 +45,7 @@ class RegimeSnapshot:
 
 class LiquidityRegime(str, Enum):
     """Liquidity regime classification for a specific prediction market symbol."""
+
     FAVORABLE = "FAVORABLE"
     UNFAVORABLE = "UNFAVORABLE"
     UNKNOWN = "UNKNOWN"
@@ -48,10 +54,11 @@ class LiquidityRegime(str, Enum):
 @dataclass
 class LiquiditySnapshot:
     """A detected liquidity regime with supporting market data for a specific symbol."""
+
     regime: LiquidityRegime
-    spread_cents: float        # bid-ask spread for this symbol in cents
-    volume_24h: float          # 24h volume
-    symbol: str                # which symbol this is for
+    spread_cents: float  # bid-ask spread for this symbol in cents
+    volume_24h: float  # 24h volume
+    symbol: str  # which symbol this is for
     detected_at: datetime
 
     def to_dict(self) -> dict:

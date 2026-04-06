@@ -17,7 +17,11 @@ class ConfigLoader:
         app_root: pathlib.Path | str | None = None,
         docker_root: str = "/app",
     ) -> None:
-        self._app_root = pathlib.Path(app_root) if app_root else pathlib.Path(__file__).resolve().parent.parent
+        self._app_root = (
+            pathlib.Path(app_root)
+            if app_root
+            else pathlib.Path(__file__).resolve().parent.parent
+        )
         self._docker_root = docker_root
         self._cache: dict[str, Any] = {}
 

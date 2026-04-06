@@ -1,4 +1,5 @@
 """Market regime detection API routes."""
+
 from __future__ import annotations
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -11,7 +12,9 @@ router = APIRouter(tags=["Market Regime"], dependencies=[Depends(verify_api_key)
 
 
 @router.get("/regime")
-async def get_current_regime(request: Request, symbol: str = "SPY", period: str = "3mo"):
+async def get_current_regime(
+    request: Request, symbol: str = "SPY", period: str = "3mo"
+):
     """
     Detect the current market regime for a given equity symbol plus prediction
     market liquidity overview for Kalshi and Polymarket.
@@ -63,6 +66,7 @@ async def get_current_regime(request: Request, symbol: str = "SPY", period: str 
                 }
         else:
             from regime.models import LiquidityRegime
+
             for broker_id in ("kalshi", "polymarket"):
                 prediction_markets[broker_id] = {
                     "regime": LiquidityRegime.UNKNOWN.value,
@@ -83,7 +87,9 @@ async def get_current_regime(request: Request, symbol: str = "SPY", period: str 
 
 
 @router.get("/regime/filter/{agent_name}")
-async def check_agent_regime_filter(agent_name: str, request: Request, symbol: str = "SPY"):
+async def check_agent_regime_filter(
+    agent_name: str, request: Request, symbol: str = "SPY"
+):
     """
     Check whether the given agent is allowed to trade in the current market regime.
     """
@@ -122,7 +128,9 @@ async def check_agent_regime_filter(agent_name: str, request: Request, symbol: s
             "agent_name": agent_name,
             "regime": regime.value,
             "is_allowed": allowed,
-            "allowed_regimes": [r.value for r in regime_filter.get_allowed_regimes(agent_name)],
+            "allowed_regimes": [
+                r.value for r in regime_filter.get_allowed_regimes(agent_name)
+            ],
             "adx": snapshot.adx,
             "volatility_pct": snapshot.volatility_pct,
         }

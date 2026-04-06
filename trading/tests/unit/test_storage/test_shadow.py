@@ -290,8 +290,6 @@ class TestShadowExecutionStore:
 
     async def test_shadow_store_jsonb_compatible(self):
         """Verify JSONB columns work with dict values (Postgres asyncpg style)."""
-        import json
-        from unittest.mock import AsyncMock, MagicMock
 
         # Mock db that returns dict rows (like asyncpg)
         class MockCursor:

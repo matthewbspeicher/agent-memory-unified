@@ -1,4 +1,5 @@
 """Integration startup for prediction markets and external data sources."""
+
 from __future__ import annotations
 
 import logging
@@ -7,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from config import Config
     from data.bus import DataBus
-    
+
 logger = logging.getLogger(__name__)
 
 
@@ -17,7 +18,7 @@ async def setup_kalshi(
 ) -> tuple[Any, Any]:
     """
     Initialize Kalshi prediction markets integration.
-    
+
     Returns:
         (kalshi_source, kalshi_client) or (None, None) if not configured
     """
@@ -29,7 +30,7 @@ async def setup_kalshi(
                 bool(config.kalshi_private_key_path),
             )
         return None, None
-    
+
     try:
         from adapters.kalshi.client import KalshiClient
         from adapters.kalshi.data_source import KalshiDataSource
@@ -59,13 +60,13 @@ async def setup_polymarket(
 ) -> tuple[Any, Any]:
     """
     Initialize Polymarket prediction markets integration.
-    
+
     Returns:
         (polymarket_source, polymarket_broker) or (None, None) if not configured
     """
     if not config.polymarket_private_key:
         return None, None
-    
+
     try:
         from adapters.polymarket.client import PolymarketClient
         from adapters.polymarket.broker import PolymarketBroker
@@ -91,10 +92,10 @@ async def setup_polymarket(
         )
         await polymarket_broker.connection.connect()
         data_bus._polymarket_source = _polymarket_source
-        
+
         # Add to brokers map
         all_brokers["polymarket"] = polymarket_broker
-        
+
         logger.info(
             "Polymarket integration enabled (%s)",
             "dry-run" if config.polymarket_dry_run else "LIVE",
@@ -114,14 +115,14 @@ async def setup_bittensor(
 ) -> tuple[bool, dict[str, Any]]:
     """
     Initialize Bittensor Subnet 8 (Taoshi PTN) integration.
-    
+
     Returns:
         (enabled, components_dict) where components_dict contains:
         - store, source, adapter, scheduler, evaluator
     """
     if not config.bittensor_enabled:
         return False, {}
-    
+
     try:
         from storage.bittensor import BittensorStore
         from data.bittensor_source import BittensorDataSource
@@ -143,13 +144,13 @@ async def setup_bittensor(
             subnet_uid=config.bittensor_subnet_uid,
         )
         await _bt_adapter.connect()
-        
+
         _bt_healthy = await _bt_adapter.smoke_test()
-        
+
         if not _bt_healthy:
             logger.warning("Bittensor smoke test failed — integration disabled")
             return False, {}
-        
+
         _bt_scheduler = TaoshiScheduler(
             adapter=_bt_adapter,
             store=_bt_store,
@@ -160,13 +161,14 @@ async def setup_bittensor(
             top_miners=config.bittensor_top_miners,
             derivation_version=config.bittensor_derivation_version,
         )
-        
+
         _coingecko_client = None
         if config.coingecko_api_key:
             from data.coingecko import CoinGeckoClient
+
             _coingecko_client = CoinGeckoClient(api_key=config.coingecko_api_key)
             logger.info("CoinGecko client created for Bittensor evaluator")
-        
+
         _bt_evaluator = BittensorEvaluator(
             store=_bt_store,
             data_bus=data_bus,
@@ -182,13 +184,13 @@ async def setup_bittensor(
                 lookback_windows=config.bittensor_ranking_lookback_windows,
             ),
         )
-        
+
         missing_runtime_parts: list[str] = []
         if not getattr(_bt_scheduler, "supports_collection", True):
             missing_runtime_parts.append("collection")
         if not getattr(_bt_evaluator, "supports_evaluation", True):
             missing_runtime_parts.append("evaluation")
-        
+
         if missing_runtime_parts:
             logger.warning(
                 "Bittensor transport is healthy, but runtime %s is not implemented; "
@@ -196,7 +198,7 @@ async def setup_bittensor(
                 " and ".join(missing_runtime_parts),
             )
             return False, {}
-        
+
         from integrations.bittensor.weight_setter import WeightSetter
 
         _bt_weight_setter = WeightSetter(
@@ -225,7 +227,7 @@ async def setup_bittensor(
                 "alpha_decay_per_window": config.bittensor_hybrid_alpha_decay_per_window,
                 "alpha_floor": config.bittensor_hybrid_alpha_floor,
                 "lookback_windows": config.bittensor_ranking_lookback_windows,
-            }
+            },
         }
     except Exception as exc:
         logger.warning("Bittensor setup failed (continuing without it): %s", exc)

@@ -5,11 +5,12 @@ from broker.models import Symbol, AssetType
 
 logger = logging.getLogger(__name__)
 
+
 class SignalMapper:
     """
     Translates external signal symbols (e.g. BTCUSD) to internal Symbols and broker tickers.
     """
-    
+
     # Default mappings for Subnet 8
     DEFAULT_MAP = {
         "BTCUSD": {"ticker": "BTC/USD", "asset_type": AssetType.STOCK},
@@ -29,13 +30,18 @@ class SignalMapper:
         entry = self._map.get(external_symbol)
         if not entry:
             # Try fuzzy match or default to CRYPTO if it looks like one
-            if len(external_symbol) == 6: # e.g. BTCUSD
-                return Symbol(ticker=f"{external_symbol[:3]}/{external_symbol[3:]}", asset_type=AssetType.STOCK)
+            if len(external_symbol) == 6:  # e.g. BTCUSD
+                return Symbol(
+                    ticker=f"{external_symbol[:3]}/{external_symbol[3:]}",
+                    asset_type=AssetType.STOCK,
+                )
             return None
-            
+
         return Symbol(ticker=entry["ticker"], asset_type=entry["asset_type"])
 
-    def map_to_prediction_market(self, external_symbol: str, markets: list) -> Optional[str]:
+    def map_to_prediction_market(
+        self, external_symbol: str, markets: list
+    ) -> Optional[str]:
         """
         Attempts to find a matching prediction market ticker for an external symbol.
         e.g. BTCUSD -> 'BTC-20260331-ABOVE-70000'

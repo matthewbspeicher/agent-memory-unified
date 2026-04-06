@@ -28,17 +28,25 @@ class SignalBus:
             except Exception as e:
                 logger.error(
                     "Error in signal subscriber for signal_type=%s source_agent=%s: %s",
-                    signal.signal_type, signal.source_agent, e,
+                    signal.signal_type,
+                    signal.source_agent,
+                    e,
                 )
 
     def subscribe(self, callback: Callable[[AgentSignal], Awaitable[None]]) -> None:
         self._subscribers.append(callback)
 
-    def query(self, signal_type: str | None = None, target_agent: str | None = None) -> list[AgentSignal]:
+    def query(
+        self, signal_type: str | None = None, target_agent: str | None = None
+    ) -> list[AgentSignal]:
         self._prune_expired()
         results = self._signals
         if signal_type:
             results = [s for s in results if s.signal_type == signal_type]
         if target_agent:
-            results = [s for s in results if s.target_agent == target_agent or s.target_agent is None]
+            results = [
+                s
+                for s in results
+                if s.target_agent == target_agent or s.target_agent is None
+            ]
         return results

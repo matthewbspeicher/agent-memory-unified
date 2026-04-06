@@ -1,6 +1,6 @@
 import pytest
 import aiosqlite
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from storage.db import init_db
 from learning.reflection import PredictionTracker, PromptEvolver
 
@@ -41,8 +41,12 @@ async def test_save_and_get_lesson(tracker):
 
 @pytest.mark.asyncio
 async def test_archive_lessons(tracker):
-    await tracker.save_lesson("agent-b", "opp-001", "risk", "Position sized too large", ["SPY"])
-    await tracker.save_lesson("agent-b", "opp-002", "macro", "Ignored Fed announcement", ["QQQ"])
+    await tracker.save_lesson(
+        "agent-b", "opp-001", "risk", "Position sized too large", ["SPY"]
+    )
+    await tracker.save_lesson(
+        "agent-b", "opp-002", "macro", "Ignored Fed announcement", ["QQQ"]
+    )
 
     count = await tracker.archive_lessons("agent-b")
     assert count == 2
@@ -56,9 +60,15 @@ async def test_archive_lessons(tracker):
 
 @pytest.mark.asyncio
 async def test_group_lessons_by_category(tracker):
-    await tracker.save_lesson("agent-c", "opp-001", "timing", "Entered too late", ["MSFT"])
-    await tracker.save_lesson("agent-c", "opp-002", "timing", "Exited too early", ["GOOG"])
-    await tracker.save_lesson("agent-c", "opp-003", "macro", "Missed rate decision impact", ["TLT"])
+    await tracker.save_lesson(
+        "agent-c", "opp-001", "timing", "Entered too late", ["MSFT"]
+    )
+    await tracker.save_lesson(
+        "agent-c", "opp-002", "timing", "Exited too early", ["GOOG"]
+    )
+    await tracker.save_lesson(
+        "agent-c", "opp-003", "macro", "Missed rate decision impact", ["TLT"]
+    )
 
     groups = await tracker.group_by_category("agent-c")
     assert groups == {"timing": 2, "macro": 1}
@@ -67,13 +77,23 @@ async def test_group_lessons_by_category(tracker):
 @pytest.mark.asyncio
 async def test_prompt_evolver_synthesize(tracker):
     # tracker is the existing PredictionTracker fixture from this file
-    await tracker.save_lesson("llm_analyst", "opp-1", "timing", "Check earnings dates", ["timing"])
-    await tracker.save_lesson("llm_analyst", "opp-2", "timing", "Avoid pre-market trades", ["timing"])
-    await tracker.save_lesson("llm_analyst", "opp-3", "macro", "Watch Fed announcements", ["macro"])
+    await tracker.save_lesson(
+        "llm_analyst", "opp-1", "timing", "Check earnings dates", ["timing"]
+    )
+    await tracker.save_lesson(
+        "llm_analyst", "opp-2", "timing", "Avoid pre-market trades", ["timing"]
+    )
+    await tracker.save_lesson(
+        "llm_analyst", "opp-3", "macro", "Watch Fed announcements", ["macro"]
+    )
 
     mock_llm = AsyncMock()
-    mock_llm.complete = AsyncMock(return_value=MagicMock(text='["Always check earnings calendar before trading", "Never ignore Fed meeting dates"]'))
-    
+    mock_llm.complete = AsyncMock(
+        return_value=MagicMock(
+            text='["Always check earnings calendar before trading", "Never ignore Fed meeting dates"]'
+        )
+    )
+
     evolver = PromptEvolver(db=tracker._db, tracker=tracker, llm=mock_llm, max_rules=5)
 
     rules = await evolver.synthesize("llm_analyst")

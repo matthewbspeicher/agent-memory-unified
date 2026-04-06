@@ -20,7 +20,9 @@ class FakeRunner:
     def get_agent_info(self, name: str) -> AgentInfo | None:
         c = self._agents.get(name)
         if c:
-            return AgentInfo(name=name, description="", status=AgentStatus.RUNNING, config=c)
+            return AgentInfo(
+                name=name, description="", status=AgentStatus.RUNNING, config=c
+            )
         return None
 
 

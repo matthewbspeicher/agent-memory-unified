@@ -1,7 +1,16 @@
 from decimal import Decimal
-from broker.models import AccountBalance, Position, Symbol, AssetType, OrderResult, OrderStatus, OrderSide
+from broker.models import (
+    AccountBalance,
+    Position,
+    Symbol,
+    AssetType,
+    OrderResult,
+    OrderStatus,
+    OrderSide,
+)
 
 import aiosqlite
+
 
 class PaperStore:
     def __init__(self, db=None):
@@ -12,6 +21,7 @@ class PaperStore:
         if self._db:
             return self._db
         from storage.db import get_db
+
         return await get_db()
 
     async def init_tables(self) -> None:
@@ -65,16 +75,24 @@ class PaperStore:
             VALUES (?, ?, ?, ?, ?)
             ON CONFLICT (account_id) DO NOTHING
             """,
-            ("PAPER", 100000.0, 100000.0, 100000.0, 0.0)
+            ("PAPER", 100000.0, 100000.0, 100000.0, 0.0),
         )
         await db.commit()
 
     async def get_balance(self, account_id: str) -> AccountBalance:
         db = await self._get_db()
-        async with db.execute("SELECT * FROM paper_accounts WHERE account_id = ?", (account_id,)) as cursor:
+        async with db.execute(
+            "SELECT * FROM paper_accounts WHERE account_id = ?", (account_id,)
+        ) as cursor:
             row = await cursor.fetchone()
             if not row:
-                return AccountBalance(account_id=account_id, net_liquidation=Decimal(0), buying_power=Decimal(0), cash=Decimal(0), maintenance_margin=Decimal(0))
+                return AccountBalance(
+                    account_id=account_id,
+                    net_liquidation=Decimal(0),
+                    buying_power=Decimal(0),
+                    cash=Decimal(0),
+                    maintenance_margin=Decimal(0),
+                )
             return AccountBalance(
                 account_id=account_id,
                 net_liquidation=Decimal(str(row["net_liquidation"])),
@@ -86,21 +104,36 @@ class PaperStore:
     async def get_positions(self, account_id: str) -> list[Position]:
         db = await self._get_db()
         positions = []
-        async with db.execute("SELECT * FROM paper_positions WHERE account_id = ? AND quantity != 0", (account_id,)) as cursor:
+        async with db.execute(
+            "SELECT * FROM paper_positions WHERE account_id = ? AND quantity != 0",
+            (account_id,),
+        ) as cursor:
             rows = await cursor.fetchall()
             for row in rows:
-                sym = Symbol(ticker=row["symbol"], asset_type=AssetType(row["asset_type"]))
-                positions.append(Position(
-                    symbol=sym,
-                    quantity=Decimal(str(row["quantity"])),
-                    avg_cost=Decimal(str(row["avg_cost"])),
-                    market_value=Decimal(0), # Needs real-time quote to update
-                    unrealized_pnl=Decimal(0),
-                    realized_pnl=Decimal(str(row["realized_pnl"]))
-                ))
+                sym = Symbol(
+                    ticker=row["symbol"], asset_type=AssetType(row["asset_type"])
+                )
+                positions.append(
+                    Position(
+                        symbol=sym,
+                        quantity=Decimal(str(row["quantity"])),
+                        avg_cost=Decimal(str(row["avg_cost"])),
+                        market_value=Decimal(0),  # Needs real-time quote to update
+                        unrealized_pnl=Decimal(0),
+                        realized_pnl=Decimal(str(row["realized_pnl"])),
+                    )
+                )
         return positions
 
-    async def record_fill(self, account_id: str, symbol: Symbol, side: OrderSide, quantity: Decimal, fill_price: Decimal, commission: Decimal = Decimal("0")) -> None:
+    async def record_fill(
+        self,
+        account_id: str,
+        symbol: Symbol,
+        side: OrderSide,
+        quantity: Decimal,
+        fill_price: Decimal,
+        commission: Decimal = Decimal("0"),
+    ) -> None:
         """Record an order fill, updating positions and cash."""
         db = await self._get_db()
 
@@ -113,7 +146,7 @@ class PaperStore:
         # 1. Update position
         async with db.execute(
             "SELECT quantity, avg_cost, realized_pnl FROM paper_positions WHERE account_id = ? AND symbol = ? AND asset_type = ?",
-            (account_id, symbol.ticker, symbol.asset_type.value)
+            (account_id, symbol.ticker, symbol.asset_type.value),
         ) as cursor:
             pos_row = await cursor.fetchone()
 
@@ -154,7 +187,14 @@ class PaperStore:
                 SET quantity = ?, avg_cost = ?, realized_pnl = ?
                 WHERE account_id = ? AND symbol = ? AND asset_type = ?
                 """,
-                (float(new_qty), float(new_avg), float(new_realized), account_id, symbol.ticker, symbol.asset_type.value)
+                (
+                    float(new_qty),
+                    float(new_avg),
+                    float(new_realized),
+                    account_id,
+                    symbol.ticker,
+                    symbol.asset_type.value,
+                ),
             )
         else:
             await db.execute(
@@ -162,11 +202,20 @@ class PaperStore:
                 INSERT INTO paper_positions (account_id, symbol, asset_type, quantity, avg_cost, realized_pnl)
                 VALUES (?, ?, ?, ?, ?, 0.0)
                 """,
-                (account_id, symbol.ticker, symbol.asset_type.value, float(fill_qty), float(fill_price))
+                (
+                    account_id,
+                    symbol.ticker,
+                    symbol.asset_type.value,
+                    float(fill_qty),
+                    float(fill_price),
+                ),
             )
 
         # 2. Update cash
-        async with db.execute("SELECT cash, net_liquidation FROM paper_accounts WHERE account_id = ?", (account_id,)) as cursor:
+        async with db.execute(
+            "SELECT cash, net_liquidation FROM paper_accounts WHERE account_id = ?",
+            (account_id,),
+        ) as cursor:
             acc_row = await cursor.fetchone()
 
         if acc_row:
@@ -181,12 +230,22 @@ class PaperStore:
             new_net_liq = cur_net_liq + cash_delta
             await db.execute(
                 "UPDATE paper_accounts SET cash = ?, buying_power = ?, net_liquidation = ? WHERE account_id = ?",
-                (float(new_cash), float(new_cash), float(new_net_liq), account_id)
+                (float(new_cash), float(new_cash), float(new_net_liq), account_id),
             )
 
         await db.commit()
 
-    async def save_order(self, order_id: str, account_id: str, symbol: Symbol, side: OrderSide, quantity: Decimal, status: str, filled: Decimal, avg_price: Decimal | None) -> None:
+    async def save_order(
+        self,
+        order_id: str,
+        account_id: str,
+        symbol: Symbol,
+        side: OrderSide,
+        quantity: Decimal,
+        status: str,
+        filled: Decimal,
+        avg_price: Decimal | None,
+    ) -> None:
         db = await self._get_db()
         await db.execute(
             """
@@ -194,21 +253,35 @@ class PaperStore:
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (order_id) DO UPDATE SET status=EXCLUDED.status, filled_quantity=EXCLUDED.filled_quantity, avg_fill_price=EXCLUDED.avg_fill_price
             """,
-            (order_id, account_id, symbol.ticker, side.value, float(quantity), status, float(filled), float(avg_price) if avg_price is not None else None)
+            (
+                order_id,
+                account_id,
+                symbol.ticker,
+                side.value,
+                float(quantity),
+                status,
+                float(filled),
+                float(avg_price) if avg_price is not None else None,
+            ),
         )
         await db.commit()
 
     async def get_order_history(self, account_id: str) -> list[OrderResult]:
         db = await self._get_db()
-        async with db.execute("SELECT * FROM paper_orders WHERE account_id = ?", (account_id,)) as cursor:
+        async with db.execute(
+            "SELECT * FROM paper_orders WHERE account_id = ?", (account_id,)
+        ) as cursor:
             rows = await cursor.fetchall()
             return [
                 OrderResult(
                     order_id=r["order_id"],
                     status=OrderStatus(r["status"]),
                     filled_quantity=Decimal(str(r["filled_quantity"])),
-                    avg_fill_price=Decimal(str(r["avg_fill_price"])) if r["avg_fill_price"] is not None else None,
-                ) for r in rows
+                    avg_fill_price=Decimal(str(r["avg_fill_price"]))
+                    if r["avg_fill_price"] is not None
+                    else None,
+                )
+                for r in rows
             ]
 
     async def record_binary_resolution(

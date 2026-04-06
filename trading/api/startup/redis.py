@@ -13,6 +13,7 @@ async def setup_redis(config: Config, event_bus: EventBus, app_state) -> None:
     if config.redis_url:
         try:
             from redis.asyncio import from_url as redis_from_url
+
             redis = await redis_from_url(config.redis_url, decode_responses=True)
             app_state.redis = redis
             _log.info("Redis connected for authentication")
@@ -33,8 +34,6 @@ async def setup_redis(config: Config, event_bus: EventBus, app_state) -> None:
             await redis_bridge.start()
             app_state.redis_bridge = redis_bridge
         except ImportError:
-            _log.warning(
-                "redis-py not installed — distributed signal bridge disabled"
-            )
+            _log.warning("redis-py not installed — distributed signal bridge disabled")
         except Exception as rb_exc:
             _log.warning("RedisSignalBridge startup failed: %s", rb_exc)

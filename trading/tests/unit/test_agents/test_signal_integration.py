@@ -1,5 +1,6 @@
 """Integration test: adapter -> SignalBus -> MetaAgent boost -> opportunity annotation."""
-from datetime import datetime, timedelta, timezone
+
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -12,7 +13,6 @@ from agents.models import (
     AgentInfo,
     AgentStatus,
     Opportunity,
-    OpportunityStatus,
 )
 from agents.signal_adapter import SignalAdapterRunner
 from broker.models import Symbol
@@ -32,7 +32,9 @@ class FakeRunner:
     def get_agent_info(self, name):
         c = self._agents.get(name)
         if c:
-            return AgentInfo(name=name, description="", status=AgentStatus.RUNNING, config=c)
+            return AgentInfo(
+                name=name, description="", status=AgentStatus.RUNNING, config=c
+            )
         return None
 
     def register(self, agent):
@@ -59,15 +61,23 @@ async def test_full_signal_flow():
         strategy="meta",
         schedule="continuous",
         action_level=ActionLevel.NOTIFY,
-        parameters={"boost_delta": 0.05, "max_cumulative_boost": 0.15, "boost_ttl_minutes": 15},
+        parameters={
+            "boost_delta": 0.05,
+            "max_cumulative_boost": 0.15,
+            "boost_ttl_minutes": 15,
+        },
     )
     meta = MetaAgent(config=meta_config, runner=runner, signal_bus=signal_bus)
 
     mock_data_bus = MagicMock()
-    mock_data_bus.get_kalshi_markets = AsyncMock(return_value=[
-        {"ticker": "AAPL-YES", "volume": 5000, "avg_volume": 1000, "yes_ask": 0.65},
-    ])
-    adapter = PredictionMarketAdapter(data_bus=mock_data_bus, volume_spike_threshold=2.0)
+    mock_data_bus.get_kalshi_markets = AsyncMock(
+        return_value=[
+            {"ticker": "AAPL-YES", "volume": 5000, "avg_volume": 1000, "yes_ask": 0.65},
+        ]
+    )
+    adapter = PredictionMarketAdapter(
+        data_bus=mock_data_bus, volume_spike_threshold=2.0
+    )
 
     adapter_runner = SignalAdapterRunner(adapters=[adapter], signal_bus=signal_bus)
 

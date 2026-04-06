@@ -6,6 +6,7 @@ Design principles:
 - Non-blocking: called via asyncio.create_task() from OpportunityRouter.route().
 - Idempotent: uses SignalFeatureStore.upsert() so retries are safe.
 """
+
 from __future__ import annotations
 
 import json
@@ -39,7 +40,9 @@ MARKET_PROXY = "SPY"
 class SignalFeatureCapture:
     """Captures and persists a signal-time feature row for a routed opportunity."""
 
-    def __init__(self, store: "SignalFeatureStore", data_bus: "DataBus | None" = None) -> None:
+    def __init__(
+        self, store: "SignalFeatureStore", data_bus: "DataBus | None" = None
+    ) -> None:
         self._store = store
         self._data_bus = data_bus
 
@@ -131,10 +134,16 @@ class SignalFeatureCapture:
                     features["quote_bid"] = str(quote.bid) if quote.bid else None
                     features["quote_ask"] = str(quote.ask) if quote.ask else None
                     features["quote_last"] = str(quote.last) if quote.last else None
-                    features["quote_mid"] = str(round(mid, 6)) if mid is not None else None
-                    features["spread_bps"] = round(spread_bps, 4) if spread_bps is not None else None
+                    features["quote_mid"] = (
+                        str(round(mid, 6)) if mid is not None else None
+                    )
+                    features["spread_bps"] = (
+                        round(spread_bps, 4) if spread_bps is not None else None
+                    )
             except Exception as exc:
-                logger.debug("Quote fetch failed for %s: %s", opportunity.symbol.ticker, exc)
+                logger.debug(
+                    "Quote fetch failed for %s: %s", opportunity.symbol.ticker, exc
+                )
                 partial = True
 
         # --- Technical indicators from historical bars ---
@@ -145,7 +154,9 @@ class SignalFeatureCapture:
                     opportunity.symbol, timeframe="1d", period="3mo"
                 )
             except Exception as exc:
-                logger.debug("Historical fetch failed for %s: %s", opportunity.symbol.ticker, exc)
+                logger.debug(
+                    "Historical fetch failed for %s: %s", opportunity.symbol.ticker, exc
+                )
                 partial = True
 
         if bars:
@@ -173,7 +184,9 @@ class SignalFeatureCapture:
                 close = float(bars[-1].close)
                 band_range = bb.upper - bb.lower
                 if band_range > 0:
-                    features["bollinger_pct_b"] = round((close - bb.lower) / band_range, 6)
+                    features["bollinger_pct_b"] = round(
+                        (close - bb.lower) / band_range, 6
+                    )
             except Exception:
                 partial = True
             # ATR(14)
@@ -203,7 +216,7 @@ class SignalFeatureCapture:
             features["market_state"] = regime.get("market_state")
 
         # --- Market proxy context (SPY) for equity assets ---
-        from broker.models import AssetType
+
         if (
             self._data_bus
             and opportunity.symbol.asset_type in (AssetType.STOCK, AssetType.OPTION)
@@ -216,7 +229,9 @@ class SignalFeatureCapture:
                 )
                 if proxy_bars and len(proxy_bars) >= 2:
                     features["market_proxy_symbol"] = MARKET_PROXY
-                    _try_set(features, "market_proxy_rsi_14", compute_rsi, proxy_bars, 14)
+                    _try_set(
+                        features, "market_proxy_rsi_14", compute_rsi, proxy_bars, 14
+                    )
                     # 1-day return: (last / prev_close - 1)
                     last_close = float(proxy_bars[-1].close)
                     prev_close = float(proxy_bars[-2].close)
@@ -237,7 +252,9 @@ class SignalFeatureCapture:
             try:
                 from execution.costs import order_type_label
 
-                payload.setdefault("order_type", order_type_label(opportunity.suggested_trade))
+                payload.setdefault(
+                    "order_type", order_type_label(opportunity.suggested_trade)
+                )
             except Exception:
                 pass
         if action_level is not None:

@@ -6,9 +6,9 @@ Exercises: PolymarketCalibrationAgent.scan → OpportunityRouter → dry-run exe
 Marked @pytest.mark.live_paper — not run in normal CI.
 Requires: STA_POLYMARKET_DRY_RUN=true (set to prevent accidental live order submission).
 """
+
 from __future__ import annotations
 
-import os
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock
 
@@ -24,6 +24,7 @@ pytestmark = [
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_agent(name: str = "polymarket_calibration_test"):
     """Build a PolymarketCalibrationAgent with permissive config."""
@@ -56,6 +57,7 @@ def _make_mock_data_bus(polymarket_source):
 # Test 1 — Calibration agent scan with real Polymarket data
 # ---------------------------------------------------------------------------
 
+
 @skip_no_polymarket
 @pytest.mark.timeout(60)
 async def test_polymarket_calibration_agent_scan(polymarket_client):
@@ -84,9 +86,12 @@ async def test_polymarket_calibration_agent_scan(polymarket_client):
 # Test 2 — Dry-run execution pipeline completes without error
 # ---------------------------------------------------------------------------
 
+
 @skip_no_polymarket
 @pytest.mark.timeout(60)
-async def test_dry_run_execution_pipeline(live_db, polymarket_broker, polymarket_client):
+async def test_dry_run_execution_pipeline(
+    live_db, polymarket_broker, polymarket_client
+):
     """
     An AUTO_EXECUTE opportunity routed through OpportunityRouter reaches the
     PolymarketBroker(dry_run=True) and returns EXECUTED status.
@@ -98,7 +103,15 @@ async def test_dry_run_execution_pipeline(live_db, polymarket_broker, polymarket
 
     from adapters.polymarket.broker import PolymarketAccount
     from agents.models import ActionLevel, Opportunity, OpportunityStatus
-    from broker.models import AccountBalance, AssetType, LimitOrder, OrderSide, Quote, Symbol, TIF
+    from broker.models import (
+        AccountBalance,
+        AssetType,
+        LimitOrder,
+        OrderSide,
+        Quote,
+        Symbol,
+        TIF,
+    )
     from notifications.log_notifier import LogNotifier
     from risk.engine import RiskEngine
     from risk.kill_switch import KillSwitch
@@ -181,6 +194,7 @@ async def test_dry_run_execution_pipeline(live_db, polymarket_broker, polymarket
 # ---------------------------------------------------------------------------
 # Test 3 — Data source quote feeds risk check (no credentials required)
 # ---------------------------------------------------------------------------
+
 
 @skip_no_polymarket
 @pytest.mark.timeout(30)

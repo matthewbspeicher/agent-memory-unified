@@ -1,4 +1,5 @@
 """Strategy health status and override API routes."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -28,6 +29,7 @@ def _get_runner(request: Request):
 # Request/Response schemas
 # ------------------------------------------------------------------
 
+
 class OverrideRequest(BaseModel):
     status: str
     reason: str = "operator override"
@@ -36,6 +38,7 @@ class OverrideRequest(BaseModel):
 # ------------------------------------------------------------------
 # Routes
 # ------------------------------------------------------------------
+
 
 @router.get("")
 async def list_all_health(

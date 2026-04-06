@@ -4,6 +4,7 @@ Polymarket Calibration Agent.
 Cross-references Polymarket prices against Metaculus and Manifold APIs.
 Emits an Opportunity if the gap exceeds threshold_cents.
 """
+
 from __future__ import annotations
 
 import logging
@@ -16,8 +17,10 @@ from broker.models import LimitOrder, OrderSide
 
 logger = logging.getLogger(__name__)
 
+
 class PolymarketCalibrationAgent(Agent):
     description = "Calibrates Polymarket prices against Metaculus and Manifold APIs."
+
     def __init__(self, config: AgentConfig, settings=None, **kwargs):
         super().__init__(config, **kwargs)
 
@@ -45,13 +48,15 @@ class PolymarketCalibrationAgent(Agent):
         scanned = 0
 
         for tag in self.tags:
-            markets = await ds.get_markets(tag=tag, closed=False, limit=self.max_markets)
+            markets = await ds.get_markets(
+                tag=tag, closed=False, limit=self.max_markets
+            )
             for mkt in markets:
                 if scanned >= self.max_markets:
                     break
                 scanned += 1
-                
-                # We could run text matching locally, but since we rely on external 
+
+                # We could run text matching locally, but since we rely on external
                 # APIs we issue queries based on the title. A simple implementation
                 # takes the title text and gets external probabilities.
                 result = await self._fetch_external_probability(mkt.title)
@@ -64,32 +69,50 @@ class PolymarketCalibrationAgent(Agent):
                 delta = abs(ext_prob_cents - poly_cents)
 
                 if delta > self.threshold:
-                    logger.info("Poly Calibration Match [%s]: ext=%d, poly=%d", mkt.ticker, ext_prob_cents, poly_cents)
+                    logger.info(
+                        "Poly Calibration Match [%s]: ext=%d, poly=%d",
+                        mkt.ticker,
+                        ext_prob_cents,
+                        poly_cents,
+                    )
                     sym = mkt.as_symbol
-                    action = OrderSide.BUY if ext_prob_cents > poly_cents else OrderSide.SELL
-                    
-                    opportunities.append(Opportunity(
-                        id=f"poly_calib_{mkt.ticker}_{now.timestamp()}",
-                        agent_name=self.name,
-                        symbol=sym,
-                        signal="ARB",
-                        confidence=round(similarity * min(delta / 30, 1.0), 3),
-                        reasoning=f"Calibration Arb.\nQ:{mkt.title}",
-                        broker_id="polymarket",
-                        suggested_trade=LimitOrder(symbol=sym, side=action, quantity=10, account_id="POLY", limit_price=poly_cents / 100.0),
-                        data={
-                            "poly_prob": poly_cents,
-                            "external_prob": ext_prob_cents
-                        },
-                        timestamp=now
-                    ))
-        
+                    action = (
+                        OrderSide.BUY if ext_prob_cents > poly_cents else OrderSide.SELL
+                    )
+
+                    opportunities.append(
+                        Opportunity(
+                            id=f"poly_calib_{mkt.ticker}_{now.timestamp()}",
+                            agent_name=self.name,
+                            symbol=sym,
+                            signal="ARB",
+                            confidence=round(similarity * min(delta / 30, 1.0), 3),
+                            reasoning=f"Calibration Arb.\nQ:{mkt.title}",
+                            broker_id="polymarket",
+                            suggested_trade=LimitOrder(
+                                symbol=sym,
+                                side=action,
+                                quantity=10,
+                                account_id="POLY",
+                                limit_price=poly_cents / 100.0,
+                            ),
+                            data={
+                                "poly_prob": poly_cents,
+                                "external_prob": ext_prob_cents,
+                            },
+                            timestamp=now,
+                        )
+                    )
+
         return opportunities
 
-    async def _fetch_external_probability(self, search_term: str) -> tuple[float, float] | None:
+    async def _fetch_external_probability(
+        self, search_term: str
+    ) -> tuple[float, float] | None:
         """Fetch probability from Manifold or Metaculus (fallback)."""
         import difflib
         import httpx
+
         query = urllib.parse.quote(search_term)
 
         # --- Manifold first ---
@@ -121,8 +144,13 @@ class PolymarketCalibrationAgent(Agent):
             async with httpx.AsyncClient() as client:
                 res = await client.get(
                     "https://www.metaculus.com/api2/questions/",
-                    params={"search": search_term, "type": "forecast", "status": "open",
-                            "forecast_type": "binary", "limit": 1},
+                    params={
+                        "search": search_term,
+                        "type": "forecast",
+                        "status": "open",
+                        "forecast_type": "binary",
+                        "limit": 1,
+                    },
                     headers=headers,
                     timeout=5.0,
                 )

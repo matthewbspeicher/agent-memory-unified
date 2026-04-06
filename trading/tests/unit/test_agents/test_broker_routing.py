@@ -13,9 +13,13 @@ def _mock_broker(name: str, connected: bool = True) -> MagicMock:
     return broker
 
 
-def _mock_opportunity(ticker: str = "AAPL", asset_type: AssetType = AssetType.STOCK, broker_id: str | None = None):
-    from agents.models import Opportunity, OpportunityStatus
-    from datetime import datetime
+def _mock_opportunity(
+    ticker: str = "AAPL",
+    asset_type: AssetType = AssetType.STOCK,
+    broker_id: str | None = None,
+):
+    from agents.models import Opportunity
+
     opp = MagicMock(spec=Opportunity)
     opp.symbol = Symbol(ticker=ticker, asset_type=asset_type)
     opp.broker_id = broker_id

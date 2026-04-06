@@ -1,9 +1,10 @@
 """Unit tests for adapters/paper/broker.py — SimulatedBroker."""
+
 from __future__ import annotations
 
 import pytest
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 from broker.models import (
     AccountBalance,
@@ -14,7 +15,6 @@ from broker.models import (
     OrderResult,
     OrderSide,
     OrderStatus,
-    Position,
     Quote,
     Symbol,
 )
@@ -31,6 +31,7 @@ from storage.paper import PaperStore
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _stock(ticker: str) -> Symbol:
     return Symbol(ticker=ticker, asset_type=AssetType.STOCK)
@@ -76,6 +77,7 @@ def _make_db_mock():
 # PaperConnection tests
 # ---------------------------------------------------------------------------
 
+
 class TestPaperConnection:
     @pytest.mark.asyncio
     async def test_connect_sets_connected(self):
@@ -106,6 +108,7 @@ class TestPaperConnection:
 # ---------------------------------------------------------------------------
 # PaperMarketData tests
 # ---------------------------------------------------------------------------
+
 
 class TestPaperMarketData:
     @pytest.mark.asyncio
@@ -145,6 +148,7 @@ class TestPaperMarketData:
 # ---------------------------------------------------------------------------
 # PaperOrderManager — fill simulation
 # ---------------------------------------------------------------------------
+
 
 class TestPaperOrderManager:
     def _make_manager(self, quote: Quote | None = None):
@@ -211,7 +215,9 @@ class TestPaperOrderManager:
         assert result.avg_fill_price is not None
         assert result.avg_fill_price >= Decimal("100.00")
         # Slippage never exceeds 0.1%
-        assert result.avg_fill_price <= Decimal("100.00") * Decimal("1.001") + Decimal("0.01")
+        assert result.avg_fill_price <= Decimal("100.00") * Decimal("1.001") + Decimal(
+            "0.01"
+        )
 
     @pytest.mark.asyncio
     async def test_fill_includes_slippage(self):
@@ -255,7 +261,7 @@ class TestPaperOrderManager:
             quantity=Decimal("10"),
             account_id=PAPER_ACCOUNT_ID,
         )
-        result = await mgr.place_order(PAPER_ACCOUNT_ID, order)
+        await mgr.place_order(PAPER_ACCOUNT_ID, order)
 
         store.record_fill.assert_called_once()
         store.save_order.assert_called_once()
@@ -284,8 +290,11 @@ class TestPaperOrderManager:
 # SimulatedBroker — composite tests
 # ---------------------------------------------------------------------------
 
+
 class TestSimulatedBroker:
-    def _make_broker(self, balance: float = 10_000.0) -> tuple[SimulatedBroker, MagicMock]:
+    def _make_broker(
+        self, balance: float = 10_000.0
+    ) -> tuple[SimulatedBroker, MagicMock]:
         store = _make_store()
         db = _make_db_mock()
         store._get_db = AsyncMock(return_value=db)
@@ -317,7 +326,7 @@ class TestSimulatedBroker:
     async def test_get_balance_returns_initial_balance(self):
         broker, store = self._make_broker(balance=5000.0)
         bal = await broker.account.get_balances(PAPER_ACCOUNT_ID)
-        assert bal.cash == Decimal("10000")   # from mocked store
+        assert bal.cash == Decimal("10000")  # from mocked store
 
     @pytest.mark.asyncio
     async def test_get_positions_returns_empty_initially(self):
@@ -359,7 +368,7 @@ class TestSimulatedBroker:
         # record_fill must have been called to debit cash
         store.record_fill.assert_called_once()
         call_args = store.record_fill.call_args
-        assert call_args.args[3] == Decimal("10")   # quantity
+        assert call_args.args[3] == Decimal("10")  # quantity
         assert call_args.args[2] == OrderSide.BUY
 
     @pytest.mark.asyncio

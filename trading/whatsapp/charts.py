@@ -3,6 +3,7 @@ import io
 from typing import TYPE_CHECKING
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
@@ -10,17 +11,19 @@ import matplotlib.dates as mdates
 if TYPE_CHECKING:
     from broker.models import Bar, Position
 
-plt.rcParams.update({
-    "figure.facecolor": "#1a1a2e",
-    "axes.facecolor": "#16213e",
-    "axes.edgecolor": "#e94560",
-    "axes.labelcolor": "#eee",
-    "text.color": "#eee",
-    "xtick.color": "#aaa",
-    "ytick.color": "#aaa",
-    "grid.color": "#333",
-    "grid.alpha": 0.3,
-})
+plt.rcParams.update(
+    {
+        "figure.facecolor": "#1a1a2e",
+        "axes.facecolor": "#16213e",
+        "axes.edgecolor": "#e94560",
+        "axes.labelcolor": "#eee",
+        "text.color": "#eee",
+        "xtick.color": "#aaa",
+        "ytick.color": "#aaa",
+        "grid.color": "#333",
+        "grid.alpha": 0.3,
+    }
+)
 
 FIGSIZE = (8, 6)
 DPI = 100
@@ -30,7 +33,9 @@ def render_price_chart(symbol: str, bars: list[Bar]) -> bytes:
     fig, ax = plt.subplots(figsize=FIGSIZE, dpi=DPI)
 
     if not bars:
-        ax.text(0.5, 0.5, f"No data for {symbol}", ha="center", va="center", fontsize=16)
+        ax.text(
+            0.5, 0.5, f"No data for {symbol}", ha="center", va="center", fontsize=16
+        )
         ax.set_axis_off()
     else:
         dates = [b.timestamp for b in bars]
@@ -69,11 +74,14 @@ def render_portfolio_chart(positions: list[Position]) -> bytes:
     else:
         labels = [p.symbol.ticker for p in positions]
         values = [float(p.market_value) for p in positions]
-        colors = plt.cm.Set2.colors[:len(labels)]
+        colors = plt.cm.Set2.colors[: len(labels)]
 
         wedges, texts, autotexts = ax.pie(
-            values, labels=labels, autopct="%1.1f%%",
-            colors=colors, textprops={"fontsize": 11},
+            values,
+            labels=labels,
+            autopct="%1.1f%%",
+            colors=colors,
+            textprops={"fontsize": 11},
         )
         for t in autotexts:
             t.set_fontsize(10)

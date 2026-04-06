@@ -1,7 +1,11 @@
 from ib_async import IB
 
 from broker.interfaces import (
-    AccountProvider, Broker, BrokerConnection, MarketDataProvider, OrderManager,
+    AccountProvider,
+    Broker,
+    BrokerConnection,
+    MarketDataProvider,
+    OrderManager,
 )
 from broker.models import BrokerCapabilities
 from adapters.ibkr.connection import IBKRConnection
@@ -43,6 +47,10 @@ class IBKRBroker(Broker):
 
     def capabilities(self) -> BrokerCapabilities:
         return BrokerCapabilities(
-            stocks=True, options=True, futures=True,
-            forex=True, bonds=True, streaming=True,
+            stocks=True,
+            options=True,
+            futures=True,
+            forex=True,
+            bonds=True,
+            streaming=True,
         )

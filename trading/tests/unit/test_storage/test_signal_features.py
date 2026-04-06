@@ -1,7 +1,7 @@
 """Unit tests for SignalFeatureStore."""
+
 from __future__ import annotations
 
-import json
 
 import aiosqlite
 import pytest
@@ -58,7 +58,9 @@ class TestSignalFeatureStore:
         assert result["capture_status"] == "captured"
 
     async def test_feature_payload_decoded_as_dict(self, store: SignalFeatureStore):
-        await store.upsert("opp-002", **_row("opp-002", feature_payload={"x": 1, "y": "z"}))
+        await store.upsert(
+            "opp-002", **_row("opp-002", feature_payload={"x": 1, "y": "z"})
+        )
         result = await store.get("opp-002")
         assert isinstance(result["feature_payload"], dict)
         assert result["feature_payload"]["x"] == 1
@@ -138,7 +140,9 @@ class TestSignalFeatureStore:
 
     async def test_list_by_symbol(self, store: SignalFeatureStore):
         await store.upsert("opp-ls1", **_row("opp-ls1", symbol="TSLA"))
-        await store.upsert("opp-ls2", **_row("opp-ls2", symbol="TSLA", agent_name="other"))
+        await store.upsert(
+            "opp-ls2", **_row("opp-ls2", symbol="TSLA", agent_name="other")
+        )
 
         results = await store.list_by_symbol("TSLA")
         assert len(results) == 2

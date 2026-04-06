@@ -44,7 +44,7 @@ class BreakoutAgent(StructuredAgent):
                 if len(bars) < lookback + 1:
                     continue
 
-                recent = bars[-(lookback + 1):]
+                recent = bars[-(lookback + 1) :]
                 current_close = float(recent[-1].close)
                 resistance = max(float(b.close) for b in recent[:-1])
                 avg_volume = sum(b.volume for b in recent[:-1]) / lookback
@@ -61,31 +61,33 @@ class BreakoutAgent(StructuredAgent):
 
                 self._last_signal[symbol.ticker] = now
 
-                opportunities.append(Opportunity(
-                    id=str(uuid.uuid4()),
-                    agent_name=self.name,
-                    symbol=symbol,
-                    signal="RESISTANCE_BREAKOUT",
-                    confidence=confidence,
-                    reasoning=(
-                        f"{symbol.ticker} broke {lookback}-day resistance "
-                        f"({current_close:.2f} > {resistance:.2f}) "
-                        f"with {volume_ratio:.1f}x avg volume"
-                    ),
-                    data={
-                        "close": current_close,
-                        "resistance": resistance,
-                        "volume_ratio": volume_ratio,
-                        "lookback_days": lookback,
-                    },
-                    timestamp=now,
-                    suggested_trade=MarketOrder(
+                opportunities.append(
+                    Opportunity(
+                        id=str(uuid.uuid4()),
+                        agent_name=self.name,
                         symbol=symbol,
-                        side=OrderSide.BUY,
-                        quantity=Decimal("1"),
-                        account_id="",
-                    ),
-                ))
+                        signal="RESISTANCE_BREAKOUT",
+                        confidence=confidence,
+                        reasoning=(
+                            f"{symbol.ticker} broke {lookback}-day resistance "
+                            f"({current_close:.2f} > {resistance:.2f}) "
+                            f"with {volume_ratio:.1f}x avg volume"
+                        ),
+                        data={
+                            "close": current_close,
+                            "resistance": resistance,
+                            "volume_ratio": volume_ratio,
+                            "lookback_days": lookback,
+                        },
+                        timestamp=now,
+                        suggested_trade=MarketOrder(
+                            symbol=symbol,
+                            side=OrderSide.BUY,
+                            quantity=Decimal("1"),
+                            account_id="",
+                        ),
+                    )
+                )
             except Exception as e:
                 logger.warning("Breakout scan failed for %s: %s", symbol.ticker, e)
 

@@ -1,11 +1,10 @@
 from __future__ import annotations
 from decimal import Decimal
-from unittest.mock import MagicMock
 
-import pytest
 
 from broker.models import (
-    OrderSide, Position, StopOrder, Symbol, TrailingStopOrder,
+    OrderSide,
+    Symbol,
 )
 
 
@@ -13,6 +12,7 @@ def test_stop_loss_creates_stop_order():
     """Exit manager should create StopOrder for stop_loss rules, not MarketOrder."""
     # This test verifies the exit manager's order-building logic
     from broker.models import StopOrder
+
     order = StopOrder(
         symbol=Symbol(ticker="AAPL"),
         side=OrderSide.SELL,
@@ -26,6 +26,7 @@ def test_stop_loss_creates_stop_order():
 
 def test_trailing_stop_creates_trailing_order():
     from broker.models import TrailingStopOrder
+
     order = TrailingStopOrder(
         symbol=Symbol(ticker="AAPL"),
         side=OrderSide.SELL,

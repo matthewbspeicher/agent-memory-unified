@@ -10,6 +10,7 @@ Builds context from 4 sources:
 Uses unified LLMClient for completions.
 Cached in trade_autopsies table after first generation.
 """
+
 from __future__ import annotations
 
 import logging
@@ -65,11 +66,12 @@ class AutopsyGenerator:
         self._db = db
         self._opp_store = opp_store
         self._journal_manager = journal_manager
-        
+
         if llm is not None:
             self._llm = llm
         else:
             from llm.client import LLMClient as _LLMClient
+
             self._llm = _LLMClient()
 
     async def get_or_generate(self, position: dict) -> str:
@@ -78,12 +80,13 @@ class AutopsyGenerator:
         if cached:
             return cached
         text = await self.generate(position)
-        
+
         if self._journal_manager:
             try:
                 from journal.models import TradeExecution
+
                 pnl, pnl_pct = _compute_pnl(position)
-                
+
                 exec_log = TradeExecution(
                     agent_name=position["agent_name"],
                     symbol=position["symbol"],
@@ -92,12 +95,14 @@ class AutopsyGenerator:
                     entry_time=datetime.fromisoformat(position["entry_time"]),
                     exit_time=datetime.fromisoformat(position["exit_time"]),
                     pnl_realized=float(pnl),
-                    autopsy=text
+                    autopsy=text,
                 )
                 await self._journal_manager.log_trade_execution(exec_log)
             except Exception as e:
-                logger.warning("Failed to store vector trade log for %s: %s", position["id"], e)
-                
+                logger.warning(
+                    "Failed to store vector trade log for %s: %s", position["id"], e
+                )
+
         return text
 
     async def get_cached(self, position_id: int) -> str | None:
@@ -119,7 +124,9 @@ class AutopsyGenerator:
             result = await self._llm.complete(prompt, max_tokens=200)
             text = result.text or self._fallback_summary(position)
         except Exception as exc:
-            logger.warning("LLM autopsy failed for position %s: %s", position["id"], exc)
+            logger.warning(
+                "LLM autopsy failed for position %s: %s", position["id"], exc
+            )
             return self._fallback_summary(position)
 
         await self._cache(position["id"], text)
@@ -156,11 +163,13 @@ class AutopsyGenerator:
             snapshot = await self._opp_store.get_snapshot(opp_id)
             if snapshot and snapshot.get("quote"):
                 q = snapshot["quote"]
+
                 def _fmt(v: object) -> str:
                     try:
                         return f"{float(v):.2f}"
                     except (TypeError, ValueError):
                         return str(v) if v is not None else "N/A"
+
                 snapshot_block = (
                     f"Bid: {_fmt(q.get('bid'))} | Ask: {_fmt(q.get('ask'))} | "
                     f"Last: {_fmt(q.get('last'))} | Volume: {q.get('volume', 'N/A')}"
@@ -183,7 +192,11 @@ class AutopsyGenerator:
                     lessons.append(f"- [{cat}] {lesson}")
                 lessons_block = "\n".join(lessons)
         except Exception as exc:
-            logger.debug("Failed to fetch agent lessons for %s: %s", position.get("agent_name"), exc)
+            logger.debug(
+                "Failed to fetch agent lessons for %s: %s",
+                position.get("agent_name"),
+                exc,
+            )
 
         return (
             "You are analyzing a completed trade for a trading journal.\n\n"

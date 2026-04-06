@@ -1,4 +1,5 @@
 """Execution cost aggregation service."""
+
 from __future__ import annotations
 
 import statistics
@@ -38,8 +39,12 @@ def compute_grouped_summary(
 
     results = []
     for group_key, group_rows in groups.items():
-        spread_vals = [r["spread_bps"] for r in group_rows if r.get("spread_bps") is not None]
-        slip_vals = [r["slippage_bps"] for r in group_rows if r.get("slippage_bps") is not None]
+        spread_vals = [
+            r["spread_bps"] for r in group_rows if r.get("spread_bps") is not None
+        ]
+        slip_vals = [
+            r["slippage_bps"] for r in group_rows if r.get("slippage_bps") is not None
+        ]
         fee_vals: list[float] = []
         for r in group_rows:
             try:
@@ -55,19 +60,29 @@ def compute_grouped_summary(
             {
                 "group_key": group_key,
                 "trade_count": total,
-                "avg_spread_bps": (sum(spread_vals) / len(spread_vals)) if spread_vals else None,
+                "avg_spread_bps": (sum(spread_vals) / len(spread_vals))
+                if spread_vals
+                else None,
                 "median_spread_bps": _safe_median(spread_vals),
-                "avg_slippage_bps": (sum(slip_vals) / len(slip_vals)) if slip_vals else None,
+                "avg_slippage_bps": (sum(slip_vals) / len(slip_vals))
+                if slip_vals
+                else None,
                 "median_slippage_bps": _safe_median(slip_vals),
                 "p95_slippage_bps": _safe_p95(slip_vals),
-                "avg_fee_dollars": (sum(fee_vals) / len(fee_vals)) if fee_vals else None,
+                "avg_fee_dollars": (sum(fee_vals) / len(fee_vals))
+                if fee_vals
+                else None,
                 "rejection_rate": (rejected / total) if total else None,
                 "partial_fill_rate": (partial / total) if total else None,
             }
         )
 
     results.sort(
-        key=lambda r: r["avg_slippage_bps"] if r["avg_slippage_bps"] is not None else float("-inf"),
+        key=lambda r: (
+            r["avg_slippage_bps"]
+            if r["avg_slippage_bps"] is not None
+            else float("-inf")
+        ),
         reverse=True,
     )
     return results

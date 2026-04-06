@@ -6,7 +6,6 @@ from typing import Any
 import httpx
 
 from adapters.alpaca.errors import (
-    AlpacaAPIError,
     AlpacaForbidden,
     AlpacaInsufficientFunds,
     AlpacaOrderRejected,
@@ -41,7 +40,9 @@ class AlpacaClient:
         self._data_feed = data_feed
         self._timeout = timeout
         self._trading_base_url = (
-            "https://paper-api.alpaca.markets" if paper else "https://api.alpaca.markets"
+            "https://paper-api.alpaca.markets"
+            if paper
+            else "https://api.alpaca.markets"
         )
         self._data_base_url = "https://data.alpaca.markets"
         self._headers = {
@@ -87,16 +88,24 @@ class AlpacaClient:
         if not self._data_http:
             raise RuntimeError("Client not open — call open() first")
         params = {**self._data_params, **kwargs.pop("params", {})}
-        return await self._do_request(self._data_http, method, path, params=params, **kwargs)
+        return await self._do_request(
+            self._data_http, method, path, params=params, **kwargs
+        )
 
     async def _do_request(
-        self, http: httpx.AsyncClient, method: str, path: str, **kwargs: Any,
+        self,
+        http: httpx.AsyncClient,
+        method: str,
+        path: str,
+        **kwargs: Any,
     ) -> Any:
         for attempt, backoff in enumerate(_RETRY_BACKOFF + [0]):
             resp = await http.request(method, path, **kwargs)
             if resp.status_code == 429:
                 if attempt < len(_RETRY_BACKOFF):
-                    logger.warning("Alpaca 429 rate limited, retrying in %.1fs", backoff)
+                    logger.warning(
+                        "Alpaca 429 rate limited, retrying in %.1fs", backoff
+                    )
                     await asyncio.sleep(backoff)
                     continue
                 raise AlpacaRateLimited(429, "Rate limit exceeded after retries")
@@ -185,7 +194,9 @@ class AlpacaClient:
 
     async def get_quotes(self, symbols: list[str]) -> dict[str, Any]:
         return await self._data_request(
-            "GET", "/v2/stocks/quotes/latest", params={"symbols": ",".join(symbols)},
+            "GET",
+            "/v2/stocks/quotes/latest",
+            params={"symbols": ",".join(symbols)},
         )
 
     async def get_bars(
@@ -210,7 +221,9 @@ class AlpacaClient:
             if page_token:
                 params["page_token"] = page_token
 
-            data = await self._data_request("GET", f"/v2/stocks/{symbol}/bars", params=params)
+            data = await self._data_request(
+                "GET", f"/v2/stocks/{symbol}/bars", params=params
+            )
             bars = data.get("bars", [])
             all_bars.extend(bars)
 

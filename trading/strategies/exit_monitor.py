@@ -1,4 +1,5 @@
 """ExitMonitorAgent — scans open tracked positions and emits exit opportunities."""
+
 from __future__ import annotations
 
 import logging
@@ -8,7 +9,15 @@ from typing import TYPE_CHECKING
 
 from agents.base import StructuredAgent
 from agents.models import Opportunity
-from broker.models import AssetType, MarketOrder, OrderBase, OrderSide, StopOrder, Symbol, TrailingStopOrder
+from broker.models import (
+    AssetType,
+    MarketOrder,
+    OrderBase,
+    OrderSide,
+    StopOrder,
+    Symbol,
+    TrailingStopOrder,
+)
 from exits.rules import StopLoss, TrailingStop
 
 if TYPE_CHECKING:
@@ -32,8 +41,12 @@ class ExitMonitorAgent(StructuredAgent):
     SizingEngine and uses the full position quantity instead.
     """
 
-    def __init__(self, config, exit_manager: "ExitManager | None" = None,
-                 position_store: "TrackedPositionStore | None" = None) -> None:
+    def __init__(
+        self,
+        config,
+        exit_manager: "ExitManager | None" = None,
+        position_store: "TrackedPositionStore | None" = None,
+    ) -> None:
         super().__init__(config)
         self._exit_manager = exit_manager
         self._position_store = position_store
@@ -44,7 +57,9 @@ class ExitMonitorAgent(StructuredAgent):
 
     @property
     def description(self) -> str:
-        return "Scans open positions for triggered exit rules and emits SELL opportunities"
+        return (
+            "Scans open positions for triggered exit rules and emits SELL opportunities"
+        )
 
     async def scan(self, data: "DataBus") -> list[Opportunity]:
         if not self._exit_manager or not self._position_store:
@@ -57,7 +72,8 @@ class ExitMonitorAgent(StructuredAgent):
         # Purge expired cooldowns
         now_pre = datetime.now(timezone.utc)
         self._exit_cooldown = {
-            pid: ts for pid, ts in self._exit_cooldown.items()
+            pid: ts
+            for pid, ts in self._exit_cooldown.items()
             if (now_pre - ts).total_seconds() < self._cooldown_seconds
         }
 
@@ -86,7 +102,9 @@ class ExitMonitorAgent(StructuredAgent):
                 if quote and quote.last is not None:
                     quotes[ticker] = quote.last
             except Exception as exc:
-                logger.warning("ExitMonitor: failed to fetch quote for %s: %s", ticker, exc)
+                logger.warning(
+                    "ExitMonitor: failed to fetch quote for %s: %s", ticker, exc
+                )
 
         now = datetime.now(timezone.utc)
         opportunities: list[Opportunity] = []
@@ -96,11 +114,17 @@ class ExitMonitorAgent(StructuredAgent):
             ticker = pos["symbol"]
             current_price = quotes.get(ticker)
             if current_price is None:
-                logger.debug("ExitMonitor: no quote for %s, skipping position %d", ticker, position_id)
+                logger.debug(
+                    "ExitMonitor: no quote for %s, skipping position %d",
+                    ticker,
+                    position_id,
+                )
                 continue
 
             side_str = str(pos.get("side", "BUY")).upper()
-            entry_price = Decimal(pos["entry_price"]) if pos.get("entry_price") else None
+            entry_price = (
+                Decimal(pos["entry_price"]) if pos.get("entry_price") else None
+            )
 
             self._exit_manager.update_trailing(position_id, current_price)
 
@@ -119,7 +143,9 @@ class ExitMonitorAgent(StructuredAgent):
             if last_emit and (now - last_emit).total_seconds() < self._cooldown_seconds:
                 logger.debug(
                     "ExitMonitor: position %d (%s) on cooldown — skipping (rule=%s)",
-                    position_id, ticker, triggered.name,
+                    position_id,
+                    ticker,
+                    triggered.name,
                 )
                 continue
 
@@ -178,7 +204,9 @@ class ExitMonitorAgent(StructuredAgent):
             self._exit_cooldown[position_id] = now
             logger.info(
                 "ExitMonitor: exit triggered for position %d (%s) via rule '%s'",
-                position_id, ticker, triggered.name,
+                position_id,
+                ticker,
+                triggered.name,
             )
 
         return opportunities

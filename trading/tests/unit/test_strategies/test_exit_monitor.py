@@ -1,22 +1,23 @@
 """Tests for ExitMonitorAgent and the router's is_exit bypass."""
+
 from __future__ import annotations
 
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
 
-from agents.models import ActionLevel, AgentConfig, Opportunity, OpportunityStatus
-from broker.models import AssetType, MarketOrder, OrderSide, Symbol, Quote
+from agents.models import ActionLevel, AgentConfig, Opportunity
+from broker.models import OrderSide, Symbol, Quote
 from exits.manager import ExitManager
-from exits.rules import StopLoss, TakeProfit, TrailingStop
+from exits.rules import StopLoss, TrailingStop
 from strategies.exit_monitor import ExitMonitorAgent
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_config(name: str = "exit_monitor") -> AgentConfig:
     return AgentConfig(
@@ -73,9 +74,12 @@ class MockDataBus:
 # ExitMonitorAgent tests
 # ---------------------------------------------------------------------------
 
+
 async def test_triggered_stop_emits_sell_opportunity():
     """Open position with triggered stop → emits SELL opportunity with is_exit=True."""
-    position = _make_position(position_id=42, symbol="AAPL", entry_price="100.00", entry_quantity=10)
+    position = _make_position(
+        position_id=42, symbol="AAPL", entry_price="100.00", entry_quantity=10
+    )
 
     exit_manager = ExitManager()
     stop = StopLoss(stop_price=Decimal("95.00"), side="BUY")
@@ -85,7 +89,9 @@ async def test_triggered_stop_emits_sell_opportunity():
     position_store.list_open = AsyncMock(return_value=[position])
 
     config = _make_config()
-    agent = ExitMonitorAgent(config, exit_manager=exit_manager, position_store=position_store)
+    agent = ExitMonitorAgent(
+        config, exit_manager=exit_manager, position_store=position_store
+    )
 
     # Current price is 90, below stop of 95 → triggers
     data_bus = MockDataBus({"AAPL": Decimal("90.00")})
@@ -117,7 +123,9 @@ async def test_exit_uses_persisted_account_id():
     position_store = AsyncMock()
     position_store.list_open = AsyncMock(return_value=[position])
 
-    agent = ExitMonitorAgent(_make_config(), exit_manager=exit_manager, position_store=position_store)
+    agent = ExitMonitorAgent(
+        _make_config(), exit_manager=exit_manager, position_store=position_store
+    )
     opps = await agent.scan(MockDataBus({"AAPL": Decimal("90.00")}))
 
     assert len(opps) == 1
@@ -126,7 +134,9 @@ async def test_exit_uses_persisted_account_id():
 
 async def test_no_trigger_returns_empty():
     """Open position with no triggered rules → no opportunity emitted."""
-    position = _make_position(position_id=1, symbol="AAPL", entry_price="100.00", entry_quantity=5)
+    position = _make_position(
+        position_id=1, symbol="AAPL", entry_price="100.00", entry_quantity=5
+    )
 
     exit_manager = ExitManager()
     # Stop is at 80; current price is 110 → not triggered
@@ -137,7 +147,9 @@ async def test_no_trigger_returns_empty():
     position_store.list_open = AsyncMock(return_value=[position])
 
     config = _make_config()
-    agent = ExitMonitorAgent(config, exit_manager=exit_manager, position_store=position_store)
+    agent = ExitMonitorAgent(
+        config, exit_manager=exit_manager, position_store=position_store
+    )
 
     data_bus = MockDataBus({"AAPL": Decimal("110.00")})
     opps = await agent.scan(data_bus)
@@ -147,8 +159,12 @@ async def test_no_trigger_returns_empty():
 
 async def test_multiple_positions_only_triggered_emits():
     """Only positions with triggered rules emit opportunities."""
-    pos1 = _make_position(position_id=1, symbol="AAPL", entry_price="100.00", entry_quantity=10)
-    pos2 = _make_position(position_id=2, symbol="MSFT", entry_price="200.00", entry_quantity=5)
+    pos1 = _make_position(
+        position_id=1, symbol="AAPL", entry_price="100.00", entry_quantity=10
+    )
+    pos2 = _make_position(
+        position_id=2, symbol="MSFT", entry_price="200.00", entry_quantity=5
+    )
 
     exit_manager = ExitManager()
     # AAPL: stop at 95, current price 90 → triggers
@@ -160,7 +176,9 @@ async def test_multiple_positions_only_triggered_emits():
     position_store.list_open = AsyncMock(return_value=[pos1, pos2])
 
     config = _make_config()
-    agent = ExitMonitorAgent(config, exit_manager=exit_manager, position_store=position_store)
+    agent = ExitMonitorAgent(
+        config, exit_manager=exit_manager, position_store=position_store
+    )
 
     data_bus = MockDataBus({"AAPL": Decimal("90.00"), "MSFT": Decimal("210.00")})
     opps = await agent.scan(data_bus)
@@ -190,7 +208,9 @@ async def test_no_open_positions_returns_empty():
     position_store.list_open = AsyncMock(return_value=[])
 
     config = _make_config()
-    agent = ExitMonitorAgent(config, exit_manager=exit_manager, position_store=position_store)
+    agent = ExitMonitorAgent(
+        config, exit_manager=exit_manager, position_store=position_store
+    )
 
     data_bus = MockDataBus({})
     opps = await agent.scan(data_bus)
@@ -201,7 +221,11 @@ async def test_no_open_positions_returns_empty():
 async def test_sell_position_emits_buy_opportunity():
     """Exit of a SELL position should produce a BUY suggested trade."""
     position = _make_position(
-        position_id=7, symbol="TSLA", side="SELL", entry_price="300.00", entry_quantity=3
+        position_id=7,
+        symbol="TSLA",
+        side="SELL",
+        entry_price="300.00",
+        entry_quantity=3,
     )
 
     exit_manager = ExitManager()
@@ -213,7 +237,9 @@ async def test_sell_position_emits_buy_opportunity():
     position_store.list_open = AsyncMock(return_value=[position])
 
     config = _make_config()
-    agent = ExitMonitorAgent(config, exit_manager=exit_manager, position_store=position_store)
+    agent = ExitMonitorAgent(
+        config, exit_manager=exit_manager, position_store=position_store
+    )
 
     data_bus = MockDataBus({"TSLA": Decimal("315.00")})
     opps = await agent.scan(data_bus)
@@ -224,7 +250,9 @@ async def test_sell_position_emits_buy_opportunity():
 
 
 async def test_lowercase_buy_side_is_normalized():
-    position = _make_position(position_id=8, symbol="AAPL", side="buy", entry_price="100.00", entry_quantity=2)
+    position = _make_position(
+        position_id=8, symbol="AAPL", side="buy", entry_price="100.00", entry_quantity=2
+    )
 
     exit_manager = ExitManager()
     await exit_manager.attach(8, [StopLoss(stop_price=Decimal("95.00"), side="BUY")])
@@ -232,7 +260,9 @@ async def test_lowercase_buy_side_is_normalized():
     position_store = AsyncMock()
     position_store.list_open = AsyncMock(return_value=[position])
 
-    agent = ExitMonitorAgent(_make_config(), exit_manager=exit_manager, position_store=position_store)
+    agent = ExitMonitorAgent(
+        _make_config(), exit_manager=exit_manager, position_store=position_store
+    )
     opps = await agent.scan(MockDataBus({"AAPL": Decimal("90.00")}))
 
     assert len(opps) == 1
@@ -240,7 +270,9 @@ async def test_lowercase_buy_side_is_normalized():
 
 
 async def test_trailing_stop_updates_and_triggers():
-    position = _make_position(position_id=9, symbol="AAPL", side="BUY", entry_price="100.00", entry_quantity=4)
+    position = _make_position(
+        position_id=9, symbol="AAPL", side="BUY", entry_price="100.00", entry_quantity=4
+    )
 
     exit_manager = ExitManager()
     trail = TrailingStop(trail_pct=Decimal("0.05"), side="BUY")
@@ -249,7 +281,9 @@ async def test_trailing_stop_updates_and_triggers():
     position_store = AsyncMock()
     position_store.list_open = AsyncMock(return_value=[position])
 
-    agent = ExitMonitorAgent(_make_config(), exit_manager=exit_manager, position_store=position_store)
+    agent = ExitMonitorAgent(
+        _make_config(), exit_manager=exit_manager, position_store=position_store
+    )
 
     first_pass = await agent.scan(MockDataBus({"AAPL": Decimal("110.00")}))
     assert first_pass == []
@@ -263,12 +297,19 @@ async def test_trailing_stop_updates_and_triggers():
 # Router: is_exit=True skips sizing engine
 # ---------------------------------------------------------------------------
 
+
 async def test_router_is_exit_skips_sizing_engine():
     """Router should NOT call sizing engine when opportunity.is_exit is True."""
     from agents.router import OpportunityRouter
     from broker.models import (
-        AccountBalance, MarketOrder, OrderResult, OrderStatus,
-        Quote, Symbol, AssetType, OrderSide,
+        AccountBalance,
+        MarketOrder,
+        OrderResult,
+        OrderStatus,
+        Quote,
+        Symbol,
+        AssetType,
+        OrderSide,
     )
 
     store = AsyncMock()
@@ -308,7 +349,9 @@ async def test_router_is_exit_skips_sizing_engine():
     )
 
     risk_engine = MagicMock()
-    risk_engine.evaluate = AsyncMock(return_value=MagicMock(passed=True, adjusted_quantity=None))
+    risk_engine.evaluate = AsyncMock(
+        return_value=MagicMock(passed=True, adjusted_quantity=None)
+    )
 
     data_bus = AsyncMock()
     data_bus.get_quote = AsyncMock(

@@ -1,7 +1,6 @@
 """Tests for ExecutionAnalyzer — TDD phase."""
-import pytest
+
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock
 
 from execution.analyzer import ExecutionAnalyzer
 from execution.tracker import ExecutionFill

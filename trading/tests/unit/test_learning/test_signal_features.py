@@ -1,7 +1,7 @@
 """Unit tests for SignalFeatureCapture and indicator helpers."""
+
 from __future__ import annotations
 
-import json
 from datetime import datetime, timezone
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock
@@ -122,6 +122,7 @@ class TestComputeRelativeVolume:
 # SignalFeatureCapture tests
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 async def sf_store():
     db = await aiosqlite.connect(":memory:")
@@ -150,7 +151,9 @@ def _make_opportunity(
     return opp
 
 
-def _make_data_bus(bars: list[Bar] | None = None, quote: Quote | None = None) -> MagicMock:
+def _make_data_bus(
+    bars: list[Bar] | None = None, quote: Quote | None = None
+) -> MagicMock:
     bus = MagicMock()
     bus.get_quote = AsyncMock(return_value=quote)
     bus.get_historical = AsyncMock(return_value=bars or [])
@@ -232,10 +235,11 @@ class TestSignalFeatureCapture:
         assert row["capture_status"] == "partial"
         assert row["agent_name"] == "test_agent"
 
-    async def test_store_failure_produces_failed_row(self, sf_store: SignalFeatureStore):
+    async def test_store_failure_produces_failed_row(
+        self, sf_store: SignalFeatureStore
+    ):
         """If the store itself fails during _do_capture, a failed row is written."""
         from learning.signal_features import SignalFeatureCapture
-        from unittest.mock import patch
 
         bus = _make_data_bus(bars=[], quote=None)
         capture = SignalFeatureCapture(store=sf_store, data_bus=bus)
@@ -264,7 +268,9 @@ class TestSignalFeatureCapture:
 
         bus = _make_data_bus(bars=[], quote=None)
         capture = SignalFeatureCapture(store=sf_store, data_bus=bus)
-        opp = _make_opportunity(data={"signal_features": {"custom_score": 0.99, "algo_version": "v2"}})
+        opp = _make_opportunity(
+            data={"signal_features": {"custom_score": 0.99, "algo_version": "v2"}}
+        )
 
         await capture.capture(opp)
 
@@ -274,18 +280,22 @@ class TestSignalFeatureCapture:
         assert payload.get("custom_score") == pytest.approx(0.99)
         assert payload.get("algo_version") == "v2"
 
-    async def test_regime_stamped_from_opportunity_data(self, sf_store: SignalFeatureStore):
+    async def test_regime_stamped_from_opportunity_data(
+        self, sf_store: SignalFeatureStore
+    ):
         from learning.signal_features import SignalFeatureCapture
 
         bus = _make_data_bus(bars=[], quote=None)
         capture = SignalFeatureCapture(store=sf_store, data_bus=bus)
-        opp = _make_opportunity(data={
-            "regime": {
-                "trend_regime": "uptrend",
-                "volatility_regime": "low",
-                "liquidity_regime": "high",
+        opp = _make_opportunity(
+            data={
+                "regime": {
+                    "trend_regime": "uptrend",
+                    "volatility_regime": "low",
+                    "liquidity_regime": "high",
+                }
             }
-        })
+        )
 
         await capture.capture(opp)
 

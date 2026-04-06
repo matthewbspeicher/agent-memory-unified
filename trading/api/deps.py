@@ -1,4 +1,5 @@
 """Dependency injection using app.state with module-level cache."""
+
 from broker.interfaces import Broker
 from agents.runner import AgentRunner
 from data.events import EventBus

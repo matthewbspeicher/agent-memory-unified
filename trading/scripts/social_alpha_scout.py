@@ -19,17 +19,29 @@ logger = logging.getLogger("scout_loop")
 
 TICKER_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
 
-BULLISH_PATTERNS = [re.compile(r"\b" + w + r"\b") for w in ["buy", "bull", "bullish", "long", "calls", "moon"]]
-BEARISH_PATTERNS = [re.compile(r"\b" + w + r"\b") for w in ["sell", "bear", "bearish", "short", "puts", "crash"]]
+BULLISH_PATTERNS = [
+    re.compile(r"\b" + w + r"\b")
+    for w in ["buy", "bull", "bullish", "long", "calls", "moon"]
+]
+BEARISH_PATTERNS = [
+    re.compile(r"\b" + w + r"\b")
+    for w in ["sell", "bear", "bearish", "short", "puts", "crash"]
+]
 
 
 def get_active_tickers():
     """Fetch active tickers from the Markets Browser."""
     try:
-        resp = requests.get(f"{API_BASE}/markets/kalshi/top", headers={"X-API-Key": API_KEY})
+        resp = requests.get(
+            f"{API_BASE}/markets/kalshi/top", headers={"X-API-Key": API_KEY}
+        )
         resp.raise_for_status()
         markets = resp.json()
-        return [m["ticker"] for m in markets[:5] if TICKER_PATTERN.match(m.get("ticker", ""))]
+        return [
+            m["ticker"]
+            for m in markets[:5]
+            if TICKER_PATTERN.match(m.get("ticker", ""))
+        ]
     except Exception as e:
         logger.error("Failed to fetch tickers: %s", e)
         return []
@@ -43,7 +55,17 @@ def scout_ticker(ticker):
 
     logger.info("Scouting sentiment for %s...", ticker)
     try:
-        cmd = ["opencli-rs", "twitter", "search", "--query", ticker, "--format", "json", "--limit", "10"]
+        cmd = [
+            "opencli-rs",
+            "twitter",
+            "search",
+            "--query",
+            ticker,
+            "--format",
+            "json",
+            "--limit",
+            "10",
+        ]
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
         if result.returncode != 0:
             logger.error("opencli-rs failed: %s", result.stderr)

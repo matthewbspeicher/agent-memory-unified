@@ -40,7 +40,9 @@ class TradeTracker:
         self._confidence_calibration_store = confidence_calibration_store
         self._confidence_calibration_config = confidence_calibration_config
 
-    async def record_entry(self, opportunity: Opportunity, order_result: OrderResult, side: str) -> int:
+    async def record_entry(
+        self, opportunity: Opportunity, order_result: OrderResult, side: str
+    ) -> int:
         entry_price = order_result.avg_fill_price or Decimal("0")
         entry_time = order_result.filled_at or datetime.now(timezone.utc)
         return await self._store.open_position(
@@ -56,7 +58,9 @@ class TradeTracker:
             account_id=getattr(opportunity.suggested_trade, "account_id", None),
         )
 
-    async def record_exit(self, position_id: int, order_result: OrderResult, reason: str) -> None:
+    async def record_exit(
+        self, position_id: int, order_result: OrderResult, reason: str
+    ) -> None:
         exit_price = order_result.avg_fill_price or Decimal("0")
         exit_time = order_result.filled_at or datetime.now(timezone.utc)
         await self._store.close_position(
@@ -73,6 +77,7 @@ class TradeTracker:
         """Fire-and-forget analytics derivation. Failures are logged, never propagated."""
         try:
             from analytics.strategy_scorecard import derive_and_upsert_for_position
+
             await derive_and_upsert_for_position(
                 position_id,
                 self._store,
@@ -90,7 +95,9 @@ class TradeTracker:
                 position = await self._store.get(position_id)
                 agent_name = position.get("agent_name") if position else None
                 if agent_name:
-                    from learning.confidence_calibration import recompute_calibration_for_strategy
+                    from learning.confidence_calibration import (
+                        recompute_calibration_for_strategy,
+                    )
 
                     analytics_rows = await self._analytics_store.list_by_strategy(
                         agent_name,
@@ -105,7 +112,9 @@ class TradeTracker:
         except Exception:
             _log.exception("Analytics derivation failed for position %s", position_id)
 
-    async def close_by_reconciliation(self, position_id: int, exit_price: Decimal, exit_time: datetime) -> None:
+    async def close_by_reconciliation(
+        self, position_id: int, exit_price: Decimal, exit_time: datetime
+    ) -> None:
         await self._store.close_position(
             position_id,
             exit_price=str(exit_price),

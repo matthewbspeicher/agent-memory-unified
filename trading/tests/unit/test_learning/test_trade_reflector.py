@@ -2,7 +2,7 @@ import json
 import pytest
 from datetime import datetime, timezone
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 from learning.trade_memory import TradeMemory, ClosedTrade
 from learning.memory_client import TradingMemoryClient
@@ -52,7 +52,9 @@ def test_closed_trade_fields():
 @pytest.fixture
 def mock_private_client():
     c = AsyncMock()
-    c.search = AsyncMock(return_value=[{"value": "AAPL fades on heavy volume", "tags": ["AAPL", "win"]}])
+    c.search = AsyncMock(
+        return_value=[{"value": "AAPL fades on heavy volume", "tags": ["AAPL", "win"]}]
+    )
     c.store = AsyncMock(return_value={"id": "mem-001"})
     return c
 
@@ -60,7 +62,9 @@ def mock_private_client():
 @pytest.fixture
 def mock_shared_client():
     c = AsyncMock()
-    c.search_commons = AsyncMock(return_value=[{"value": "NVDA tends to fade first 30min", "tags": ["NVDA"]}])
+    c.search_commons = AsyncMock(
+        return_value=[{"value": "NVDA tends to fade first 30min", "tags": ["NVDA"]}]
+    )
     c.store = AsyncMock(return_value={"id": "mem-002"})
     return c
 
@@ -103,7 +107,9 @@ async def test_memory_client_search_both(mock_private_client, mock_shared_client
     mock_shared_client.search_commons.assert_awaited_once()
 
 
-def make_closed_trade(pnl: Decimal, expected_pnl: Decimal, stop_loss: Decimal, outcome: str = "win") -> ClosedTrade:
+def make_closed_trade(
+    pnl: Decimal, expected_pnl: Decimal, stop_loss: Decimal, outcome: str = "win"
+) -> ClosedTrade:
     return ClosedTrade(
         agent_name="test_agent",
         opportunity_id="opp-001",
@@ -184,17 +190,21 @@ async def test_deep_reflection_triggered_when_pnl_exceeds_multiplier(memory_clie
         deep_reflection_loss_multiplier=1.5,
     )
     mock_llm_client = AsyncMock()
-    mock_llm_client.complete = AsyncMock(return_value=MagicMock(text=(
-        "What happened: AAPL surged on earnings beat.\n"
-        "What triggered the signal: RSI breakout above 70.\n"
-        "What worked: Momentum entry timed well.\n"
-        "What I would do differently: N/A\n"
-        "Market conditions at entry: Bullish, tech sector strong.\n"
-        "Key lesson: Momentum works on earnings beats.\n"
-        "Market observation: AAPL tends to run +3% on earnings beat days."
-    )))
+    mock_llm_client.complete = AsyncMock(
+        return_value=MagicMock(
+            text=(
+                "What happened: AAPL surged on earnings beat.\n"
+                "What triggered the signal: RSI breakout above 70.\n"
+                "What worked: Momentum entry timed well.\n"
+                "What I would do differently: N/A\n"
+                "Market conditions at entry: Bullish, tech sector strong.\n"
+                "Key lesson: Momentum works on earnings beats.\n"
+                "Market observation: AAPL tends to run +3% on earnings beat days."
+            )
+        )
+    )
     reflector._llm = mock_llm_client
-    
+
     trade = make_closed_trade(
         pnl=Decimal("15.00"),
         expected_pnl=Decimal("6.00"),
@@ -217,17 +227,21 @@ async def test_deep_reflection_triggered_on_large_loss(memory_client):
         deep_reflection_loss_multiplier=1.5,
     )
     mock_llm_client = AsyncMock()
-    mock_llm_client.complete = AsyncMock(return_value=MagicMock(text=(
-        "What happened: Stop blew through.\n"
-        "What triggered the signal: Volume spike misread.\n"
-        "What worked: N/A\n"
-        "What I would do differently: Tighten stop earlier.\n"
-        "Market conditions at entry: High volatility day.\n"
-        "Key lesson: Wider stops in volatile regimes.\n"
-        "Market observation: none"
-    )))
+    mock_llm_client.complete = AsyncMock(
+        return_value=MagicMock(
+            text=(
+                "What happened: Stop blew through.\n"
+                "What triggered the signal: Volume spike misread.\n"
+                "What worked: N/A\n"
+                "What I would do differently: Tighten stop earlier.\n"
+                "Market conditions at entry: High volatility day.\n"
+                "Key lesson: Wider stops in volatile regimes.\n"
+                "Market observation: none"
+            )
+        )
+    )
     reflector._llm = mock_llm_client
-    
+
     trade = make_closed_trade(
         pnl=Decimal("-7.00"),
         expected_pnl=Decimal("-2.00"),
@@ -244,19 +258,28 @@ async def test_deep_reflection_triggered_on_large_loss(memory_client):
 
 @pytest.mark.asyncio
 async def test_query_returns_combined_results(memory_client):
-    memory_client.search_both = AsyncMock(return_value=[
-        {"value": "AAPL fades on volume", "tags": ["AAPL"]},
-        {"value": "AAPL earnings beats run +3%", "tags": ["AAPL", "market_observation"]},
-    ])
+    memory_client.search_both = AsyncMock(
+        return_value=[
+            {"value": "AAPL fades on volume", "tags": ["AAPL"]},
+            {
+                "value": "AAPL earnings beats run +3%",
+                "tags": ["AAPL", "market_observation"],
+            },
+        ]
+    )
     reflector = TradeReflector(
         memory_client=memory_client,
         deep_reflection_pnl_multiplier=2.0,
         deep_reflection_loss_multiplier=1.5,
         llm=None,
     )
-    results = await reflector.query("AAPL", "long breakout at 150", "test_agent", top_k=5)
+    results = await reflector.query(
+        "AAPL", "long breakout at 150", "test_agent", top_k=5
+    )
     assert len(results) == 2
-    memory_client.search_both.assert_awaited_once_with("AAPL long breakout at 150", top_k=5)
+    memory_client.search_both.assert_awaited_once_with(
+        "AAPL long breakout at 150", top_k=5
+    )
 
 
 @pytest.mark.asyncio

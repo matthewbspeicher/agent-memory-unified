@@ -7,7 +7,13 @@ from typing import Any
 
 from broker.interfaces import MarketDataProvider
 from broker.models import (
-    AssetType, Bar, ContractDetails, OptionRight, OptionsChain, Quote, Symbol,
+    AssetType,
+    Bar,
+    ContractDetails,
+    OptionRight,
+    OptionsChain,
+    Quote,
+    Symbol,
 )
 from adapters.tradier.client import TradierClient
 
@@ -18,7 +24,6 @@ _INTRADAY_MAX_DAYS = 35
 
 
 class TradierMarketDataProvider(MarketDataProvider):
-
     def __init__(self, client: TradierClient) -> None:
         self._client = client
 
@@ -43,29 +48,42 @@ class TradierMarketDataProvider(MarketDataProvider):
         result = []
         for q in quotes_data:
             sym = next((s for s in symbols if s.ticker == q.get("symbol")), symbols[0])
-            result.append(Quote(
-                symbol=sym,
-                last=Decimal(str(q["last"])) if q.get("last") else None,
-                bid=Decimal(str(q["bid"])) if q.get("bid") else None,
-                ask=Decimal(str(q["ask"])) if q.get("ask") else None,
-                volume=q.get("volume", 0),
-            ))
+            result.append(
+                Quote(
+                    symbol=sym,
+                    last=Decimal(str(q["last"])) if q.get("last") else None,
+                    bid=Decimal(str(q["bid"])) if q.get("bid") else None,
+                    ask=Decimal(str(q["ask"])) if q.get("ask") else None,
+                    volume=q.get("volume", 0),
+                )
+            )
         return result
 
     async def stream_quotes(
-        self, symbols: list[Symbol], callback: Callable[[Quote], Any],
+        self,
+        symbols: list[Symbol],
+        callback: Callable[[Quote], Any],
     ) -> None:
         raise NotImplementedError("Tradier SSE streaming deferred to Phase 2")
 
     async def get_historical(
-        self, symbol: Symbol, timeframe: str, period: str,
+        self,
+        symbol: Symbol,
+        timeframe: str,
+        period: str,
     ) -> list[Bar]:
         now = datetime.now(timezone.utc)
         period_map = {"1d": 1, "5d": 5, "1mo": 30, "3mo": 90, "6mo": 180, "1y": 365}
         days = period_map.get(period, 90)
 
         # Map timeframe to Tradier interval
-        tf_map = {"1Min": "1min", "5Min": "5min", "15Min": "15min", "1D": "daily", "1d": "daily"}
+        tf_map = {
+            "1Min": "1min",
+            "5Min": "5min",
+            "15Min": "15min",
+            "1D": "daily",
+            "1d": "daily",
+        }
         interval = tf_map.get(timeframe, "daily")
 
         # Warn about intraday data limitation
@@ -73,13 +91,18 @@ class TradierMarketDataProvider(MarketDataProvider):
             logger.warning(
                 "Tradier intraday data limited to ~%d days; requested %d days for %s %s. "
                 "Returning what's available.",
-                _INTRADAY_MAX_DAYS, days, symbol.ticker, interval,
+                _INTRADAY_MAX_DAYS,
+                days,
+                symbol.ticker,
+                interval,
             )
 
         start = (now - timedelta(days=days)).strftime("%Y-%m-%d")
         end = now.strftime("%Y-%m-%d")
 
-        raw_bars = await self._client.get_historical(symbol.ticker, interval, start, end)
+        raw_bars = await self._client.get_historical(
+            symbol.ticker, interval, start, end
+        )
         return [
             Bar(
                 symbol=symbol,
@@ -88,13 +111,17 @@ class TradierMarketDataProvider(MarketDataProvider):
                 low=Decimal(str(b.get("low", 0))),
                 close=Decimal(str(b.get("close", 0))),
                 volume=b.get("volume", 0),
-                timestamp=datetime.strptime(b["date"], "%Y-%m-%d") if "date" in b else datetime.now(timezone.utc),
+                timestamp=datetime.strptime(b["date"], "%Y-%m-%d")
+                if "date" in b
+                else datetime.now(timezone.utc),
             )
             for b in raw_bars
         ]
 
     async def get_options_chain(
-        self, symbol: Symbol, expiry: str | None = None,
+        self,
+        symbol: Symbol,
+        expiry: str | None = None,
     ) -> OptionsChain:
         if expiry is None:
             expirations = await self._client.get_options_expirations(symbol.ticker)
@@ -113,8 +140,16 @@ class TradierMarketDataProvider(MarketDataProvider):
         for opt in options:
             strike = Decimal(str(opt.get("strike", 0)))
             strikes.add(strike)
-            exp_date = date.fromisoformat(opt["expiration_date"]) if opt.get("expiration_date") else None
-            right = OptionRight.CALL if opt.get("option_type") == "call" else OptionRight.PUT
+            exp_date = (
+                date.fromisoformat(opt["expiration_date"])
+                if opt.get("expiration_date")
+                else None
+            )
+            right = (
+                OptionRight.CALL
+                if opt.get("option_type") == "call"
+                else OptionRight.PUT
+            )
 
             detail = ContractDetails(
                 symbol=Symbol(

@@ -1,4 +1,5 @@
 """ConfidenceCalibrationStore — persists per-strategy confidence bucket summaries."""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -101,7 +102,9 @@ class ConfidenceCalibrationStore:
         rows = await cursor.fetchall()
         return [row["agent_name"] for row in rows]
 
-    async def delete_by_strategy(self, agent_name: str, *, window_label: str | None = None) -> None:
+    async def delete_by_strategy(
+        self, agent_name: str, *, window_label: str | None = None
+    ) -> None:
         """Delete rows for a strategy (optionally by window) to support recalculation."""
         if window_label is not None:
             await self._db.execute(

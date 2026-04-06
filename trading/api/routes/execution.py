@@ -1,4 +1,5 @@
 """Execution quality API routes."""
+
 from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Request
 
@@ -50,7 +51,9 @@ async def get_execution_quality(
                         "fill_count": len(fills),
                         "avg_slippage_bps": round(
                             sum(f.slippage_bps for f in fills) / len(fills), 2
-                        ) if fills else 0.0,
+                        )
+                        if fills
+                        else 0.0,
                     }
                     for name, fills in exec_tracker._fills.items()
                 ]

@@ -5,12 +5,22 @@ import logging
 from typing import TYPE_CHECKING
 
 from broker.models import (
-    AccountBalance, Bar, OptionsChain, Position, Quote, Symbol,
+    AccountBalance,
+    Bar,
+    OptionsChain,
+    Position,
+    Quote,
+    Symbol,
 )
 from data.cache import TTLCache
 from data.indicators import (
-    BollingerBands, MACD,
-    compute_bollinger, compute_ema, compute_macd, compute_rsi, compute_sma,
+    BollingerBands,
+    MACD,
+    compute_bollinger,
+    compute_ema,
+    compute_macd,
+    compute_rsi,
+    compute_sma,
 )
 from data.sources.base import DataSource
 from data.universe import get_universe
@@ -82,21 +92,30 @@ class DataBus:
         return list(await asyncio.gather(*(self.get_quote(s) for s in symbols)))
 
     async def get_historical(
-        self, symbol: Symbol, timeframe: str = "1d", period: str = "3mo",
+        self,
+        symbol: Symbol,
+        timeframe: str = "1d",
+        period: str = "3mo",
     ) -> list[Bar]:
         key = f"hist:{symbol.ticker}:{timeframe}:{period}"
         cached = self._cache.get(key)
         if cached is not None:
             return cached
         bars = await self._fetch_from_sources(
-            "get_historical", "supports_historical", symbol, timeframe, period,
+            "get_historical",
+            "supports_historical",
+            symbol,
+            timeframe,
+            period,
         )
         self._cache.set(key, bars, HISTORICAL_TTL)
         return bars
 
     async def get_options_chain(self, symbol: Symbol) -> OptionsChain:
         return await self._fetch_from_sources(
-            "get_options_chain", "supports_options", symbol,
+            "get_options_chain",
+            "supports_options",
+            symbol,
         )
 
     # --- Universe ---
@@ -144,10 +163,14 @@ class DataBus:
             return []
         return await self._broker.account.get_positions(self._account_id)
 
-    async def get_all_positions(self, exclude_accounts: list[str] | None = None) -> list:
+    async def get_all_positions(
+        self, exclude_accounts: list[str] | None = None
+    ) -> list:
         ibkr = await self.get_positions()
         if self._external_store:
-            external = await self._external_store.get_positions(exclude_accounts=exclude_accounts)
+            external = await self._external_store.get_positions(
+                exclude_accounts=exclude_accounts
+            )
             return list(ibkr) + external
         return list(ibkr)
 
@@ -188,6 +211,7 @@ class DataBus:
             if getattr(broker_market_data, "_data_bus", None) is self:
                 raise RuntimeError(f"No source available for {method}")
             from data.sources.broker_source import BrokerSource
+
             fallback = BrokerSource(self._broker)
             return await getattr(fallback, method)(*args)
         raise RuntimeError(f"No source available for {method}")

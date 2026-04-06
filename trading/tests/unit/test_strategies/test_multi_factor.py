@@ -6,7 +6,9 @@ from agents.models import AgentConfig, ActionLevel
 from broker.models import Symbol, OrderSide
 
 
-def _make_bars(count: int = 36, base_close: Decimal = Decimal("100"), final_volume: int = 4000):
+def _make_bars(
+    count: int = 36, base_close: Decimal = Decimal("100"), final_volume: int = 4000
+):
     bars = [
         MagicMock(
             close=base_close + Decimal(str(i)),
@@ -33,12 +35,16 @@ async def test_strong_composite_fires(monkeypatch):
     MultiFactorAgent = multi_factor_module.MultiFactorAgent
 
     config = AgentConfig(
-        name="mf_test", strategy="multi_factor", schedule="cron",
+        name="mf_test",
+        strategy="multi_factor",
+        schedule="cron",
         action_level=ActionLevel.NOTIFY,
         universe=["AAPL"],
         parameters={
             "composite_threshold": 0.6,
-            "rsi_weight": 0.4, "macd_weight": 0.3, "volume_weight": 0.3,
+            "rsi_weight": 0.4,
+            "macd_weight": 0.3,
+            "volume_weight": 0.3,
         },
     )
     agent = MultiFactorAgent(config)
@@ -66,12 +72,16 @@ async def test_weak_composite_no_signal(monkeypatch):
     MultiFactorAgent = multi_factor_module.MultiFactorAgent
 
     config = AgentConfig(
-        name="mf_test", strategy="multi_factor", schedule="cron",
+        name="mf_test",
+        strategy="multi_factor",
+        schedule="cron",
         action_level=ActionLevel.NOTIFY,
         universe=["AAPL"],
         parameters={
             "composite_threshold": 0.6,
-            "rsi_weight": 0.4, "macd_weight": 0.3, "volume_weight": 0.3,
+            "rsi_weight": 0.4,
+            "macd_weight": 0.3,
+            "volume_weight": 0.3,
         },
     )
     agent = MultiFactorAgent(config)
@@ -98,12 +108,16 @@ async def test_no_sell_signals(monkeypatch):
     MultiFactorAgent = multi_factor_module.MultiFactorAgent
 
     config = AgentConfig(
-        name="mf_test", strategy="multi_factor", schedule="cron",
+        name="mf_test",
+        strategy="multi_factor",
+        schedule="cron",
         action_level=ActionLevel.NOTIFY,
         universe=["AAPL"],
         parameters={
             "composite_threshold": 0.6,
-            "rsi_weight": 0.4, "macd_weight": 0.3, "volume_weight": 0.3,
+            "rsi_weight": 0.4,
+            "macd_weight": 0.3,
+            "volume_weight": 0.3,
         },
     )
     agent = MultiFactorAgent(config)
@@ -130,7 +144,9 @@ async def test_insufficient_bars_skips_without_indicator_calls(monkeypatch):
     MultiFactorAgent = multi_factor_module.MultiFactorAgent
 
     config = AgentConfig(
-        name="mf_test", strategy="multi_factor", schedule="cron",
+        name="mf_test",
+        strategy="multi_factor",
+        schedule="cron",
         action_level=ActionLevel.NOTIFY,
         universe=["AAPL"],
         parameters={"lookback_days": 20, "rsi_period": 14},

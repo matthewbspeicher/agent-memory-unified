@@ -2,7 +2,6 @@
 from __future__ import annotations
 import asyncio
 from unittest.mock import AsyncMock, MagicMock
-import pytest
 from data.events import EventBus
 from strategies.spread_tracker import SpreadTracker
 
@@ -12,11 +11,18 @@ def _make_tracker(match_index=None, alert_threshold=8):
     store.record = AsyncMock()
     bus = EventBus()
     kalshi_ds = AsyncMock()
-    kalshi_ds.get_market = AsyncMock(return_value=MagicMock(
-        ticker="K1", yes_bid=45, yes_ask=55, yes_last=50,
-        volume_24h=1000, category="politics",
-        close_time=None, title="Test market",
-    ))
+    kalshi_ds.get_market = AsyncMock(
+        return_value=MagicMock(
+            ticker="K1",
+            yes_bid=45,
+            yes_ask=55,
+            yes_last=50,
+            volume_24h=1000,
+            category="politics",
+            close_time=None,
+            title="Test market",
+        )
+    )
     tracker = SpreadTracker(
         spread_store=store,
         match_index=match_index or {"tok1": "K1"},
@@ -33,11 +39,14 @@ class TestSpreadTracker:
         # Publish an event and let tracker process it
         task = asyncio.create_task(tracker.run())
         await asyncio.sleep(0)  # yield to let tracker subscribe
-        await bus.publish("polymarket.quote", {
-            "condition_id": "tok1",
-            "yes_cents": 60,
-            "timestamp": 0.0,
-        })
+        await bus.publish(
+            "polymarket.quote",
+            {
+                "condition_id": "tok1",
+                "yes_cents": 60,
+                "timestamp": 0.0,
+            },
+        )
         await asyncio.sleep(0.05)
         task.cancel()
         try:
@@ -50,11 +59,14 @@ class TestSpreadTracker:
         tracker, store, bus, _ = _make_tracker(match_index={"tokOther": "K1"})
         task = asyncio.create_task(tracker.run())
         await asyncio.sleep(0)
-        await bus.publish("polymarket.quote", {
-            "condition_id": "tok_unknown",
-            "yes_cents": 60,
-            "timestamp": 0.0,
-        })
+        await bus.publish(
+            "polymarket.quote",
+            {
+                "condition_id": "tok_unknown",
+                "yes_cents": 60,
+                "timestamp": 0.0,
+            },
+        )
         await asyncio.sleep(0.05)
         task.cancel()
         try:
@@ -77,11 +89,14 @@ class TestSpreadTracker:
         run_task = asyncio.create_task(tracker.run())
         await asyncio.sleep(0)
         # yes_ask=55 on Kalshi (buy cost), yes_cents=70 on Polymarket → gap=15 > threshold=8
-        await bus.publish("polymarket.quote", {
-            "condition_id": "tok1",
-            "yes_cents": 70,
-            "timestamp": 0.0,
-        })
+        await bus.publish(
+            "polymarket.quote",
+            {
+                "condition_id": "tok1",
+                "yes_cents": 70,
+                "timestamp": 0.0,
+            },
+        )
         await asyncio.sleep(0.1)
         run_task.cancel()
         capture_task.cancel()
@@ -108,11 +123,14 @@ class TestSpreadTracker:
         run_task = asyncio.create_task(tracker.run())
         await asyncio.sleep(0)
         # gap = |55 - 52| = 3 (using ask=55), below threshold 20
-        await bus.publish("polymarket.quote", {
-            "condition_id": "tok1",
-            "yes_cents": 52,
-            "timestamp": 0.0,
-        })
+        await bus.publish(
+            "polymarket.quote",
+            {
+                "condition_id": "tok1",
+                "yes_cents": 52,
+                "timestamp": 0.0,
+            },
+        )
         await asyncio.sleep(0.1)
         run_task.cancel()
         capture_task.cancel()
@@ -136,9 +154,14 @@ class TestSpreadTracker:
         bus = EventBus()
 
         kalshi_ds = AsyncMock()
-        kalshi_ds.get_market = AsyncMock(return_value=MagicMock(
-            ticker="KTEST", yes_bid=38, yes_ask=42, volume_24h=500,
-        ))
+        kalshi_ds.get_market = AsyncMock(
+            return_value=MagicMock(
+                ticker="KTEST",
+                yes_bid=38,
+                yes_ask=42,
+                volume_24h=500,
+            )
+        )
 
         tracker = SpreadTracker(
             spread_store=store,
@@ -152,5 +175,7 @@ class TestSpreadTracker:
 
         history = await store.get_history("KTEST", "PTEST", hours=1)
         assert len(history) == 1
-        assert history[0].kalshi_cents == 42, f"Expected 42 (ask), got {history[0].kalshi_cents}"
+        assert history[0].kalshi_cents == 42, (
+            f"Expected 42 (ask), got {history[0].kalshi_cents}"
+        )
         await db.close()

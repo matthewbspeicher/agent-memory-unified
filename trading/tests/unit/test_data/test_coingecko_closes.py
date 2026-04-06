@@ -2,7 +2,6 @@
 from __future__ import annotations
 from unittest.mock import AsyncMock, patch
 
-import pytest
 
 from data.coingecko import CoinGeckoClient, SYMBOL_TO_COINGECKO
 
@@ -25,7 +24,9 @@ async def test_get_ohlc_closes_extracts_last_n_prices():
         "market_caps": [],
         "total_volumes": [],
     }
-    with patch.object(client, "get_market_chart", new_callable=AsyncMock, return_value=mock_chart):
+    with patch.object(
+        client, "get_market_chart", new_callable=AsyncMock, return_value=mock_chart
+    ):
         closes = await client.get_ohlc_closes("bitcoin", count=3)
 
     assert len(closes) == 3
@@ -39,7 +40,9 @@ async def test_get_ohlc_closes_truncates():
         "market_caps": [],
         "total_volumes": [],
     }
-    with patch.object(client, "get_market_chart", new_callable=AsyncMock, return_value=mock_chart):
+    with patch.object(
+        client, "get_market_chart", new_callable=AsyncMock, return_value=mock_chart
+    ):
         closes = await client.get_ohlc_closes("bitcoin", count=100)
 
     assert len(closes) == 100
@@ -54,7 +57,9 @@ async def test_get_ohlc_closes_short_response():
         "market_caps": [],
         "total_volumes": [],
     }
-    with patch.object(client, "get_market_chart", new_callable=AsyncMock, return_value=mock_chart):
+    with patch.object(
+        client, "get_market_chart", new_callable=AsyncMock, return_value=mock_chart
+    ):
         closes = await client.get_ohlc_closes("bitcoin", count=100)
 
     # Fewer than requested — return what's available

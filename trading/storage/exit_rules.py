@@ -1,4 +1,5 @@
 """Persistent store for position exit rules (SQLite)."""
+
 from __future__ import annotations
 
 import json
@@ -43,6 +44,5 @@ class ExitRuleStore:
         ) as cursor:
             rows = await cursor.fetchall()
             return {
-                int(row["position_id"]): json.loads(row["rules_json"])
-                for row in rows
+                int(row["position_id"]): json.loads(row["rules_json"]) for row in rows
             }

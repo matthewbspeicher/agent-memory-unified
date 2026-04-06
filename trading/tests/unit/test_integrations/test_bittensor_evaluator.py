@@ -1,8 +1,11 @@
 from __future__ import annotations
 
-import pytest
 
-from integrations.bittensor.evaluator import compute_direction_correct, compute_magnitude_error, compute_path_correlation
+from integrations.bittensor.evaluator import (
+    compute_direction_correct,
+    compute_magnitude_error,
+    compute_path_correlation,
+)
 
 
 def test_direction_correct_bullish_match():
@@ -42,7 +45,8 @@ from unittest.mock import AsyncMock, MagicMock
 from datetime import datetime
 from integrations.bittensor.evaluator import BittensorEvaluator
 from integrations.bittensor.models import (
-    BittensorEvaluationWindow, RawMinerForecast,
+    BittensorEvaluationWindow,
+    RawMinerForecast,
 )
 
 
@@ -59,43 +63,59 @@ def _make_evaluator(*, coingecko=None, adapter=None, store=None, event_bus=None)
 class TestEvaluatorOrchestration:
     async def test_evaluate_window_calls_ranking_pipeline(self):
         store = AsyncMock()
-        store.get_raw_forecasts_by_window = AsyncMock(return_value=[
-            RawMinerForecast(
-                window_id="w1", request_uuid="r1",
-                collected_at=datetime(2026, 3, 31),
-                miner_uid=1, miner_hotkey="5Fhot1",
-                stream_id="BTCUSD-5m", topic_id=1, schema_id=1,
-                symbol="BTCUSD", timeframe="5m",
-                feature_ids=[1, 2, 3, 4, 5], prediction_size=100,
-                predictions=[1.0 + i * 0.01 for i in range(100)],
-                hashed_predictions=None, hash_verified=True,
-                incentive_score=0.5,
-            ),
-        ])
+        store.get_raw_forecasts_by_window = AsyncMock(
+            return_value=[
+                RawMinerForecast(
+                    window_id="w1",
+                    request_uuid="r1",
+                    collected_at=datetime(2026, 3, 31),
+                    miner_uid=1,
+                    miner_hotkey="5Fhot1",
+                    stream_id="BTCUSD-5m",
+                    topic_id=1,
+                    schema_id=1,
+                    symbol="BTCUSD",
+                    timeframe="5m",
+                    feature_ids=[1, 2, 3, 4, 5],
+                    prediction_size=100,
+                    predictions=[1.0 + i * 0.01 for i in range(100)],
+                    hashed_predictions=None,
+                    hash_verified=True,
+                    incentive_score=0.5,
+                ),
+            ]
+        )
         store.save_accuracy_records = AsyncMock()
         store.save_realized_window = AsyncMock()
         store.update_miner_ranking = AsyncMock()
         store.mark_window_evaluated = AsyncMock()
-        store.get_accuracy_rollup = AsyncMock(return_value={
-            "5Fhot1": {
-                "windows_evaluated": 50,
-                "direction_accuracy": 0.7,
-                "mean_magnitude_error": 0.03,
-                "mean_path_correlation": 0.5,
-            },
-        })
+        store.get_accuracy_rollup = AsyncMock(
+            return_value={
+                "5Fhot1": {
+                    "windows_evaluated": 50,
+                    "direction_accuracy": 0.7,
+                    "mean_magnitude_error": 0.03,
+                    "mean_path_correlation": 0.5,
+                },
+            }
+        )
 
         adapter = MagicMock()
         adapter.get_incentive_scores = MagicMock(return_value={"5Fhot1": 0.5})
 
         cg = AsyncMock()
-        cg.get_ohlc_closes = AsyncMock(return_value=[1.0 + i * 0.005 for i in range(100)])
+        cg.get_ohlc_closes = AsyncMock(
+            return_value=[1.0 + i * 0.005 for i in range(100)]
+        )
 
         evaluator = _make_evaluator(coingecko=cg, adapter=adapter, store=store)
 
         window = BittensorEvaluationWindow(
-            window_id="w1", symbol="BTCUSD", timeframe="5m",
-            collected_at=datetime(2026, 3, 31), prediction_size=100,
+            window_id="w1",
+            symbol="BTCUSD",
+            timeframe="5m",
+            collected_at=datetime(2026, 3, 31),
+            prediction_size=100,
         )
         await evaluator._evaluate_window(window)
 

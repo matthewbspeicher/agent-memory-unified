@@ -60,7 +60,10 @@ def compute_rsi(bars: list[Bar], period: int = 14) -> float:
 
 
 def compute_macd(
-    bars: list[Bar], fast: int = 12, slow: int = 26, signal: int = 9,
+    bars: list[Bar],
+    fast: int = 12,
+    slow: int = 26,
+    signal: int = 9,
 ) -> MACD:
     closes = _closes(bars)
     if len(closes) < slow + signal:
@@ -83,7 +86,9 @@ def compute_macd(
 
 
 def compute_bollinger(
-    bars: list[Bar], period: int = 20, num_std: float = 2.0,
+    bars: list[Bar],
+    period: int = 20,
+    num_std: float = 2.0,
 ) -> BollingerBands:
     closes = _closes(bars)
     if len(closes) < period:
@@ -106,7 +111,9 @@ def compute_atr(bars: list[Bar], period: int = 14) -> float:
     Requires at least period+1 bars.
     """
     if len(bars) < period + 1:
-        raise ValueError(f"Need at least {period + 1} bars for ATR({period}), got {len(bars)}")
+        raise ValueError(
+            f"Need at least {period + 1} bars for ATR({period}), got {len(bars)}"
+        )
     true_ranges: list[float] = []
     for i in range(1, len(bars)):
         high = float(bars[i].high)
@@ -124,16 +131,17 @@ def compute_realized_vol(bars: list[Bar], period: int = 20) -> float:
     Requires at least period+1 bars.
     """
     import math
+
     closes = _closes(bars)
     if len(closes) < period + 1:
         raise ValueError(
             f"Need at least {period + 1} bars for realized vol({period}), got {len(closes)}"
         )
-    window = closes[-(period + 1):]
+    window = closes[-(period + 1) :]
     log_returns = [math.log(window[i] / window[i - 1]) for i in range(1, len(window))]
     mean = sum(log_returns) / len(log_returns)
     variance = sum((r - mean) ** 2 for r in log_returns) / len(log_returns)
-    return (variance ** 0.5) * math.sqrt(252)
+    return (variance**0.5) * math.sqrt(252)
 
 
 def compute_relative_volume(bars: list[Bar], period: int = 20) -> float:
@@ -142,7 +150,9 @@ def compute_relative_volume(bars: list[Bar], period: int = 20) -> float:
     The last bar is the "current" bar. The average includes the current bar.
     """
     if len(bars) < period:
-        raise ValueError(f"Need at least {period} bars for relative volume, got {len(bars)}")
+        raise ValueError(
+            f"Need at least {period} bars for relative volume, got {len(bars)}"
+        )
     volumes = [float(b.volume) for b in bars[-period:]]
     avg_vol = sum(volumes) / len(volumes)
     if avg_vol == 0:

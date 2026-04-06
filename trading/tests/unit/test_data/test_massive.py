@@ -1,9 +1,10 @@
 """Tests for MassiveClient and MassiveDataSource."""
+
 from __future__ import annotations
 
 from datetime import timezone
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -15,6 +16,7 @@ from broker.models import Symbol
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _mock_response(json_data: dict, status_code: int = 200) -> MagicMock:
     """Build a mock httpx response."""
@@ -35,6 +37,7 @@ def _make_client_mock(json_data: dict) -> MagicMock:
 # ---------------------------------------------------------------------------
 # MassiveClient — initialisation
 # ---------------------------------------------------------------------------
+
 
 def test_init_stores_api_key():
     c = MassiveClient(api_key="test-key")
@@ -65,8 +68,22 @@ def test_params_merges_extra():
 
 _BARS_PAYLOAD = {
     "results": [
-        {"t": 1704067200000, "o": 185.0, "h": 187.5, "l": 184.0, "c": 186.5, "v": 1_000_000},
-        {"t": 1704153600000, "o": 186.5, "h": 188.0, "l": 185.5, "c": 187.0, "v": 900_000},
+        {
+            "t": 1704067200000,
+            "o": 185.0,
+            "h": 187.5,
+            "l": 184.0,
+            "c": 186.5,
+            "v": 1_000_000,
+        },
+        {
+            "t": 1704153600000,
+            "o": 186.5,
+            "h": 188.0,
+            "l": 185.5,
+            "c": 187.0,
+            "v": 900_000,
+        },
     ],
     "status": "OK",
 }
@@ -110,12 +127,30 @@ async def test_get_bars_includes_api_key_in_params():
 async def test_get_bars_handles_pagination():
     """Verify that next_url pages are fetched and results concatenated."""
     page1 = {
-        "results": [{"t": 1704067200000, "o": 185.0, "h": 187.5, "l": 184.0, "c": 186.5, "v": 100}],
+        "results": [
+            {
+                "t": 1704067200000,
+                "o": 185.0,
+                "h": 187.5,
+                "l": 184.0,
+                "c": 186.5,
+                "v": 100,
+            }
+        ],
         "next_url": "https://api.massive.com/v2/aggs/ticker/AAPL/range/1/day/...?cursor=abc",
         "status": "OK",
     }
     page2 = {
-        "results": [{"t": 1704153600000, "o": 186.5, "h": 188.0, "l": 185.5, "c": 187.0, "v": 200}],
+        "results": [
+            {
+                "t": 1704153600000,
+                "o": 186.5,
+                "h": 188.0,
+                "l": 185.5,
+                "c": 187.0,
+                "v": 200,
+            }
+        ],
         "status": "OK",
     }
 
@@ -135,7 +170,16 @@ async def test_get_bars_handles_pagination():
 @pytest.mark.asyncio
 async def test_get_bars_pagination_adds_api_key_to_next_page():
     page1 = {
-        "results": [{"t": 1704067200000, "o": 185.0, "h": 187.5, "l": 184.0, "c": 186.5, "v": 100}],
+        "results": [
+            {
+                "t": 1704067200000,
+                "o": 185.0,
+                "h": 187.5,
+                "l": 184.0,
+                "c": 186.5,
+                "v": 100,
+            }
+        ],
         "next_url": "https://api.massive.com/v2/aggs/ticker/AAPL/range/1/day/...?cursor=xyz",
         "status": "OK",
     }
@@ -143,7 +187,9 @@ async def test_get_bars_pagination_adds_api_key_to_next_page():
 
     c = MassiveClient(api_key="mykey")
     c._client = AsyncMock()
-    c._client.get = AsyncMock(side_effect=[_mock_response(page1), _mock_response(page2)])
+    c._client.get = AsyncMock(
+        side_effect=[_mock_response(page1), _mock_response(page2)]
+    )
 
     await c.get_bars("AAPL", 1, "day", "2024-01-01", "2024-01-01")
 
@@ -252,6 +298,7 @@ async def test_get_snapshot_includes_api_key():
 # MassiveClient — get_top_movers
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_get_top_movers_returns_list():
     payload = {"tickers": [{"ticker": "AAPL"}, {"ticker": "MSFT"}], "status": "OK"}
@@ -279,6 +326,7 @@ async def test_get_top_movers_default_direction_is_gainers():
 # ---------------------------------------------------------------------------
 # MassiveClient — get_rsi
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_get_rsi_calls_correct_url():
@@ -308,6 +356,7 @@ async def test_get_rsi_includes_api_key():
 # MassiveClient — get_macd
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_get_macd_calls_correct_url():
     payload = {"results": {"values": []}}
@@ -336,6 +385,7 @@ async def test_get_macd_includes_api_key():
 # MassiveClient — close
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_close_calls_aclose():
     c = MassiveClient(api_key="k")
@@ -352,7 +402,14 @@ async def test_close_calls_aclose():
 # ---------------------------------------------------------------------------
 
 _RAW_BARS = [
-    {"t": 1704067200000, "o": 185.0, "h": 187.5, "l": 184.0, "c": 186.5, "v": 1_000_000},
+    {
+        "t": 1704067200000,
+        "o": 185.0,
+        "h": 187.5,
+        "l": 184.0,
+        "c": 186.5,
+        "v": 1_000_000,
+    },
     {"t": 1704153600000, "o": 186.5, "h": 188.0, "l": 185.5, "c": 187.0, "v": 900_000},
 ]
 
@@ -367,6 +424,7 @@ async def test_get_historical_bars_returns_bar_objects():
 
     assert len(bars) == 2
     from broker.models import Bar
+
     assert isinstance(bars[0], Bar)
 
 
@@ -405,8 +463,22 @@ async def test_get_historical_bars_timestamp_from_milliseconds():
 @pytest.mark.asyncio
 async def test_get_historical_bars_sorted_ascending():
     raw = [
-        {"t": 1704153600000, "o": 186.5, "h": 188.0, "l": 185.5, "c": 187.0, "v": 900_000},
-        {"t": 1704067200000, "o": 185.0, "h": 187.5, "l": 184.0, "c": 186.5, "v": 1_000_000},
+        {
+            "t": 1704153600000,
+            "o": 186.5,
+            "h": 188.0,
+            "l": 185.5,
+            "c": 187.0,
+            "v": 900_000,
+        },
+        {
+            "t": 1704067200000,
+            "o": 185.0,
+            "h": 187.5,
+            "l": 184.0,
+            "c": 186.5,
+            "v": 1_000_000,
+        },
     ]
     mock_client = AsyncMock()
     mock_client.get_bars = AsyncMock(return_value=raw)
@@ -424,7 +496,9 @@ async def test_get_historical_bars_symbol_embedded():
     sym = Symbol(ticker="AAPL")
 
     source = MassiveDataSource(mock_client)
-    bars = await source.get_historical_bars("AAPL", "day", "2024-01-01", "2024-01-03", symbol=sym)
+    bars = await source.get_historical_bars(
+        "AAPL", "day", "2024-01-01", "2024-01-03", symbol=sym
+    )
 
     assert bars[0].symbol.ticker == "AAPL"
 
@@ -432,7 +506,14 @@ async def test_get_historical_bars_symbol_embedded():
 @pytest.mark.asyncio
 async def test_get_historical_bars_skips_malformed_entries(caplog):
     raw = [
-        {"t": 1704067200000, "o": 185.0, "h": 187.5, "l": 184.0, "c": 186.5, "v": 1_000_000},
+        {
+            "t": 1704067200000,
+            "o": 185.0,
+            "h": 187.5,
+            "l": 184.0,
+            "c": 186.5,
+            "v": 1_000_000,
+        },
         {"bad": "entry"},  # missing "t" — should be skipped
     ]
     mock_client = AsyncMock()
@@ -440,8 +521,11 @@ async def test_get_historical_bars_skips_malformed_entries(caplog):
 
     source = MassiveDataSource(mock_client)
     import logging
+
     with caplog.at_level(logging.WARNING):
-        bars = await source.get_historical_bars("AAPL", "day", "2024-01-01", "2024-01-03")
+        bars = await source.get_historical_bars(
+            "AAPL", "day", "2024-01-01", "2024-01-03"
+        )
 
     assert len(bars) == 1
 
@@ -461,6 +545,7 @@ _SNAPSHOT_DATA = {
 @pytest.mark.asyncio
 async def test_get_quote_returns_quote_object():
     from broker.models import Quote
+
     mock_client = AsyncMock()
     mock_client.get_snapshot = AsyncMock(return_value=_SNAPSHOT_DATA)
 
@@ -492,8 +577,8 @@ async def test_get_quote_extracts_bid_ask():
     source = MassiveDataSource(mock_client)
     result = await source.get_quote(Symbol(ticker="AAPL"))
 
-    assert result.ask == Decimal("186.6")   # P field
-    assert result.bid == Decimal("186.4")   # p field
+    assert result.ask == Decimal("186.6")  # P field
+    assert result.bid == Decimal("186.4")  # p field
 
 
 @pytest.mark.asyncio
@@ -524,10 +609,13 @@ async def test_get_quote_timestamp_from_nanoseconds():
 # MassiveDataSource — get_rsi
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_get_rsi_returns_float():
     mock_client = AsyncMock()
-    mock_client.get_rsi = AsyncMock(return_value={"values": [{"timestamp": 1704067200000, "value": 62.5}]})
+    mock_client.get_rsi = AsyncMock(
+        return_value={"values": [{"timestamp": 1704067200000, "value": 62.5}]}
+    )
 
     source = MassiveDataSource(mock_client)
     result = await source.get_rsi("AAPL")
@@ -554,6 +642,7 @@ async def test_get_rsi_returns_none_on_exception(caplog):
 
     source = MassiveDataSource(mock_client)
     import logging
+
     with caplog.at_level(logging.WARNING):
         result = await source.get_rsi("AAPL")
 
@@ -563,6 +652,7 @@ async def test_get_rsi_returns_none_on_exception(caplog):
 # ---------------------------------------------------------------------------
 # MassiveDataSource — get_historical (DataBus-style period/timeframe)
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_get_historical_maps_timeframe_to_timespan():
@@ -594,6 +684,7 @@ async def test_get_historical_maps_hourly_timeframe():
 # ---------------------------------------------------------------------------
 # MassiveDataSource — DataSource interface attributes
 # ---------------------------------------------------------------------------
+
 
 def test_source_name():
     source = MassiveDataSource(MagicMock())

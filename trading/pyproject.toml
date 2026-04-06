@@ -47,6 +47,14 @@ where = ["."]
 include = ["*"]
 exclude = ["tests*", "venv*", "_vendor*", "*.egg-info"]
 
+[tool.ruff]
+exclude = ["venv", ".venv", "_vendor", "vendor"]
+
+[tool.ruff.lint]
+# E402: module-level imports not at top (deferred imports are intentional throughout)
+# E741: ambiguous variable names like I, l (bittensor uses metagraph.I for incentive)
+ignore = ["E402", "E741", "E721"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"

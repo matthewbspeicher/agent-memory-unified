@@ -1,5 +1,5 @@
 """Tests for RegimeFilter — TDD phase."""
-import pytest
+
 from regime.models import MarketRegime
 from regime.agent_filter import RegimeFilter
 

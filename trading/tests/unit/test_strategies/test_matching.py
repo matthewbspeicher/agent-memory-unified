@@ -2,12 +2,16 @@ from __future__ import annotations
 from datetime import datetime, timezone, timedelta
 import pytest
 from broker.models import PredictionContract
-from strategies.matching import extract_keywords, normalize_category, match_markets, MatchCandidate
+from strategies.matching import extract_keywords, normalize_category, match_markets
 
 
-def _contract(ticker: str, title: str, category: str = "politics", days: int = 30) -> PredictionContract:
+def _contract(
+    ticker: str, title: str, category: str = "politics", days: int = 30
+) -> PredictionContract:
     close = datetime.now(timezone.utc) + timedelta(days=days)
-    return PredictionContract(ticker=ticker, title=title, category=category, close_time=close)
+    return PredictionContract(
+        ticker=ticker, title=title, category=category, close_time=close
+    )
 
 
 class TestExtractKeywords:
@@ -88,7 +92,10 @@ class TestMatchMarkets:
         assert results[0].date_penalty == 0.0
 
     def test_deduplication_keeps_best(self):
-        k = [_contract("K1", "Fed rate hike May"), _contract("K2", "Fed rate decision May")]
+        k = [
+            _contract("K1", "Fed rate hike May"),
+            _contract("K2", "Fed rate decision May"),
+        ]
         p = [_contract("P1", "Fed rate hike May")]
         results = match_markets(k, p, min_score=0.0)
         poly_tickers = [r.poly_ticker for r in results]
@@ -106,8 +113,14 @@ class TestMatchMarkets:
         assert kalshi_tickers.count("K1") == 1, "K1 matched more than one Poly ticker"
 
     def test_sorted_descending(self):
-        k = [_contract("K1", "Bitcoin price above 100k"), _contract("K2", "completely unrelated")]
-        p = [_contract("P1", "Bitcoin price above 100k"), _contract("P2", "somewhat similar stuff")]
+        k = [
+            _contract("K1", "Bitcoin price above 100k"),
+            _contract("K2", "completely unrelated"),
+        ]
+        p = [
+            _contract("P1", "Bitcoin price above 100k"),
+            _contract("P2", "somewhat similar stuff"),
+        ]
         results = match_markets(k, p, min_score=0.0)
         scores = [r.final_score for r in results]
         assert scores == sorted(scores, reverse=True)
@@ -115,12 +128,17 @@ class TestMatchMarkets:
     def test_date_penalty_fractional_days(self):
         """A 29.9-hour difference should not be treated as 1 day (within 7-day tolerance)."""
         from datetime import timedelta
+
         k = [_contract("K1", "Fed rate decision", days=0)]
         close_offset = timedelta(hours=29, minutes=54)
         p_close = datetime.now(timezone.utc) + close_offset
-        p = [PredictionContract(
-            ticker="P1", title="Fed rate decision",
-            category="politics", close_time=p_close,
-        )]
+        p = [
+            PredictionContract(
+                ticker="P1",
+                title="Fed rate decision",
+                category="politics",
+                close_time=p_close,
+            )
+        ]
         results = match_markets(k, p, min_score=0.0)
         assert results[0].date_penalty == 0.0

@@ -577,7 +577,7 @@ class EnhancedConsensusRouter:
         if not votes:
             return False, 0.0, "no_votes"
 
-        now = datetime.now(timezone.utc)
+        datetime.now(timezone.utc)
         threshold = self._get_threshold(regime)
         total_weight = sum(v.weight for v in votes)
         unique_agents = len(set(v.agent_name for v in votes))

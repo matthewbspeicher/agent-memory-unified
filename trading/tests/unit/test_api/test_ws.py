@@ -4,12 +4,14 @@ from fastapi import FastAPI
 from api.routes.ws import router
 from data.events import EventBus
 
+
 @pytest.fixture
 def ws_app():
     app = FastAPI()
     bus = EventBus()
 
     from api.deps import _init_state
+
     app.state.event_bus = bus
     _init_state(app.state)
 

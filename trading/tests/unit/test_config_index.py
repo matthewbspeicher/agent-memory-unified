@@ -1,5 +1,4 @@
-import pytest
-from config import Config, load_config
+from config import load_config
 
 
 def test_journal_index_defaults():

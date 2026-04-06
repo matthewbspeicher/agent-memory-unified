@@ -9,6 +9,7 @@ When offline:
   - LeaderboardEngine returns cached data, no new matches run
   - Prevents split-brain (local state never diverges from authoritative)
 """
+
 from __future__ import annotations
 
 import logging
@@ -52,9 +53,11 @@ class RemembrArenaSync:
         # mapping_ids: {name: id}, mapping_tokens: {name: token}
         mapping_ids: dict[str, str] = {}
         mapping_tokens: dict[str, str] = {}
-        
+
         try:
-            cursor = await self._db.execute("SELECT agent_name, remembr_agent_id, remembr_token FROM agent_remembr_map")
+            cursor = await self._db.execute(
+                "SELECT agent_name, remembr_agent_id, remembr_token FROM agent_remembr_map"
+            )
             rows = await cursor.fetchall()
             for row in rows:
                 name = row["agent_name"]
@@ -66,7 +69,9 @@ class RemembrArenaSync:
         except Exception as e:
             logger.debug("Failed to load agent mapping from DB: %s", e)
 
-        missing = [n for n in agent_names if n not in mapping_ids or n not in mapping_tokens]
+        missing = [
+            n for n in agent_names if n not in mapping_ids or n not in mapping_tokens
+        ]
         if not missing:
             return mapping_ids
 
@@ -100,7 +105,7 @@ class RemembrArenaSync:
                         agent_data = data.get("agent", data)
                         rid = agent_data.get("id")
                         token = data.get("agent_token") or data.get("token")
-                        
+
                         if rid:
                             mapping_ids[name] = rid
                         if token:
@@ -140,9 +145,11 @@ class RemembrArenaSync:
                 team_id = None
                 if resp.status_code in (200, 201):
                     team_id = resp.json().get("id")
-                elif resp.status_code == 409: # Conflict - already exists
+                elif resp.status_code == 409:  # Conflict - already exists
                     # Try to find it
-                    teams_resp = await client.get(f"{self._base_url}/teams", headers=self._headers())
+                    teams_resp = await client.get(
+                        f"{self._base_url}/teams", headers=self._headers()
+                    )
                     if teams_resp.status_code == 200:
                         for t in teams_resp.json().get("data", []):
                             if t["name"] == team_name:
@@ -155,7 +162,7 @@ class RemembrArenaSync:
 
                 # 2. Get remembr IDs for all agents
                 agent_map = await self.ensure_agents_registered(agent_names)
-                
+
                 # 3. Add agents to team
                 for agent_name, rid in agent_map.items():
                     # Check membership first
@@ -169,7 +176,7 @@ class RemembrArenaSync:
                             if m.get("agent_id") == rid:
                                 is_member = True
                                 break
-                    
+
                     if not is_member:
                         await client.post(
                             f"{self._base_url}/teams/{team_id}/members",
@@ -185,7 +192,9 @@ class RemembrArenaSync:
         """Return {agent_name: remembr_token} mapping from database."""
         tokens: dict[str, str] = {}
         try:
-            cursor = await self._db.execute("SELECT agent_name, remembr_token FROM agent_remembr_map WHERE remembr_token IS NOT NULL")
+            cursor = await self._db.execute(
+                "SELECT agent_name, remembr_token FROM agent_remembr_map WHERE remembr_token IS NOT NULL"
+            )
             rows = await cursor.fetchall()
             for row in rows:
                 tokens[row["agent_name"]] = row["remembr_token"]
@@ -198,12 +207,15 @@ class RemembrArenaSync:
     # ------------------------------------------------------------------
 
     async def fetch_all_profiles(
-        self, agent_id_map: dict[str, str],
+        self,
+        agent_id_map: dict[str, str],
     ) -> dict[str, AgentRanking] | None:
         """Fetch current profiles from remembr.dev in parallel. Returns None if unreachable."""
         import asyncio
 
-        async def _fetch_one(client: httpx.AsyncClient, name: str, rid: str) -> tuple[str, AgentRanking | None]:
+        async def _fetch_one(
+            client: httpx.AsyncClient, name: str, rid: str
+        ) -> tuple[str, AgentRanking | None]:
             try:
                 resp = await client.get(
                     f"{self._base_url}/agents/{rid}/arena/profile",

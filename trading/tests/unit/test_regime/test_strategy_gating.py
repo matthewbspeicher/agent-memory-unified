@@ -1,9 +1,9 @@
 """Tests for regime stamping and static gating in OpportunityRouter."""
+
 from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
-from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -13,7 +13,6 @@ from agents.models import (
     AgentConfig,
     Opportunity,
     OpportunityStatus,
-    TrustLevel,
 )
 from agents.router import OpportunityRouter
 from broker.models import AssetType, Symbol
@@ -28,7 +27,9 @@ def _make_symbol(ticker: str = "AAPL") -> Symbol:
     return Symbol(ticker=ticker, asset_type=AssetType.STOCK)
 
 
-def _make_opportunity(agent_name: str = "test_agent", ticker: str = "AAPL") -> Opportunity:
+def _make_opportunity(
+    agent_name: str = "test_agent", ticker: str = "AAPL"
+) -> Opportunity:
     return Opportunity(
         id=str(uuid.uuid4()),
         agent_name=agent_name,
@@ -89,10 +90,16 @@ async def test_regime_stamped_on_notify():
     opp = _make_opportunity()
     router = _make_router()
 
-    from regime.models import MarketRegime
-    with patch("agents.router.OpportunityRouter._stamp_regime", new_callable=AsyncMock) as mock_stamp:
+    with patch(
+        "agents.router.OpportunityRouter._stamp_regime", new_callable=AsyncMock
+    ) as mock_stamp:
+
         async def _fake_stamp(opportunity):
-            opportunity.data["regime"] = {"trend_regime": "uptrend", "volatility_regime": "medium"}
+            opportunity.data["regime"] = {
+                "trend_regime": "uptrend",
+                "volatility_regime": "medium",
+            }
+
         mock_stamp.side_effect = _fake_stamp
 
         await router.route(opp, ActionLevel.NOTIFY)
@@ -107,9 +114,13 @@ async def test_regime_stamped_on_suggest_trade():
     opp = _make_opportunity()
     router = _make_router()
 
-    with patch("agents.router.OpportunityRouter._stamp_regime", new_callable=AsyncMock) as mock_stamp:
+    with patch(
+        "agents.router.OpportunityRouter._stamp_regime", new_callable=AsyncMock
+    ) as mock_stamp:
+
         async def _fake_stamp(opportunity):
             opportunity.data["regime"] = {"trend_regime": "range"}
+
         mock_stamp.side_effect = _fake_stamp
 
         await router.route(opp, ActionLevel.SUGGEST_TRADE)
@@ -123,7 +134,9 @@ async def test_regime_stamp_fails_open():
     opp = _make_opportunity()
     router = _make_router()
 
-    with patch("agents.router.OpportunityRouter._stamp_regime", new_callable=AsyncMock) as mock_stamp:
+    with patch(
+        "agents.router.OpportunityRouter._stamp_regime", new_callable=AsyncMock
+    ) as mock_stamp:
         mock_stamp.side_effect = Exception("data bus down")
 
         # Should not raise even though stamp fails
@@ -171,7 +184,10 @@ async def test_off_mode_no_check():
 
     agent = _make_agent_with_config(
         regime_policy_mode="off",
-        disallowed_regimes={"trend_regime": ["downtrend"], "volatility_regime": ["high"]},
+        disallowed_regimes={
+            "trend_regime": ["downtrend"],
+            "volatility_regime": ["high"],
+        },
     )
     runner = _make_runner_with_agent(agent)
     router = _make_router(runner=runner)
@@ -207,7 +223,9 @@ async def test_static_gate_blocks_disallowed_regime():
     with patch("agents.router.OpportunityRouter._stamp_regime", new_callable=AsyncMock):
         await router.route(opp, ActionLevel.NOTIFY)
 
-    router._store.update_status.assert_called_once_with(opp.id, OpportunityStatus.REJECTED)
+    router._store.update_status.assert_called_once_with(
+        opp.id, OpportunityStatus.REJECTED
+    )
 
 
 @pytest.mark.asyncio
@@ -230,7 +248,9 @@ async def test_static_gate_blocks_not_in_allowed_regimes():
     with patch("agents.router.OpportunityRouter._stamp_regime", new_callable=AsyncMock):
         await router.route(opp, ActionLevel.NOTIFY)
 
-    router._store.update_status.assert_called_once_with(opp.id, OpportunityStatus.REJECTED)
+    router._store.update_status.assert_called_once_with(
+        opp.id, OpportunityStatus.REJECTED
+    )
 
 
 @pytest.mark.asyncio

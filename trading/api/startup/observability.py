@@ -1,4 +1,5 @@
 """Observability, journal, and WhatsApp notification startup."""
+
 from __future__ import annotations
 
 import logging
@@ -6,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from config import Config
-    
+
 logger = logging.getLogger(__name__)
 
 
@@ -17,13 +18,13 @@ async def setup_journal(
 ) -> tuple[Any, Any]:
     """
     Initialize journal manager and optional vector indexer.
-    
+
     Returns:
         (journal_manager, journal_indexer) or (None, None) if not configured
     """
     if not config.remembr_agent_token:
         return None, None
-    
+
     try:
         from remembr.client import AsyncRemembrClient
         from journal.manager import JournalManager
@@ -57,7 +58,7 @@ async def setup_journal(
 
                 task_manager.create_task(
                     journal_persistence_loop(journal_indexer, config),
-                    name="journal_persistence"
+                    name="journal_persistence",
                 )
                 logger.info("Journal persistence loop launched")
             except ImportError:
@@ -88,13 +89,13 @@ async def setup_observability(
 ) -> Any:
     """
     Initialize observability emitter with Supabase.
-    
+
     Returns:
         ObservabilityEmitter or None if not configured
     """
     if not config.supabase_url or not config.supabase_service_key:
         return None
-    
+
     try:
         from supabase import create_async_client
         from observability.emitter import ObservabilityEmitter
@@ -111,7 +112,7 @@ async def setup_observability(
             alert_router=_alert_router,
         )
         _emitter.start(event_bus)
-        
+
         from observability.heartbeat_watchdog import heartbeat_watchdog_loop
 
         task_manager.create_task(
@@ -119,7 +120,7 @@ async def setup_observability(
                 supabase_client=_sb_client,
                 emitter=_emitter,
             ),
-            name="heartbeat_watchdog"
+            name="heartbeat_watchdog",
         )
         logger.info("ObservabilityEmitter started (Supabase: %s)", config.supabase_url)
         return _emitter
@@ -134,13 +135,13 @@ async def setup_whatsapp(
 ) -> tuple[Any, list[str]]:
     """
     Initialize WhatsApp client and load sessions.
-    
+
     Returns:
         (wa_client, allowed_numbers) or (None, []) if not configured
     """
     if not config.whatsapp_phone_id or not config.whatsapp_token:
         return None, []
-    
+
     try:
         from whatsapp.client import WhatsAppClient
 
@@ -156,7 +157,7 @@ async def setup_whatsapp(
             for n in (config.whatsapp_allowed_numbers or "").split(",")
             if n.strip()
         ]
-        
+
         logger.info("WhatsApp client initialized")
         return wa_client, wa_numbers
     except Exception as exc:

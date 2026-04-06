@@ -3,6 +3,7 @@ from decimal import Decimal
 from pydantic import BaseModel
 from datetime import datetime, timezone
 
+
 class PerformanceSnapshot(BaseModel):
     id: int | None = None
     agent_name: str
@@ -20,6 +21,7 @@ class PerformanceSnapshot(BaseModel):
     profit_factor: float = 0.0
     total_trades: int = 0
     open_positions: int = 0
+
 
 class PerformanceStore:
     def __init__(self, db: aiosqlite.Connection):
@@ -54,11 +56,13 @@ class PerformanceStore:
                 snapshot.profit_factor,
                 snapshot.total_trades,
                 snapshot.open_positions,
-            )
+            ),
         )
         await self._db.commit()
 
-    async def get_history(self, agent_name: str, limit: int = 100) -> list[PerformanceSnapshot]:
+    async def get_history(
+        self, agent_name: str, limit: int = 100
+    ) -> list[PerformanceSnapshot]:
         cursor = await self._db.execute(
             """
             SELECT id, agent_name, timestamp, opportunities_generated, opportunities_executed, win_rate,
@@ -69,30 +73,32 @@ class PerformanceStore:
             ORDER BY timestamp DESC
             LIMIT ?
             """,
-            (agent_name, limit)
+            (agent_name, limit),
         )
         rows = await cursor.fetchall()
 
         results = []
         for r in rows:
-            results.append(PerformanceSnapshot(
-                id=r["id"],
-                agent_name=r["agent_name"],
-                timestamp=datetime.fromisoformat(r["timestamp"]),
-                opportunities_generated=r["opportunities_generated"],
-                opportunities_executed=r["opportunities_executed"],
-                win_rate=r["win_rate"],
-                total_pnl=Decimal(r["total_pnl"] or "0"),
-                daily_pnl=Decimal(r["daily_pnl"] or "0"),
-                daily_pnl_pct=r["daily_pnl_pct"] or 0.0,
-                sharpe_ratio=r["sharpe_ratio"] or 0.0,
-                max_drawdown=r["max_drawdown"] or 0.0,
-                avg_win=Decimal(r["avg_win"] or "0"),
-                avg_loss=Decimal(r["avg_loss"] or "0"),
-                profit_factor=r["profit_factor"] or 0.0,
-                total_trades=r["total_trades"] or 0,
-                open_positions=r["open_positions"] or 0,
-            ))
+            results.append(
+                PerformanceSnapshot(
+                    id=r["id"],
+                    agent_name=r["agent_name"],
+                    timestamp=datetime.fromisoformat(r["timestamp"]),
+                    opportunities_generated=r["opportunities_generated"],
+                    opportunities_executed=r["opportunities_executed"],
+                    win_rate=r["win_rate"],
+                    total_pnl=Decimal(r["total_pnl"] or "0"),
+                    daily_pnl=Decimal(r["daily_pnl"] or "0"),
+                    daily_pnl_pct=r["daily_pnl_pct"] or 0.0,
+                    sharpe_ratio=r["sharpe_ratio"] or 0.0,
+                    max_drawdown=r["max_drawdown"] or 0.0,
+                    avg_win=Decimal(r["avg_win"] or "0"),
+                    avg_loss=Decimal(r["avg_loss"] or "0"),
+                    profit_factor=r["profit_factor"] or 0.0,
+                    total_trades=r["total_trades"] or 0,
+                    open_positions=r["open_positions"] or 0,
+                )
+            )
         return results
 
     async def get_latest(self, agent_name: str) -> PerformanceSnapshot | None:
@@ -110,12 +116,14 @@ class PerformanceStore:
             existing = await self.get_latest(name)
             if existing is not None:
                 continue
-            await self.save(PerformanceSnapshot(
-                agent_name=name,
-                timestamp=now,
-                opportunities_generated=0,
-                opportunities_executed=0,
-                win_rate=0.0,
-            ))
+            await self.save(
+                PerformanceSnapshot(
+                    agent_name=name,
+                    timestamp=now,
+                    opportunities_generated=0,
+                    opportunities_executed=0,
+                    win_rate=0.0,
+                )
+            )
             seeded += 1
         return seeded

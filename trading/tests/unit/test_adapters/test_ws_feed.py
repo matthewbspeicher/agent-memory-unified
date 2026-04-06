@@ -1,9 +1,10 @@
 """Unit tests for PolymarketWebSocketFeed using a mock WebSocket."""
+
 from __future__ import annotations
 
 import asyncio
 import json
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from adapters.polymarket.ws_feed import PolymarketWebSocketFeed
@@ -23,11 +24,15 @@ class TestHandleMessage:
         feed, ds, _ = _make_feed()
         # Mock the async update method
         ds._live_price_cache = AsyncMock()
-        msg = json.dumps([{
-            "event_type": "price_change",
-            "asset_id": "tok123",
-            "price": "0.65",
-        }])
+        msg = json.dumps(
+            [
+                {
+                    "event_type": "price_change",
+                    "asset_id": "tok123",
+                    "price": "0.65",
+                }
+            ]
+        )
         await feed._handle_message(msg)
         ds._live_price_cache.update.assert_awaited_once_with("tok123", 65)
 
@@ -62,7 +67,9 @@ class TestHandleMessage:
 
         bus.publish = capture  # type: ignore[method-assign]
 
-        msg = json.dumps([{"event_type": "price_change", "asset_id": "tok999", "price": "0.42"}])
+        msg = json.dumps(
+            [{"event_type": "price_change", "asset_id": "tok999", "price": "0.42"}]
+        )
         await feed._handle_message(msg)
         # Give the loop.create_task a chance to run
         await asyncio.sleep(0)

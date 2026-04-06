@@ -49,18 +49,25 @@ class VolumeSpikeAgent(StructuredAgent):
                         quantity=Decimal("1"),
                         account_id="",
                     )
-                    if is_bullish else None
+                    if is_bullish
+                    else None
                 )
-                opportunities.append(Opportunity(
-                    id=str(uuid.uuid4()),
-                    agent_name=self.name,
-                    symbol=symbol,
-                    signal="VOLUME_SPIKE",
-                    confidence=min((ratio - threshold) / threshold + 0.5, 1.0),
-                    reasoning=f"{symbol.ticker} volume {quote.volume:,} is {ratio:.1f}x the {len(bars)}-day average {avg_volume:,.0f}",
-                    data={"volume_ratio": ratio, "current_volume": quote.volume, "avg_volume": avg_volume},
-                    timestamp=datetime.now(timezone.utc),
-                    suggested_trade=suggested_trade,
-                ))
+                opportunities.append(
+                    Opportunity(
+                        id=str(uuid.uuid4()),
+                        agent_name=self.name,
+                        symbol=symbol,
+                        signal="VOLUME_SPIKE",
+                        confidence=min((ratio - threshold) / threshold + 0.5, 1.0),
+                        reasoning=f"{symbol.ticker} volume {quote.volume:,} is {ratio:.1f}x the {len(bars)}-day average {avg_volume:,.0f}",
+                        data={
+                            "volume_ratio": ratio,
+                            "current_volume": quote.volume,
+                            "avg_volume": avg_volume,
+                        },
+                        timestamp=datetime.now(timezone.utc),
+                        suggested_trade=suggested_trade,
+                    )
+                )
 
         return opportunities

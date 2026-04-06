@@ -1,4 +1,5 @@
 """TradeReflector — writes trade memories and triggers deep reflection."""
+
 from __future__ import annotations
 
 import json
@@ -32,6 +33,7 @@ class TradeReflector:
             self._llm = llm
         else:
             from llm.client import LLMClient as _LLMClient
+
             self._llm = _LLMClient()
 
     async def reflect(self, trade: ClosedTrade, agent_name: str) -> None:
@@ -46,7 +48,11 @@ class TradeReflector:
     def _should_deep_reflect(self, trade: ClosedTrade) -> bool:
         """Return True when abs(pnl) > pnl_mult × expected OR loss > loss_mult × stop."""
         tm = trade.trade_memory
-        pnl_trigger = abs(tm.pnl) > Decimal(str(self._pnl_mult)) * abs(trade.expected_pnl) if trade.expected_pnl else False
+        pnl_trigger = (
+            abs(tm.pnl) > Decimal(str(self._pnl_mult)) * abs(trade.expected_pnl)
+            if trade.expected_pnl
+            else False
+        )
         loss_trigger = (
             tm.outcome == "loss"
             and trade.stop_loss < 0
@@ -57,7 +63,7 @@ class TradeReflector:
     async def _reflect_lightweight(self, trade: ClosedTrade, agent_name: str) -> None:
         """Record trade executions in the Remembr Trading Vertical ledger."""
         tm = trade.trade_memory
-        
+
         # 1. Record the Entry
         try:
             entry_resp = await self._client.record_trade(
@@ -69,10 +75,10 @@ class TradeReflector:
                 strategy=None,
                 confidence=tm.signal_strength,
                 paper=True,
-                metadata={"opportunity_id": trade.opportunity_id}
+                metadata={"opportunity_id": trade.opportunity_id},
             )
             parent_id = entry_resp.get("id")
-            
+
             # 2. Record the Exit (linking to the entry)
             if parent_id:
                 exit_direction = "short" if tm.direction == "long" else "long"
@@ -84,10 +90,10 @@ class TradeReflector:
                     direction=exit_direction,
                     price=float(tm.exit_price),
                     quantity=1.0,
-                    timestamp=None, # current time
+                    timestamp=None,  # current time
                     parent_trade_id=parent_id,
-                    fees=float(tm.slippage_bps) / 100.0, # approximate
-                    paper=True
+                    fees=float(tm.slippage_bps) / 100.0,  # approximate
+                    paper=True,
                 )
         except Exception as e:
             logger.warning("Failed to record ledger trades for %s: %s", agent_name, e)
@@ -102,12 +108,18 @@ class TradeReflector:
             "outcome": tm.outcome,
             "opportunity_id": trade.opportunity_id,
         }
-        await self._client.store_private(content=json.dumps(payload), tags=[tm.symbol, agent_name, tm.outcome])
+        await self._client.store_private(
+            content=json.dumps(payload), tags=[tm.symbol, agent_name, tm.outcome]
+        )
 
     async def _reflect_deep(self, trade: ClosedTrade, agent_name: str) -> None:
         """Claude haiku writes a narrative lesson; extracts market observations."""
         tm = trade.trade_memory
-        regime = trade.trade_memory.data.get("regime", {}) if hasattr(trade.trade_memory, "data") else {}
+        regime = (
+            trade.trade_memory.data.get("regime", {})
+            if hasattr(trade.trade_memory, "data")
+            else {}
+        )
         regime_str = f"Regime: {regime.get('market_phase', 'unknown')} | Volatility: {regime.get('volatility', 'unknown')}"
 
         prompt = (
@@ -150,7 +162,9 @@ class TradeReflector:
                     )
                 break
 
-    async def query(self, symbol: str, context: str, agent_name: str, top_k: int = 5) -> list[dict]:
+    async def query(
+        self, symbol: str, context: str, agent_name: str, top_k: int = 5
+    ) -> list[dict]:
         """Search private + shared namespaces for relevant past memories."""
         query_text = f"{symbol} {context}"
         try:

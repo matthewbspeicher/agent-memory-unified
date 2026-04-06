@@ -65,12 +65,15 @@ class JournalManager:
             memory_id = result.get("id")
 
             if memory_id and self._event_bus:
-                await self._event_bus.publish("journal.entry_added", {
-                    "memory_id": memory_id,
-                    "trade_id": lifecycle.trade_id,
-                    "content": content,
-                    "metadata": metadata,
-                })
+                await self._event_bus.publish(
+                    "journal.entry_added",
+                    {
+                        "memory_id": memory_id,
+                        "trade_id": lifecycle.trade_id,
+                        "content": content,
+                        "metadata": metadata,
+                    },
+                )
 
             return memory_id
 
@@ -145,12 +148,15 @@ class JournalManager:
             )
 
             if self._event_bus:
-                await self._event_bus.publish("journal.entry_updated", {
-                    "memory_id": memory_id,
-                    "trade_id": trade_id,
-                    "content": value,
-                    "metadata": metadata,
-                })
+                await self._event_bus.publish(
+                    "journal.entry_updated",
+                    {
+                        "memory_id": memory_id,
+                        "trade_id": trade_id,
+                        "content": value,
+                        "metadata": metadata,
+                    },
+                )
 
             return True
 
@@ -169,11 +175,18 @@ class JournalManager:
             try:
                 search_results = self._indexer.get_by_symbol(symbol, limit)
                 return [
-                    {"id": r.memory_id, "score": r.score, "content": r.content, "metadata": r.metadata}
+                    {
+                        "id": r.memory_id,
+                        "score": r.score,
+                        "content": r.content,
+                        "metadata": r.metadata,
+                    }
                     for r in search_results
                 ]
             except Exception as e:
-                logger.warning(f"Indexer get_by_symbol failed for {symbol}, falling back to remembr: {e}")
+                logger.warning(
+                    f"Indexer get_by_symbol failed for {symbol}, falling back to remembr: {e}"
+                )
 
         try:
             from datetime import datetime, timezone
@@ -208,9 +221,16 @@ class JournalManager:
         # 1. Local Indexer (Fastest)
         if self._indexer and self._indexer.is_ready:
             try:
-                search_results = await asyncio.to_thread(self._indexer.search, query, limit)
+                search_results = await asyncio.to_thread(
+                    self._indexer.search, query, limit
+                )
                 return [
-                    {"id": r.memory_id, "score": r.score, "content": r.content, "metadata": r.metadata}
+                    {
+                        "id": r.memory_id,
+                        "score": r.score,
+                        "content": r.content,
+                        "metadata": r.metadata,
+                    }
                     for r in search_results
                 ]
             except Exception as e:
@@ -220,15 +240,18 @@ class JournalManager:
         if self._oracle_url:
             try:
                 import httpx
+
                 async with httpx.AsyncClient(timeout=5.0) as client:
                     resp = await client.get(
                         f"{self._oracle_url}/journal/search",
-                        params={"q": query, "limit": limit}
+                        params={"q": query, "limit": limit},
                     )
                     if resp.status_code == 200:
                         return resp.json()
                     else:
-                        logger.warning(f"Oracle search failed with status {resp.status_code}")
+                        logger.warning(
+                            f"Oracle search failed with status {resp.status_code}"
+                        )
             except Exception as e:
                 logger.warning(f"Failed to call Oracle search API: {e}")
 

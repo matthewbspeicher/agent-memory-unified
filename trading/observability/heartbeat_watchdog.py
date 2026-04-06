@@ -28,9 +28,7 @@ async def check_heartbeats(
 ) -> None:
     """Query agent_heartbeats; emit critical alert for any stale agent."""
     try:
-        result = await (
-            supabase_client.table("agent_heartbeats").select("*").execute()
-        )
+        result = await supabase_client.table("agent_heartbeats").select("*").execute()
     except Exception:
         logger.exception("check_heartbeats: failed to query Supabase")
         return
@@ -47,7 +45,10 @@ async def check_heartbeats(
                 message=(
                     f"agent {row['agent_name']} has not heartbeated in {int(elapsed)}s"
                 ),
-                metadata={"last_seen": row["last_seen"], "elapsed_seconds": int(elapsed)},
+                metadata={
+                    "last_seen": row["last_seen"],
+                    "elapsed_seconds": int(elapsed),
+                },
             )
 
 

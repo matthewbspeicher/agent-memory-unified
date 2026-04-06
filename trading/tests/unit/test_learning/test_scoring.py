@@ -15,7 +15,7 @@ def make_snapshot(time: datetime, equity: Decimal, executed: int = 0) -> dict:
 
 
 def test_score_backtest_run():
-    base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    datetime(2026, 1, 1, tzinfo=timezone.utc)
     snapshots = [
         make_snapshot(
             datetime(2026, 1, i + 1, tzinfo=timezone.utc),

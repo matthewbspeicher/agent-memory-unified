@@ -1,5 +1,9 @@
 from broker.interfaces import (
-    AccountProvider, Broker, BrokerConnection, MarketDataProvider, OrderManager,
+    AccountProvider,
+    Broker,
+    BrokerConnection,
+    MarketDataProvider,
+    OrderManager,
 )
 from broker.models import BrokerCapabilities
 from adapters.alpaca.client import AlpacaClient

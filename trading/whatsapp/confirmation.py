@@ -29,7 +29,9 @@ class ConfirmationGate:
     def create(self, phone: str, action_type: str, data: dict[str, Any]) -> str:
         token = self._generate_token(action_type)
         self._pending[phone] = PendingAction(
-            action_type=action_type, data=data, token=token,
+            action_type=action_type,
+            data=data,
+            token=token,
         )
         return token
 
@@ -47,12 +49,12 @@ class ConfirmationGate:
         if not action or self._is_expired(action):
             self._pending.pop(phone, None)
             return None
-        
+
         token_upper = token.upper()
         # Allow exact token match OR generic approval keywords if there is an active pending action
         if action.token != token_upper and token_upper not in ("APPROVE", "YES"):
             return None
-            
+
         del self._pending[phone]
         return action
 

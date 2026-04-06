@@ -1,4 +1,5 @@
 """Trust-aware position sizing engine using Kelly criterion."""
+
 from __future__ import annotations
 import logging
 from decimal import Decimal

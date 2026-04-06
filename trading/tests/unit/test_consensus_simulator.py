@@ -3,10 +3,9 @@
 import pytest
 from datetime import date, datetime, timezone
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock
 
 from broker.models import Bar, Symbol, OrderSide, MarketOrder
-from agents.models import ActionLevel, Opportunity, OpportunityStatus
+from agents.models import Opportunity, OpportunityStatus
 from agents.consensus import (
     ConsensusConfig,
     AgentWeightProvider,
