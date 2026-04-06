@@ -22,14 +22,22 @@ jobs:
       - name: Install Python dependencies
         run: pip install datamodel-code-generator==0.45.0
 
-      - name: Generate types
-        run: ./scripts/sync-types.sh
+      - name: Generate Python types
+        run: |
+          datamodel-codegen \
+            --input shared/types/schemas/ \
+            --output shared/types/generated/python/ \
+            --output-model-type pydantic_v2.BaseModel \
+            --use-standard-collections \
+            --field-constraints \
+            --target-python-version 3.12 \
+            --disable-timestamp
 
       - name: Check for uncommitted changes
         run: |
-          if [[ -n $(git status --porcelain shared/types/generated/) ]]; then
-            echo "Generated types not committed!"
-            git status shared/types/generated/
+          if [[ -n $(git diff --name-only shared/types/generated/python/) ]]; then
+            echo "Generated Python types differ from committed versions!"
+            git diff shared/types/generated/python/
             exit 1
           fi
 

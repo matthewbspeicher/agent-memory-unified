@@ -35,7 +35,7 @@ web3>=7.0.0
 supabase>=2.0.0
 
 # remembr.dev SDK — vendored in vendor/remembr-sdk/)
-remembr @ file://./vendor/remembr-sdk
+remembr @ file:./vendor/remembr-sdk
 
 # journal vector index (optional — gated by STA_JOURNAL_INDEX_ENABLED)
 --extra-index-url https://download.pytorch.org/whl/cpu
