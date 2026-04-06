@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from enum import StrEnum
-from typing import Any, Optional
+from typing import Any
 from uuid import UUID
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
@@ -16,8 +16,8 @@ class Source(StrEnum):
 
 
 class Metadata(BaseModel):
-    correlation_id: Optional[str] = Field(None, description='Request trace ID')
-    causation_id: Optional[str] = Field(
+    correlation_id: str | None = Field(None, description='Request trace ID')
+    causation_id: str | None = Field(
         None, description='Parent event ID that caused this'
     )
 
@@ -38,4 +38,4 @@ class Event(BaseModel):
     timestamp: AwareDatetime
     source: Source = Field(..., description="Source service ('api', 'trading')")
     payload: dict[str, Any] = Field(..., description='Event-specific data')
-    metadata: Optional[Metadata] = None
+    metadata: Metadata | None = None

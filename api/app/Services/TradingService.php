@@ -61,8 +61,10 @@ class TradingService
             ]);
 
             // Aggregate PnL across all children onto parent
-            $totalChildPnl = $parent->children()->sum('pnl');
-            $totalChildQty = $parent->children()->sum('quantity');
+            // Load the children once
+            $children = $parent->children()->get();
+            $totalChildPnl = $children->sum('pnl');
+            $totalChildQty = $children->sum('quantity');
 
             $costBasis = bcmul($parent->entry_price, $parent->quantity, 8);
             $parentPnlPercent = $costBasis > 0
@@ -78,8 +80,7 @@ class TradingService
             if (bccomp((string) $totalChildQty, $parent->quantity, 8) >= 0) {
                 // Weighted average exit price from children
                 $weightedExitSum = '0';
-                /** @var \App\Models\Trade $c */
-                foreach ($parent->children as $c) {
+                foreach ($children as $c) {
                     $weightedExitSum = bcadd($weightedExitSum, bcmul($c->entry_price, $c->quantity, 8), 8);
                 }
                 $weightedExitPrice = bcdiv($weightedExitSum, (string) $totalChildQty, 8);
@@ -152,14 +153,21 @@ class TradingService
      */
     public function recalculateStats(Agent $agent, bool $paper): void
     {
-        $closedTrades = Trade::where('agent_id', $agent->id)
+        // Compute metrics directly on DB to avoid memory exhaustion
+        $statsData = Trade::where('agent_id', $agent->id)
             ->where('paper', $paper)
             ->where('status', 'closed')
             ->whereNull('parent_trade_id')
-            ->orderBy('entry_at')
-            ->get();
+            ->selectRaw('COUNT(*) as total_trades')
+            ->selectRaw('SUM(CASE WHEN CAST(pnl AS numeric) > 0 THEN 1 ELSE 0 END) as win_count')
+            ->selectRaw('SUM(CASE WHEN CAST(pnl AS numeric) < 0 THEN 1 ELSE 0 END) as loss_count')
+            ->selectRaw('SUM(CAST(pnl AS numeric)) as total_pnl')
+            ->selectRaw('AVG(CAST(pnl_percent AS numeric)) as avg_pnl_percent')
+            ->selectRaw('MAX(CAST(pnl AS numeric)) as best_trade_pnl')
+            ->selectRaw('MIN(CAST(pnl AS numeric)) as worst_trade_pnl')
+            ->first();
 
-        $totalTrades = $closedTrades->count();
+        $totalTrades = (int) ($statsData->total_trades ?? 0);
 
         if ($totalTrades === 0) {
             TradingStats::updateOrCreate(
@@ -182,34 +190,53 @@ class TradingService
             return;
         }
 
-        $winCount = $closedTrades->filter(fn ($t) => bccomp($t->pnl, '0', 8) > 0)->count();
-        $lossCount = $closedTrades->filter(fn ($t) => bccomp($t->pnl, '0', 8) < 0)->count();
+        $winCount = (int) ($statsData->win_count ?? 0);
+        $lossCount = (int) ($statsData->loss_count ?? 0);
         $winRate = round(($winCount / $totalTrades) * 100, 2);
 
-        $totalPnl = $closedTrades->reduce(fn ($carry, $t) => bcadd($carry ?? '0', $t->pnl, 8), '0');
-        $avgPnlPercent = $closedTrades->avg('pnl_percent');
+        $totalPnl = (string) ($statsData->total_pnl ?? '0');
+        $avgPnlPercent = (float) ($statsData->avg_pnl_percent ?? 0.0);
+        $bestPnl = (string) ($statsData->best_trade_pnl ?? '0');
+        $worstPnl = (string) ($statsData->worst_trade_pnl ?? '0');
 
-        $grossProfit = $closedTrades
-            ->filter(fn ($t) => bccomp($t->pnl, '0', 8) > 0)
-            ->reduce(fn ($carry, $t) => bcadd($carry ?? '0', $t->pnl, 8), '0');
+        $grossProfitObj = Trade::where('agent_id', $agent->id)
+            ->where('paper', $paper)
+            ->where('status', 'closed')
+            ->whereNull('parent_trade_id')
+            ->whereRaw('CAST(pnl AS numeric) > 0')
+            ->selectRaw('SUM(CAST(pnl AS numeric)) as gross_profit')
+            ->first();
+        $grossProfit = $grossProfitObj->gross_profit ?? 0;
 
-        $grossLoss = $closedTrades
-            ->filter(fn ($t) => bccomp($t->pnl, '0', 8) < 0)
-            ->reduce(fn ($carry, $t) => bcadd($carry ?? '0', $t->pnl, 8), '0');
+        $grossLossObj = Trade::where('agent_id', $agent->id)
+            ->where('paper', $paper)
+            ->where('status', 'closed')
+            ->whereNull('parent_trade_id')
+            ->whereRaw('CAST(pnl AS numeric) < 0')
+            ->selectRaw('SUM(CAST(pnl AS numeric)) as gross_loss')
+            ->first();
+        $grossLoss = $grossLossObj->gross_loss ?? 0;
 
-        $absGrossLoss = bcmul($grossLoss, '-1', 8);
-        $profitFactor = bccomp($absGrossLoss, '0', 8) > 0
-            ? bcdiv($grossProfit, $absGrossLoss, 4)
-            : null;
+        $profitFactor = null;
+        if ($grossLoss < 0) {
+            $profitFactor = round($grossProfit / abs($grossLoss), 4);
+        } elseif ($grossProfit > 0) {
+            $profitFactor = 999.99; // Or something
+        }
 
-        $bestPnl = $closedTrades->max('pnl');
-        $worstPnl = $closedTrades->min('pnl');
-
-        // Current streak: iterate from most recent
+        // Streak requires sequence order. Getting just Win/Loss from DB is lighter.
+        // We can fetch only the PnL values and order by entry_at desc
+        $streakTrades = Trade::where('agent_id', $agent->id)
+            ->where('paper', $paper)
+            ->where('status', 'closed')
+            ->whereNull('parent_trade_id')
+            ->orderByDesc('entry_at')
+            ->select('pnl', 'pnl_percent')
+            ->get();
+        
         $streak = 0;
-        $reversed = $closedTrades->reverse();
         $streakDirection = null;
-        foreach ($reversed as $trade) {
+        foreach ($streakTrades as $trade) {
             $isWin = bccomp($trade->pnl, '0', 8) > 0;
             if ($streakDirection === null) {
                 $streakDirection = $isWin;
@@ -224,14 +251,17 @@ class TradingService
             $streak = -$streak;
         }
 
-        // Sharpe ratio (annualized, if >= 30 trades)
+        // Sharpe Ratio
         $sharpe = null;
         if ($totalTrades >= 30) {
-            $returns = $closedTrades->pluck('pnl_percent')->map(fn ($v) => (float) $v);
+            // Need all returns for standard deviation
+            $returns = $streakTrades->pluck('pnl_percent')->map(fn ($v) => (float) $v);
             $avgReturn = $returns->avg();
-            $stdDev = sqrt($returns->map(fn ($r) => pow($r - $avgReturn, 2))->avg());
-            if ($stdDev > 0) {
-                $sharpe = round(($avgReturn / $stdDev) * sqrt(252), 4);
+            if ($returns->count() > 0) {
+                $stdDev = sqrt($returns->map(fn ($r) => pow($r - $avgReturn, 2))->avg());
+                if ($stdDev > 0) {
+                    $sharpe = round(($avgReturn / $stdDev) * sqrt(252), 4);
+                }
             }
         }
 

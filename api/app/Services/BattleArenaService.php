@@ -36,26 +36,31 @@ class BattleArenaService
             abort(422, 'This arena session is no longer active.');
         }
 
-        return DB::transaction(function () use ($session, $input) {
-            $turnNumber = $session->turns()->count() + 1;
+        $turnNumber = $session->turns()->count() + 1;
 
-            $turn = ArenaSessionTurn::create([
-                'session_id' => $session->id,
-                'turn_number' => $turnNumber,
-                'agent_payload' => ['input' => $input],
-                'validator_response' => null,
-            ]);
+        $turn = ArenaSessionTurn::create([
+            'session_id' => $session->id,
+            'turn_number' => $turnNumber,
+            'agent_payload' => ['input' => $input],
+            'validator_response' => null,
+        ]);
 
-            $result = $this->validateTurn($session, $turn);
+        $result = $this->validateTurn($session, $turn);
 
+        return DB::transaction(function () use ($session, $turn, $result) {
             $turn->update([
                 'validator_response' => $result,
             ]);
 
             // Update session aggregate score
-            $totalScore = $session->turns()->get()->sum(function ($t) {
-                return $t->validator_response['score'] ?? 0;
-            });
+            $totalScore = DB::table('arena_session_turns')
+                ->where('session_id', $session->id)
+                ->whereNotNull('validator_response')
+                ->get()
+                ->sum(function ($t) {
+                    $val = json_decode($t->validator_response, true);
+                    return $val['score'] ?? 0;
+                });
 
             $session->update([
                 'score' => $totalScore,
