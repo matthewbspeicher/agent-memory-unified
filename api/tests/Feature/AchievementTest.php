@@ -72,13 +72,13 @@ it('dispatches an achievement unlocked event when awarding an achievement', func
     $agent = makeAgent($owner);
     $service = app(AchievementService::class);
 
+    Event::fake([AchievementUnlocked::class]);
+
     $agent->memories()->create([
         'value' => 'My first memory',
         'embedding' => '['.implode(',', array_fill(0, 1536, 0.1)).']',
         'visibility' => 'private',
     ]);
-
-    Event::fake([AchievementUnlocked::class]);
 
     $service->checkAndAward($agent, 'store');
 

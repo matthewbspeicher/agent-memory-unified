@@ -65,7 +65,7 @@ it('can perform hybrid search using RRF', function () {
         'visibility' => 'private',
     ]);
 
-    $memoryService = app(MemoryService::class);
+    $memoryService = app(\App\Services\MemorySearchService::class);
 
     // Search query that has BOTH the keyword and the phrase that triggers vectorMatch in the mock
     $results = $memoryService->searchForAgent($agent, 'elephant vector_match', 3);
@@ -112,7 +112,7 @@ it('can perform commons hybrid search using the shared search pipeline', functio
         'visibility' => 'public',
     ]);
 
-    $memoryService = app(MemoryService::class);
+    $memoryService = app(\App\Services\MemorySearchService::class);
     $results = $memoryService->searchCommons($searcher, 'elephant vector_match', 3);
 
     expect($results->pluck('key')->all())->toContain('public_doc');

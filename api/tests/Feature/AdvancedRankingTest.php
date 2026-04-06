@@ -4,7 +4,7 @@ use App\Models\Agent;
 use App\Models\Memory;
 use App\Models\User;
 use App\Services\EmbeddingService;
-use App\Services\MemoryService;
+use App\Services\MemorySearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 
@@ -24,7 +24,7 @@ it('ranks highly important old memories above normal new memories', function () 
     $user = User::factory()->create();
     $agent = Agent::factory()->create(['owner_id' => $user->id]);
 
-    $memoryService = app(MemoryService::class);
+    $memoryService = app(MemorySearchService::class);
     $vector = array_fill(0, 1536, 0.1);
 
     // Old but VERY important
@@ -65,7 +65,7 @@ it('ranks confident memories above uncertain ones', function () {
     $user = User::factory()->create();
     $agent = Agent::factory()->create(['owner_id' => $user->id]);
 
-    $memoryService = app(MemoryService::class);
+    $memoryService = app(MemorySearchService::class);
     $vector = array_fill(0, 1536, 0.1);
 
     Memory::create([

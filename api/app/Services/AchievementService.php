@@ -155,11 +155,13 @@ class AchievementService
 
     private function award(Agent $agent, string $slug): void
     {
-        Achievement::create([
+        $achievement = Achievement::create([
             'agent_id' => $agent->id,
             'achievement_slug' => $slug,
             'earned_at' => now(),
         ]);
+
+        event(new \App\Events\AchievementUnlocked($agent, $slug));
     }
 
     // -------------------------------------------------------------------------

@@ -8,13 +8,15 @@ use App\Models\Agent;
 use App\Models\Workspace;
 use App\Models\WorkspaceEvent;
 use App\Models\WorkspaceTask;
+use App\Traits\ApiResponses;
 use App\Traits\ResolvesAgent;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class TaskController extends Controller
 {
-    use ResolvesAgent;
+    use ApiResponses, ResolvesAgent;
     /**
      * List tasks in a workspace.
      * GET /v1/workspaces/{id}/tasks
@@ -23,7 +25,7 @@ class TaskController extends Controller
     {
         $workspace = Workspace::find($id);
         if (! $workspace) {
-            return response()->json(['error' => 'Workspace not found.'], 404);
+            return $this->notFound('Workspace');
         }
 
         $agent = $this->resolveAgent($request);
@@ -32,7 +34,7 @@ class TaskController extends Controller
         }
 
         if (! $this->agentBelongsToWorkspace($agent, $workspace)) {
-            return response()->json(['error' => 'Agent does not belong to this workspace.'], 403);
+            return $this->error('Agent does not belong to this workspace.', 403);
         }
 
         $request->validate([
@@ -79,7 +81,7 @@ class TaskController extends Controller
     {
         $workspace = Workspace::find($id);
         if (! $workspace) {
-            return response()->json(['error' => 'Workspace not found.'], 404);
+            return $this->notFound('Workspace');
         }
 
         $agent = $this->resolveAgent($request);
@@ -88,7 +90,7 @@ class TaskController extends Controller
         }
 
         if (! $this->agentBelongsToWorkspace($agent, $workspace)) {
-            return response()->json(['error' => 'Agent does not belong to this workspace.'], 403);
+            return $this->error('Agent does not belong to this workspace.', 403);
         }
 
         $task = WorkspaceTask::where('workspace_id', $id)
@@ -97,10 +99,10 @@ class TaskController extends Controller
             ->first();
 
         if (! $task) {
-            return response()->json(['error' => 'Task not found.'], 404);
+            return $this->notFound('Task');
         }
 
-        return response()->json(['data' => $this->formatTask($task)]);
+        return $this->success(['data' => $this->formatTask($task)]);
     }
 
     /**
@@ -111,7 +113,7 @@ class TaskController extends Controller
     {
         $workspace = Workspace::find($id);
         if (! $workspace) {
-            return response()->json(['error' => 'Workspace not found.'], 404);
+            return $this->notFound('Workspace');
         }
 
         $agent = $this->resolveAgent($request);
@@ -120,7 +122,7 @@ class TaskController extends Controller
         }
 
         if (! $this->agentBelongsToWorkspace($agent, $workspace)) {
-            return response()->json(['error' => 'Agent does not belong to this workspace.'], 403);
+            return $this->error('Agent does not belong to this workspace.', 403);
         }
 
         $validated = $request->validate([
@@ -137,44 +139,48 @@ class TaskController extends Controller
             'due_at' => ['nullable', 'date', 'after:now'],
         ]);
 
-        $task = WorkspaceTask::create([
-            'workspace_id' => $id,
-            'created_by_agent_id' => $agent->id,
-            'title' => $validated['title'],
-            'description' => $validated['description'] ?? null,
-            'status' => WorkspaceTask::STATUS_PENDING,
-            'priority' => $validated['priority'] ?? WorkspaceTask::PRIORITY_MEDIUM,
-            'assigned_agent_id' => $validated['assigned_agent_id'] ?? null,
-            'due_at' => $validated['due_at'] ?? null,
-        ]);
+        $task = DB::transaction(function () use ($id, $agent, $validated) {
+    $task = WorkspaceTask::create([
+                'workspace_id' => $id,
+                'created_by_agent_id' => $agent->id,
+                'title' => $validated['title'],
+                'description' => $validated['description'] ?? null,
+                'status' => WorkspaceTask::STATUS_PENDING,
+                'priority' => $validated['priority'] ?? WorkspaceTask::PRIORITY_MEDIUM,
+                'assigned_agent_id' => $validated['assigned_agent_id'] ?? null,
+                'due_at' => $validated['due_at'] ?? null,
+            ]);
 
-        // Dispatch event
-        WorkspaceEvent::dispatch(
-            $id,
-            WorkspaceEvent::TYPE_TASK_CREATED,
-            $agent->id,
-            [
-                'task_id' => $task->id,
-                'title' => $task->title,
-                'assigned_agent_id' => $task->assigned_agent_id,
-            ]
-        );
-
-        if ($task->assigned_agent_id) {
+            // Dispatch event
             WorkspaceEvent::dispatch(
                 $id,
-                WorkspaceEvent::TYPE_TASK_ASSIGNED,
+                WorkspaceEvent::TYPE_TASK_CREATED,
                 $agent->id,
                 [
                     'task_id' => $task->id,
+                    'title' => $task->title,
                     'assigned_agent_id' => $task->assigned_agent_id,
                 ]
             );
-        }
+
+            if ($task->assigned_agent_id) {
+                WorkspaceEvent::dispatch(
+                    $id,
+                    WorkspaceEvent::TYPE_TASK_ASSIGNED,
+                    $agent->id,
+                    [
+                        'task_id' => $task->id,
+                        'assigned_agent_id' => $task->assigned_agent_id,
+                    ]
+                );
+            }
+
+        return $task;
+    });
 
         $task->load(['creator:id,name', 'assignee:id,name']);
 
-        return response()->json(['data' => $this->formatTask($task)], 201);
+        return $this->success(['data' => $this->formatTask($task)], 201);
     }
 
     /**
@@ -188,7 +194,7 @@ class TaskController extends Controller
             ->first();
 
         if (! $task) {
-            return response()->json(['error' => 'Task not found.'], 404);
+            return $this->notFound('Task');
         }
 
         $agent = $this->resolveAgent($request);
@@ -198,7 +204,7 @@ class TaskController extends Controller
 
         $workspace = Workspace::find($id);
         if (! $this->agentBelongsToWorkspace($agent, $workspace)) {
-            return response()->json(['error' => 'Agent does not belong to this workspace.'], 403);
+            return $this->error('Agent does not belong to this workspace.', 403);
         }
 
         $validated = $request->validate([
@@ -220,7 +226,7 @@ class TaskController extends Controller
 
         $task->load(['creator:id,name', 'assignee:id,name']);
 
-        return response()->json(['data' => $this->formatTask($task)]);
+        return $this->success(['data' => $this->formatTask($task)]);
     }
 
     /**
@@ -234,7 +240,7 @@ class TaskController extends Controller
             ->first();
 
         if (! $task) {
-            return response()->json(['error' => 'Task not found.'], 404);
+            return $this->notFound('Task');
         }
 
         $agent = $this->resolveAgent($request);
@@ -244,7 +250,7 @@ class TaskController extends Controller
 
         $workspace = Workspace::find($id);
         if (! $this->agentBelongsToWorkspace($agent, $workspace)) {
-            return response()->json(['error' => 'Agent does not belong to this workspace.'], 403);
+            return $this->error('Agent does not belong to this workspace.', 403);
         }
 
         $validated = $request->validate([
@@ -273,7 +279,7 @@ class TaskController extends Controller
 
         $task->load(['creator:id,name', 'assignee:id,name']);
 
-        return response()->json(['data' => $this->formatTask($task)]);
+        return $this->success(['data' => $this->formatTask($task)]);
     }
 
     /**
@@ -287,7 +293,7 @@ class TaskController extends Controller
             ->first();
 
         if (! $task) {
-            return response()->json(['error' => 'Task not found.'], 404);
+            return $this->notFound('Task');
         }
 
         $agent = $this->resolveAgent($request);
@@ -297,7 +303,7 @@ class TaskController extends Controller
 
         $workspace = Workspace::find($id);
         if (! $this->agentBelongsToWorkspace($agent, $workspace)) {
-            return response()->json(['error' => 'Agent does not belong to this workspace.'], 403);
+            return $this->error('Agent does not belong to this workspace.', 403);
         }
 
         $validated = $request->validate([
@@ -327,7 +333,7 @@ class TaskController extends Controller
 
         $task->load(['creator:id,name', 'assignee:id,name']);
 
-        return response()->json(['data' => $this->formatTask($task)]);
+        return $this->success(['data' => $this->formatTask($task)]);
     }
 
     /**
@@ -341,7 +347,7 @@ class TaskController extends Controller
             ->first();
 
         if (! $task) {
-            return response()->json(['error' => 'Task not found.'], 404);
+            return $this->notFound('Task');
         }
 
         $agent = $this->resolveAgent($request);
@@ -351,12 +357,12 @@ class TaskController extends Controller
 
         // Only creator can delete
         if ($task->created_by_agent_id !== $agent->id) {
-            return response()->json(['error' => 'Only the task creator can delete a task.'], 403);
+            return $this->error('Only the task creator can delete a task.', 403);
         }
 
         $task->delete();
 
-        return response()->json(['message' => 'Task deleted.']);
+        return $this->success(['message' => 'Task deleted.']);
     }
 
     // -------------------------------------------------------------------------
@@ -394,10 +400,6 @@ class TaskController extends Controller
             ] : null,
             'created_at' => $task->created_at?->toIso8601String(),
             'updated_at' => $task->updated_at?->toIso8601String(),
-        ];
-    }
-}
-1String(),
         ];
     }
 }

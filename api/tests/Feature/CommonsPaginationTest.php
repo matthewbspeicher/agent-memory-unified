@@ -76,7 +76,7 @@ class CommonsPaginationTest extends TestCase
 
         $request = Request::create('/api/v1/commons', 'GET', ['type' => 'prompt']);
         $request->attributes->set('agent', $agent);
-        $response = app(MemoryController::class)->commonsIndex($request);
+        $response = app(\App\Http\Controllers\Api\MemorySearchController::class)->commonsIndex($request);
 
         $this->assertEquals(200, $response->getStatusCode());
         $data = $response->getData(true);
@@ -98,7 +98,7 @@ class CommonsPaginationTest extends TestCase
 
         $request = Request::create('/api/v1/commons', 'GET', ['tags' => 'ai']);
         $request->attributes->set('agent', $agent);
-        $response = app(MemoryController::class)->commonsIndex($request);
+        $response = app(\App\Http\Controllers\Api\MemorySearchController::class)->commonsIndex($request);
 
         $this->assertEquals(200, $response->getStatusCode());
         $data = $response->getData(true);

@@ -7,13 +7,15 @@ use App\Models\Agent;
 use App\Models\CollaborationMention;
 use App\Models\Workspace;
 use App\Models\WorkspaceEvent;
+use App\Traits\ApiResponses;
 use App\Traits\ResolvesAgent;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class MentionController extends Controller
 {
-    use ResolvesAgent;
+    use ApiResponses, ResolvesAgent;
     /**
      * List mentions for the workspace (sent and received by authenticated agent).
      * GET /v1/workspaces/{id}/mentions
@@ -22,7 +24,7 @@ class MentionController extends Controller
     {
         $workspace = Workspace::find($id);
         if (! $workspace) {
-            return response()->json(['error' => 'Workspace not found.'], 404);
+            return $this->notFound('Workspace');
         }
 
         $agent = $this->resolveAgent($request);
@@ -31,7 +33,7 @@ class MentionController extends Controller
         }
 
         if (! $this->agentBelongsToWorkspace($agent, $workspace)) {
-            return response()->json(['error' => 'Agent does not belong to this workspace.'], 403);
+            return $this->error('Agent does not belong to this workspace.', 403);
         }
 
         $mentions = CollaborationMention::where('workspace_id', $id)
@@ -57,7 +59,7 @@ class MentionController extends Controller
     {
         $workspace = Workspace::find($id);
         if (! $workspace) {
-            return response()->json(['error' => 'Workspace not found.'], 404);
+            return $this->notFound('Workspace');
         }
 
         $agent = $this->resolveAgent($request);
@@ -66,7 +68,7 @@ class MentionController extends Controller
         }
 
         if (! $this->agentBelongsToWorkspace($agent, $workspace)) {
-            return response()->json(['error' => 'Agent does not belong to this workspace.'], 403);
+            return $this->error('Agent does not belong to this workspace.', 403);
         }
 
         $statusFilter = $request->query('status');
@@ -95,7 +97,7 @@ class MentionController extends Controller
     {
         $workspace = Workspace::find($id);
         if (! $workspace) {
-            return response()->json(['error' => 'Workspace not found.'], 404);
+            return $this->notFound('Workspace');
         }
 
         $agent = $this->resolveAgent($request);
@@ -104,7 +106,7 @@ class MentionController extends Controller
         }
 
         if (! $this->agentBelongsToWorkspace($agent, $workspace)) {
-            return response()->json(['error' => 'Agent does not belong to this workspace.'], 403);
+            return $this->error('Agent does not belong to this workspace.', 403);
         }
 
         $mention = CollaborationMention::where('workspace_id', $id)
@@ -113,15 +115,15 @@ class MentionController extends Controller
             ->first();
 
         if (! $mention) {
-            return response()->json(['error' => 'Mention not found.'], 404);
+            return $this->notFound('Mention');
         }
 
         // Only sender or target can view
         if ($mention->agent_id !== $agent->id && $mention->target_agent_id !== $agent->id) {
-            return response()->json(['error' => 'Access denied.'], 403);
+            return $this->error('Access denied.', 403);
         }
 
-        return response()->json(['data' => $this->formatMention($mention)]);
+        return $this->success(['data' => $this->formatMention($mention)]);
     }
 
     /**
@@ -132,7 +134,7 @@ class MentionController extends Controller
     {
         $workspace = Workspace::find($id);
         if (! $workspace) {
-            return response()->json(['error' => 'Workspace not found.'], 404);
+            return $this->notFound('Workspace');
         }
 
         $agent = $this->resolveAgent($request);
@@ -141,7 +143,7 @@ class MentionController extends Controller
         }
 
         if (! $this->agentBelongsToWorkspace($agent, $workspace)) {
-            return response()->json(['error' => 'Agent does not belong to this workspace.'], 403);
+            return $this->error('Agent does not belong to this workspace.', 403);
         }
 
         $validated = $request->validate([
@@ -159,34 +161,38 @@ class MentionController extends Controller
 
         // Cannot mention yourself
         if ($validated['target_agent_id'] === $agent->id) {
-            return response()->json(['error' => 'Cannot mention yourself.'], 422);
+            return $this->error('Cannot mention yourself.', 422);
         }
 
-        $mention = CollaborationMention::create([
-            'workspace_id' => $id,
-            'agent_id' => $agent->id,
-            'target_agent_id' => $validated['target_agent_id'],
-            'status' => CollaborationMention::STATUS_PENDING,
-            'message' => $validated['message'],
-            'memory_id' => $validated['memory_id'] ?? null,
-            'task_id' => $validated['task_id'] ?? null,
-        ]);
-
-        // Dispatch event
-        WorkspaceEvent::dispatch(
-            $id,
-            WorkspaceEvent::TYPE_MENTION_CREATED,
-            $agent->id,
-            [
-                'mention_id' => $mention->id,
+        $mention = DB::transaction(function () use ($id, $agent, $validated) {
+    $mention = CollaborationMention::create([
+                'workspace_id' => $id,
+                'agent_id' => $agent->id,
                 'target_agent_id' => $validated['target_agent_id'],
+                'status' => CollaborationMention::STATUS_PENDING,
                 'message' => $validated['message'],
-            ]
-        );
+                'memory_id' => $validated['memory_id'] ?? null,
+                'task_id' => $validated['task_id'] ?? null,
+            ]);
+
+            // Dispatch event
+            WorkspaceEvent::dispatch(
+                $id,
+                WorkspaceEvent::TYPE_MENTION_CREATED,
+                $agent->id,
+                [
+                    'mention_id' => $mention->id,
+                    'target_agent_id' => $validated['target_agent_id'],
+                    'message' => $validated['message'],
+                ]
+            );
+
+        return $mention;
+    });
 
         $mention->load(['sender:id,name', 'target:id,name']);
 
-        return response()->json(['data' => $this->formatMention($mention)], 201);
+        return $this->success(['data' => $this->formatMention($mention)], 201);
     }
 
     /**
@@ -197,7 +203,7 @@ class MentionController extends Controller
     {
         $workspace = Workspace::find($id);
         if (! $workspace) {
-            return response()->json(['error' => 'Workspace not found.'], 404);
+            return $this->notFound('Workspace');
         }
 
         $agent = $this->resolveAgent($request);
@@ -210,12 +216,12 @@ class MentionController extends Controller
             ->first();
 
         if (! $mention) {
-            return response()->json(['error' => 'Mention not found.'], 404);
+            return $this->notFound('Mention');
         }
 
         // Only the target can respond
         if ($mention->target_agent_id !== $agent->id) {
-            return response()->json(['error' => 'Only the target agent can respond to a mention.'], 403);
+            return $this->error('Only the target agent can respond to a mention.', 403);
         }
 
         $validated = $request->validate([
@@ -239,7 +245,7 @@ class MentionController extends Controller
 
         $mention->load(['sender:id,name', 'target:id,name']);
 
-        return response()->json(['data' => $this->formatMention($mention)]);
+        return $this->success(['data' => $this->formatMention($mention)]);
     }
 
     // -------------------------------------------------------------------------

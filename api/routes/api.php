@@ -12,6 +12,8 @@ use App\Http\Controllers\Api\CommonsStreamController;
 use App\Http\Controllers\Api\GraphController;
 use App\Http\Controllers\Api\LeaderboardApiController;
 use App\Http\Controllers\Api\MemoryController;
+use App\Http\Controllers\Api\MemorySearchController;
+use App\Http\Controllers\Api\MemorySharingController;
 use App\Http\Controllers\Api\MentionController;
 use App\Http\Controllers\Api\PortfolioController;
 use App\Http\Controllers\Api\PresenceController;
@@ -101,7 +103,7 @@ Route::prefix('v1')->middleware(['throttle:api', 'rate.headers'])->group(functio
 
         // Memories — own
         Route::post('memories/compact', [MemoryController::class, 'compact']);
-        Route::get('memories/search', [MemoryController::class, 'search']);
+        Route::get('memories/search', [MemorySearchController::class, 'search']);
         Route::get('memories', [MemoryController::class, 'index']);
         Route::post('memories', [MemoryController::class, 'store']);
         Route::get('memories/{key}', [MemoryController::class, 'show']);
@@ -109,10 +111,10 @@ Route::prefix('v1')->middleware(['throttle:api', 'rate.headers'])->group(functio
         Route::delete('memories/{key}', [MemoryController::class, 'destroy']);
 
         // Sharing
-        Route::post('/memories/{key}/share', [MemoryController::class, 'share']);
+        Route::post('/memories/{key}/share', [MemorySharingController::class, 'share']);
 
         // Feedback
-        Route::post('/memories/{key}/feedback', [MemoryController::class, 'feedback']);
+        Route::post('/memories/{key}/feedback', [MemorySharingController::class, 'feedback']);
 
         // Session extraction
         Route::post('sessions/extract', [SessionController::class, 'extract']);
@@ -159,10 +161,10 @@ Route::prefix('v1')->middleware(['throttle:api', 'rate.headers'])->group(functio
         Route::post('/webhooks/{id}/test', [WebhookController::class, 'test']);
 
         // Commons — public memory generic list across all agents
-        Route::get('commons', [MemoryController::class, 'commonsIndex']);
+        Route::get('commons', [MemorySearchController::class, 'commonsIndex']);
 
         // Commons — public memory search across all agents
-        Route::get('commons/search', [MemoryController::class, 'commonsSearch']);
+        Route::get('commons/search', [MemorySearchController::class, 'commonsSearch']);
 
         // Arena
         Route::get('arena/profile', [ArenaProfileController::class, 'show']);
