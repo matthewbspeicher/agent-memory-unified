@@ -417,6 +417,414 @@ def _setup_whatsapp_routes(
     )
 
 
+async def _setup_bittensor_integration(
+    *,
+    config,
+    app,
+    db,
+    data_bus,
+    event_bus,
+    signal_bus,
+    task_mgr,
+    logger,
+):
+    """Set up Bittensor integration (real or mock) and wire components into app.state."""
+    from api.startup.integrations import setup_bittensor
+
+    bittensor_enabled_runtime, bittensor_components = await setup_bittensor(
+        config=config,
+        db=db,
+        data_bus=data_bus,
+        event_bus=event_bus,
+        signal_bus=signal_bus,
+    )
+
+    if bittensor_enabled_runtime:
+        app.state.bittensor_store = bittensor_components["store"]
+        app.state.bittensor_source = bittensor_components["source"]
+        app.state.bittensor_adapter = bittensor_components["adapter"]
+        app.state.bittensor_scheduler = bittensor_components["scheduler"]
+        app.state.bittensor_evaluator = bittensor_components["evaluator"]
+        app.state.bittensor_ranking_config = bittensor_components["ranking_config"]
+
+        task_mgr.create_task(
+            bittensor_components["scheduler"].run(), name="bittensor_scheduler"
+        )
+        task_mgr.create_task(
+            bittensor_components["evaluator"].run(), name="bittensor_evaluator"
+        )
+        if bittensor_components.get("weight_setter"):
+            app.state.bittensor_weight_setter = bittensor_components["weight_setter"]
+            task_mgr.create_task(
+                bittensor_components["weight_setter"].run(),
+                name="bittensor_weight_setter",
+            )
+    elif config.bittensor_mock and not bittensor_enabled_runtime:
+        from integrations.bittensor.mock_source import MockBittensorSource
+
+        _bt_mock = MockBittensorSource(signal_bus=signal_bus)
+        task_mgr.create_task(_bt_mock.start(), name="bittensor_mock")
+        logger.info("MockBittensorSource started (real integration not active)")
+    elif config.bittensor_mock and bittensor_enabled_runtime:
+        logger.warning(
+            "bittensor_mock=True ignored — real Bittensor integration is active"
+        )
+
+    app.state.bittensor_enabled_runtime = bittensor_enabled_runtime
+
+
+def _setup_tournament_cron(task_mgr, tournament_engine):
+    """Set up the tournament cron job to evaluate all tournaments periodically."""
+    from croniter import croniter
+    import asyncio
+    from datetime import datetime
+    import logging
+    import json
+
+    _log = logging.getLogger(__name__)
+
+    async def _run_tournament_cron():
+        cron = croniter(
+            _learning_cfg.tournament.evaluate_cron, datetime.now(timezone.utc)
+        )
+        while True:
+            next_run = cron.get_next(datetime)
+            delay = (next_run - datetime.now(timezone.utc)).total_seconds()
+            if delay > 0:
+                await asyncio.sleep(delay)
+            try:
+                await tournament_engine.evaluate_all()
+            except Exception as _te:
+                _log.warning("TournamentEngine.evaluate_all failed: %s", _te)
+
+    task_mgr.create_task(_run_tournament_cron(), name="tournament_cron")
+    _log.info(
+        "Tournament cron job started with schedule: %s",
+        _learning_cfg.tournament.evaluate_cron,
+    )
+
+
+async def _load_and_start_agent_configs(
+    *,
+    agents_path,
+    prompt_store,
+    exit_manager,
+    pnl_store,
+    runner,
+    logger: logging.Logger,
+):
+    from agents.config import load_agents_config, register_strategy
+    from strategies.exit_monitor import ExitMonitorAgent as ExitMonitorAgent
+
+    register_strategy(
+        "exit_monitor",
+        lambda config: ExitMonitorAgent(
+            config=config,
+            exit_manager=exit_manager,
+            position_store=pnl_store,
+        ),
+    )
+
+    if agents_path is None:
+        logger.error(
+            "CRITICAL: agents.yaml path is None, cannot load agent configurations"
+        )
+        agent_configs = []
+    else:
+        agent_configs = load_agents_config(str(agents_path), prompt_store=prompt_store)
+
+    for agent in agent_configs:
+        runner.register(agent)
+        if agent.config.schedule in ("continuous", "cron"):
+            await runner.start_agent(agent.name)
+
+    await runner.start_polling(interval=60)
+
+    return agent_configs
+
+
+async def _setup_meta_agent(
+    *,
+    app: FastAPI,
+    runner,
+    signal_bus,
+    data_bus,
+    router,
+    logger: logging.Logger,
+    arb_coordinator=None,
+):
+    try:
+        from agents.meta import MetaAgent
+        from agents.signal_adapter import SignalAdapterRunner
+        from agents.adapters.prediction_market import PredictionMarketAdapter
+        from agents.models import AgentConfig as AgentConfig, ActionLevel as ActionLevel
+
+        meta_cfg = AgentConfig(
+            name="meta_agent",
+            strategy="meta",
+            schedule="continuous",
+            interval=30,
+            action_level=ActionLevel.NOTIFY,
+            parameters={
+                "boost_delta": 0.05,
+                "max_cumulative_boost": 0.15,
+                "boost_ttl_minutes": 15,
+            },
+        )
+        meta_agent = MetaAgent(config=meta_cfg, runner=runner, signal_bus=signal_bus)
+        runner.register(meta_agent)
+        app.state.meta_agent = meta_agent
+        router._meta_agent = meta_agent
+
+        adapters = []
+        if data_bus:
+            adapters.append(PredictionMarketAdapter(data_bus=data_bus))
+        if adapters:
+            adapter_runner = SignalAdapterRunner(
+                adapters=adapters, signal_bus=signal_bus
+            )
+            adapter_runner.start(intervals={"prediction_market": 300})
+            app.state.adapter_runner = adapter_runner
+            logger.info(
+                "Signal adapter runner started with %d adapter(s)", len(adapters)
+            )
+
+        await runner.start_agent("meta_agent")
+        logger.info("MetaAgent registered and started")
+
+        if arb_coordinator:
+            arb_coordinator._meta_agent = meta_agent
+    except Exception as exc:
+        logger.warning("MetaAgent setup failed (non-fatal): %s", exc)
+
+
+async def _setup_stream_manager(
+    *,
+    app: FastAPI,
+    streams,
+    data_bus,
+    event_bus,
+    agent_configs,
+    logger: logging.Logger,
+):
+    if not streams:
+        return
+
+    from streaming.manager import StreamManager
+
+    stream_manager = StreamManager(
+        streams=streams,
+        data_bus=data_bus,
+        event_bus=event_bus,
+    )
+    await stream_manager.start()
+
+    all_symbols: set[str] = set()
+    for agent in agent_configs:
+        universe = getattr(agent.config, "universe", [])
+        if isinstance(universe, list):
+            all_symbols.update(universe)
+    if all_symbols:
+        await stream_manager.subscribe(list(all_symbols))
+
+    app.state.stream_manager = stream_manager
+    logger.info(
+        "StreamManager started with %d streams, %d symbols",
+        len(streams),
+        len(all_symbols),
+    )
+
+
+def _setup_tournament_cron(task_mgr, tournament_engine):
+    """Set up the tournament cron job to evaluate all tournaments periodically."""
+    from croniter import croniter
+    import asyncio
+    from datetime import datetime
+    import logging
+    import json
+
+    _log = logging.getLogger(__name__)
+
+    async def _run_tournament_cron():
+        cron = croniter(
+            _learning_cfg.tournament.evaluate_cron, datetime.now(timezone.utc)
+        )
+        while True:
+            next_run = cron.get_next(datetime)
+            delay = (next_run - datetime.now(timezone.utc)).total_seconds()
+            if delay > 0:
+                await asyncio.sleep(delay)
+            try:
+                await tournament_engine.evaluate_all()
+            except Exception as _te:
+                _log.warning("TournamentEngine.evaluate_all failed: %s", _te)
+
+    task_mgr.create_task(_run_tournament_cron(), name="tournament_cron")
+    _log.info(
+        "Tournament cron job started with schedule: %s",
+        _learning_cfg.tournament.evaluate_cron,
+    )
+    await stream_manager.start()
+
+    all_symbols: set[str] = set()
+    for agent in agent_configs:
+        universe = getattr(agent.config, "universe", [])
+        if isinstance(universe, list):
+            all_symbols.update(universe)
+    if all_symbols:
+        await stream_manager.subscribe(list(all_symbols))
+
+    app.state.stream_manager = stream_manager
+    logger.info(
+        "StreamManager started with %d streams, %d symbols",
+        len(streams),
+        len(all_symbols),
+    )
+
+
+def _setup_resolution_tracker(
+    *,
+    config: Config,
+    data_bus,
+    polymarket_source,
+    paper_store,
+    brokers,
+    event_bus,
+    task_mgr,
+    logger: logging.Logger,
+):
+    kalshi_paper_broker = None
+    polymarket_paper_broker = None
+
+    if config.paper_trading:
+        if config.kalshi_key_id and hasattr(data_bus, "_kalshi_source"):
+            try:
+                from adapters.kalshi.paper import KalshiPaperBroker
+
+                kalshi_paper_broker = KalshiPaperBroker(store=paper_store)
+                brokers["kalshi_paper"] = kalshi_paper_broker
+                logger.info("Kalshi paper broker enabled")
+            except Exception as exc:
+                logger.warning("Kalshi paper broker setup failed: %s", exc)
+
+        polymarket_paper_broker = brokers.get("polymarket_paper")
+
+    kalshi_client_ref = getattr(data_bus, "_kalshi_source", None)
+    kalshi_client_for_tracker = (
+        kalshi_client_ref._client
+        if kalshi_client_ref and hasattr(kalshi_client_ref, "_client")
+        else None
+    )
+    polymarket_client_for_tracker = (
+        getattr(polymarket_source, "_client", None) if polymarket_source else None
+    )
+
+    if not (kalshi_client_for_tracker or polymarket_client_for_tracker):
+        return None
+
+    paper_store_for_tracker = paper_store if config.paper_trading else None
+    if not paper_store_for_tracker:
+        return None
+
+    from exits.resolution_tracker import ResolutionTracker
+
+    resolution_tracker = ResolutionTracker(
+        kalshi_client=kalshi_client_for_tracker,
+        polymarket_client=polymarket_client_for_tracker,
+        kalshi_paper_broker=kalshi_paper_broker,
+        polymarket_paper_broker=polymarket_paper_broker,
+        paper_store=paper_store_for_tracker,
+        event_bus=event_bus,
+        poll_interval_seconds=600,
+    )
+    task_mgr.create_task(resolution_tracker.run(), name="resolution_tracker")
+    logger.info("ResolutionTracker started (poll interval: 600s)")
+
+    return resolution_tracker
+
+
+async def _start_redis_streams_consumer(
+    *,
+    app: FastAPI,
+    config: Config,
+    task_mgr,
+    logger: logging.Logger,
+):
+    from events.consumer_streams import StreamsEventConsumer
+    import redis.asyncio as aioredis
+
+    redis_url = config.redis_url or "redis://127.0.0.1:6379"
+    redis_client = await aioredis.from_url(redis_url, decode_responses=True)
+
+    consumer = StreamsEventConsumer(
+        redis=redis_client,
+        stream="events",
+        group="trading-service",
+        consumer_name="worker-1",
+    )
+
+    async def handle_trade_opened(data: dict):
+        logger.info("TradeOpened event: %s", data)
+
+    async def handle_trade_closed(data: dict):
+        logger.info("TradeClosed event: %s", data)
+
+    consumer.register("TradeOpened", handle_trade_opened)
+    consumer.register("TradeClosed", handle_trade_closed)
+
+    task_mgr.create_task(consumer.start(), name="redis_streams_consumer")
+    app.state.streams_consumer = consumer
+    logger.info("Redis Streams consumer started")
+
+
+async def _shutdown_app_state(*, app: FastAPI, runner, logger: logging.Logger):
+    streams_consumer = getattr(app.state, "streams_consumer", None)
+    if streams_consumer:
+        await streams_consumer.stop()
+        logger.info("Redis Streams consumer stopped")
+
+    task_manager = getattr(app.state, "task_manager", None)
+    if task_manager:
+        await task_manager.shutdown()
+
+    adapter_runner = getattr(app.state, "adapter_runner", None)
+    if adapter_runner:
+        await adapter_runner.stop()
+    if runner:
+        await runner.stop_all()
+    if hasattr(app.state, "stream_manager"):
+        await app.state.stream_manager.stop()
+
+    for name, broker_obj in getattr(app.state, "brokers", {}).items():
+        try:
+            await broker_obj.connection.disconnect()
+        except Exception as exc:
+            logger.warning("Error disconnecting broker %s: %s", name, exc)
+
+    journal_indexer = getattr(app.state, "journal_indexer", None)
+    if journal_indexer:
+        await journal_indexer.stop()
+
+    bt_adapter = getattr(app.state, "bittensor_adapter", None)
+    if bt_adapter:
+        try:
+            await bt_adapter.close()
+        except Exception as exc:
+            logger.warning("Bittensor adapter close error: %s", exc)
+
+    obs = getattr(app.state, "observability_emitter", None)
+    if obs:
+        obs.stop()
+
+    redis = getattr(app.state, "redis", None)
+    if redis:
+        await redis.aclose()
+
+    redis_bridge = getattr(app.state, "redis_bridge", None)
+    if redis_bridge:
+        await redis_bridge.stop()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     broker = getattr(app.state, "broker", None)
@@ -680,6 +1088,10 @@ async def lifespan(app: FastAPI):
         # Local SQLite prompt store — authoritative for all prompt state.
         # Optional remembr mirror can be added later but must fail open to local-only.
         prompt_store = SqlPromptStore(db)
+
+        # Register all routes
+        _register_api_routes(app)
+        _register_web_routes(app)
 
         # Learning API routes
         learning_router = create_learning_router(
@@ -1119,246 +1531,78 @@ async def lifespan(app: FastAPI):
         # Tournament Engine (optional — only if learning config has tournament.enabled)
         from datetime import datetime, timezone
 
-        tournament_engine = None
-        if _learning_cfg.tournament.enabled:
-            from tournament.engine import TournamentEngine
-            from tournament.store import TournamentStore
+        tournament_engine = _setup_tournament_engine(
+            app=app,
+            db=db,
+            perf_store=perf_store,
+            notifier=notifier,
+            runner=runner,
+            learning_cfg=_learning_cfg,
+            llm_client=llm_client,
+        )
 
-            _tournament_store = TournamentStore(db)
-            tournament_engine = TournamentEngine(
-                store=_tournament_store,
-                perf_store=perf_store,
-                notifier=notifier,
-                runner=runner,
-                config=_learning_cfg.tournament,
-                llm=llm_client,
-            )
-            app.state.tournament_engine = tournament_engine
-
-            from api.routes.tournament import create_tournament_router
-
-            app.include_router(create_tournament_router(tournament_engine))
-
-        if wa_client:
-            from whatsapp.assistant import WhatsAppAssistant
-            from whatsapp.webhook import create_webhook_router
-
-            # remembr.dev memory for WhatsApp assistant (optional)
-            wa_remembr = None
-            if config.remembr_api_key:
-                try:
-                    from remembr.client import AsyncRemembrClient
-
-                    wa_remembr = AsyncRemembrClient(
-                        agent_token=config.remembr_api_key,
-                        base_url=config.remembr_base_url,
-                    )
-                    _log.info("WhatsApp assistant memory enabled via remembr.dev")
-                except Exception as exc:
-                    _log.warning("Failed to init remembr.dev for WhatsApp: %s", exc)
-
-            wa_assistant = WhatsAppAssistant(
-                client=wa_client,
-                broker=broker,  # SimulatedBroker in paper mode, real broker in live mode
-                runner=runner,
-                opp_store=opp_store,
-                risk_engine=risk_engine,
-                llm_client=llm_client,
-                external_store=ext_store,
-                data_bus=data_bus,
-                leaderboard_engine=leaderboard_engine,
-                journal_service=journal_service,
-                brief_generator=brief_generator,
-                warroom_engine=warroom_engine,
-                paper_broker=broker if config.paper_trading else None,
-                tournament_engine=getattr(app.state, "tournament_engine", None),
-                db=db,
-                remembr_client=wa_remembr,
-                agent_store=agent_store,
-            )
-
-            wa_webhook = create_webhook_router(
-                assistant=wa_assistant,
-                verify_token=config.whatsapp_verify_token or "",
-                app_secret=config.whatsapp_app_secret or "",
-                allowed_numbers=config.whatsapp_allowed_numbers or "",
-            )
-            app.include_router(wa_webhook)
-
-            # Start proactive ops background tasks
-            wa_assistant.start_proactive(wa_numbers)
-
-            from api.routes.test import create_test_router
-
-            test_router = create_test_router(
-                wa_client=wa_client, allowed_numbers=config.whatsapp_allowed_numbers
-            )
-            app.include_router(test_router)
-
-        if not wa_client:
-            from api.routes.test import create_test_router
-
-            app.include_router(create_test_router(wa_client=None, allowed_numbers=None))
-
-        # Reuse already-resolved agents path from validation
-        _agents_path = _agents_path_str
-
-        # Re-register exit_monitor with injected dependencies (overrides bare-class default)
-        from agents.config import register_strategy
-        from strategies.exit_monitor import ExitMonitorAgent as _ExitMonitorAgent
-
-        register_strategy(
-            "exit_monitor",
-            lambda config: _ExitMonitorAgent(
-                config=config,
-                exit_manager=exit_manager,
-                position_store=pnl_store,
-            ),
+        _setup_whatsapp_routes(
+            app=app,
+            config=config,
+            wa_client=wa_client,
+            wa_numbers=wa_numbers,
+            broker=broker,
+            runner=runner,
+            opp_store=opp_store,
+            risk_engine=risk_engine,
+            llm_client=llm_client,
+            ext_store=ext_store,
+            data_bus=data_bus,
+            leaderboard_engine=leaderboard_engine,
+            journal_service=journal_service,
+            brief_generator=brief_generator,
+            warroom_engine=warroom_engine,
+            db=db,
+            agent_store=agent_store,
+            logger=_log,
         )
 
         # NOTE: load_agents_config() still re-reads agents.yaml from disk (line 182 in agents/config.py).
         # To fully eliminate duplicate reads, we would need to refactor load_agents_config() to accept
         # parsed data instead of a path, which is outside the scope of this task.
-        if _agents_path is None:
-            _log.error(
-                "CRITICAL: agents.yaml path is None, cannot load agent configurations"
-            )
-            agent_configs = []
-        else:
-            agent_configs = load_agents_config(
-                str(_agents_path), prompt_store=prompt_store
-            )
-
-        for a in agent_configs:
-            runner.register(a)
-            if a.config.schedule in ("continuous", "cron"):
-                await runner.start_agent(a.name)
-
-        # Start registry polling for dynamic agent lifecycle management
-        await runner.start_polling(interval=60)
-
-        # --- MetaAgent + Signal Adapters (Track 13) ---
-        try:
-            from agents.meta import MetaAgent
-            from agents.signal_adapter import SignalAdapterRunner
-            from agents.adapters.prediction_market import PredictionMarketAdapter
-            from agents.models import AgentConfig as _AC, ActionLevel as _AL
-
-            meta_cfg = _AC(
-                name="meta_agent",
-                strategy="meta",
-                schedule="continuous",
-                interval=30,
-                action_level=_AL.NOTIFY,
-                parameters={
-                    "boost_delta": 0.05,
-                    "max_cumulative_boost": 0.15,
-                    "boost_ttl_minutes": 15,
-                },
-            )
-            meta_agent = MetaAgent(
-                config=meta_cfg, runner=runner, signal_bus=signal_bus
-            )
-            runner.register(meta_agent)
-            app.state.meta_agent = meta_agent
-
-            # Inject into router for opportunity annotation
-            router._meta_agent = meta_agent
-
-            # Start signal adapters
-            adapters = []
-            if data_bus:
-                adapters.append(PredictionMarketAdapter(data_bus=data_bus))
-            if adapters:
-                adapter_runner = SignalAdapterRunner(
-                    adapters=adapters, signal_bus=signal_bus
-                )
-                adapter_runner.start(intervals={"prediction_market": 300})
-                app.state.adapter_runner = adapter_runner
-                _log.info(
-                    "Signal adapter runner started with %d adapter(s)", len(adapters)
-                )
-
-            await runner.start_agent("meta_agent")
-            _log.info("MetaAgent registered and started")
-
-            # Wire to ArbCoordinator if configured
-            if "_arb_coordinator" in locals() and _arb_coordinator:
-                _arb_coordinator._meta_agent = meta_agent
-        except Exception as meta_exc:
-            _log.warning("MetaAgent setup failed (non-fatal): %s", meta_exc)
-
-        if _streams:
-            from streaming.manager import StreamManager
-
-            _stream_manager = StreamManager(
-                streams=_streams,
-                data_bus=data_bus,
-                event_bus=event_bus,
-            )
-            await _stream_manager.start()
-
-            # Subscribe to all agent universe symbols
-            all_symbols: set[str] = set()
-            for agent in agent_configs:
-                universe = getattr(agent.config, "universe", [])
-                if isinstance(universe, list):
-                    all_symbols.update(universe)
-            if all_symbols:
-                await _stream_manager.subscribe(list(all_symbols))
-
-            app.state.stream_manager = _stream_manager
-            _log.info(
-                "StreamManager started with %d streams, %d symbols",
-                len(_streams),
-                len(all_symbols),
-            )
-
-        # Resolution tracker — auto-settle resolved Kalshi/Polymarket paper positions
-        _kalshi_paper_broker = None
-        _poly_paper_broker = None
-        if config.paper_trading:
-            # Kalshi paper broker (if Kalshi is configured)
-            if config.kalshi_key_id and hasattr(data_bus, "_kalshi_source"):
-                try:
-                    from adapters.kalshi.paper import KalshiPaperBroker as _KPB
-
-                    _kalshi_paper_broker = _KPB(store=_paper_store)
-                    _brokers["kalshi_paper"] = _kalshi_paper_broker
-                    _log.info("Kalshi paper broker enabled")
-                except Exception as _kp_exc:
-                    _log.warning("Kalshi paper broker setup failed: %s", _kp_exc)
-            # Polymarket paper broker already set above as _poly_paper
-            _poly_paper_broker = _brokers.get("polymarket_paper")
-
-        _kalshi_client_ref = getattr(data_bus, "_kalshi_source", None)
-        _kalshi_client_for_tracker = (
-            _kalshi_client_ref._client
-            if _kalshi_client_ref and hasattr(_kalshi_client_ref, "_client")
-            else None
-        )
-        _poly_client_for_tracker = (
-            getattr(_polymarket_source, "_client", None) if _polymarket_source else None
+        agent_configs = await _load_and_start_agent_configs(
+            agents_path=_agents_path_str,
+            prompt_store=prompt_store,
+            exit_manager=exit_manager,
+            pnl_store=pnl_store,
+            runner=runner,
+            logger=_log,
         )
 
-        if _kalshi_client_for_tracker or _poly_client_for_tracker:
-            from exits.resolution_tracker import ResolutionTracker
+        await _setup_meta_agent(
+            app=app,
+            runner=runner,
+            signal_bus=signal_bus,
+            data_bus=data_bus,
+            router=router,
+            logger=_log,
+            arb_coordinator=locals().get("_arb_coordinator"),
+        )
 
-            _paper_store_for_tracker = _paper_store if config.paper_trading else None
-            if _paper_store_for_tracker:
-                _resolution_tracker = ResolutionTracker(
-                    kalshi_client=_kalshi_client_for_tracker,
-                    polymarket_client=_poly_client_for_tracker,
-                    kalshi_paper_broker=_kalshi_paper_broker,
-                    polymarket_paper_broker=_poly_paper_broker,
-                    paper_store=_paper_store_for_tracker,
-                    event_bus=event_bus,
-                    poll_interval_seconds=600,
-                )
-                task_mgr.create_task(
-                    _resolution_tracker.run(), name="resolution_tracker"
-                )
-                _log.info("ResolutionTracker started (poll interval: 600s)")
+        await _setup_stream_manager(
+            app=app,
+            streams=_streams,
+            data_bus=data_bus,
+            event_bus=event_bus,
+            agent_configs=agent_configs,
+            logger=_log,
+        )
+
+        _setup_resolution_tracker(
+            config=config,
+            data_bus=data_bus,
+            polymarket_source=_polymarket_source,
+            paper_store=_paper_store,
+            brokers=_brokers,
+            event_bus=event_bus,
+            task_mgr=task_mgr,
+            logger=_log,
+        )
 
         # Start Fidelity file watcher as a background task
         from adapters.fidelity.watcher import FidelityFileWatcher
@@ -1396,137 +1640,27 @@ async def lifespan(app: FastAPI):
             )
 
         # --- Bittensor Integration ---
-        from api.startup.integrations import setup_bittensor
-
-        bittensor_enabled_runtime, bittensor_components = await setup_bittensor(
+        await _setup_bittensor_integration(
             config=config,
+            app=app,
             db=db,
             data_bus=data_bus,
             event_bus=event_bus,
             signal_bus=signal_bus,
+            task_mgr=task_mgr,
+            logger=_log,
         )
 
-        if bittensor_enabled_runtime:
-            app.state.bittensor_store = bittensor_components["store"]
-            app.state.bittensor_source = bittensor_components["source"]
-            app.state.bittensor_adapter = bittensor_components["adapter"]
-            app.state.bittensor_scheduler = bittensor_components["scheduler"]
-            app.state.bittensor_evaluator = bittensor_components["evaluator"]
-            app.state.bittensor_ranking_config = bittensor_components["ranking_config"]
-
-            task_mgr.create_task(
-                bittensor_components["scheduler"].run(), name="bittensor_scheduler"
-            )
-            task_mgr.create_task(
-                bittensor_components["evaluator"].run(), name="bittensor_evaluator"
-            )
-            if bittensor_components.get("weight_setter"):
-                app.state.bittensor_weight_setter = bittensor_components[
-                    "weight_setter"
-                ]
-                task_mgr.create_task(
-                    bittensor_components["weight_setter"].run(),
-                    name="bittensor_weight_setter",
-                )
-        elif config.bittensor_mock and not bittensor_enabled_runtime:
-            from integrations.bittensor.mock_source import MockBittensorSource
-
-            _bt_mock = MockBittensorSource(signal_bus=signal_bus)
-            task_mgr.create_task(_bt_mock.start(), name="bittensor_mock")
-            _log.info("MockBittensorSource started (real integration not active)")
-        elif config.bittensor_mock and bittensor_enabled_runtime:
-            _log.warning(
-                "bittensor_mock=True ignored — real Bittensor integration is active"
-            )
-
-        app.state.bittensor_enabled_runtime = bittensor_enabled_runtime
-
-    # Redis Streams event consumer (Phase 3: Redis Streams Event Bus)
-    from events.consumer_streams import StreamsEventConsumer
-    import redis.asyncio as aioredis
-
-    redis_url = config.redis_url or "redis://127.0.0.1:6379"
-    redis_client = await aioredis.from_url(redis_url, decode_responses=True)
-
-    consumer = StreamsEventConsumer(
-        redis=redis_client,
-        stream="events",
-        group="trading-service",
-        consumer_name="worker-1",
+    await _start_redis_streams_consumer(
+        app=app,
+        config=config,
+        task_mgr=task_mgr,
+        logger=_log,
     )
-
-    # Register event handlers
-    async def handle_trade_opened(data: dict):
-        _log.info(f"TradeOpened event: {data}")
-        # TODO: Add trading-specific logic (update dashboards, send notifications, etc.)
-
-    async def handle_trade_closed(data: dict):
-        _log.info(f"TradeClosed event: {data}")
-        # TODO: Add trading-specific logic (update performance metrics, etc.)
-
-    consumer.register("TradeOpened", handle_trade_opened)
-    consumer.register("TradeClosed", handle_trade_closed)
-
-    # Start consumer as background task
-    task_mgr.create_task(consumer.start(), name="redis_streams_consumer")
-    app.state.streams_consumer = consumer
-    _log.info("Redis Streams consumer started")
 
     yield
 
-    # --- Shutdown ---
-    # Stop Redis Streams consumer first
-    streams_consumer = getattr(app.state, "streams_consumer", None)
-    if streams_consumer:
-        await streams_consumer.stop()
-        logging.getLogger(__name__).info("Redis Streams consumer stopped")
-
-    task_mgr = getattr(app.state, "task_manager", None)
-    if task_mgr:
-        await task_mgr.shutdown()
-
-    adapter_runner = getattr(app.state, "adapter_runner", None)
-    if adapter_runner:
-        await adapter_runner.stop()
-    if runner:
-        await runner.stop_all()
-    if hasattr(app.state, "stream_manager"):
-        await app.state.stream_manager.stop()
-
-    # Disconnect all brokers
-    for name, broker_obj in getattr(app.state, "brokers", {}).items():
-        try:
-            await broker_obj.connection.disconnect()
-        except Exception as exc:
-            _log.warning("Error disconnecting broker %s: %s", name, exc)
-
-    # Journal indexer shutdown
-    journal_indexer = getattr(app.state, "journal_indexer", None)
-    if journal_indexer:
-        await journal_indexer.stop()
-
-    # Bittensor adapter close
-    bt_adapter = getattr(app.state, "bittensor_adapter", None)
-    if bt_adapter:
-        try:
-            await bt_adapter.close()
-        except Exception as exc:
-            _log.warning("Bittensor adapter close error: %s", exc)
-
-    # Observability
-    obs = getattr(app.state, "observability_emitter", None)
-    if obs:
-        obs.stop()
-
-    # Redis connection (for authentication)
-    redis = getattr(app.state, "redis", None)
-    if redis:
-        await redis.aclose()
-
-    # Redis bridge
-    rb = getattr(app.state, "redis_bridge", None)
-    if rb:
-        await rb.stop()
+    await _shutdown_app_state(app=app, runner=runner, logger=_log)
 
 
 def create_app(
@@ -1568,55 +1702,12 @@ def create_app(
     app.include_router(journal_route.router)
     from api.routes import markets_browser, portfolio as portfolio_route
 
-    app.include_router(markets_browser.router)
-    app.include_router(portfolio_route.router)
-    from api.routes import brief as brief_route, warroom as warroom_route
 
-    app.include_router(brief_route.router)
-    app.include_router(warroom_route.router)
-    from api.routes.memory import router as memory_router
-
-    app.include_router(memory_router)
-    from api.routes.bittensor import router as bittensor_status_router
-
-    app.include_router(bittensor_status_router)
-    from api.routes import confidence_analytics as confidence_analytics_route
-
-    app.include_router(confidence_analytics_route.router)
-    from api.routes.strategy_health import router as strategy_health_router
-
-    app.include_router(strategy_health_router)
-    from api.routes.signal_features import router as signal_features_router
-
-    app.include_router(signal_features_router)
-    from api.routes import shadow as shadow_route
-
-    app.include_router(shadow_route.router)
-
-    @app.get("/privacy", include_in_schema=False)
-    async def privacy_policy():
-        from fastapi.responses import HTMLResponse
-
-        return HTMLResponse("""<!DOCTYPE html>
-<html><head><title>Privacy Policy — Remembr</title>
-<style>body{font-family:system-ui;max-width:720px;margin:40px auto;padding:0 20px;line-height:1.6;color:#333}h1{border-bottom:1px solid #eee;padding-bottom:10px}</style>
-</head><body>
-<h1>Privacy Policy</h1>
-<p><strong>Last updated:</strong> March 31, 2026</p>
-<p>Remembr ("we", "us") operates the Remembr trading assistant accessible via WhatsApp. This policy describes how we handle information received through the WhatsApp Business API.</p>
-<h2>Information We Collect</h2>
-<p>When you message our WhatsApp number, we receive your phone number and message content. We also collect trading-related data you voluntarily provide (e.g., portfolio queries, trade requests).</p>
-<h2>How We Use Information</h2>
-<p>We use your information solely to operate the trading assistant: processing your requests, executing authorized trades, and sending notifications you have opted into.</p>
-<h2>Data Storage &amp; Retention</h2>
-<p>Message data is stored on our private infrastructure and is not shared with third parties. Conversation history is retained to provide context for the assistant and may be deleted upon request.</p>
-<h2>Third-Party Services</h2>
-<p>We integrate with brokerage APIs (e.g., Interactive Brokers, Alpaca) and AI services (Anthropic) to fulfill trading requests. These services receive only the minimum data necessary to process your request.</p>
-<h2>Your Rights</h2>
-<p>You may request deletion of your data at any time by messaging "delete my data" to the assistant or contacting us directly.</p>
-<h2>Contact</h2>
-<p>For privacy questions, contact the app administrator.</p>
-</body></html>""")
+def _register_api_routes(app):
+    """Register all API routes for the trading engine."""
+    # Register all routes (called in lifespan())
+    _register_api_routes(app)
+    _register_web_routes(app)
 
     from api.startup.error_handlers import register_error_handlers
 
