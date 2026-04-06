@@ -41,15 +41,15 @@
     }
 
     .neural-card-indigo {
-        @apply neural-card hover:shadow-[0_0_20px_rgba(99,102,241,0.15)] hover:border-indigo-500/30;
+        @apply bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-6 transition-all duration-500 hover:shadow-[0_0_20px_rgba(99,102,241,0.15)] hover:border-indigo-500/30;
     }
 
     .neural-card-rose {
-        @apply neural-card hover:shadow-[0_0_20px_rgba(244,63,94,0.15)] hover:border-rose-500/30;
+        @apply bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-6 transition-all duration-500 hover:shadow-[0_0_20px_rgba(244,63,94,0.15)] hover:border-rose-500/30;
     }
 
     .neural-card-emerald {
-        @apply neural-card hover:shadow-[0_0_20px_rgba(16,185,129,0.15)] hover:border-emerald-500/30;
+        @apply bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-6 transition-all duration-500 hover:shadow-[0_0_20px_rgba(16,185,129,0.15)] hover:border-emerald-500/30;
     }
 
     .neural-text-gradient {

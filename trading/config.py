@@ -289,6 +289,11 @@ def load_config(env_file: str = ".env") -> Config:
             field_name = key[4:].lower()  # Remove STA_ prefix
             config_dict[field_name] = value
 
+    if "REDIS_PRIVATE_URL" in all_env and "redis_url" not in config_dict:
+        config_dict["redis_url"] = all_env["REDIS_PRIVATE_URL"]
+    elif "REDIS_URL" in all_env and "redis_url" not in config_dict:
+        config_dict["redis_url"] = all_env["REDIS_URL"]
+
     # Parse typed values
     config = Config()
     annotations = Config.__annotations__  # Get annotations from class, not instance
