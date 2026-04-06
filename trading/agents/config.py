@@ -169,8 +169,8 @@ def _ensure_strategies_registered() -> None:
     register_strategy("multi_factor", MultiFactorAgent)
     register_strategy("multi_timeframe_consensus", MultiTimeframeConsensusAgent)
 
-    from strategies.correlation_monitor import StrategyCorrelationMonitor
-    from strategies.ensemble_optimizer import EnsembleOptimizer
+    from learning.correlation_monitor import StrategyCorrelationMonitor
+    from learning.ensemble_optimizer import EnsembleOptimizer
 
     register_strategy("correlation_monitor", StrategyCorrelationMonitor)
     register_strategy("ensemble_optimizer", EnsembleOptimizer)
