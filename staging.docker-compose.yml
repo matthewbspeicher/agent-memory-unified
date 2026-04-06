@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: agent_memory
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secret
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+
+  api-service:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    environment:
+      DB_HOST: postgres
+      REDIS_HOST: redis
+      REDIS_PREFIX: ""
+      STA_REDIS_PREFIX: ""
+    depends_on:
+      - postgres
+      - redis
+
+  trading-service:
+    build:
+      context: ./trading
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgresql://postgres:secret@postgres/agent_memory
+      REDIS_URL: redis://redis:6379
+      STA_PRIMARY_BROKER: ""
+      STA_IB_HOST: ""
+    depends_on:
+      - postgres
+      - redis
+
+  # Nginx as reverse proxy and static file server
+  gateway:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./frontend/dist:/app/frontend/dist:ro
+    depends_on:
+      - api-service
+      - trading-service
+
+volumes:
+  postgres_data:
+  redis_data:
