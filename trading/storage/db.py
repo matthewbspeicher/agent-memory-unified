@@ -42,7 +42,9 @@ class DatabaseConnection:
                 statement_cache_size=0,
             )
             self.connection = PostgresDB(pool)
-            await run_migrations(self.connection)
+            # DISABLED: Laravel now owns all DDL via migrations
+            # await run_migrations(self.connection)
+            logger.info("Connected to PostgreSQL (DDL managed by Laravel)")
             return self.connection
 
         # SQLite mode
