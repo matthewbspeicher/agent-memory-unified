@@ -353,7 +353,7 @@ class AgentRunner:
         - Warm-restart: active in registry, running but config changed → stop + re-register + start
         - Hot-stop:    dormant in registry, still running → stop
         """
-        from agents.config import load_agents_config, _STRATEGY_REGISTRY, _ensure_strategies_registered
+        from agents.config import _STRATEGY_REGISTRY, _ensure_strategies_registered
         from agents.models import ActionLevel
 
         if not self._agent_store:

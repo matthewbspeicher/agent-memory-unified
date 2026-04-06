@@ -2,10 +2,9 @@
 from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
-from typing import Optional, List, Any
+from typing import Optional
 
 from api.auth import verify_api_key
-from execution.models import ArbTrade, ArbLeg, ArbState, SequencingStrategy
 
 router = APIRouter(tags=["Arbitrage"], dependencies=[Depends(verify_api_key)])
 

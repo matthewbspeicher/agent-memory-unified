@@ -9,15 +9,13 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
 
-from agents.base import Agent
 from agents.config import _STRATEGY_REGISTRY, _ensure_strategies_registered
-from agents.models import AgentConfig, ActionLevel, TrustLevel, Opportunity
-from broker.models import Bar, OrderSide, Symbol, AssetType
+from agents.models import AgentConfig, ActionLevel, TrustLevel
+from broker.models import Bar, Symbol, AssetType
 from data.backtest import HistoricalDataSource, ReplayDataBus
 from data.bus import DataBus
 

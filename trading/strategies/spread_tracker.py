@@ -6,7 +6,6 @@ the gap exceeds alert_threshold_cents.
 """
 from __future__ import annotations
 
-import asyncio
 import logging
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING

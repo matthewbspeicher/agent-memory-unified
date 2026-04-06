@@ -6,7 +6,7 @@ import logging
 from decimal import Decimal
 from typing import Any
 
-from learning.trade_memory import ClosedTrade, TradeMemory
+from learning.trade_memory import ClosedTrade
 
 logger = logging.getLogger(__name__)
 

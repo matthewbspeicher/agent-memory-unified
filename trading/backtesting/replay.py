@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 import logging
-from collections import defaultdict
 from datetime import datetime
-from decimal import Decimal
 
-from broker.models import Bar, Symbol
+from broker.models import Bar
 
 logger = logging.getLogger(__name__)
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 import logging
 from decimal import Decimal
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from agents.base import Agent
 from agents.models import AgentConfig, Opportunity, OpportunityStatus, AgentSignal
@@ -11,8 +11,6 @@ from storage.symbol_map import SignalMapper
 
 if TYPE_CHECKING:
     from data.bus import DataBus
-    from data.events import EventBus
-    from data.signal_bus import SignalBus
 
 logger = logging.getLogger(__name__)
 

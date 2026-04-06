@@ -16,7 +16,6 @@ if TYPE_CHECKING:
     from data.events import EventBus
     from notifications.base import Notifier
     from risk.engine import RiskEngine
-    from risk.rules import PortfolioContext
     from storage.opportunities import OpportunityStore
     from storage.trades import TradeStore
     from experiments.ab_test import ExperimentManager

@@ -9,7 +9,7 @@ from typing import Any
 from agents.base import Agent
 from agents.models import Opportunity
 from broker.models import (
-    AccountBalance, Bar, Position, Quote, Symbol, OrderSide, OrderBase, OrderResult, OrderStatus
+    AccountBalance, Bar, Position, Quote, Symbol, OrderSide, OrderBase
 )
 from data.bus import DataBus
 from data.sources.base import DataSource
@@ -427,7 +427,6 @@ class FillSimulator:
         bar_low: Decimal | None,
         bar_high: Decimal | None,
     ) -> "SimulatedFill | None":
-        from broker.models import LimitOrder as LO
         limit = order.limit_price  # type: ignore[attr-defined]
         if order.side == OrderSide.BUY:
             low = bar_low if bar_low is not None else bar_close

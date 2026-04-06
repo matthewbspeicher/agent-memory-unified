@@ -12,8 +12,7 @@ from datetime import datetime, timezone
 
 from agents.base import StructuredAgent
 from agents.models import AgentConfig, Opportunity
-from broker.models import LimitOrder, Symbol, OrderSide
-from adapters.polymarket.data_source import PolymarketDataSource
+from broker.models import LimitOrder, OrderSide
 
 logger = logging.getLogger(__name__)
 

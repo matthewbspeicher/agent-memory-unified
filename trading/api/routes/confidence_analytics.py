@@ -6,10 +6,8 @@ from fastapi import APIRouter, Depends, Query, Request
 from api.auth import verify_api_key
 from learning.confidence_calibration import (
     ConfidenceCalibrationConfig,
-    CalibrationRecommendation,
     assign_bucket,
     build_recommendation,
-    classify_sample_quality,
 )
 from storage.confidence_calibration import ConfidenceCalibrationStore
 

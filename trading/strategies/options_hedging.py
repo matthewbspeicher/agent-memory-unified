@@ -1,7 +1,7 @@
 from __future__ import annotations
 import logging
 import uuid
-from datetime import datetime, date, timezone
+from datetime import datetime, timezone
 from decimal import Decimal
 
 from agents.base import StructuredAgent

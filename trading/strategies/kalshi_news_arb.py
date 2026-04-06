@@ -31,11 +31,11 @@ import uuid
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from agents.base import StructuredAgent
-from agents.models import AgentConfig, Opportunity, OpportunityStatus
-from broker.models import AssetType, LimitOrder, OrderSide, Symbol, TIF
+from agents.models import Opportunity, OpportunityStatus
+from broker.models import LimitOrder, OrderSide, TIF
 from llm.client import LLMClient
 
 if TYPE_CHECKING:

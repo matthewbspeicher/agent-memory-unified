@@ -3,17 +3,15 @@
 from __future__ import annotations
 import asyncio
 import logging
-import math
 import uuid
 from datetime import datetime, timezone
-from decimal import Decimal, ROUND_DOWN
+from decimal import Decimal
 from typing import Any
 
 from broker.models import (
     Bar,
     Quote,
     Symbol,
-    AssetType,
     OrderSide,
 )
 from backtesting.models import (
@@ -399,7 +397,7 @@ def _get_commission_fn(model: CommissionModel, params: dict) -> Any:
         rate = Decimal(str(params.get("percent", 0.001)))
         return lambda qty, price, symbol: qty * price * rate
     elif model == CommissionModel.FIDELITY:
-        from broker.models import FidelityFeeModel, OrderBase, OrderSide, Symbol
+        from broker.models import FidelityFeeModel, OrderBase, OrderSide
 
         fm = FidelityFeeModel()
 

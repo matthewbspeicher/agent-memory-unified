@@ -20,7 +20,6 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     import aiosqlite
     from storage.opportunities import OpportunityStore
-    from llm.client import LLMClient
 
 logger = logging.getLogger(__name__)
 

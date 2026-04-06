@@ -2,7 +2,6 @@ from __future__ import annotations
 import ssl as _ssl
 import aiosqlite
 from storage.postgres import PostgresDB
-from storage.migrations import run_migrations
 from config import Config
 
 

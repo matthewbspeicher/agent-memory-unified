@@ -2,7 +2,6 @@ import asyncio
 import logging
 from datetime import datetime
 from typing import TYPE_CHECKING
-from decimal import Decimal
 from agents.models import AgentStatus
 
 if TYPE_CHECKING:

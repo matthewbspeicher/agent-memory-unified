@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import math
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -31,8 +30,6 @@ from agents.consensus import (
     ConsensusConfig,
     EnhancedConsensusRouter,
     AgentWeightProvider,
-    VoteRecord,
-    WeightSource,
 )
 
 logger = logging.getLogger(__name__)

@@ -7,8 +7,7 @@ from decimal import Decimal
 
 from exits.rules import (
     ExitRule, StopLoss, TakeProfit, TrailingStop, TimeExit,
-    PredictionTimeExit, PreExpiryExit, ProbabilityTrailingStop, PartialExitRule,
-    parse_rule,
+    PredictionTimeExit, PreExpiryExit, ProbabilityTrailingStop, parse_rule,
 )
 from broker.models import AssetType
 

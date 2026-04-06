@@ -11,13 +11,13 @@ Design principles:
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from agents.models import AgentSignal, Opportunity
+    from agents.models import AgentSignal
     from agents.runner import AgentRunner
     from storage.performance import PerformanceStore
     from learning.correlation_monitor import CorrelationMonitor

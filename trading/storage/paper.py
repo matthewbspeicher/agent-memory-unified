@@ -1,5 +1,3 @@
-import json
-import uuid
 from decimal import Decimal
 from broker.models import AccountBalance, Position, Symbol, AssetType, OrderResult, OrderStatus, OrderSide
 

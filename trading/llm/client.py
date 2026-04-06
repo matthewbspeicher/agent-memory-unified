@@ -21,9 +21,8 @@ from __future__ import annotations
 import json
 import logging
 import re
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any, Literal
+from dataclasses import dataclass
+from typing import Literal
 
 logger = logging.getLogger(__name__)
 
@@ -579,7 +578,6 @@ class LLMClient:
         Try each provider in chain order. Always returns a result
         (falls back to rule-based if all fail).
         """
-        import asyncio
 
         providers = self._resolve_chain()
 

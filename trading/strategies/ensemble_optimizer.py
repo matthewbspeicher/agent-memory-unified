@@ -2,10 +2,8 @@
 from __future__ import annotations
 import logging
 import uuid
-from collections import defaultdict
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
-from typing import Any
+from dataclasses import dataclass
+from datetime import datetime, timezone
 
 from agents.base import StructuredAgent
 from agents.models import Opportunity

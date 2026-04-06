@@ -7,7 +7,7 @@ for generating recommendations and parameter variants.
 
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from llm.client import LLMClient
 

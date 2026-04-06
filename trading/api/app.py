@@ -40,7 +40,6 @@ from storage.performance import PerformanceStore
 from storage.agent_registry import AgentStore
 from learning.pnl import TradeTracker
 from learning.prompt_store import SqlPromptStore
-from integrations.bittensor.models import RankingConfig
 from api.routes.learning import create_learning_router
 
 
@@ -70,14 +69,12 @@ async def lifespan(app: FastAPI):
     if enabled:
         import logging
         import pathlib
-        import yaml
         from pydantic import ValidationError
         from utils.config_loader import ConfigLoader
 
         _log = logging.getLogger(__name__)
         _app_root = pathlib.Path(__file__).resolve().parent.parent
 
-        import os
 
         config_loader = ConfigLoader(app_root=_app_root)
 
@@ -151,7 +148,6 @@ async def lifespan(app: FastAPI):
         from notifications.log_notifier import LogNotifier
 
         from storage.db import create_db
-        from broker.paper import PaperBroker
         from data.events import EventBus
         from experiments.ab_test import get_experiment_manager
         from execution.shadow import ShadowExecutor, ShadowOutcomeResolver
@@ -494,7 +490,6 @@ async def lifespan(app: FastAPI):
         if config.alpaca_streaming and "alpaca" in _brokers:
             try:
                 from adapters.alpaca.stream import AlpacaStream
-                from streaming.base import BrokerStream
 
                 _alpaca_stream = AlpacaStream(
                     api_key=config.alpaca_api_key,

@@ -5,7 +5,7 @@ import math
 from decimal import Decimal
 from typing import Any
 
-from backtesting.models import BacktestResult, EquityPoint, TradeRecord, BacktestConfig
+from backtesting.models import BacktestResult, EquityPoint, TradeRecord
 
 
 def compute_metrics(result: BacktestResult) -> dict[str, Any]:

@@ -8,7 +8,6 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-import httpx
 from remembr.client import AsyncRemembrClient, _handle_error
 
 logger = logging.getLogger(__name__)

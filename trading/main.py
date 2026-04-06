@@ -1,5 +1,5 @@
 import uvicorn
-from config import Config, load_config
+from config import load_config
 from api.app import create_app
 
 

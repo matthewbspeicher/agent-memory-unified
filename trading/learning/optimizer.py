@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 from itertools import product
-from typing import Any
 
 import aiosqlite
 

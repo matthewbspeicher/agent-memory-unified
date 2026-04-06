@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
-from decimal import Decimal
 
 from adapters.fidelity.parser import parse_fidelity_csv, extract_balances
 from api.auth import verify_api_key

@@ -12,7 +12,6 @@ import json
 import logging
 import time
 from datetime import datetime, timezone
-from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
 from data.indicators import (

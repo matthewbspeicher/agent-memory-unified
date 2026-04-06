@@ -1,10 +1,10 @@
 # api/tests/test_dependencies.py
 """Tests for FastAPI authentication dependencies."""
 import pytest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 from fastapi import HTTPException
 
-from api.dependencies import get_current_user, require_scope
+from api.dependencies import require_scope
 
 
 @pytest.mark.asyncio
@@ -111,7 +111,6 @@ async def test_get_current_user_missing_jwt_secret():
 
     authorization = "Bearer valid.jwt.token"
 
-    from unittest.mock import patch
     import os
 
     # Temporarily remove JWT_SECRET

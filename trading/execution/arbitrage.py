@@ -9,7 +9,6 @@ from __future__ import annotations
 import logging
 import asyncio
 import time
-from datetime import datetime, timezone
 from decimal import Decimal
 from typing import TYPE_CHECKING, Optional
 

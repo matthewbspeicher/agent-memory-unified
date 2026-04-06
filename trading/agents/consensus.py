@@ -19,9 +19,8 @@ from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any
 
-from broker.models import OrderSide
 
-from agents.models import ActionLevel, Opportunity, OpportunityStatus
+from agents.models import ActionLevel, Opportunity
 
 logger = logging.getLogger(__name__)
 

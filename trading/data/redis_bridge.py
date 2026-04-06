@@ -2,7 +2,7 @@ import asyncio
 import json
 import logging
 import uuid
-from typing import Any, Optional
+from typing import Optional
 import redis.asyncio as redis
 from data.events import EventBus
 

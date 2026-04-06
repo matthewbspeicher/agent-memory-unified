@@ -1,5 +1,5 @@
 from decimal import Decimal
-from datetime import datetime, date
+from datetime import date
 
 from broker.models import OptionRight
 

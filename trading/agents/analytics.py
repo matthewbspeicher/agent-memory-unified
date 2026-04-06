@@ -2,7 +2,6 @@ import json
 import logging
 import math
 from datetime import datetime, timezone
-from decimal import Decimal
 from typing import Any, TYPE_CHECKING
 
 from agents.base import Agent
