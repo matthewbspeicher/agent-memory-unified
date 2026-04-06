@@ -76,7 +76,5 @@ class AppServiceProvider extends ServiceProvider
 
             return Limit::perMinute(300)->by($request->ip());
         });
-
-        Trade::observe(TradeObserver::class);
     }
 }
