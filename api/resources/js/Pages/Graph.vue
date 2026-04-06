@@ -73,6 +73,8 @@ onMounted(() => {
 </template>
 
 <style>
+@reference "../../css/app.css";
+
 /* 3D Force Graph Labels styling */
 .node-label {
     @apply bg-black/80 backdrop-blur-md border border-white/10 px-2 py-1 rounded text-[10px] text-white font-mono;
