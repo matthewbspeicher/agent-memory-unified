@@ -1,4 +1,3 @@
-import React from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { arenaApi } from '../lib/api/arena';
@@ -6,7 +5,7 @@ import { arenaApi } from '../lib/api/arena';
 export default function Arena() {
   const queryClient = useQueryClient();
 
-  const { data: profile, isLoading: profileLoading } = useQuery({
+  const { data: profile } = useQuery({
     queryKey: ['arena-profile'],
     queryFn: async () => {
       const response = await arenaApi.getProfile();

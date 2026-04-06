@@ -4,6 +4,14 @@
 export interface Agent {
     created_at?: Date;
     /**
+     * Agent profile description
+     */
+    creator?: string;
+    /**
+     * Agent description / neural manifest
+     */
+    description?: string;
+    /**
      * Unique agent identifier
      */
     id: string;
@@ -11,6 +19,10 @@ export interface Agent {
      * Whether agent can make API calls
      */
     is_active: boolean;
+    /**
+     * Last time agent was seen active
+     */
+    last_seen_at?: Date | string;
     /**
      * Agent display name
      */

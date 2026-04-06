@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import type React from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { workspaceApi, Workspace } from '../lib/api/workspace';
+import { workspaceApi } from '../lib/api/workspace';
 
 export default function WorkspaceList() {
   const queryClient = useQueryClient();

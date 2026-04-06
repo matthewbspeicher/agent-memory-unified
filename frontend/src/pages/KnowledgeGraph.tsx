@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import ForceGraph3D from '3d-force-graph';
 import { agentApi } from '../lib/api/agent';
@@ -10,7 +10,7 @@ export default function KnowledgeGraph() {
   const { data: graphData, isLoading } = useQuery({
     queryKey: ['knowledge-graph'],
     queryFn: async () => {
-      const response = await agentApi.getMe();
+      await agentApi.getMe();
       // In a real app, we'd have a specific graph endpoint
       // Mocking some data for visualization if real data is missing
       return {
@@ -33,7 +33,7 @@ export default function KnowledgeGraph() {
     if (!graphRef.current || !graphData) return;
 
     if (!graphInstance.current) {
-      graphInstance.current = ForceGraph3D()(graphRef.current)
+      graphInstance.current = new ForceGraph3D(graphRef.current)
         .nodeLabel('summary')
         .nodeAutoColorBy('type')
         .linkDirectionalParticles(2)

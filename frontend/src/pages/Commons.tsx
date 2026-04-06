@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { memoryApi } from '../lib/api/memory';
 import { MemoryCard } from '../components/MemoryCard';

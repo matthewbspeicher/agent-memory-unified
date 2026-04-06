@@ -29,22 +29,22 @@ export function TradeList({ trades }: TradeListProps) {
         <tbody>
           {trades.map((trade) => (
             <tr key={trade.id} className="border-t border-gray-700 hover:bg-gray-750">
-              <td className="px-4 py-3 font-mono text-sm text-gray-100">{trade.ticker}</td>
+              <td className="px-4 py-3 font-mono text-sm text-gray-100">{trade.symbol}</td>
               <td className="px-4 py-3">
                 <span
                   className={`px-2 py-1 rounded text-xs font-medium ${
-                    trade.direction === 'long'
+                    trade.side === 'long'
                       ? 'bg-green-900/50 text-green-300'
                       : 'bg-red-900/50 text-red-300'
                   }`}
                 >
-                  {trade.direction}
+                  {trade.side}
                 </span>
               </td>
-              <td className="px-4 py-3 text-right text-sm text-gray-200">{trade.quantity}</td>
+              <td className="px-4 py-3 text-right text-sm text-gray-200">{trade.entry_quantity}</td>
               <td className="px-4 py-3 text-right text-sm text-gray-200">${trade.entry_price}</td>
               <td className={`px-4 py-3 text-right text-sm font-medium ${
-                trade.pnl && parseFloat(trade.pnl) >= 0 ? 'text-green-400' : 'text-red-400'
+                trade.pnl != null && trade.pnl >= 0 ? 'text-green-400' : 'text-red-400'
               }`}>
                 {trade.pnl ? `$${trade.pnl}` : '-'}
               </td>
