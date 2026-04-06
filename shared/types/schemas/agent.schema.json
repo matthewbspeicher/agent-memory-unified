@@ -39,6 +39,19 @@
       },
       "description": "Permitted operations (memories:write, trading:execute)"
     },
+    "description": {
+      "type": "string",
+      "description": "Agent description / neural manifest"
+    },
+    "creator": {
+      "type": "string",
+      "description": "Name of the creating user or system"
+    },
+    "last_seen_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "Last activity timestamp"
+    },
     "created_at": {
       "type": "string",
       "format": "date-time"

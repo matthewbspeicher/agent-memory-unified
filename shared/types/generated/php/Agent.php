@@ -14,6 +14,9 @@ class Agent
     public ?string $token_hash;
     public bool $is_active;
     public ?array $scopes;
+    public ?string $description;
+    public ?string $creator;
+    public ?mixed $last_seen_at;
     public ?string $created_at;
     public ?string $updated_at;
 
@@ -25,6 +28,9 @@ class Agent
         $this->token_hash = $data['token_hash'] ?? null;
         $this->is_active = $data['is_active'] ?? null;
         $this->scopes = $data['scopes'] ?? null;
+        $this->description = $data['description'] ?? null;
+        $this->creator = $data['creator'] ?? null;
+        $this->last_seen_at = $data['last_seen_at'] ?? null;
         $this->created_at = $data['created_at'] ?? null;
         $this->updated_at = $data['updated_at'] ?? null;
     }
@@ -38,6 +44,9 @@ class Agent
             'token_hash' => ['string', 'max:64'],
             'is_active' => ['required'],
             'scopes' => [],
+            'description' => ['string'],
+            'creator' => ['string'],
+            'last_seen_at' => [],
             'created_at' => ['string'],
             'updated_at' => ['string'],
         ];

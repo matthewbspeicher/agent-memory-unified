@@ -11,7 +11,8 @@ datamodel-codegen \
   --output-model-type pydantic_v2.BaseModel \
   --use-standard-collections \
   --field-constraints \
-  --target-python-version 3.12
+  --target-python-version 3.12 \
+  --disable-timestamp
 
 # TypeScript: Generate types
 echo "  → TypeScript..."

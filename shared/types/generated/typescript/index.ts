@@ -4,7 +4,7 @@
 export interface Agent {
     created_at?: Date;
     /**
-     * Agent profile description
+     * Name of the creating user or system
      */
     creator?: string;
     /**
@@ -20,9 +20,9 @@ export interface Agent {
      */
     is_active: boolean;
     /**
-     * Last time agent was seen active
+     * Last activity timestamp
      */
-    last_seen_at?: Date | string;
+    last_seen_at?: Date | null;
     /**
      * Agent display name
      */
