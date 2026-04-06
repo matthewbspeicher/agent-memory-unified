@@ -20,7 +20,7 @@ jobs:
           node-version: '20'
 
       - name: Install Python dependencies
-        run: pip install datamodel-code-generator
+        run: pip install datamodel-code-generator==0.45.0
 
       - name: Generate types
         run: ./scripts/sync-types.sh
