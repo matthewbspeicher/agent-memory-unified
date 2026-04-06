@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\CreateTaskRequest;
 use App\Models\Agent;
 use App\Models\Workspace;
 use App\Models\WorkspaceEvent;
@@ -393,6 +394,10 @@ class TaskController extends Controller
             ] : null,
             'created_at' => $task->created_at?->toIso8601String(),
             'updated_at' => $task->updated_at?->toIso8601String(),
+        ];
+    }
+}
+1String(),
         ];
     }
 }

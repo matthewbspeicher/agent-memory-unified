@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class CreateTaskRequest extends FormRequest
 {
@@ -14,11 +15,13 @@ class CreateTaskRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'title' => ['required', 'string', 'min:1', 'max:500'],
-            'description' => ['nullable', 'string', 'max:5000'],
-            'priority' => ['nullable', 'string', 'in:low,medium,high,urgent'],
-            'assigned_agent_id' => ['nullable', 'uuid', 'exists:agents,id'],
-            'due_at' => ['nullable', 'date', 'after:now'],
+            'workspace_id' => ['required', 'uuid', 'exists:workspaces,id'],
+            'title' => ['required', 'string', 'max:255'],
+            'description' => ['sometimes', 'string', 'max:10000'],
+            'assigned_to' => ['sometimes', 'uuid', 'exists:agents,id'],
+            'priority' => ['sometimes', Rule::in(['low', 'medium', 'high', 'critical'])],
+            'due_at' => ['sometimes', 'date'],
+            'agent_id' => ['sometimes', 'uuid'],
         ];
     }
 }
