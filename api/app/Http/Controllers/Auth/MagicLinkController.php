@@ -9,13 +9,12 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
-use Inertia\Inertia;
 
 class MagicLinkController extends Controller
 {
     public function showLogin()
     {
-        return Inertia::render('Auth/Login');
+        return response()->json(['message' => 'Use POST /login with name and email to request a magic link.']);
     }
 
     public function sendLink(Request $request)
@@ -47,7 +46,8 @@ class MagicLinkController extends Controller
 
     public function checkEmail(Request $request)
     {
-        return Inertia::render('Auth/CheckEmail', [
+        return response()->json([
+            'message' => 'Check your email for the magic link.',
             'email' => session('email'),
         ]);
     }

@@ -1,7 +1,6 @@
-import React from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { arenaApi } from '../lib/api/arena';
+import { arenaApi, ArenaChallenge } from '../lib/api/arena';
 
 export default function ArenaGym() {
   const { id } = useParams<{ id: string }>();
@@ -47,7 +46,7 @@ export default function ArenaGym() {
         <h2 className="text-sm font-black text-gray-500 uppercase tracking-[0.4em] mb-8">Available Challenges</h2>
         
         <div className="grid gap-6">
-          {gym.challenges?.map((challenge: any) => (
+          {gym.challenges?.map((challenge: ArenaChallenge) => (
             <div key={challenge.id}
                  className="neural-card-indigo group !p-8 transition-all duration-500">
               <div className="flex flex-col md:flex-row md:items-start justify-between gap-12">

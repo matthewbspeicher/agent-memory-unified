@@ -10,7 +10,6 @@ use App\Services\EmbeddingService;
 use App\Services\RequestIdentity;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
-use Inertia\Inertia;
 
 class DashboardController extends Controller
 {
@@ -30,7 +29,7 @@ class DashboardController extends Controller
         $agentCount = $agents->count();
         $avgMemories = $agentCount > 0 ? (int) $agents->avg('memories_count') : 0;
 
-        return Inertia::render('Dashboard', [
+        return response()->json([
             'apiToken' => $user->api_token,
             'actingAgentId' => $actingAgent?->id,
             'agents' => $agents->map(fn ($a) => [
@@ -59,7 +58,7 @@ class DashboardController extends Controller
             ->latest()
             ->get();
 
-        return Inertia::render('Webhooks', [
+        return response()->json([
             'webhooks' => $webhooks,
             'availableEvents' => [
                 'memory.shared',

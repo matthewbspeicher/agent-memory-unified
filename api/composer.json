@@ -21,7 +21,6 @@
         "agent-memory/shared-events": "@dev",
         "aws/aws-sdk-php": "^3.376",
         "firebase/php-jwt": "^7.0",
-        "inertiajs/inertia-laravel": "^2.0",
         "laravel/cashier": "^16.4",
         "laravel/framework": "^12.0",
         "laravel/mcp": "^0.6.2",

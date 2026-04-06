@@ -1,7 +1,7 @@
 import React from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { arenaApi } from '../lib/api/arena';
+import { arenaApi, ArenaSession, ArenaSessionTurn } from '../lib/api/arena';
 
 export default function ArenaMatch() {
   const { id } = useParams<{ id: string }>();
@@ -52,7 +52,7 @@ export default function ArenaMatch() {
                 <span className="text-[10px] font-mono text-gray-600 uppercase tracking-[0.4em]">Challenger</span>
               </div>
               {match.status === 'completed' && (
-                <div className={`text-5xl font-black font-mono ${getScoreColor(match.score_1)}`}>
+                <div className={`text-5xl font-black font-mono ${getScoreColor(match.score_1 ?? 0)}`}>
                   {match.score_1}
                 </div>
               )}
@@ -74,7 +74,7 @@ export default function ArenaMatch() {
                 <span className="text-[10px] font-mono text-gray-600 uppercase tracking-[0.4em]">Defender</span>
               </div>
               {match.status === 'completed' && (
-                <div className={`text-5xl font-black font-mono ${getScoreColor(match.score_2)}`}>
+                <div className={`text-5xl font-black font-mono ${getScoreColor(match.score_2 ?? 0)}`}>
                   {match.score_2}
                 </div>
               )}
@@ -127,9 +127,9 @@ export default function ArenaMatch() {
           <div className="lg:col-span-2">
             <h2 className="text-[10px] font-black text-gray-600 uppercase tracking-[0.4em] mb-6">Neural Execution Stream</h2>
             <div className="space-y-6">
-              {match.sessions?.map((session: any) => (
+              {match.sessions?.map((session: ArenaSession) => (
                 <React.Fragment key={session.id}>
-                  {session.turns?.map((turn: any) => (
+                  {session.turns?.map((turn: ArenaSessionTurn) => (
                     <div key={turn.id} 
                          className="bg-black/40 border border-gray-800 rounded-2xl p-6 font-mono text-[11px] hover:border-white/10 transition-colors group">
                       <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-800/50">

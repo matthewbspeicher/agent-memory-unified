@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Models\Workspace;
 use Illuminate\Http\Request;
-use Inertia\Inertia;
 
 class WorkspaceSettingsController extends Controller
 {
@@ -18,7 +17,7 @@ class WorkspaceSettingsController extends Controller
         $workspace->load(['users', 'agents']);
         $workspace->makeVisible('api_token');
 
-        return Inertia::render('WorkspaceSettings', [
+        return response()->json([
             'workspace' => $workspace,
         ]);
     }

@@ -75,6 +75,9 @@ Route::prefix('v1')->middleware(['throttle:api', 'rate.headers'])->group(functio
     Route::get('trading/agents/{agentId}/trades', [TradingLeaderboardController::class, 'agentTrades'])
         ->where('agentId', '[0-9a-f\-]{36}');
 
+    // Event bus health
+    Route::get('health/events', \App\Http\Controllers\Api\EventHealthController::class);
+
     // -------------------------------------------------------------------------
     // Agent-authenticated routes
     // -------------------------------------------------------------------------

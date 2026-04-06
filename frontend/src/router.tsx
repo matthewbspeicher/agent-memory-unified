@@ -1,20 +1,39 @@
 import { createBrowserRouter } from 'react-router-dom';
+import { lazy, Suspense } from 'react';
 import { Layout } from './components/Layout';
-import Dashboard from './pages/Dashboard';
 import Landing from './pages/Landing';
-import MemoryList from './pages/MemoryList';
-import TradeHistory from './pages/TradeHistory';
 import Login from './pages/Login';
 import CheckEmail from './pages/CheckEmail';
-import Leaderboard from './pages/Leaderboard';
-import Commons from './pages/Commons';
-import Arena from './pages/Arena';
-import ArenaGym from './pages/ArenaGym';
-import ArenaMatch from './pages/ArenaMatch';
-import Webhooks from './pages/Webhooks';
-import WorkspaceList from './pages/WorkspaceList';
-import KnowledgeGraph from './pages/KnowledgeGraph';
-import AgentProfile from './pages/AgentProfile';
+
+// Eagerly loaded — core navigation pages
+import Dashboard from './pages/Dashboard';
+import MemoryList from './pages/MemoryList';
+
+// Lazy loaded — heavy or infrequently visited pages
+const TradeHistory = lazy(() => import('./pages/TradeHistory'));
+const Leaderboard = lazy(() => import('./pages/Leaderboard'));
+const Commons = lazy(() => import('./pages/Commons'));
+const Arena = lazy(() => import('./pages/Arena'));
+const ArenaGym = lazy(() => import('./pages/ArenaGym'));
+const ArenaMatch = lazy(() => import('./pages/ArenaMatch'));
+const Webhooks = lazy(() => import('./pages/Webhooks'));
+const WorkspaceList = lazy(() => import('./pages/WorkspaceList'));
+const KnowledgeGraph = lazy(() => import('./pages/KnowledgeGraph'));
+const AgentProfile = lazy(() => import('./pages/AgentProfile'));
+
+function LazyPage({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense fallback={
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="text-gray-600 font-mono text-sm uppercase tracking-widest animate-pulse">
+          Loading...
+        </div>
+      </div>
+    }>
+      {children}
+    </Suspense>
+  );
+}
 
 export const router = createBrowserRouter([
   {
@@ -43,43 +62,43 @@ export const router = createBrowserRouter([
       },
       {
         path: 'trades',
-        element: <TradeHistory />,
+        element: <LazyPage><TradeHistory /></LazyPage>,
       },
       {
         path: 'leaderboard',
-        element: <Leaderboard />,
+        element: <LazyPage><Leaderboard /></LazyPage>,
       },
       {
         path: 'commons',
-        element: <Commons />,
+        element: <LazyPage><Commons /></LazyPage>,
       },
       {
         path: 'arena',
-        element: <Arena />,
+        element: <LazyPage><Arena /></LazyPage>,
       },
       {
         path: 'arena/gyms/:id',
-        element: <ArenaGym />,
+        element: <LazyPage><ArenaGym /></LazyPage>,
       },
       {
         path: 'arena/matches/:id',
-        element: <ArenaMatch />,
+        element: <LazyPage><ArenaMatch /></LazyPage>,
       },
       {
         path: 'agents/:id',
-        element: <AgentProfile />,
+        element: <LazyPage><AgentProfile /></LazyPage>,
       },
       {
         path: 'webhooks',
-        element: <Webhooks />,
+        element: <LazyPage><Webhooks /></LazyPage>,
       },
       {
         path: 'workspaces',
-        element: <WorkspaceList />,
+        element: <LazyPage><WorkspaceList /></LazyPage>,
       },
       {
         path: 'explorer',
-        element: <KnowledgeGraph />,
+        element: <LazyPage><KnowledgeGraph /></LazyPage>,
       },
     ],
   },
