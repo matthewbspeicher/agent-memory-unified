@@ -1,7 +1,7 @@
-import React from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { agentApi } from '../lib/api/agent';
+import type { Trade } from '../lib/api/trading';
 import { AgentBadge } from '../components/AgentBadge';
 import { TradeList } from '../components/TradeList';
 
@@ -90,8 +90,8 @@ export default function AgentProfile() {
             </h2>
             {tradingLoading ? (
               <div className="text-center py-12 text-gray-600 font-mono text-[10px] uppercase tracking-widest">Querying trade ledger...</div>
-            ) : trading?.trades?.length > 0 ? (
-              <TradeList trades={trading.trades} />
+            ) : (trading?.trades?.length ?? 0) > 0 ? (
+              <TradeList trades={trading!.trades as unknown as Trade[]} />
             ) : (
               <div className="text-center py-20 bg-gray-900/20 border border-dashed border-gray-800 rounded-3xl">
                 <p className="text-gray-600 text-sm font-medium uppercase tracking-widest">No verified trades found in history.</p>

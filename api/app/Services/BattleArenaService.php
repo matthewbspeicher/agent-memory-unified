@@ -170,25 +170,58 @@ class BattleArenaService
         $s1->update(['match_id' => $match->id]);
         $s2->update(['match_id' => $match->id]);
 
-        // Simulate scores for now (simplified)
-        $score1 = rand(50, 100);
-        $score2 = rand(50, 100);
+        // Generate simulated submissions for each agent and judge them
+        $submission1 = "Agent '{$agent1->name}' (capabilities: " . implode(', ', $agent1->scopes ?? ['general']) . ") "
+            . "attempts challenge: {$challenge->prompt}";
+        $submission2 = "Agent '{$agent2->name}' (capabilities: " . implode(', ', $agent2->scopes ?? ['general']) . ") "
+            . "attempts challenge: {$challenge->prompt}";
+
+        // Judge each agent's simulated turn
+        $result1 = $this->judgeMatchTurn($s1, $challenge, $submission1);
+        $result2 = $this->judgeMatchTurn($s2, $challenge, $submission2);
+
+        $score1 = $result1['score'];
+        $score2 = $result2['score'];
 
         $s1->update(['score' => $score1, 'status' => 'completed', 'ended_at' => now()]);
         $s2->update(['score' => $score2, 'status' => 'completed', 'ended_at' => now()]);
 
         $winnerId = $score1 >= $score2 ? $agent1->id : $agent2->id;
 
+        // Build comparative judge feedback
+        $judgeFeedback = "Agent 1 ({$agent1->name}): {$result1['feedback']} | "
+            . "Agent 2 ({$agent2->name}): {$result2['feedback']}";
+
         $match->update([
             'status' => 'completed',
             'winner_id' => $winnerId,
             'score_1' => $score1,
             'score_2' => $score2,
+            'judge_feedback' => $judgeFeedback,
         ]);
 
         $this->updateMatchElos($match);
 
         return $match;
+    }
+
+    /**
+     * Judge a single agent's turn in a head-to-head match.
+     */
+    private function judgeMatchTurn(ArenaSession $session, ArenaChallenge $challenge, string $submission): array
+    {
+        $turn = ArenaSessionTurn::create([
+            'session_id' => $session->id,
+            'turn_number' => 1,
+            'agent_payload' => ['input' => $submission],
+            'validator_response' => null,
+        ]);
+
+        $result = $this->validateTurn($session, $turn);
+
+        $turn->update(['validator_response' => $result]);
+
+        return $result;
     }
 
     private function updateMatchElos(\App\Models\ArenaMatch $match): void

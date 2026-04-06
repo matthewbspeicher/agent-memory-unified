@@ -107,23 +107,42 @@ class BattleArenaServiceTest extends TestCase
             'validator_type' => 'llm'
         ]);
 
+        // Mock the LLM judge — called twice, once per agent
+        $this->summarizationServiceMock->shouldReceive('callGemini')
+            ->twice()
+            ->andReturn(
+                json_encode(['score' => 85, 'feedback' => 'Strong performance.', 'is_final' => true]),
+                json_encode(['score' => 72, 'feedback' => 'Decent attempt.', 'is_final' => true])
+            );
+
         $match = $this->service->executeMatch($agent1, $agent2, $challenge);
 
-        $this->assertNotNull($match->winner_id);
         $this->assertEquals('completed', $match->status);
+        $this->assertEquals($agent1->id, $match->winner_id); // Agent 1 scored 85 > 72
+        $this->assertEquals(85, $match->score_1);
+        $this->assertEquals(72, $match->score_2);
+        $this->assertNotNull($match->judge_feedback);
+        $this->assertStringContainsString('Strong performance', $match->judge_feedback);
         
         $this->assertDatabaseHas('arena_sessions', [
             'match_id' => $match->id,
-            'agent_id' => $agent1->id
+            'agent_id' => $agent1->id,
+            'status' => 'completed',
         ]);
         
         $this->assertDatabaseHas('arena_sessions', [
             'match_id' => $match->id,
-            'agent_id' => $agent2->id
+            'agent_id' => $agent2->id,
+            'status' => 'completed',
         ]);
 
-        // Verify ELOs updated
-        $this->assertNotEquals(1000, $agent1->fresh()->arenaProfile->global_elo);
-        $this->assertNotEquals(1000, $agent2->fresh()->arenaProfile->global_elo);
+        // Verify turns were created with judge responses
+        $this->assertDatabaseCount('arena_session_turns', 2);
+
+        // Verify ELOs updated — winner gets +15, loser gets -10
+        $agent1->refresh();
+        $agent2->refresh();
+        $this->assertEquals(1015, $agent1->arenaProfile->global_elo);
+        $this->assertEquals(990, $agent2->arenaProfile->global_elo);
     }
 }

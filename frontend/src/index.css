@@ -26,6 +26,7 @@
         background-size: 40px 40px;
         pointer-events: none;
         z-index: -1;
+        -webkit-mask-image: radial-gradient(ellipse at center, black, transparent 80%);
         mask-image: radial-gradient(ellipse at center, black, transparent 80%);
     }
 }

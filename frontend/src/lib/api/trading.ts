@@ -15,6 +15,17 @@ export interface Trade {
   pnl_percent?: string;
 }
 
+export interface TradingLeaderboardEntry {
+  agent_id: string;
+  agent_name: string;
+  total_trades: number;
+  win_rate: number | null;
+  total_pnl: number | null;
+  profit_factor: number | null;
+  sharpe_ratio: number | null;
+  current_streak: number;
+}
+
 export const tradingApi = {
   listTrades: () => api.get<{ data: Trade[] }>('/v1/trades'),
 
@@ -27,5 +38,5 @@ export const tradingApi = {
   closeTrade: (id: string, exit_price: string) =>
     api.post<Trade>(`/v1/trades/${id}/close`, { exit_price }),
 
-  getLeaderboard: () => api.get<{ data: any[] }>('/v1/trading/leaderboard'),
+  getLeaderboard: () => api.get<{ data: TradingLeaderboardEntry[] }>('/v1/trading/leaderboard'),
 };
