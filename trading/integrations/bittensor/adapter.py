@@ -1,4 +1,5 @@
 from __future__ import annotations
+import asyncio
 import hashlib
 import json
 import logging
@@ -50,8 +51,8 @@ class TaoshiProtocolAdapter:
         self._dendrite = None
         self._metagraph = None
 
-    async def connect(self) -> None:
-        """Initialize subtensor connection, wallet, and dendrite."""
+    async def connect(self, max_retries: int = 5, retry_delay: float = 5.0) -> None:
+        """Initialize subtensor connection, wallet, and dendrite with retry."""
         try:
             import bittensor as bt
         except ImportError:
@@ -59,20 +60,35 @@ class TaoshiProtocolAdapter:
                 "bittensor SDK not installed. Run: pip install bittensor"
             )
 
-        self._subtensor = bt.subtensor(
-            network=self._network,
-            chain_endpoint=self._endpoint,
-        )
-        self._wallet = bt.wallet(
-            name=self._wallet_name,
-            path=self._hotkey_path,
-            hotkey=self._hotkey,
-        )
-        self._dendrite = bt.dendrite(wallet=self._wallet)
-        logger.info(
-            "Bittensor adapter connected (network=%s, endpoint=%s, subnet=%d)",
-            self._network, self._endpoint, self._subnet_uid,
-        )
+        last_exc: Exception | None = None
+        for attempt in range(1, max_retries + 1):
+            try:
+                self._subtensor = bt.subtensor(
+                    network=self._network,
+                    chain_endpoint=self._endpoint,
+                )
+                self._wallet = bt.wallet(
+                    name=self._wallet_name,
+                    path=self._hotkey_path,
+                    hotkey=self._hotkey,
+                )
+                self._dendrite = bt.dendrite(wallet=self._wallet)
+                logger.info(
+                    "Bittensor adapter connected (network=%s, endpoint=%s, subnet=%d) on attempt %d",
+                    self._network, self._endpoint, self._subnet_uid, attempt,
+                )
+                return
+            except Exception as exc:
+                last_exc = exc
+                if attempt < max_retries:
+                    delay = retry_delay * (2 ** (attempt - 1))
+                    logger.warning(
+                        "Bittensor connect attempt %d/%d failed: %s. Retrying in %.1fs",
+                        attempt, max_retries, exc, delay,
+                    )
+                    await asyncio.sleep(delay)
+
+        raise last_exc or ConnectionError("Failed to connect after retries")
 
     async def refresh_metagraph(self) -> None:
         """Refresh the cached metagraph snapshot."""
