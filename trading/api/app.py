@@ -492,6 +492,17 @@ async def _setup_bittensor_integration(
         app.state.consensus_aggregator = aggregator
         task_mgr.create_task(aggregator.start(), name="consensus_aggregator")
         logger.info("MinerConsensusAggregator started")
+
+        # Intelligence Layer
+        from intelligence.layer import IntelligenceLayer
+
+        intel_layer = IntelligenceLayer(
+            signal_bus=signal_bus,
+            config=settings.intel,
+        )
+        app.state.intelligence_layer = intel_layer
+        task_mgr.create_task(intel_layer.start(), name="intelligence_layer")
+        logger.info("IntelligenceLayer started (enabled=%s)", settings.intel.enabled)
     else:
         logger.debug("TaoshiBridge disabled — STA_TAOSHI_VALIDATOR_ROOT not set")
 
