@@ -12,11 +12,11 @@ S
 ---
 
 ### Step 0: Preflight
-**Status:** 🟨 In Progress
+**Status:** ✅ Complete
 
-- [ ] Read api/ directory structure and key controllers
-- [ ] Read api/routes/ to understand exposed endpoints
-- [ ] Read product.md vision for memory API goals
+- [x] Read api/ directory structure and key controllers
+- [x] Read api/routes/ to understand exposed endpoints
+- [x] Read product.md vision for memory API goals
 
 ---
 
