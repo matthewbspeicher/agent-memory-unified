@@ -14,13 +14,6 @@ class SchedulerStatus(BaseModel):
     windows_collected_total: int | None = None
 
 
-class EvaluatorStatus(BaseModel):
-    running: bool
-    last_evaluation: str | None = None
-    unevaluated_windows: int
-    windows_evaluated_total: int
-
-
 class TopMinerItem(BaseModel):
     hotkey: str
     hybrid_score: float
@@ -55,7 +48,6 @@ class BittensorStatusResponse(BaseModel):
     enabled: bool
     healthy: bool | None = None
     scheduler: SchedulerStatus | None = None
-    evaluator: EvaluatorStatus | None = None
     miners: MinerSummary | None = None
     agent: AgentSummary | None = None
     bridge: BridgeStatus | None = None
@@ -75,25 +67,9 @@ class SchedulerMetrics(BaseModel):
     consecutive_failures: int
 
 
-class EvaluatorMetrics(BaseModel):
-    windows_evaluated: int
-    windows_expired: int
-    windows_skipped: int
-    last_skip_reason: str | None = None
-    last_evaluation_duration_secs: float
-
-
-class WeightSetterMetrics(BaseModel):
-    weight_sets_total: int
-    weight_sets_failed: int
-    last_weight_set_block: int | None = None
-
-
 class BittensorMetricsResponse(BaseModel):
     enabled: bool
     scheduler: SchedulerMetrics | None = None
-    evaluator: EvaluatorMetrics | None = None
-    weight_setter: WeightSetterMetrics | None = None
 
 
 # --- /api/bittensor/rankings ---
@@ -115,28 +91,6 @@ class MinerRankingItem(BaseModel):
 class BittensorRankingsResponse(BaseModel):
     rankings: list[MinerRankingItem]
     ranking_config: dict
-
-
-# --- /api/bittensor/miners/{hotkey}/accuracy ---
-
-
-class AccuracyRecordItem(BaseModel):
-    window_id: str
-    symbol: str
-    timeframe: str
-    direction_correct: bool
-    predicted_return: float
-    actual_return: float
-    magnitude_error: float
-    path_correlation: float | None = None
-    outcome_bars: int
-    scoring_version: str
-    evaluated_at: str
-
-
-class MinerAccuracyResponse(BaseModel):
-    hotkey: str
-    records: list[AccuracyRecordItem]
 
 
 # --- /api/bittensor/signals ---

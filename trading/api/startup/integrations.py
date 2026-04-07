@@ -128,8 +128,7 @@ async def setup_bittensor(
         from data.bittensor_source import BittensorDataSource
         from integrations.bittensor.adapter import TaoshiProtocolAdapter
         from integrations.bittensor.scheduler import TaoshiScheduler
-        from integrations.bittensor.evaluator import BittensorEvaluator
-        from integrations.bittensor.models import BittensorMetrics, RankingConfig
+        from integrations.bittensor.models import BittensorMetrics
 
         _bt_metrics = BittensorMetrics()
         _bt_store = BittensorStore(db)
@@ -166,55 +165,6 @@ async def setup_bittensor(
             direct_query_enabled=config.bittensor.direct_query_enabled,
         )
 
-        _coingecko_client = None
-        if config.coingecko_api_key:
-            from data.coingecko import CoinGeckoClient
-
-            _coingecko_client = CoinGeckoClient(api_key=config.coingecko_api_key)
-            logger.info("CoinGecko client created for Bittensor evaluator")
-
-        _bt_evaluator = BittensorEvaluator(
-            store=_bt_store,
-            data_bus=data_bus,
-            event_bus=event_bus,
-            delay_factor=config.bittensor_evaluation_delay_factor,
-            scoring_version=config.bittensor_scoring_version,
-            coingecko=_coingecko_client,
-            adapter=_bt_adapter,
-            metrics=_bt_metrics,
-            ranking_config=RankingConfig(
-                min_windows_for_ranking=config.bittensor_min_windows_for_ranking,
-                alpha_decay_per_window=config.bittensor_hybrid_alpha_decay_per_window,
-                alpha_floor=config.bittensor_hybrid_alpha_floor,
-                lookback_windows=config.bittensor_ranking_lookback_windows,
-            ),
-        )
-
-        missing_runtime_parts: list[str] = []
-        if not getattr(_bt_scheduler, "supports_collection", True):
-            missing_runtime_parts.append("collection")
-        if not getattr(_bt_evaluator, "supports_evaluation", True):
-            missing_runtime_parts.append("evaluation")
-
-        if missing_runtime_parts:
-            logger.warning(
-                "Bittensor transport is healthy, but runtime %s is not implemented; "
-                "integration remains disabled",
-                " and ".join(missing_runtime_parts),
-            )
-            return False, {}
-
-        from integrations.bittensor.weight_setter import WeightSetter
-
-        _bt_weight_setter = WeightSetter(
-            adapter=_bt_adapter,
-            store=_bt_store,
-            netuid=config.bittensor_subnet_uid,
-            interval_blocks=100,
-            min_rankings=config.bittensor_min_windows_for_ranking,
-            metrics=_bt_metrics,
-        )
-
         logger.info(
             "Bittensor integration enabled (network=%s, subnet=%d)",
             config.bittensor_network,
@@ -226,14 +176,6 @@ async def setup_bittensor(
             "source": _bt_source,
             "adapter": _bt_adapter,
             "scheduler": _bt_scheduler,
-            "evaluator": _bt_evaluator,
-            "weight_setter": _bt_weight_setter,
-            "ranking_config": {
-                "min_windows_for_ranking": config.bittensor_min_windows_for_ranking,
-                "alpha_decay_per_window": config.bittensor_hybrid_alpha_decay_per_window,
-                "alpha_floor": config.bittensor_hybrid_alpha_floor,
-                "lookback_windows": config.bittensor_ranking_lookback_windows,
-            },
         }
     except Exception as exc:
         logger.warning("Bittensor setup failed (continuing without it): %s", exc)
