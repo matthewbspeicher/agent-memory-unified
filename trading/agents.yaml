@@ -201,3 +201,17 @@ agents:
       macd_weight: 0.3
       volume_weight: 0.3
       lookback_days: 20
+
+  - name: funding_rate_btc
+    strategy: funding_rate_arb
+    schedule: continuous
+    interval: 300
+    action_level: suggest_trade
+    trust_level: monitored
+    parameters:
+      symbols:
+        - BTCUSD
+        - ETHUSD
+      min_annualized_rate: 0.20
+      exit_rate: 0.05
+      exchange: binance

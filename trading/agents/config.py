@@ -169,6 +169,10 @@ def _ensure_strategies_registered() -> None:
     register_strategy("multi_factor", MultiFactorAgent)
     register_strategy("multi_timeframe_consensus", MultiTimeframeConsensusAgent)
 
+    from strategies.funding_rate_arb import FundingRateArbAgent
+
+    register_strategy("funding_rate_arb", FundingRateArbAgent)
+
     from strategies.correlation_monitor import StrategyCorrelationMonitor
     from strategies.ensemble_optimizer import EnsembleOptimizer
 
