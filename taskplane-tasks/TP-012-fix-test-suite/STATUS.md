@@ -1,6 +1,6 @@
 # TP-012: Fix Test Suite — Status
 
-**Current Step:** Step 0: Preflight
+**Current Step:** Step 1: Fix Test Infrastructure
 **Status:** 🟡 In Progress
 **Last Updated:** 2026-04-07
 **Review Level:** 1
@@ -20,11 +20,11 @@ M
 ---
 
 ### Step 1: Fix Test Infrastructure
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete
 
-> ⚠️ Hydrate: Expand checkboxes when entering this step
-
-- [ ] Complete step objectives
+- [x] Ensure pytest + pytest-asyncio in dev deps and installable in Docker
+- [x] Add pytest-timeout to dev deps for hanging test protection
+- [x] Add Makefile test target or verify existing test scripts
 
 ---
 
