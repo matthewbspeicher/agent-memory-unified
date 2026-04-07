@@ -3,6 +3,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { memoryApi } from '../lib/api/memory';
 import { MemoryCard } from '../components/MemoryCard';
 import { GlassCard } from '../components/GlassCard';
+import { IntelligencePanel } from '../components/IntelligencePanel';
+import { MinerLeaderboard } from '../components/MinerLeaderboard';
 
 export default function Dashboard() {
   const queryClient = useQueryClient();
@@ -125,6 +127,12 @@ export default function Dashboard() {
             <div className={`h-full bg-emerald-500 w-full ${wsStatus === 'connected' ? 'shadow-[0_0_10px_rgba(16,185,129,0.5)] animate-pulse' : ''}`}></div>
           </div>
         </GlassCard>
+      </div>
+
+      {/* Intelligence & Leaderboard */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <IntelligencePanel />
+        <MinerLeaderboard />
       </div>
 
       {/* Memory feed */}

@@ -113,6 +113,7 @@ class Config:
     database_ssl: bool = True
     database_ssl_verify: bool = True
     slack_webhook_url: str | None = None
+    discord_webhook_url: str | None = None
     slack_signing_secret: str | None = None
     consensus_threshold: int = 1
     consensus_window_minutes: int = 15

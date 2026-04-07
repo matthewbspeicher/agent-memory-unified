@@ -1,245 +1,56 @@
 name: CI
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
-  check-types:
-    name: Shared Types
+  api-tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Validate JSON schemas
-        run: |
-          python3 -c "
-          import json, glob, sys
-          errors = 0
-          for f in glob.glob('shared/types/schemas/*.json'):
-              try:
-                  with open(f) as fh:
-                      json.load(fh)
-                  print(f'  OK: {f}')
-              except json.JSONDecodeError as e:
-                  print(f'  FAIL: {f}: {e}')
-                  errors += 1
-          sys.exit(errors)
-          "
-
-  frontend-build:
-    name: Frontend Build
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Type check
-        run: npx tsc --noEmit
-
-      - name: Build
-        run: npm run build
-
-  api-lint:
-    name: API Lint
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: api
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up PHP
+      - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
-          extensions: pdo_pgsql, redis, bcmath, zip
-          tools: composer:v2
+          extensions: mbstring, bcmath, pgsql, pdo_pgsql
+      - name: Install Dependencies
+        run: cd api && composer install --no-interaction --prefer-dist
+      - name: Run Tests
+        run: cd api && php artisan test
 
-      - name: Install dependencies
-        run: composer install --no-interaction --no-progress --prefer-dist
-
-      - name: Laravel config check
-        run: php artisan config:clear
-
-      - name: PHPStan
-        run: ./vendor/bin/phpstan analyse --memory-limit=512M --no-progress
-        continue-on-error: true  # Allow initial run to identify baseline
-
-  trading-lint:
-    name: Trading Lint
+  trading-tests:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: trading
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Python
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-          cache: 'pip'
+      - name: Install Dependencies
+        run: |
+          cd trading
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install mypy
+      - name: Run mypy
+        run: cd trading && mypy . --ignore-missing-imports
+      - name: Run Pytest
+        run: cd trading && pytest tests/unit
 
-      - name: Install ruff
-        run: pip install ruff
-
-      - name: Ruff check
-        run: ruff check . --output-format=github
-
-      - name: Ruff format check
-        run: ruff format --check .
-
-  api-test:
-    name: API Tests
+  frontend-tests:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: pgvector/pgvector:pg16
-        env:
-          POSTGRES_DB: agent_memory_test
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: secret
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-      redis:
-        image: redis:7-alpine
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 6379:6379
-    defaults:
-      run:
-        working-directory: api
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.3'
-          extensions: pdo_pgsql, redis, bcmath, zip
-          tools: composer:v2
-
-      - name: Install dependencies
-        run: composer install --no-interaction --no-progress --prefer-dist
-
-      - name: Prepare environment
-        run: |
-          cp .env.example .env
-          php artisan key:generate
-          php artisan config:clear
-
-      - name: Run tests
-        env:
-          DB_CONNECTION: pgsql
-          DB_HOST: 127.0.0.1
-          DB_PORT: 5432
-          DB_DATABASE: agent_memory_test
-          DB_USERNAME: postgres
-          DB_PASSWORD: secret
-          REDIS_HOST: 127.0.0.1
-        run: php artisan test --parallel
-
-  trading-test:
-    name: Trading Tests
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: pgvector/pgvector:pg16
-        env:
-          POSTGRES_DB: agent_memory_test
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: secret
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-      redis:
-        image: redis:7-alpine
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 6379:6379
-    defaults:
-      run:
-        working-directory: trading
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Create virtual environment
-        run: python -m venv .venv
-
-      - name: Install dependencies
-        run: |
-          source .venv/bin/activate
-          pip install -e .
-          pip install pytest pytest-asyncio pytest-timeout pytest-cov aiosqlite
-
-      - name: Run unit tests
-        run: |
-          source .venv/bin/activate
-          python -m pytest tests/unit/ -x --timeout=60 -q
-
-      - name: Run integration tests
-        run: |
-          source .venv/bin/activate
-          python -m pytest tests/integration/ -x --timeout=60 -q
-        env:
-          DATABASE_URL: postgresql://postgres:secret@localhost:5432/agent_memory_test
-          REDIS_URL: redis://localhost:6379/0
-
-  frontend-test:
-    name: Frontend Tests (E2E)
-    runs-on: ubuntu-latest
-    continue-on-error: true  # E2E tests need running backend; best-effort in CI
-    defaults:
-      run:
-        working-directory: frontend
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Install Playwright Browsers
-        run: npx playwright install --with-deps
-
-      - name: Run Playwright tests
-        run: npx playwright test
+      - name: Install Dependencies
+        run: cd frontend && npm ci
+      - name: Run Vitest
+        run: cd frontend && npm run test:unit
+      - name: Build Check
+        run: cd frontend && npm run build

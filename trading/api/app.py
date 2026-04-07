@@ -1493,6 +1493,11 @@ async def lifespan(app: FastAPI):
                 )
             )
 
+        if config.discord_webhook_url:
+            from notifications.discord import DiscordNotifier
+            active_notifiers.append(DiscordNotifier(config.discord_webhook_url))
+            _log.info("Discord notifier enabled")
+
         # --- WhatsApp Setup ---
         from api.startup.observability import setup_whatsapp
 
@@ -1854,6 +1859,9 @@ def create_app(
     from api.routes import shadow as shadow_route
 
     app.include_router(shadow_route.router)
+
+    from api.routes import intelligence as intelligence_route
+    app.include_router(intelligence_route.router)
 
     from api.startup.error_handlers import register_error_handlers
 
