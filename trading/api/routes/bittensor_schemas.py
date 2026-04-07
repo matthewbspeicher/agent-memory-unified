@@ -44,6 +44,20 @@ class BridgeStatus(BaseModel):
     seen_positions: int
 
 
+class IntelProviderStatus(BaseModel):
+    circuit: str
+    failures: int
+
+
+class IntelligenceStatus(BaseModel):
+    enabled: bool
+    providers: dict[str, IntelProviderStatus]
+    enrichments_applied: int
+    vetos_issued: int
+    provider_failures: int
+    total_calls: int
+
+
 class BittensorStatusResponse(BaseModel):
     enabled: bool
     healthy: bool | None = None
@@ -52,6 +66,7 @@ class BittensorStatusResponse(BaseModel):
     agent: AgentSummary | None = None
     bridge: BridgeStatus | None = None
     consensus_aggregator: dict[str, dict] | None = None
+    intelligence: IntelligenceStatus | None = None
 
 
 # --- /api/bittensor/metrics ---

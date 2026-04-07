@@ -109,6 +109,10 @@ async def bittensor_status(
     aggregator = getattr(request.app.state, "consensus_aggregator", None)
     aggregator_data = aggregator.get_status() if aggregator else None
 
+    # Intelligence Layer section
+    intel_layer = getattr(request.app.state, "intelligence_layer", None)
+    intel_data = intel_layer.get_status() if intel_layer else None
+
     return {
         "enabled": True,
         "healthy": bool(scheduler) or bool(bridge) or bool(aggregator),
@@ -117,6 +121,7 @@ async def bittensor_status(
         "agent": agent_data,
         "bridge": bridge_data,
         "consensus_aggregator": aggregator_data,
+        "intelligence": intel_data,
     }
 
 
