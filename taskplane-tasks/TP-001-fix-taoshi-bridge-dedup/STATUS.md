@@ -1,7 +1,7 @@
 # TP-001: Fix TaoshiBridge Change Detection — Status
 
-**Current Step:** Step 3: Testing & Verification
-**Status:** 🟡 In Progress
+**Current Step:** Step 4: Documentation & Delivery
+**Status:** ✅ Complete
 **Last Updated:** 2026-04-07
 **Review Level:** 2
 **Review Counter:** 0
@@ -49,10 +49,10 @@
 ---
 
 ### Step 4: Documentation & Delivery
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete
 
-- [ ] Update docstrings
-- [ ] Discoveries logged
+- [x] Update docstrings
+- [x] Discoveries logged
 
 ---
 
@@ -67,6 +67,9 @@
 
 | Discovery | Disposition | Location |
 |-----------|-------------|----------|
+| No position files exist on disk in dev (taoshi-ptn/validation/miners/ is empty) | Noted — tests use tmp_path fixtures | taoshi-ptn/ |
+| 13 pre-existing test failures (missing deps: opentelemetry, matplotlib, eth_account, asyncpg) | Out of scope — not caused by this change | trading/tests/ |
+| Conductor track spec confirms DB persistence is separate scope | Awareness only | conductor/tracks/scoring_continuity_20260407/spec.md |
 
 ---
 

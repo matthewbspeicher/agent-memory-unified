@@ -4,6 +4,16 @@ Polls the Taoshi validator's on-disk position data (validation/miners/)
 and feeds miner signals into the SignalBus + BittensorStore so existing
 strategies and the dashboard can consume them.
 
+Change Detection (TP-001):
+    Uses hash-based change tracking instead of a simple seen-set.
+    ``_seen_positions`` maps ``{uuid: content_hash}`` where the hash is
+    derived from order count, latest order timestamp, and latest leverage.
+    A signal is emitted when:
+      - A UUID is encountered for the first time (``signal_reason='new_position'``)
+      - A known UUID's content hash has changed (``signal_reason='position_updated'``)
+    Positions that disappear from disk (moved to ``closed/``) are pruned
+    from the tracking dict to prevent unbounded memory growth.
+
 Architecture:
     Taoshi Validator (port 8091, receives miner signals)
         → writes positions to validation/miners/{hotkey}/positions/

@@ -1,0 +1,10 @@
+completed: 2026-04-07
+summary: |
+  Fixed TaoshiBridge change detection. Replaced grow-only _seen_position_uuids set
+  with hash-based _seen_positions dict that detects position updates (new orders,
+  leverage changes). Signals now include signal_reason and order_count fields.
+  Closed positions are pruned from tracking to prevent memory leaks.
+  11 new unit tests covering all change detection scenarios.
+files_changed:
+  - trading/integrations/bittensor/taoshi_bridge.py
+  - trading/tests/unit/test_taoshi_bridge.py (new)
