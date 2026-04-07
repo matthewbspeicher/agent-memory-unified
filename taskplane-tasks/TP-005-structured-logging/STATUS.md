@@ -1,6 +1,6 @@
 # TP-005: Structured Logging — Status
 
-**Current Step:** Step 1: Create Logging Infrastructure
+**Current Step:** Step 2: Update Key Modules
 **Status:** 🟡 In Progress
 **Last Updated:** 2026-04-07
 **Review Level:** 1
@@ -29,11 +29,11 @@ M
 ---
 
 ### Step 2: Update Key Modules
-**Status:** ⬜ Not Started
+**Status:** 🟨 In Progress
 
-> ⚠️ Hydrate: Expand checkboxes when entering this step
-
-- [ ] Complete step objectives
+- [ ] TaoshiBridge: remove custom handler, use log_event for poll/signal, suppress no-new-signals to DEBUG
+- [ ] SignalBus: add INFO log on publish with signal_type
+- [ ] BittensorAlphaAgent: add structured logging for trade decisions
 
 ---
 
