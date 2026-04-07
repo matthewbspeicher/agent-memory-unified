@@ -1,5 +1,6 @@
 # python/tests/unit/test_utils/test_background_tasks.py
 import asyncio
+import logging
 import pytest
 from utils.background_tasks import BackgroundTaskManager
 
@@ -23,13 +24,18 @@ class TestBackgroundTaskManager:
         assert len(mgr.active_tasks) == 0
 
     async def test_failed_task_logged(self, caplog):
+        caplog.set_level(logging.ERROR)
         mgr = BackgroundTaskManager()
 
         async def bad_worker():
             raise ValueError("boom")
 
-        mgr.create_task(bad_worker(), name="bad")
-        await asyncio.sleep(0.1)
+        task = mgr.create_task(bad_worker(), name="bad")
+        try:
+            await task
+        except ValueError:
+            pass
+        await asyncio.sleep(0.01)
         assert "boom" in caplog.text
         assert "bad" not in mgr.active_tasks
 

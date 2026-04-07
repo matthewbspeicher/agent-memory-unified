@@ -76,7 +76,10 @@ class RiskEngine:
         final_result = RiskResult(passed=True)
 
         for rule in self._rules:
-            if asyncio.iscoroutinefunction(rule.evaluate):
+            # Handle rules that have async_evaluate (like Governor) vs sync evaluate
+            if hasattr(rule, "async_evaluate"):
+                result = await rule.async_evaluate(trade, quote, ctx)
+            elif asyncio.iscoroutinefunction(rule.evaluate):
                 result = await rule.evaluate(trade, quote, ctx)
             else:
                 result = rule.evaluate(trade, quote, ctx)

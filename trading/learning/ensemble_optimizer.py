@@ -190,6 +190,7 @@ class EnsembleMethod(str, Enum):
     MAJORITY_VOTE = "majority_vote"  # Majority voting
     CONFIDENCE_WEIGHTED = "confidence_weighted"  # Weight by confidence
     SHARPE_WEIGHTED = "sharpe_weighted"  # Weight by historical Sharpe
+    XGBOOST = "xgboost"  # Use XGBoost meta-learner
 
 
 @dataclass
@@ -436,58 +437,111 @@ class EnsembleOptimizer:
         bearish_weighted = 0.0
         contributing: list[dict[str, Any]] = []
 
-        for signal in valid_signals:
-            agent_name = signal.source_agent
-            direction = signal.payload.get("direction")
-            confidence = float(signal.payload.get("confidence", 0.5))
+        if self._cfg.method == EnsembleMethod.XGBOOST:
+            # Import here to avoid circular dependencies
+            from learning.meta_learner import MetaLearner
+            
+            # For this integration, we'll assume a global meta_learner instance or 
+            # instantiate one if not available. In a full system, this would be 
+            # injected or managed by the learning pipeline.
+            # Here we provide a stub for integration:
+            meta_learner = getattr(self._runner, "meta_learner", None)
+            
+            if meta_learner and meta_learner.is_ready:
+                signals_dict = {}
+                confs_dict = {}
+                for signal in valid_signals:
+                    agent_name = signal.source_agent
+                    direction_str = signal.payload.get("direction")
+                    conf = float(signal.payload.get("confidence", 0.5))
+                    score = 1.0 if direction_str == "bullish" else -1.0
+                    signals_dict[agent_name] = score
+                    confs_dict[agent_name] = conf
+                
+                dir_score, comb_conf = meta_learner.predict(signals_dict, confs_dict)
+                direction = "bullish" if dir_score > 0 else "bearish"
+                combined_confidence = comb_conf
+                is_consensus = combined_confidence >= self._cfg.consensus_threshold
+                
+                # We still populate contributing for reasoning
+                for signal in valid_signals:
+                    contributing.append({
+                        "agent": signal.source_agent,
+                        "direction": signal.payload.get("direction"),
+                        "confidence": float(signal.payload.get("confidence", 0.5)),
+                        "weight": 0.0, # XGBoost weights are implicit
+                    })
+                
+                reasoning = self._build_reasoning(
+                    direction=direction,
+                    combined_confidence=combined_confidence,
+                    bullish_weighted=dir_score, # Use dir_score as proxy
+                    bearish_weighted=0.0,
+                    contributing=contributing,
+                )
+                reasoning += " (via XGBoost Meta-Learner)"
 
-            weight = weight_map.get(agent_name, 0.0)
-            if weight == 0:
-                # Assign uniform weight for agents without history
-                weight = 1.0 / max(len(signals), 1)
-
-            weighted_conf = weight * confidence
-
-            if direction == "bullish":
-                bullish_weighted += weighted_conf
             else:
-                bearish_weighted += weighted_conf
+                # Fallback if model not ready
+                logger.debug("XGBoost Meta-Learner not ready, falling back to SHARPE_WEIGHTED")
+                # Fallback logic proceeds below...
+                pass
 
-            contributing.append(
-                {
-                    "agent": agent_name,
-                    "direction": direction,
-                    "confidence": confidence,
-                    "weight": weight,
-                }
+        if self._cfg.method != EnsembleMethod.XGBOOST or (
+            self._cfg.method == EnsembleMethod.XGBOOST and (not meta_learner or not meta_learner.is_ready)
+        ):
+            for signal in valid_signals:
+                agent_name = signal.source_agent
+                direction = signal.payload.get("direction")
+                confidence = float(signal.payload.get("confidence", 0.5))
+
+                weight = weight_map.get(agent_name, 0.0)
+                if weight == 0:
+                    # Assign uniform weight for agents without history
+                    weight = 1.0 / max(len(signals), 1)
+
+                weighted_conf = weight * confidence
+
+                if direction == "bullish":
+                    bullish_weighted += weighted_conf
+                else:
+                    bearish_weighted += weighted_conf
+
+                contributing.append(
+                    {
+                        "agent": agent_name,
+                        "direction": direction,
+                        "confidence": confidence,
+                        "weight": weight,
+                    }
+                )
+
+            # Determine consensus direction
+            total_weighted = bullish_weighted + bearish_weighted
+            if total_weighted == 0:
+                return None
+
+            if bullish_weighted > bearish_weighted:
+                direction = "bullish"
+                combined_confidence = bullish_weighted / total_weighted
+            elif bearish_weighted > bullish_weighted:
+                direction = "bearish"
+                combined_confidence = bearish_weighted / total_weighted
+            else:
+                # Tie - no consensus
+                direction = "bullish"  # Default, but confidence will be low
+                combined_confidence = 0.5
+
+            is_consensus = combined_confidence >= self._cfg.consensus_threshold
+
+            # Build reasoning
+            reasoning = self._build_reasoning(
+                direction=direction,
+                combined_confidence=combined_confidence,
+                bullish_weighted=bullish_weighted,
+                bearish_weighted=bearish_weighted,
+                contributing=contributing,
             )
-
-        # Determine consensus direction
-        total_weighted = bullish_weighted + bearish_weighted
-        if total_weighted == 0:
-            return None
-
-        if bullish_weighted > bearish_weighted:
-            direction = "bullish"
-            combined_confidence = bullish_weighted / total_weighted
-        elif bearish_weighted > bullish_weighted:
-            direction = "bearish"
-            combined_confidence = bearish_weighted / total_weighted
-        else:
-            # Tie - no consensus
-            direction = "bullish"  # Default, but confidence will be low
-            combined_confidence = 0.5
-
-        is_consensus = combined_confidence >= self._cfg.consensus_threshold
-
-        # Build reasoning
-        reasoning = self._build_reasoning(
-            direction=direction,
-            combined_confidence=combined_confidence,
-            bullish_weighted=bullish_weighted,
-            bearish_weighted=bearish_weighted,
-            contributing=contributing,
-        )
 
         return EnsembleSignal(
             symbol=symbol,

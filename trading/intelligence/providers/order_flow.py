@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 
 from intelligence.models import IntelReport
 from intelligence.providers.base import BaseIntelProvider
+from data.exchange_client import ExchangeClient
 
 logger = logging.getLogger(__name__)
 
@@ -43,8 +44,11 @@ class OrderFlowProvider(BaseIntelProvider):
     """
 
     def __init__(self, exchange_id: str = "binance", trade_limit: int = 200) -> None:
-        self._exchange_id = exchange_id
+        self._exchange = ExchangeClient(exchange_id=exchange_id)
         self._trade_limit = trade_limit
+
+    async def close(self):
+        await self._exchange.close()
 
     @property
     def name(self) -> str:
@@ -89,31 +93,23 @@ class OrderFlowProvider(BaseIntelProvider):
                 "cvd_final": cvd[-1] if cvd else 0.0,
                 "divergence_type": divergence_type,
                 "trade_count": len(trades),
-                "exchange": self._exchange_id,
             },
         )
 
     async def _fetch_recent_trades(self, symbol: str) -> list[dict]:
         """Fetch recent trades via CCXT. Returns list of {price, amount, side, timestamp}."""
-        import ccxt.async_support as ccxt_async
-
         ccxt_symbol = _SYMBOL_MAP.get(symbol, symbol)
-        exchange_class = getattr(ccxt_async, self._exchange_id)
-        exchange = exchange_class({"enableRateLimit": True})
 
-        try:
-            raw_trades = await exchange.fetch_trades(ccxt_symbol, limit=self._trade_limit)
-            return [
-                {
-                    "price": t["price"],
-                    "amount": t["amount"],
-                    "side": t["side"],
-                    "timestamp": t["timestamp"],
-                }
-                for t in raw_trades
-            ]
-        finally:
-            await exchange.close()
+        raw_trades = await self._exchange.exchange.fetch_trades(ccxt_symbol, limit=self._trade_limit)
+        return [
+            {
+                "price": t["price"],
+                "amount": t["amount"],
+                "side": t["side"],
+                "timestamp": t["timestamp"],
+            }
+            for t in raw_trades
+        ]
 
     @staticmethod
     def _compute_cvd(trades: list[dict]) -> list[float]:

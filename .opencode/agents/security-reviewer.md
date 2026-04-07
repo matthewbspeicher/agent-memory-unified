@@ -5,11 +5,6 @@ version: 1.0.0
 author: claude
 type: agent
 category: security
-tools:
-  - Read
-  - Glob
-  - Grep
-  - Bash
 tags:
   - security
   - credentials

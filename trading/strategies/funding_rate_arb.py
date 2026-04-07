@@ -73,20 +73,14 @@ class FundingRateArbAgent(StructuredAgent):
         return f"{base}/USDT:USDT"
 
     async def _fetch_funding_rate(self, ccxt_symbol: str) -> float:
-        """Fetch current funding rate from exchange via CCXT.
-
-        Override this method in tests for deterministic behavior.
-        """
-        import ccxt.async_support as ccxt_async
-
+        """Fetch current funding rate from exchange via CCXT."""
+        from data.exchange_client import ExchangeClient
         exchange_id = self.parameters.get("exchange", "binance")
-        exchange_cls = getattr(ccxt_async, exchange_id)
-        exchange = exchange_cls()
+        client = ExchangeClient(exchange_id=exchange_id)
         try:
-            funding = await exchange.fetch_funding_rate(ccxt_symbol)
-            return float(funding.get("fundingRate", 0.0))
+            return await client.fetch_funding_rate(ccxt_symbol)
         finally:
-            await exchange.close()
+            await client.close()
 
     async def scan(self, data: DataBus) -> list[Opportunity]:
         symbols: list[str] = self.parameters.get("symbols", ["BTCUSD", "ETHUSD"])

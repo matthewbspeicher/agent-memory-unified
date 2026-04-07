@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 
 from intelligence.models import IntelReport
 from intelligence.providers.base import BaseIntelProvider
+from data.exchange_client import ExchangeClient
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +41,10 @@ class DerivativesProvider(BaseIntelProvider):
     """Funding rates + open interest as contrarian/confirmation signals."""
 
     def __init__(self, exchange_id: str = "binance") -> None:
-        self._exchange_id = exchange_id
+        self._exchange = ExchangeClient(exchange_id=exchange_id)
+
+    async def close(self):
+        await self._exchange.close()
 
     @property
     def name(self) -> str:
@@ -72,7 +76,6 @@ class DerivativesProvider(BaseIntelProvider):
                 "funding_rate": funding_rate,
                 "oi_change_pct": oi_change_pct,
                 "price_change_pct": price_change_pct,
-                "exchange": self._exchange_id,
             },
         )
 
@@ -141,32 +144,23 @@ class DerivativesProvider(BaseIntelProvider):
 
     async def _fetch_funding_rate(self, symbol: str) -> float:
         """Fetch current funding rate from exchange via CCXT."""
-        import ccxt.async_support as ccxt_async
-
         ccxt_symbol = _PERP_SYMBOL_MAP.get(symbol, f"{symbol[:3]}/USDT:USDT")
-        exchange_class = getattr(ccxt_async, self._exchange_id)
-        exchange = exchange_class({"enableRateLimit": True})
-
         try:
-            funding = await exchange.fetch_funding_rate(ccxt_symbol)
+            funding = await self._exchange.exchange.fetch_funding_rate(ccxt_symbol)
             return funding.get("fundingRate", 0.0) or 0.0
-        finally:
-            await exchange.close()
+        except Exception as e:
+            logger.warning(f"DerivativesProvider failed to fetch funding rate for {symbol}: {e}")
+            return 0.0
 
     async def _fetch_oi_change_pct(self, symbol: str) -> float:
         """Fetch OI change % over recent period via CCXT.
 
         Returns percentage change in open interest.
         """
-        import ccxt.async_support as ccxt_async
-
         ccxt_symbol = _PERP_SYMBOL_MAP.get(symbol, f"{symbol[:3]}/USDT:USDT")
-        exchange_class = getattr(ccxt_async, self._exchange_id)
-        exchange = exchange_class({"enableRateLimit": True})
-
         try:
             # Fetch open interest history (last 2 periods)
-            oi_data = await exchange.fetch_open_interest_history(
+            oi_data = await self._exchange.exchange.fetch_open_interest_history(
                 ccxt_symbol, timeframe="1h", limit=2
             )
             if len(oi_data) < 2:
@@ -176,19 +170,17 @@ class DerivativesProvider(BaseIntelProvider):
             if prev_oi == 0:
                 return 0.0
             return ((curr_oi - prev_oi) / prev_oi) * 100
-        finally:
-            await exchange.close()
+        except Exception as e:
+            logger.warning(f"DerivativesProvider failed to fetch OI change for {symbol}: {e}")
+            return 0.0
 
     async def _fetch_price_change_pct(self, symbol: str) -> float:
         """Fetch price change % over recent period via CCXT."""
-        import ccxt.async_support as ccxt_async
-
         ccxt_symbol = _PERP_SYMBOL_MAP.get(symbol, f"{symbol[:3]}/USDT:USDT")
-        exchange_class = getattr(ccxt_async, self._exchange_id)
-        exchange = exchange_class({"enableRateLimit": True})
-
         try:
-            ticker = await exchange.fetch_ticker(ccxt_symbol)
+            ticker = await self._exchange.exchange.fetch_ticker(ccxt_symbol)
             return ticker.get("percentage", 0.0) or 0.0
-        finally:
-            await exchange.close()
+        except Exception as e:
+            logger.warning(f"DerivativesProvider failed to fetch price change for {symbol}: {e}")
+            return 0.0
+

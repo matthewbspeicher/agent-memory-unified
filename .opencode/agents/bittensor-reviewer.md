@@ -5,11 +5,6 @@ version: 1.0.0
 author: claude
 type: agent
 category: code-review
-tools:
-  - Read
-  - Glob
-  - Grep
-  - Bash
 tags:
   - bittensor
   - subnet-8
