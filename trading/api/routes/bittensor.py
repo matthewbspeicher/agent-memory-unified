@@ -10,7 +10,6 @@ from api.routes.bittensor_schemas import (
     BittensorRankingsResponse,
     BittensorSignalsResponse,
     BittensorStatusResponse,
-    MinerAccuracyResponse,
 )
 from integrations.bittensor.scheduler import next_hash_window
 
@@ -27,54 +26,49 @@ async def bittensor_status(
         return {"enabled": False}
 
     scheduler = getattr(request.app.state, "bittensor_scheduler", None)
-    evaluator = getattr(request.app.state, "bittensor_evaluator", None)
     store = getattr(request.app.state, "bittensor_store", None)
     db = getattr(request.app.state, "db", None)
 
-    # Scheduler section
+    # Scheduler section (direct dendrite queries — disabled by default)
     scheduler_data = {}
     if scheduler:
+        direct_query_enabled = getattr(scheduler, "_direct_query_enabled", False)
         now = datetime.now(tz=timezone.utc)
         scheduler_data = {
             "running": getattr(scheduler, "_running", False),
-            "last_window_collected": (
-                scheduler.last_success_at.isoformat()
-                if getattr(scheduler, "last_success_at", None)
-                else None
-            ),
-            "next_window": next_hash_window(now).isoformat(),
-            "windows_collected_total": getattr(scheduler, "windows_collected_total", 0),
+            "direct_query_enabled": direct_query_enabled,
         }
-
-    # Evaluator section
-    evaluator_data = {}
-    if evaluator:
-        evaluator_data = {
-            "running": getattr(evaluator, "_running", False),
-            "last_evaluation": (
-                evaluator.last_success_at.isoformat()
-                if getattr(evaluator, "last_success_at", None)
-                else None
-            ),
-            "unevaluated_windows": getattr(evaluator, "unevaluated_count", 0),
-            "windows_evaluated_total": getattr(evaluator, "windows_evaluated_total", 0),
-        }
+        if direct_query_enabled:
+            scheduler_data.update({
+                "last_window_collected": (
+                    scheduler.last_success_at.isoformat()
+                    if getattr(scheduler, "last_success_at", None)
+                    else None
+                ),
+                "next_window": next_hash_window(now).isoformat(),
+                "windows_collected_total": getattr(scheduler, "windows_collected_total", 0),
+            })
 
     # Miners section
+    direct_query_on = scheduler and getattr(scheduler, "_direct_query_enabled", False)
     miners_data: dict = {
         "total_in_metagraph": getattr(scheduler, "last_window_miner_count", 0)
         if scheduler
         else 0,
-        "responded_last_window": getattr(scheduler, "last_window_responder_count", 0)
-        if scheduler
-        else 0,
-        "response_rate": 0.0,
         "top_miners": [],
     }
-    if miners_data["total_in_metagraph"] > 0:
-        miners_data["response_rate"] = round(
-            miners_data["responded_last_window"] / miners_data["total_in_metagraph"], 3
+    if direct_query_on:
+        miners_data["responded_last_window"] = getattr(
+            scheduler, "last_window_responder_count", 0
         )
+        if miners_data["total_in_metagraph"] > 0:
+            miners_data["response_rate"] = round(
+                miners_data["responded_last_window"]
+                / miners_data["total_in_metagraph"],
+                3,
+            )
+        else:
+            miners_data["response_rate"] = 0.0
     if store:
         rankings = await store.get_miner_rankings(limit=10)
         miners_data["top_miners"] = [
@@ -107,13 +101,17 @@ async def bittensor_status(
         except Exception:
             pass
 
+    # Taoshi Bridge section
+    bridge = getattr(request.app.state, "taoshi_bridge", None)
+    bridge_data = bridge.get_status() if bridge else None
+
     return {
         "enabled": True,
-        "healthy": bool(scheduler and evaluator),
+        "healthy": bool(scheduler) or bool(bridge),
         "scheduler": scheduler_data,
-        "evaluator": evaluator_data,
         "miners": miners_data,
         "agent": agent_data,
+        "bridge": bridge_data,
     }
 
 
@@ -127,7 +125,6 @@ async def bittensor_rankings(
     if not store:
         return {"rankings": [], "ranking_config": {}}
     rankings = await store.get_miner_rankings(limit=limit)
-    ranking_config = getattr(request.app.state, "bittensor_ranking_config", {})
     return {
         "rankings": [
             {
@@ -144,39 +141,7 @@ async def bittensor_rankings(
             }
             for r in rankings
         ],
-        "ranking_config": ranking_config,
-    }
-
-
-@router.get("/api/bittensor/miners/{hotkey}/accuracy", response_model=MinerAccuracyResponse, response_model_exclude_none=True)
-async def bittensor_miner_accuracy(
-    hotkey: str,
-    request: Request,
-    limit: int = 50,
-    _: str = Depends(verify_api_key),
-):
-    store = getattr(request.app.state, "bittensor_store", None)
-    if not store:
-        return {"hotkey": hotkey, "records": []}
-    records = await store.get_accuracy_for_miner(hotkey, limit=limit)
-    return {
-        "hotkey": hotkey,
-        "records": [
-            {
-                "window_id": r.window_id,
-                "symbol": r.symbol,
-                "timeframe": r.timeframe,
-                "direction_correct": r.direction_correct,
-                "predicted_return": r.predicted_return,
-                "actual_return": r.actual_return,
-                "magnitude_error": r.magnitude_error,
-                "path_correlation": r.path_correlation,
-                "outcome_bars": r.outcome_bars,
-                "scoring_version": r.scoring_version,
-                "evaluated_at": r.evaluated_at.isoformat(),
-            }
-            for r in records
-        ],
+        "ranking_config": {},
     }
 
 
@@ -185,7 +150,7 @@ async def bittensor_metrics(
     request: Request,
     _: str = Depends(verify_api_key),
 ):
-    """Return raw observability metrics from scheduler, evaluator, and weight setter."""
+    """Return raw observability metrics from scheduler."""
     enabled = getattr(request.app.state, "bittensor_enabled_runtime", False)
     if not enabled:
         return {"enabled": False}
@@ -204,26 +169,6 @@ async def bittensor_metrics(
             "avg_collection_duration_secs": round(m.avg_collection_duration_secs, 2),
             "last_miner_response_rate": round(m.last_miner_response_rate, 3),
             "consecutive_failures": m.consecutive_failures,
-        }
-
-    evaluator = getattr(request.app.state, "bittensor_evaluator", None)
-    if evaluator and hasattr(evaluator, "metrics"):
-        m = evaluator.metrics
-        result["evaluator"] = {
-            "windows_evaluated": m.windows_evaluated,
-            "windows_expired": m.windows_expired,
-            "windows_skipped": m.windows_skipped,
-            "last_skip_reason": m.last_skip_reason,
-            "last_evaluation_duration_secs": round(m.last_evaluation_duration_secs, 2),
-        }
-
-    ws = getattr(request.app.state, "bittensor_weight_setter", None)
-    if ws and hasattr(ws, "metrics"):
-        m = ws.metrics
-        result["weight_setter"] = {
-            "weight_sets_total": m.weight_sets_total,
-            "weight_sets_failed": m.weight_sets_failed,
-            "last_weight_set_block": m.last_weight_set_block,
         }
 
     return result

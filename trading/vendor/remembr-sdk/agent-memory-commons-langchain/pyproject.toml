@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "agent-memory-commons-langchain"
+version = "0.1.0"
+description = "Agent Memory Commons integration for LangChain"
+authors = ["Matthew Speicher <mspeicher@agent-memory.com>"]
+readme = "README.md"
+packages = [{include = "agent_memory_commons_langchain"}]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+langchain-core = "^0.1.0"
+requests = "^2.31.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

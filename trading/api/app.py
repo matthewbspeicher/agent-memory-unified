@@ -444,21 +444,10 @@ async def _setup_bittensor_integration(
         app.state.bittensor_source = bittensor_components["source"]
         app.state.bittensor_adapter = bittensor_components["adapter"]
         app.state.bittensor_scheduler = bittensor_components["scheduler"]
-        app.state.bittensor_evaluator = bittensor_components["evaluator"]
-        app.state.bittensor_ranking_config = bittensor_components["ranking_config"]
 
         task_mgr.create_task(
             bittensor_components["scheduler"].run(), name="bittensor_scheduler"
         )
-        task_mgr.create_task(
-            bittensor_components["evaluator"].run(), name="bittensor_evaluator"
-        )
-        if bittensor_components.get("weight_setter"):
-            app.state.bittensor_weight_setter = bittensor_components["weight_setter"]
-            task_mgr.create_task(
-                bittensor_components["weight_setter"].run(),
-                name="bittensor_weight_setter",
-            )
     elif config.bittensor_mock and not bittensor_enabled_runtime:
         from integrations.bittensor.mock_source import MockBittensorSource
 
@@ -471,6 +460,26 @@ async def _setup_bittensor_integration(
         )
 
     app.state.bittensor_enabled_runtime = bittensor_enabled_runtime
+
+    # --- Taoshi Bridge (reads official validator's position data) ---
+    taoshi_root = config.taoshi_validator_root if hasattr(config, 'taoshi_validator_root') else None
+    if not taoshi_root:
+        import os
+        taoshi_root = os.environ.get("STA_TAOSHI_VALIDATOR_ROOT", "")
+    if taoshi_root:
+        from integrations.bittensor.taoshi_bridge import TaoshiBridge
+
+        bridge = TaoshiBridge(
+            taoshi_root=taoshi_root,
+            signal_bus=signal_bus,
+            event_bus=event_bus,
+            poll_interval=30.0,
+        )
+        app.state.taoshi_bridge = bridge
+        task_mgr.create_task(bridge.run(), name="taoshi_bridge")
+        logger.info("TaoshiBridge started (root=%s)", taoshi_root)
+    else:
+        logger.debug("TaoshiBridge disabled — STA_TAOSHI_VALIDATOR_ROOT not set")
 
 
 def _setup_tournament_cron(task_mgr, tournament_engine):

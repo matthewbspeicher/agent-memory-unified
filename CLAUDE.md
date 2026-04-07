@@ -1,0 +1,173 @@
+# CLAUDE.md
+
+Guidance for Claude Code when working in this repository.
+
+## Project Overview
+
+**Agent Memory Unified** — a monorepo combining an AI agent memory system with a multi-strategy trading engine. The trading engine runs as a Bittensor Subnet 8 (Taoshi PTN) validator alongside prediction market, technical analysis, and arbitrage strategies.
+
+## Architecture
+
+```
+agent-memory-unified/
+├── api/            # Laravel 12 — Memory API (PHP 8.3, port 8000)
+├── trading/        # FastAPI — Trading Engine (Python 3.13, port 8080)
+├── frontend/       # React 19 + Vite — Unified UI (port 3000)
+├── shared/         # JSON Schema types + cross-service auth
+├── taoshi-ptn/     # Official Taoshi PTN validator (separate venv, port 8091)
+└── docker-compose.yml
+```
+
+### Running Services (local development)
+
+```bash
+# Infrastructure
+docker compose up -d postgres redis
+
+# Trading engine (Docker)
+docker compose up -d trading
+
+# Frontend (Vite dev mode — needs Node 20+)
+cd frontend && npx vite --host 0.0.0.0 --port 3000
+
+# Taoshi validator (WSL, separate venv)
+cd taoshi-ptn && source venv/bin/activate
+python neurons/validator.py --netuid 8 --wallet.name sta_wallet --wallet.hotkey sta_hotkey
+```
+
+### Key URLs
+
+| Service | URL | Auth |
+|---------|-----|------|
+| Trading API | http://localhost:8080 | `X-API-Key: <STA_API_KEY>` |
+| Bittensor Status | http://localhost:8080/api/bittensor/status | same |
+| Frontend | http://localhost:3000 | — |
+| Bittensor Dashboard | http://localhost:3000/bittensor | — |
+| Taoshi Validator Axon | port 8091 | Bittensor protocol |
+
+## Bittensor Validator Architecture
+
+Two-process design:
+
+1. **Official Taoshi Validator** (`taoshi-ptn/`) — receives miner trade signals via axon (port 8091), tracks positions in `validation/miners/{hotkey}/`, handles scoring/elimination/plagiarism. Requires `bittensor==9.12.1` (separate venv).
+
+2. **Trading Engine** (`trading/`) — runs `TaoshiBridge` that polls Taoshi's position files every 30s and feeds signals into the `SignalBus`. Also runs the custom scheduler/evaluator/weight-setter for direct dendrite queries. Uses `bittensor>=10.0.0`.
+
+```
+Miners → Taoshi Validator (axon :8091) → validation/miners/ files
+                                              ↓
+Trading Engine ← TaoshiBridge (polls files) → SignalBus → Trading Strategies
+```
+
+### Bittensor Config (trading/.env)
+
+```
+STA_BITTENSOR_ENABLED=true
+STA_BITTENSOR_NETWORK=finney
+STA_BITTENSOR_WALLET_NAME=sta_wallet
+STA_BITTENSOR_HOTKEY=sta_hotkey
+STA_BITTENSOR_SUBNET_UID=8
+STA_TAOSHI_VALIDATOR_ROOT=/app/taoshi-ptn
+```
+
+### Wallet
+
+- Coldkey: `5D2bwSZYA6Lxhi76VaT52av6VDYU1fYYSFjzsPmPmM8J7Aqe`
+- Hotkey: `5DkVM4wyv4ZXGvb9ZmYafPiySbmWS4s2i5W37CNHuh4ggAha` (UID 144 on Subnet 8)
+- Wallet reconstructed from `B64_COLDKEY_PUB` and `B64_HOTKEY` env vars in `trading/.env`
+- Docker entrypoint (`trading/docker-entrypoint.sh`) auto-reconstructs wallet on container start
+
+## Trading Engine
+
+### Config Pattern
+
+All config uses `STA_` prefix env vars. `trading/config.py` has `load_config()` which reads `.env` files and strips the `STA_` prefix to populate dataclass fields. Boolean values parse `"true"/"1"/"yes"`.
+
+### Key Modules
+
+- `trading/integrations/bittensor/` — Subnet 8 integration
+  - `adapter.py` — Subtensor/Wallet/Dendrite connection (v10 API: `bt.Subtensor`, not `bt.subtensor`)
+  - `scheduler.py` — Collects miner predictions at hash windows (:00, :30)
+  - `evaluator.py` — Scores predictions against realized prices
+  - `weight_setter.py` — Sets on-chain weights
+  - `taoshi_bridge.py` — Polls official validator's position files
+- `trading/api/app.py` — FastAPI app with complex lifespan (broker connect, DB init, agent framework, bittensor setup). ~1700 lines.
+- `trading/api/routes/bittensor.py` — Status/rankings/metrics/signals endpoints
+- `trading/data/signal_bus.py` — In-memory pub/sub for agent signals
+- `trading/agents/` — Multi-strategy agent framework (13 agents in `agents.yaml`)
+
+### Database
+
+- **Production**: PostgreSQL 16 + pgvector (Railway or local Docker)
+- **Dev**: Same via `docker compose up postgres`
+- **Migrations**: Laravel manages DDL (`api/database/migrations/`). Python side is read-only.
+- **Bootstrap**: `scripts/init-trading-tables.sql` creates all 44 tables directly (bypass Laravel)
+
+## Frontend
+
+- React 19 + Vite + TanStack Query
+- Bittensor dashboard at `/bittensor` (auto-refreshes every 30s)
+- API client in `frontend/src/lib/api/bittensor.ts` uses dedicated `tradingApi` axios instance with `X-API-Key` header
+- Vite proxy: `/api/bittensor/*` → port 8080 (trading), `/api/*` → port 8000 (Laravel)
+
+## Development Notes
+
+### WSL2 Environment
+
+This runs on Windows 11 + WSL2 Ubuntu 24.04. Key gotchas:
+- Git Bash mangles paths (`/app/foo` → `C:/Program Files/Git/app/foo`). Use `wsl.exe -d Ubuntu -- bash -c "..."` for WSL commands.
+- Docker Desktop connects from Windows; Docker CLI inside WSL may not work (needs WSL integration enabled).
+- Shell scripts need LF line endings (not CRLF). Check with `file script.sh`.
+- UNC paths (`//wsl.localhost/...`) don't work as CWD in Git Bash. Use `cd` carefully.
+
+### Docker
+
+- `Dockerfile.trading` — Python 3.13-slim + uv for fast installs
+- Volume mounts: `./trading:/app/trading`, `./shared:/app/shared`, `./taoshi-ptn:/app/taoshi-ptn:ro`
+- `env_file: ./trading/.env` for all config (no hardcoded env vars in compose)
+- IBKR broker retries 5 times on startup (~90s delay if TWS not running) — this is normal
+
+### Type Generation
+
+Shared types are auto-generated from JSON Schema on commit:
+```bash
+git config core.hooksPath .githooks
+./shared/types/scripts/generate-types.sh
+```
+
+### Testing
+
+```bash
+# Trading tests
+cd trading && python -m pytest tests/ -v
+
+# Frontend
+cd frontend && npm test
+```
+
+## Common Tasks
+
+### Check validator health
+```bash
+curl -H "X-API-Key: local-validator-dev" http://localhost:8080/api/bittensor/status
+```
+
+### View bridge status (miner positions from Taoshi validator)
+```bash
+curl -H "X-API-Key: local-validator-dev" http://localhost:8080/api/bittensor/status | jq .bridge
+```
+
+### Restart trading engine
+```bash
+docker compose restart trading
+```
+
+### Run database migrations (local Postgres)
+```bash
+docker exec -i agent-memory-unified-postgres-1 psql -U postgres -d agent_memory < scripts/init-trading-tables.sql
+```
+
+### Reconstruct wallet in WSL
+```bash
+bash scripts/reconstruct-wallet-wsl.sh
+```

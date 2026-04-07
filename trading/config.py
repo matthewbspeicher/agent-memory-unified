@@ -61,6 +61,7 @@ class BittensorConfig:
     hybrid_alpha_floor: float = 0.1
     ranking_lookback_windows: int = 500
     streams: list[str] = field(default_factory=lambda: ["BTCUSD-5m"])
+    direct_query_enabled: bool = False
     mock: bool = False
 
 

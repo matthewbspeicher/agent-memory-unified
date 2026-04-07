@@ -8,16 +8,10 @@ from pydantic import BaseModel
 
 class SchedulerStatus(BaseModel):
     running: bool
+    direct_query_enabled: bool = False
     last_window_collected: str | None = None
-    next_window: str
-    windows_collected_total: int
-
-
-class EvaluatorStatus(BaseModel):
-    running: bool
-    last_evaluation: str | None = None
-    unevaluated_windows: int
-    windows_evaluated_total: int
+    next_window: str | None = None
+    windows_collected_total: int | None = None
 
 
 class TopMinerItem(BaseModel):
@@ -29,8 +23,8 @@ class TopMinerItem(BaseModel):
 
 class MinerSummary(BaseModel):
     total_in_metagraph: int
-    responded_last_window: int
-    response_rate: float
+    responded_last_window: int | None = None
+    response_rate: float | None = None
     top_miners: list[TopMinerItem]
 
 
@@ -40,13 +34,23 @@ class AgentSummary(BaseModel):
     last_opportunity: str | None = None
 
 
+class BridgeStatus(BaseModel):
+    running: bool
+    taoshi_root: str
+    miners_tracked: int
+    open_positions: int
+    signals_emitted: int
+    last_scan_at: str | None = None
+    seen_positions: int
+
+
 class BittensorStatusResponse(BaseModel):
     enabled: bool
     healthy: bool | None = None
     scheduler: SchedulerStatus | None = None
-    evaluator: EvaluatorStatus | None = None
     miners: MinerSummary | None = None
     agent: AgentSummary | None = None
+    bridge: BridgeStatus | None = None
 
 
 # --- /api/bittensor/metrics ---
@@ -63,25 +67,9 @@ class SchedulerMetrics(BaseModel):
     consecutive_failures: int
 
 
-class EvaluatorMetrics(BaseModel):
-    windows_evaluated: int
-    windows_expired: int
-    windows_skipped: int
-    last_skip_reason: str | None = None
-    last_evaluation_duration_secs: float
-
-
-class WeightSetterMetrics(BaseModel):
-    weight_sets_total: int
-    weight_sets_failed: int
-    last_weight_set_block: int | None = None
-
-
 class BittensorMetricsResponse(BaseModel):
     enabled: bool
     scheduler: SchedulerMetrics | None = None
-    evaluator: EvaluatorMetrics | None = None
-    weight_setter: WeightSetterMetrics | None = None
 
 
 # --- /api/bittensor/rankings ---
@@ -103,28 +91,6 @@ class MinerRankingItem(BaseModel):
 class BittensorRankingsResponse(BaseModel):
     rankings: list[MinerRankingItem]
     ranking_config: dict
-
-
-# --- /api/bittensor/miners/{hotkey}/accuracy ---
-
-
-class AccuracyRecordItem(BaseModel):
-    window_id: str
-    symbol: str
-    timeframe: str
-    direction_correct: bool
-    predicted_return: float
-    actual_return: float
-    magnitude_error: float
-    path_correlation: float | None = None
-    outcome_bars: int
-    scoring_version: str
-    evaluated_at: str
-
-
-class MinerAccuracyResponse(BaseModel):
-    hotkey: str
-    records: list[AccuracyRecordItem]
 
 
 # --- /api/bittensor/signals ---
