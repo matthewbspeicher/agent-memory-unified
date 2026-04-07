@@ -72,7 +72,7 @@ async def test_governor_size_factor(
     quote = Quote(symbol=symbol, last=Decimal("150.0"))
     ctx = PortfolioContext(positions=[], balance=MagicMock())
 
-    result = await governor.evaluate(trade, quote, ctx)
+    result = await governor.async_evaluate(trade, quote, ctx)
 
     assert result.passed
     # Sharpe Target (1.0) * Stage Ratio (1.0) = 1.0 factor
@@ -108,9 +108,7 @@ async def test_governor_demotion(
         account_id="TEST",
     )
     trade.agent_name = agent_name
-    result = await governor.evaluate(
-        trade, MagicMock(), PortfolioContext([], MagicMock())
-    )
+    result = await governor.async_evaluate(trade, MagicMock(), PortfolioContext([], MagicMock()))
 
     assert not result.passed
     assert "demoted" in result.reason

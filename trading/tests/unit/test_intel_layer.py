@@ -64,6 +64,7 @@ async def test_layer_enriches_consensus_signal():
     )
     layer._anomaly = MagicMock()
     layer._anomaly.analyze = AsyncMock(return_value=_make_report("anomaly", 0.1, 0.5))
+    layer._anomaly.close = AsyncMock()
 
     published = []
     original_publish = signal_bus.publish
@@ -107,6 +108,7 @@ async def test_layer_veto_blocks_signal():
     )
     layer._anomaly = MagicMock()
     layer._anomaly.analyze = AsyncMock(return_value=_make_report("anomaly", 0.0, 0.3))
+    layer._anomaly.close = AsyncMock()
 
     published = []
 
@@ -138,6 +140,7 @@ async def test_layer_handles_all_providers_failing():
     layer._sentiment.analyze = AsyncMock(side_effect=Exception("fail"))
     layer._anomaly = MagicMock()
     layer._anomaly.analyze = AsyncMock(side_effect=Exception("fail"))
+    layer._anomaly.close = AsyncMock()
 
     published = []
 
