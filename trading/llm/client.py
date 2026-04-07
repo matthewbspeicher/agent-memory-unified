@@ -855,6 +855,48 @@ class LLMClient:
         logger.debug("LLMClient: using rule-based fallback for probability estimate")
         return _rule_based_probability(question, headlines)
 
+    async def embed(self, text: str) -> list[float]:
+        """
+        Generate vector embeddings for the given text.
+        Currently supports Ollama and Bedrock (Titan).
+        """
+        providers = self._resolve_chain()
+        
+        # Prefer Ollama for local embeddings if available, then Bedrock
+        preferred = ["ollama", "bedrock"]
+        for provider in preferred:
+            if provider not in providers or self._is_disabled(provider):
+                continue
+                
+            try:
+                if provider == "ollama":
+                    import openai
+                    client = openai.AsyncOpenAI(base_url=f"{self._ollama_url}/v1", api_key="ollama")
+                    # Use a standard embedding model name
+                    resp = await client.embeddings.create(
+                        input=[text],
+                        model="nomic-embed-text"
+                    )
+                    return resp.data[0].embedding
+                
+                if provider == "bedrock":
+                    import boto3
+                    import json
+                    client = boto3.client("bedrock-runtime", region_name=self._bedrock_region)
+                    body = json.dumps({"inputText": text})
+                    response = client.invoke_model(
+                        modelId="amazon.titan-embed-text-v1",
+                        body=body
+                    )
+                    response_body = json.loads(response["body"].read())
+                    return response_body["embedding"]
+            except Exception as e:
+                logger.warning(f"Embedding failed with {provider}: {e}")
+                self._record_failure(provider)
+
+        logger.error("LLMClient: no embedding provider available")
+        return []
+
     def _resolve_chain(self) -> list[str]:
         """Return chain filtered to available providers."""
         chain = list(self._chain)

@@ -25,10 +25,14 @@ class TradeReflector:
         deep_reflection_pnl_multiplier: float = 2.0,
         deep_reflection_loss_multiplier: float = 1.5,
         llm: Any = None,  # LLMClient | None
+        regime_manager: Any = None, # RegimeMemoryManager
+        vector_service: Any = None, # MarketVectorService
     ) -> None:
         self._client = memory_client
         self._pnl_mult = deep_reflection_pnl_multiplier
         self._loss_mult = deep_reflection_loss_multiplier
+        self._regime_manager = regime_manager
+        self._vector_service = vector_service
         if llm is not None:
             self._llm = llm
         else:
@@ -39,6 +43,30 @@ class TradeReflector:
     async def reflect(self, trade: ClosedTrade, agent_name: str) -> None:
         """Always writes lightweight memory; conditionally triggers deep reflection."""
         await self._reflect_lightweight(trade, agent_name)
+        
+        # Store regime memory if possible
+        if self._regime_manager and hasattr(trade.trade_memory, 'symbol'):
+            try:
+                # Use current prices/regime context from trade data
+                symbol_obj = None # Would need Symbol object from ticker string
+                from broker.models import Symbol, AssetType
+                ticker = trade.trade_memory.symbol
+                # Map ticker back to Symbol object
+                asset_type = AssetType.STOCK
+                if "USD" in ticker and "-" not in ticker: asset_type = AssetType.CRYPTO
+                symbol_obj = Symbol(ticker=ticker, asset_type=asset_type)
+                
+                regime = trade.trade_memory.data.get("regime", {}).get("market_phase", "unknown")
+                metrics = {"pnl": float(trade.trade_memory.pnl), "outcome": trade.trade_memory.outcome}
+                
+                await self._regime_manager.store_regime(
+                    symbol=symbol_obj,
+                    regime=regime,
+                    metrics=metrics
+                )
+            except Exception as e:
+                logger.warning("Regime storage failed during reflection: %s", e)
+
         if self._should_deep_reflect(trade):
             try:
                 await self._reflect_deep(trade, agent_name)
