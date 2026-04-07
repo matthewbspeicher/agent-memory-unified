@@ -391,4 +391,4 @@ class TestShadowExecutionStore:
         assert fetched is not None
         # Should handle dict (Postgres JSONB) or string (SQLite TEXT)
         snapshot = fetched["opportunity_snapshot"]
-        assert isinstance(snapshot, dict) or isinstance(snapshot, str)
+        assert isinstance(snapshot, (dict, str))
