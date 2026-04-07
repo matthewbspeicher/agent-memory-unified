@@ -102,6 +102,23 @@ class PaperAccountProvider(AccountProvider):
     ) -> list[OrderResult]:
         return await self._store.get_order_history(account_id)
 
+    async def apply_carry_fees(self, positions: list[Position], daily_rate: Decimal = Decimal("0.0001")) -> Decimal:
+        """Deduct holding costs for open positions overnight."""
+        total_fee = Decimal("0")
+        for pos in positions:
+            position_value = abs(pos.market_value)
+            fee = position_value * daily_rate
+            total_fee += fee
+            
+        # Deduct from paper cash balance in DB
+        db = await self._store._get_db()
+        await db.execute(
+            "UPDATE paper_accounts SET cash = cash - ? WHERE account_id = ?",
+            (float(total_fee), PAPER_ACCOUNT_ID)
+        )
+        await db.commit()
+        return total_fee
+
 
 # ---------------------------------------------------------------------------
 # Market Data — delegates to actual provider (wired after construction)
@@ -180,10 +197,43 @@ class PaperOrderManager(OrderManager):
             return price + slippage
         return price - slippage
 
+    async def _estimate_slippage(self, symbol: Symbol, quantity: Decimal, side: OrderSide, base_price: Decimal) -> Decimal:
+        """Estimate realistic slippage by walking the order book if available."""
+        try:
+            # Try to get real-time order book from market data provider
+            order_book = await self._market_data.get_order_book(symbol, limit=20)
+            side_key = "asks" if side == OrderSide.BUY else "bids"
+            levels = order_book.get(side_key)
+            
+            if not levels:
+                return self._apply_slippage(base_price, side)
+            
+            remaining = float(abs(quantity))
+            total_cost = 0.0
+            
+            for price, volume in levels:
+                take = min(remaining, volume)
+                total_cost += take * price
+                remaining -= take
+                if remaining <= 0:
+                    break
+            
+            # If quantity exceeds available depth, apply extra penalty for the remainder
+            if remaining > 0:
+                last_price = levels[-1][0]
+                total_cost += remaining * last_price * (1.0 + float(self._max_slippage))
+            
+            fill_price = Decimal(str(total_cost / float(abs(quantity))))
+            return fill_price
+            
+        except Exception as e:
+            logger.debug(f"Slippage estimation failed for {symbol.ticker}, using random fallback: {e}")
+            return self._apply_slippage(base_price, side)
+
     async def place_order(self, account_id: str, order: OrderBase) -> OrderResult:
         order_id = str(uuid.uuid4())
 
-        # --- Determine fill price ---
+        # --- Determine base price ---
         quote = await self._market_data.get_quote(order.symbol)
 
         if isinstance(order, MarketOrder):
@@ -198,7 +248,6 @@ class PaperOrderManager(OrderManager):
         elif isinstance(order, StopOrder):
             raw_price = order.stop_price
         else:
-            # Fallback: use quote last or limit_price if available
             raw_price = getattr(order, "limit_price", None) or (
                 quote.last if quote else None
             )
@@ -209,7 +258,8 @@ class PaperOrderManager(OrderManager):
             )
             raise ValueError(f"No market data available for {order.symbol.ticker}")
 
-        fill_price = self._apply_slippage(raw_price, order.side)
+        # --- Estimate fill price with realistic slippage ---
+        fill_price = await self._estimate_slippage(order.symbol, order.quantity, order.side, raw_price)
 
         # Calculate fees
         commission = self._fee_model.calculate(order, fill_price)
