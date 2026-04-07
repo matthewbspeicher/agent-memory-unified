@@ -11,11 +11,12 @@ logger = logging.getLogger(__name__)
 
 class SentimentProvider(BaseIntelProvider):
     """Reads Crypto Fear & Greed Index from Alternative.me (free, no key).
-    Optionally reads LunarCrush social volume and sentiment if API key is provided.
+    Optionally reads LunarCrush and Alpha Vantage AI sentiment if keys are provided.
     """
 
-    def __init__(self, lunarcrush_api_key: str | None = None):
+    def __init__(self, lunarcrush_api_key: str | None = None, alpha_vantage_key: str | None = None):
         self.lunarcrush_api_key = lunarcrush_api_key
+        self.alpha_vantage_key = alpha_vantage_key
 
     @property
     def name(self) -> str:
@@ -32,17 +33,30 @@ class SentimentProvider(BaseIntelProvider):
         confidence = self._fg_to_confidence(fg_value)
         
         details = {"fear_greed_value": fg_value}
-        final_score = fg_score
+        scores = [fg_score]
 
         # Combine with LunarCrush if available
         if self.lunarcrush_api_key:
             try:
                 lc_score, lc_conf, lc_details = await self._fetch_lunarcrush(symbol)
-                final_score = (fg_score + lc_score) / 2
+                scores.append(lc_score)
                 confidence = max(confidence, lc_conf)
                 details.update(lc_details)
             except Exception as e:
                 logger.warning("SentimentProvider (LunarCrush) failed: %s", e)
+
+        # Combine with Alpha Vantage if available
+        if self.alpha_vantage_key:
+            try:
+                av_score = await self._fetch_av_sentiment(symbol)
+                scores.append(av_score)
+                # Boost confidence if AV has a clear signal
+                if abs(av_score) > 0.5: confidence = max(confidence, 0.8)
+                details["av_sentiment_score"] = av_score
+            except Exception as e:
+                logger.warning("SentimentProvider (AlphaVantage) failed: %s", e)
+
+        final_score = sum(scores) / len(scores)
 
         return IntelReport(
             source=self.name,
@@ -54,6 +68,25 @@ class SentimentProvider(BaseIntelProvider):
             veto_reason=None,
             details=details,
         )
+
+    async def _fetch_av_sentiment(self, symbol: str) -> float:
+        """Fetch Alpha Vantage News Sentiment."""
+        import aiohttp
+        # Map symbol if needed
+        ticker = symbol.replace("USD", "").replace("USDT", "")
+        
+        async with aiohttp.ClientSession() as session:
+            url = f"https://www.alphavantage.co/query?function=NEWS_SENTIMENT&tickers={ticker}&apikey={self.alpha_vantage_key}"
+            try:
+                async with session.get(url, timeout=aiohttp.ClientTimeout(total=5)) as resp:
+                    data = await resp.json()
+                    feed = data.get("feed", [])
+                    if not feed: return 0.0
+                    
+                    # Return overall sentiment score from the first relevant item
+                    return float(feed[0].get("overall_sentiment_score", 0.0))
+            except Exception:
+                return 0.0
 
     async def _fetch_lunarcrush(self, symbol: str) -> tuple[float, float, dict]:
         """Fetch LunarCrush AltRank/GalaxyScore and social volume for the coin."""
