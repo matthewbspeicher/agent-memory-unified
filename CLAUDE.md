@@ -167,12 +167,27 @@ Use `log_event(logger, level, event_type, msg, data={...})` from `utils.logging`
 ### Testing
 
 ```bash
-# Trading tests
-cd trading && python -m pytest tests/ -v
+# Trading unit tests (recommended — fast, no live services needed)
+cd trading && python -m pytest tests/unit/ -v --tb=short --timeout=30
+
+# Trading full suite (excludes live_paper and integration by default)
+cd trading && python -m pytest tests/ -v --tb=short
+
+# Trading tests via Docker
+docker exec agent-memory-unified-trading-1 python -m pytest tests/unit/ -v --tb=short --timeout=30
+
+# Trading Makefile shortcuts
+cd trading && make test-unit    # unit tests only
+cd trading && make test         # all non-integration tests
+cd trading && make test-docker  # run in container
 
 # Frontend
 cd frontend && npm test
 ```
+
+**Note:** Tests marked `@pytest.mark.integration` require running Redis/Postgres/IBKR.
+The `pytest.ini` default `addopts` excludes `integration` and `live_paper` markers.
+A 30-second timeout is configured by default to catch hanging tests.
 
 ## Common Tasks
 

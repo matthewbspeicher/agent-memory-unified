@@ -1,7 +1,7 @@
 # TP-012: Fix Test Suite — Status
 
-**Current Step:** Step 3: Testing & Verification
-**Status:** 🟡 In Progress
+**Current Step:** Step 4: Documentation & Delivery
+**Status:** ✅ Complete
 **Last Updated:** 2026-04-07
 **Review Level:** 1
 **Review Counter:** 0
@@ -49,11 +49,10 @@ M
 ---
 
 ### Step 4: Documentation & Delivery
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete
 
-> ⚠️ Hydrate: Expand checkboxes when entering this step
-
-- [ ] Complete step objectives
+- [x] Update CLAUDE.md testing section
+- [x] Log discoveries
 
 ---
 
@@ -64,6 +63,10 @@ M
 ## Discoveries
 | Discovery | Disposition | Location |
 |-----------|-------------|----------|
+| Docker volume mounts main repo, not worktree — tests in container see stale files | Workaround: docker cp for testing | trading/storage/db.py |
+| Config tests need env isolation in Docker (STA_ vars from .env) | Fixed with monkeypatch | tests/test_config*.py |
+| test_app_startup starts full app (Redis, agents) — not a true unit test | Marked @pytest.mark.integration | tests/unit/test_api/test_app_startup.py |
+| Adapter retry tests mocked bt.subtensor (v9) but adapter uses bt.Subtensor (v10) | Fixed mocks | tests/unit/test_integrations/test_bittensor_adapter_retry.py |
 
 ## Execution Log
 | Timestamp | Action | Outcome |
