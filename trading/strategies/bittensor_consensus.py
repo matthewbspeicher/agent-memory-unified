@@ -8,6 +8,7 @@ from agents.base import Agent
 from agents.models import AgentConfig, Opportunity, OpportunityStatus, AgentSignal
 from broker.models import Symbol, AssetType, MarketOrder, OrderSide
 from storage.symbol_map import SignalMapper
+from utils.logging import log_event
 
 if TYPE_CHECKING:
     from data.bus import DataBus
@@ -55,13 +56,32 @@ class BittensorAlphaAgent(Agent):
 
         # Consensus logic
         if confidence < self._min_agreement or abs(expected_return) < self._min_return:
-            logger.debug(
-                f"BittensorAgent: Signal for {symbol_ticker} below thresholds (Conf: {confidence:.2f}, Ret: {expected_return:.4f})"
+            log_event(
+                logger,
+                logging.DEBUG,
+                "trade.decision",
+                "BittensorAgent: Signal for %s below thresholds" % symbol_ticker,
+                data={
+                    "symbol": symbol_ticker,
+                    "confidence": round(confidence, 4),
+                    "expected_return": round(expected_return, 4),
+                    "action": "skip",
+                },
             )
             return
 
-        logger.info(
-            f"BittensorAgent: High-conviction signal for {symbol_ticker} ({direction}, Conf: {confidence:.2f})"
+        log_event(
+            logger,
+            logging.INFO,
+            "trade.decision",
+            "BittensorAgent: High-conviction signal for %s (%s)" % (symbol_ticker, direction),
+            data={
+                "symbol": symbol_ticker,
+                "direction": direction,
+                "confidence": round(confidence, 4),
+                "expected_return": round(expected_return, 4),
+                "action": "create_opportunity",
+            },
         )
 
         # Map to internal symbol

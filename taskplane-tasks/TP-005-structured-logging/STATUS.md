@@ -29,11 +29,11 @@ M
 ---
 
 ### Step 2: Update Key Modules
-**Status:** 🟨 In Progress
+**Status:** ✅ Complete
 
-- [ ] TaoshiBridge: remove custom handler, use log_event for poll/signal, suppress no-new-signals to DEBUG
-- [ ] SignalBus: add INFO log on publish with signal_type
-- [ ] BittensorAlphaAgent: add structured logging for trade decisions
+- [x] TaoshiBridge: remove custom handler, use log_event for poll/signal, suppress no-new-signals to DEBUG
+- [x] SignalBus: add INFO log on publish with signal_type
+- [x] BittensorAlphaAgent: add structured logging for trade decisions
 
 ---
 

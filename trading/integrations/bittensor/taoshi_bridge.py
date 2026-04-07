@@ -23,13 +23,9 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+from utils.logging import log_event
+
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-if not logger.handlers:
-    _h = logging.StreamHandler()
-    _h.setLevel(logging.DEBUG)
-    _h.setFormatter(logging.Formatter("%(levelname)s:%(name)s:%(message)s"))
-    logger.addHandler(_h)
 
 
 class TaoshiBridge:
@@ -135,17 +131,28 @@ class TaoshiBridge:
         self._last_scan_at = datetime.now(timezone.utc)
 
         if new_signals > 0:
-            logger.info(
-                "TaoshiBridge: %d new signals from %d miners (%d open positions total)",
-                new_signals,
-                self.miners_tracked,
-                total_open,
+            log_event(
+                logger,
+                logging.INFO,
+                "bridge.poll",
+                "TaoshiBridge: %d new signals from %d miners (%d open positions total)"
+                % (new_signals, self.miners_tracked, total_open),
+                data={
+                    "new_signals": new_signals,
+                    "miners": self.miners_tracked,
+                    "open_positions": total_open,
+                },
             )
         else:
-            logger.debug(
-                "TaoshiBridge: poll complete, %d miners, %d open positions, no new signals",
-                self.miners_tracked,
-                total_open,
+            log_event(
+                logger,
+                logging.DEBUG,
+                "bridge.poll",
+                "TaoshiBridge: poll complete, no new signals",
+                data={
+                    "miners": self.miners_tracked,
+                    "open_positions": total_open,
+                },
             )
 
     def _read_position(self, path: Path) -> dict | None:
@@ -243,6 +250,18 @@ class TaoshiBridge:
 
         await self._signal_bus.publish(signal)
         self.signals_emitted += 1
+        log_event(
+            logger,
+            logging.INFO,
+            "bridge.signal",
+            "TaoshiBridge emitted signal: %s %s %s" % (hotkey[:12], symbol, direction),
+            data={
+                "miner_hotkey": hotkey[:12],
+                "symbol": symbol,
+                "direction": direction,
+                "leverage": leverage,
+            },
+        )
 
     def get_status(self) -> dict:
         """Return bridge status for API/dashboard."""

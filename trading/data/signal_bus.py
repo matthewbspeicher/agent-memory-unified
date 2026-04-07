@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 import logging
 from typing import Callable, Awaitable
 from agents.models import AgentSignal
+from utils.logging import log_event
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,17 @@ class SignalBus:
         self._signals.append(signal)
         if len(self._signals) > MAX_SIGNALS:
             self._signals = self._signals[-MAX_SIGNALS:]
+        log_event(
+            logger,
+            logging.INFO,
+            "signal.received",
+            "Signal published: %s from %s" % (signal.signal_type, signal.source_agent),
+            data={
+                "signal_type": signal.signal_type,
+                "source_agent": signal.source_agent,
+                "target_agent": signal.target_agent,
+            },
+        )
         for sub in self._subscribers:
             try:
                 await sub(signal)
