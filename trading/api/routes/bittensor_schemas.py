@@ -51,6 +51,7 @@ class BittensorStatusResponse(BaseModel):
     miners: MinerSummary | None = None
     agent: AgentSummary | None = None
     bridge: BridgeStatus | None = None
+    consensus_aggregator: dict[str, dict] | None = None
 
 
 # --- /api/bittensor/metrics ---

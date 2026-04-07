@@ -105,13 +105,18 @@ async def bittensor_status(
     bridge = getattr(request.app.state, "taoshi_bridge", None)
     bridge_data = bridge.get_status() if bridge else None
 
+    # Aggregator section
+    aggregator = getattr(request.app.state, "consensus_aggregator", None)
+    aggregator_data = aggregator.get_status() if aggregator else None
+
     return {
         "enabled": True,
-        "healthy": bool(scheduler) or bool(bridge),
+        "healthy": bool(scheduler) or bool(bridge) or bool(aggregator),
         "scheduler": scheduler_data,
         "miners": miners_data,
         "agent": agent_data,
         "bridge": bridge_data,
+        "consensus_aggregator": aggregator_data,
     }
 
 

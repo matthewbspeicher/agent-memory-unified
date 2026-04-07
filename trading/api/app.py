@@ -468,6 +468,7 @@ async def _setup_bittensor_integration(
         taoshi_root = os.environ.get("STA_TAOSHI_VALIDATOR_ROOT", "")
     if taoshi_root:
         from integrations.bittensor.taoshi_bridge import TaoshiBridge
+        from integrations.bittensor.consensus_aggregator import MinerConsensusAggregator
 
         bridge = TaoshiBridge(
             taoshi_root=taoshi_root,
@@ -479,6 +480,11 @@ async def _setup_bittensor_integration(
         app.state.taoshi_bridge = bridge
         task_mgr.create_task(bridge.run(), name="taoshi_bridge")
         logger.info("TaoshiBridge started (root=%s)", taoshi_root)
+
+        aggregator = MinerConsensusAggregator(signal_bus=signal_bus, window_minutes=5)
+        app.state.consensus_aggregator = aggregator
+        task_mgr.create_task(aggregator.start(), name="consensus_aggregator")
+        logger.info("MinerConsensusAggregator started")
     else:
         logger.debug("TaoshiBridge disabled — STA_TAOSHI_VALIDATOR_ROOT not set")
 
