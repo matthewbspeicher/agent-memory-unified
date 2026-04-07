@@ -60,6 +60,7 @@ async def test_collect_window_calls_adapter_twice():
         store=mock_store,
         event_bus=mock_event_bus,
         selection_policy="all",
+        direct_query_enabled=True,
     )
 
     with patch(
@@ -100,6 +101,7 @@ async def test_collect_window_updates_counters():
         store=mock_store,
         event_bus=mock_event_bus,
         selection_policy="all",
+        direct_query_enabled=True,
     )
 
     with patch(

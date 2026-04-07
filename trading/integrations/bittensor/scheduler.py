@@ -56,6 +56,15 @@ class TaoshiScheduler:
         streams: list[str] | None = None,
         direct_query_enabled: bool = False,
     ) -> None:
+        import os
+
+        taoshi_root = os.getenv("STA_TAOSHI_VALIDATOR_ROOT")
+        if not direct_query_enabled and not taoshi_root:
+            raise ValueError(
+                "No Bittensor data path active: direct_query_enabled=False "
+                "and STA_TAOSHI_VALIDATOR_ROOT not set."
+            )
+
         self._adapter = adapter
         self._store = store
         self._event_bus = event_bus

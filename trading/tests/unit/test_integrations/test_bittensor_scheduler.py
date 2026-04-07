@@ -1,6 +1,8 @@
 from __future__ import annotations
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
+import pytest
+import os
 
 
 from integrations.bittensor.scheduler import TaoshiScheduler, next_hash_window
@@ -71,3 +73,40 @@ async def test_select_miners_top_n_policy():
     uids = [s[0] for s in selected]
     assert 3 in uids
     assert 1 in uids
+
+
+def test_scheduler_raises_when_both_paths_disabled(monkeypatch):
+    """Scheduler should raise ValueError if both direct_query and taoshi_root are disabled."""
+    monkeypatch.delenv("STA_TAOSHI_VALIDATOR_ROOT", raising=False)
+
+    with pytest.raises(ValueError, match="No Bittensor data path active"):
+        TaoshiScheduler(
+            adapter=MagicMock(),
+            store=MagicMock(),
+            event_bus=MagicMock(),
+            direct_query_enabled=False,
+        )
+
+
+def test_scheduler_init_with_direct_query_enabled():
+    """Scheduler should initialize when direct_query is enabled."""
+    scheduler = TaoshiScheduler(
+        adapter=MagicMock(),
+        store=MagicMock(),
+        event_bus=MagicMock(),
+        direct_query_enabled=True,
+    )
+    assert scheduler._direct_query_enabled is True
+
+
+def test_scheduler_init_with_taoshi_root(monkeypatch):
+    """Scheduler should initialize when taoshi_root is set."""
+    monkeypatch.setenv("STA_TAOSHI_VALIDATOR_ROOT", "/some/path")
+
+    scheduler = TaoshiScheduler(
+        adapter=MagicMock(),
+        store=MagicMock(),
+        event_bus=MagicMock(),
+        direct_query_enabled=False,
+    )
+    assert scheduler._direct_query_enabled is False

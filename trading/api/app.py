@@ -586,6 +586,7 @@ async def _load_and_start_agent_configs(
     pnl_store,
     runner,
     logger: logging.Logger,
+    preloaded_data: dict | None = None,
 ):
     from agents.config import load_agents_config, register_strategy
     from strategies.exit_monitor import ExitMonitorAgent as ExitMonitorAgent
@@ -605,7 +606,11 @@ async def _load_and_start_agent_configs(
         )
         agent_configs = []
     else:
-        agent_configs = load_agents_config(str(agents_path), prompt_store=prompt_store)
+        agent_configs = load_agents_config(
+            str(agents_path),
+            prompt_store=prompt_store,
+            preloaded_data=preloaded_data,
+        )
 
     for agent in agent_configs:
         runner.register(agent)
@@ -1418,9 +1423,7 @@ async def lifespan(app: FastAPI):
             _log.error("CRITICAL: risk.yaml not found at any location!")
             _risk_data = {"rules": [], "kill_switch": {"enabled": False}}
 
-        # NOTE: load_risk_config() still re-reads risk.yaml from disk (line 63 in risk/config.py).
-        # To fully eliminate duplicate reads, we would need to refactor load_risk_config() to accept
-        # parsed data instead of a path, which is outside the scope of this task.
+        # NOTE: load_risk_config() now accepts preloaded_data to avoid duplicate reads
         if _risk_path_str is None:
             _log.error("CRITICAL: risk.yaml path is None, cannot initialize RiskEngine")
             # Create minimal RiskEngine with no rules
@@ -1437,6 +1440,7 @@ async def lifespan(app: FastAPI):
                 agent_store=agent_store,
                 settings=config,
                 journal_manager=journal_manager,
+                preloaded_data=_risk_data,
             )
 
         # Start background task to keep Governor cache fresh
@@ -1702,9 +1706,7 @@ async def lifespan(app: FastAPI):
             logger=_log,
         )
 
-        # NOTE: load_agents_config() still re-reads agents.yaml from disk (line 182 in agents/config.py).
-        # To fully eliminate duplicate reads, we would need to refactor load_agents_config() to accept
-        # parsed data instead of a path, which is outside the scope of this task.
+        # NOTE: load_agents_config() now accepts preloaded_data to avoid duplicate reads
         agent_configs = await _load_and_start_agent_configs(
             agents_path=_agents_path_str,
             prompt_store=prompt_store,
@@ -1712,6 +1714,7 @@ async def lifespan(app: FastAPI):
             pnl_store=pnl_store,
             runner=runner,
             logger=_log,
+            preloaded_data=_agents_data,
         )
 
         await _setup_meta_agent(
