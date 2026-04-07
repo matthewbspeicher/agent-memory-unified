@@ -16,7 +16,7 @@ This area covers the full agent-memory-unified monorepo: the FastAPI trading eng
 - Signal type mismatch: bridge emits `bittensor_miner_position` but `BittensorAlphaAgent` listens for `bittensor_consensus`
 - No aggregation layer between individual miner positions and consensus signals
 - Tests can't run (`pytest` not found in Docker, needs `uv` or venv)
-- Laravel API not running
+- Laravel API **deprecated** (TP-013 decision: deprecate, migrate vector memory to FastAPI when needed)
 - No CI/CD pipeline active
 
 ### Architecture

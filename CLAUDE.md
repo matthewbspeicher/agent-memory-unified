@@ -10,7 +10,7 @@ Guidance for Claude Code when working in this repository.
 
 ```
 agent-memory-unified/
-├── api/            # Laravel 12 — Memory API (PHP 8.3, port 8000)
+├── api/            # Laravel 12 — Memory API (DEPRECATED, see TP-013)
 ├── trading/        # FastAPI — Trading Engine (Python 3.13, port 8080)
 ├── frontend/       # React 19 + Vite — Unified UI (port 3000)
 ├── shared/         # JSON Schema types + cross-service auth
@@ -44,6 +44,10 @@ python neurons/validator.py --netuid 8 --wallet.name sta_wallet --wallet.hotkey 
 | Frontend | http://localhost:3000 | — |
 | Bittensor Dashboard | http://localhost:3000/bittensor | — |
 | Taoshi Validator Axon | port 8091 | Bittensor protocol |
+
+## Laravel API Status (TP-013 Decision)
+
+The Laravel API (`api/`) is **deprecated**. All active functionality runs through the FastAPI trading engine (`trading/`). The Laravel codebase is preserved as reference for potential vector memory migration. Key unique features (vector memory CRUD with pgvector embeddings) should be migrated to FastAPI if/when needed. See `taskplane-tasks/TP-013-laravel-api-decision/DECISION.md` for full rationale.
 
 ## Bittensor Validator Architecture
 
