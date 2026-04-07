@@ -66,6 +66,11 @@ class RiskEngine:
     async def evaluate(
         self, trade: OrderBase, quote: Quote, ctx: PortfolioContext
     ) -> RiskResult:
+        return await self.evaluate_order(trade, quote, ctx)
+
+    async def evaluate_order(
+        self, trade: OrderBase, quote: Quote, ctx: PortfolioContext
+    ) -> RiskResult:
         if self._kill_active or self._kill_switch.is_enabled:
             return RiskResult(
                 passed=False,
@@ -104,3 +109,13 @@ class RiskEngine:
                     trade.quantity = result.adjusted_quantity
 
         return final_result
+
+    async def evaluate_portfolio(self, portfolio_ctx: Any) -> bool:
+        """Portfolio-level risk checks (e.g. max gross exposure, diversification)."""
+        # Placeholder for future portfolio rules
+        return True
+
+    async def evaluate_strategy(self, strategy_name: str, metrics: dict) -> bool:
+        """Strategy-level risk checks (e.g. max drawdown per strategy, consecutive losses)."""
+        # Placeholder for future strategy rules
+        return True
