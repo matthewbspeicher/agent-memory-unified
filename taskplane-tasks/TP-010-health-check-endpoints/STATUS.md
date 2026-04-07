@@ -1,7 +1,7 @@
 # TP-010: Health Check Endpoints — Status
 
-**Current Step:** Step 4: Documentation & Delivery
-**Status:** 🟡 In Progress
+**Current Step:** Step 4: Documentation & Delivery (Complete)
+**Status:** ✅ Complete
 **Last Updated:** 2026-04-07
 **Review Level:** 0
 **Review Counter:** 0
@@ -44,11 +44,10 @@ S
 ---
 
 ### Step 4: Documentation & Delivery
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete
 
-> ⚠️ Hydrate: Expand checkboxes when entering this step
-
-- [ ] Complete step objectives
+- [x] Update CLAUDE.md Key URLs table with /ready endpoint
+- [x] Log discoveries
 
 ---
 
@@ -59,6 +58,8 @@ S
 ## Discoveries
 | Discovery | Disposition | Location |
 |-----------|-------------|----------|
+| SignalBus was not stored on app.state | Fixed: added `app.state.signal_bus = signal_bus` in lifespan | `trading/api/app.py:915` |
+| 21 pre-existing test failures from missing optional deps (eth_account, matplotlib, websockets, ib_insync) | Out of scope — tech debt | `trading/tests/` |
 
 ## Execution Log
 | Timestamp | Action | Outcome |

@@ -1,0 +1,15 @@
+Task TP-010 completed.
+
+Summary:
+- Enhanced /health-internal with Redis ping, TaoshiBridge status, SignalBus stats
+- Added /ready readiness probe endpoint (200 when healthy, 503 when any dep down)
+- Added app.state.signal_bus reference in lifespan
+- 12 new tests covering all dependency checks and readiness probe
+- All 15 health-related tests pass (12 new + 3 existing)
+- Updated CLAUDE.md Key URLs table
+
+Files modified:
+- trading/api/routes/health.py (enhanced endpoints + /ready)
+- trading/api/app.py (added app.state.signal_bus)
+- trading/tests/unit/test_api/test_health_checks.py (new)
+- CLAUDE.md (Key URLs table)

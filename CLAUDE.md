@@ -44,6 +44,8 @@ python neurons/validator.py --netuid 8 --wallet.name sta_wallet --wallet.hotkey 
 | Frontend | http://localhost:3000 | — |
 | Bittensor Dashboard | http://localhost:3000/bittensor | — |
 | Taoshi Validator Axon | port 8091 | Bittensor protocol |
+| Readiness Probe | http://localhost:8080/ready | — |
+| Internal Health | http://localhost:8080/health-internal | — |
 
 ## Laravel API Status (TP-013 Decision)
 
