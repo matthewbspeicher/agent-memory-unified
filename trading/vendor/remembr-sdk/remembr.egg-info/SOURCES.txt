@@ -3,6 +3,7 @@ pyproject.toml
 remembr/__init__.py
 remembr/client.py
 remembr/exceptions.py
+remembr/models.py
 remembr/trading.py
 remembr/turbo.py
 remembr.egg-info/PKG-INFO
@@ -10,4 +11,10 @@ remembr.egg-info/SOURCES.txt
 remembr.egg-info/dependency_links.txt
 remembr.egg-info/requires.txt
 remembr.egg-info/top_level.txt
+tests/test_replay.py
+tests/test_risk.py
+tests/test_signals.py
+tests/test_trading.py
 tests/test_trading_sdk.py
+tests/test_turbo_batch.py
+tests/test_turbo_sync.py

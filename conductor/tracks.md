@@ -1,1 +1,1 @@
-# Project Tracks\n\nThis file tracks all major tracks for the project. Each track has its own detailed plan in its respective folder.\n\n---\n\n- [ ] **Track: Finalize Monorepo Integration and E2E Validation**\n  *Link: [./tracks/integration_20260407/](./tracks/integration_20260407/)*
+# Project Tracks\n\nThis file tracks all major tracks for the project. Each track has its own detailed plan in its respective folder.\n\n---\n\n- [~] **Track: Finalize Monorepo Integration and E2E Validation**\n  *Link: [./tracks/integration_20260407/](./tracks/integration_20260407/)*

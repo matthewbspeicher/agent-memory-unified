@@ -1,17 +1,15 @@
-# Specification: Finalize Monorepo Integration and E2E Validation
+# Specification: Validator Node Integration and Validation
 
 ## Goal
-The primary objective of this track is to verify and finalize the end-to-end integration of the unified monorepo, ensuring that the Laravel Memory API, FastAPI Trading Engine, and React Dashboard communicate correctly through the shared PostgreSQL database and Redis event bus.
+The primary objective of this track is to verify and finalize the integration of this **Bittensor Validator Node**, ensuring the Trading Engine (Python/FastAPI) correctly interacts with the local PostgreSQL database and Redis event bus.
 
 ## Scope
-- **Shared Data Layer:** Verify that both Laravel and Python can correctly perform CRUD operations on the unified `agent_memory` database.
-- **Event Bus:** Validate the end-to-end event flow (Laravel -> Redis Streams -> Python) and (Python -> Redis Streams -> Laravel).
-- **Dashboard Integration:** Ensure the React dashboard correctly fetches data from both APIs and visualizes agent memories via the 3D Knowledge Graph.
-- **E2E Testing:** Execute existing Playwright tests and potentially add new ones to cover critical cross-service workflows.
-- **Documentation:** Finalize any remaining technical documentation required for staging and production readiness.
+- **Validator Data Layer:** Verify that the Python Trading Engine has full CRUD access to the `agent_memory` database (specifically `agent_registry`, `opportunities`, and `tracked_positions`).
+- **Redis Event Bus:** Validate that the Validator can correctly produce and consume events via Redis Streams for real-time signaling.
+- **Validator Health:** Ensure the FastAPI trading engine starts correctly within its environment and can reach its required external endpoints.
+- **E2E Validation:** Execute Python-specific integration tests to confirm the validator's scoring and memory retrieval logic works as expected.
 
 ## Deliverables
-- Verified shared database connectivity for all services.
-- Successfully executed event bus integration tests.
-- Functional and tested unified dashboard.
-- Passing E2E test suite.
+- Verified database connectivity and schema compatibility for the Validator.
+- Successfully executed Redis Stream integration tests for Python.
+- Operational Validator node with verified connectivity to Bittensor/Taoshi components.
