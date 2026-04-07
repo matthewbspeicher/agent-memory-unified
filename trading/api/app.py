@@ -1669,7 +1669,7 @@ async def lifespan(app: FastAPI):
         )
 
         # Tournament Engine (optional — only if learning config has tournament.enabled)
-        from datetime import datetime, timezone, timezone
+        from datetime import datetime, timezone
 
         tournament_engine = _setup_tournament_engine(
             app=app,

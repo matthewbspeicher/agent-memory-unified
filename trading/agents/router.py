@@ -742,15 +742,13 @@ class OpportunityRouter:
             ):
                 try:
                     from agents.models import TrustLevel
-                    from decimal import Decimal as _Decimal
+                    from decimal import Decimal as _D
 
-                    bankroll = (
-                        balance.buying_power or balance.cash or _Decimal("100000")
-                    )
+                    bankroll = balance.buying_power or balance.cash or _D("100000")
                     sized_qty = await self._sizing_engine.compute_size(
                         agent_name=opportunity.agent_name,
                         trust_level=TrustLevel.MONITORED,  # safe default
-                        price=quote.last or _Decimal("0"),
+                        price=quote.last or _D("0"),
                         bankroll=bankroll,
                     )
                     if sized_qty > 0:
@@ -1111,19 +1109,19 @@ class OpportunityRouter:
                 # Record fill slippage for execution quality tracking
                 if self._execution_tracker and order_result:
                     try:
-                        from decimal import Decimal as _Decimal
+                        from decimal import Decimal as _D
 
                         actual_price = (
-                            _Decimal(str(order_result.avg_fill_price))
+                            _D(str(order_result.avg_fill_price))
                             if hasattr(order_result, "avg_fill_price")
                             and order_result.avg_fill_price
-                            else (quote.last or _Decimal("0"))
+                            else (quote.last or _D("0"))
                         )
                         await self._execution_tracker.record_fill(
                             opportunity_id=str(opportunity.id),
                             agent_name=opportunity.agent_name,
                             broker_id=opportunity.broker_id or "ibkr",
-                            expected_price=quote.last or _Decimal("0"),
+                            expected_price=quote.last or _D("0"),
                             actual_price=actual_price,
                             quantity=opportunity.suggested_trade.quantity,
                             side="BUY"
@@ -1224,7 +1222,7 @@ class OpportunityRouter:
                     and tracked_position_id
                 ):
                     try:
-                        from decimal import Decimal as _Decimal
+                        from decimal import Decimal as _D
                         from broker.models import AssetType as _AT
                         from exits.rules import parse_rule as _parse_rule
 
@@ -1269,9 +1267,9 @@ class OpportunityRouter:
                                         exc,
                                     )
                             entry_fill_price = (
-                                _Decimal(str(order_result.avg_fill_price))
+                                _D(str(order_result.avg_fill_price))
                                 if getattr(order_result, "avg_fill_price", None)
-                                else (quote.last or _Decimal("0"))
+                                else (quote.last or _D("0"))
                             )
                             exits = self._exit_manager.compute_default_exits(
                                 side=side_str,
