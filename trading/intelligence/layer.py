@@ -35,7 +35,7 @@ class IntelligenceLayer:
 
         # Providers
         self._on_chain = OnChainProvider(coinglass_api_key=config.coinglass_api_key)
-        self._sentiment = SentimentProvider()
+        self._sentiment = SentimentProvider(lunarcrush_api_key=config.lunarcrush_api_key)
         self._anomaly = AnomalyProvider()
         self._regime = RegimeProvider(memory_manager=memory_manager)
         self._order_flow = OrderFlowProvider()
