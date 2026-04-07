@@ -69,6 +69,8 @@ M
 | 2026-04-07 16:15 | Task started | Runtime V2 lane-runner execution |
 | 2026-04-07 16:15 | Step 0 started | Preflight |
 | 2026-04-07 | Preflight audit | ~1119 logging lines, TaoshiBridge noisiest (DEBUG every 30s poll), no centralized config, no JSON formatter |
+| 2026-04-07 16:20 | Worker iter 1 | done in 298s, tools: 67 |
+| 2026-04-07 16:20 | Task complete | .DONE created |
 
 ## Blockers
 *None*
