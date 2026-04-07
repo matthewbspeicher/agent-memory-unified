@@ -44,9 +44,15 @@ async def execute_arbitrage(req: ExecuteArbRequest, request: Request):
         raise HTTPException(status_code=409, detail="Spread already claimed or expired")
 
     try:
-        # TODO: In Task 14, we'd fetch the observation, build the ArbTrade model,
-        # and call arb_coordinator.execute_arbitrage(trade).
-        # For now, returning success on claim.
+        # Execution phase: claim succeeded; full dual-leg execution
+        # requires ArbTrade model construction from the observed spread.
+        # Currently returns on claim success — wire execute_arbitrage() for full flow.
+        import logging
+        logging.getLogger(__name__).warning(
+            "Arb spread %d claimed by %s but dual-leg execution not wired — returning claim-only.",
+            req.observation_id,
+            req.agent_name,
+        )
         return {"status": "claimed", "observation_id": req.observation_id}
     except Exception as e:
         await spread_store.release_spread(req.observation_id)

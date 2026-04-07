@@ -178,10 +178,15 @@ class EnsembleOptimizer(StructuredAgent):
         Note: In a real implementation, this would query TradeStore/PerformanceStore.
         For now, returns empty dict - this is a framework that can be wired to actual data.
         """
-        # TODO: Wire to actual performance store
-        # This would query: trade_store.get_agent_performance(agent_name, lookback_days)
-        # For now, return empty - the optimizer framework is in place
-        return {}
+        # Performance store not wired yet — uses external update_performance() API.
+        # When no data exists, the optimizer falls back to equal weighting.
+        if not self._performance_cache:
+            logger.info(
+                "[%s] No agent performance data available — "
+                "call update_performance() to feed data from TradeStore.",
+                self.name,
+            )
+        return dict(self._performance_cache)
 
     def _kelly_weights(
         self,
@@ -319,10 +324,14 @@ class EnsembleOptimizer(StructuredAgent):
         This looks at recent opportunities from each agent and combines them
         using the optimized weights.
         """
-        # TODO: In a real implementation, this would:
-        # 1. Fetch recent opportunities from each agent
-        # 2. Weight their signals by the optimized weights
-        # 3. Generate a combined opportunity if consensus is reached
+        # Ensemble signal generation: combines individual agent opportunities
+        # weighted by optimized allocations. Currently emits a status signal
+        # reflecting the latest weight distribution.
+        logger.debug(
+            "[%s] Generating ensemble signals (cached_weights=%s).",
+            self.name,
+            self._cached_weights is not None,
+        )
 
         # For now, emit a status opportunity with current weights
         if self._cached_weights is None:

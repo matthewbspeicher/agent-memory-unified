@@ -54,7 +54,7 @@ def _event(order_id: str, **overrides) -> dict:
 
 @pytest.fixture
 async def app_with_events(_env):
-    settings = Config(broker_mode="paper", api_key="test-key")
+    settings = Config(worker_mode=False, api_key="test-key")
     app = create_app(enable_agent_framework=False, config=settings)
     db = await aiosqlite.connect(":memory:")
     db.row_factory = aiosqlite.Row
@@ -136,7 +136,7 @@ class TestSummaryEndpoint:
         assert resp.status_code in (401, 403)
 
     async def test_summary_empty_db(self, _env):
-        settings = Config(broker_mode="paper", api_key="test-key")
+        settings = Config(worker_mode=False, api_key="test-key")
         app = create_app(enable_agent_framework=False, config=settings)
         db = await aiosqlite.connect(":memory:")
         db.row_factory = aiosqlite.Row

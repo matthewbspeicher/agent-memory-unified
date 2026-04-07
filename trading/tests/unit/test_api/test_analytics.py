@@ -17,7 +17,7 @@ def test_get_performance(monkeypatch):
 
     _get_settings.cache_clear()
 
-    settings = Config(broker_mode="paper", api_key="test-key")
+    settings = Config(worker_mode=False, api_key="test-key")
     app = create_app(enable_agent_framework=False, config=settings)
 
     # Set up a mock db on app state

@@ -18,13 +18,13 @@ def test_agent_framework_startup_loads_shared_learning_config(tmp_path) -> None:
 
     db_path = tmp_path / "startup-test.db"
     config = Config(
-        broker_mode="paper",
-        worker_mode=True,
+        worker_mode=False,
         api_key="test-key",
         agents_config=str(agents_path),
         import_dir=str(import_dir),
         db_path=str(db_path),
         database_url=None,
+        paper_trading=True
     )
 
     app = create_app(enable_agent_framework=True, config=config)
@@ -46,13 +46,13 @@ def test_agent_framework_startup_wires_shadow_services_into_app_state(
 
     db_path = tmp_path / "startup-shadow-test.db"
     config = Config(
-        broker_mode="paper",
-        worker_mode=True,
+        worker_mode=False,
         api_key="test-key",
         agents_config=str(agents_path),
         import_dir=str(import_dir),
         db_path=str(db_path),
         database_url=None,
+        paper_trading=True
     )
 
     app = create_app(enable_agent_framework=True, config=config)

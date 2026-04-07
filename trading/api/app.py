@@ -809,13 +809,13 @@ async def _shutdown_app_state(*, app: FastAPI, runner, logger: logging.Logger):
     if obs:
         obs.stop()
 
-    redis = getattr(app.state, "redis", None)
-    if redis:
-        await redis.aclose()
-
     redis_bridge = getattr(app.state, "redis_bridge", None)
     if redis_bridge:
         await redis_bridge.stop()
+
+    redis = getattr(app.state, "redis", None)
+    if redis:
+        await redis.aclose()
 
 
 @asynccontextmanager

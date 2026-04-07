@@ -42,10 +42,10 @@ class PredictionMarketAdapter(SignalAdapter):
             return []
 
         for m in markets:
-            ticker = m.get("ticker", "")
-            volume = m.get("volume", 0)
-            avg_volume = m.get("avg_volume", 0)
-            yes_ask = m.get("yes_ask", 0.0)
+            ticker = m.ticker
+            volume = m.volume_24h
+            avg_volume = getattr(m, "avg_volume", 0) or 0
+            yes_ask = m.yes_ask or 0.0
 
             # Volume spike detection
             if avg_volume > 0:
@@ -60,7 +60,7 @@ class PredictionMarketAdapter(SignalAdapter):
                                 "magnitude": round(magnitude, 2),
                                 "volume": volume,
                                 "avg_volume": avg_volume,
-                                "direction": "bullish" if yes_ask > 0.5 else "bearish",
+                                "direction": "bullish" if yes_ask > 50 else "bearish",
                                 "source": "kalshi",
                             },
                             expires_at=expires,

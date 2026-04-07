@@ -27,7 +27,7 @@ def _env():
 
 @pytest.fixture
 async def app_with_health(_env):
-    settings = Config(broker_mode="paper", api_key="test-key")
+    settings = Config(worker_mode=False, api_key="test-key")
     app = create_app(enable_agent_framework=False, config=settings)
     db = await aiosqlite.connect(":memory:")
     db.row_factory = aiosqlite.Row
@@ -56,7 +56,7 @@ async def app_with_health(_env):
 @pytest.fixture
 async def app_with_health_engine(_env):
     """App fixture with a mock health engine on state."""
-    settings = Config(broker_mode="paper", api_key="test-key")
+    settings = Config(worker_mode=False, api_key="test-key")
     app = create_app(enable_agent_framework=False, config=settings)
     db = await aiosqlite.connect(":memory:")
     db.row_factory = aiosqlite.Row
@@ -101,7 +101,7 @@ class TestListAllHealth:
         assert resp.status_code == 401
 
     async def test_empty_when_no_agents(self, _env):
-        settings = Config(broker_mode="paper", api_key="test-key")
+        settings = Config(worker_mode=False, api_key="test-key")
         app = create_app(enable_agent_framework=False, config=settings)
         db = await aiosqlite.connect(":memory:")
         db.row_factory = aiosqlite.Row
@@ -208,7 +208,7 @@ class TestRecomputeHealth:
         assert "rsi_agent" in data["results"]
 
     async def test_recompute_returns_503_without_engine(self, _env):
-        settings = Config(broker_mode="paper", api_key="test-key")
+        settings = Config(worker_mode=False, api_key="test-key")
         app = create_app(enable_agent_framework=False, config=settings)
         db = await aiosqlite.connect(":memory:")
         db.row_factory = aiosqlite.Row

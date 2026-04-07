@@ -300,14 +300,22 @@ class AgentRunner:
 
     async def _run_continuous(self, agent: Agent) -> None:
         interval = getattr(agent.config, "interval", 60)
+        if not hasattr(agent, "_drain_event") or not agent._drain_event:
+            agent._drain_event = asyncio.Event()
         while not agent._draining:
             await self._execute_scan(agent)
             if agent._draining:
                 break
-            await asyncio.sleep(interval)
+            try:
+                await asyncio.wait_for(agent._drain_event.wait(), timeout=interval)
+            except asyncio.TimeoutError:
+                pass
 
     async def _run_cron(self, agent: Agent) -> None:
         from croniter import croniter
+
+        if not hasattr(agent, "_drain_event") or not agent._drain_event:
+            agent._drain_event = asyncio.Event()
 
         cron = croniter(agent.config.cron, datetime.now(timezone.utc))
         while not agent._draining:
@@ -315,7 +323,9 @@ class AgentRunner:
             delay = (next_run - datetime.now(timezone.utc)).total_seconds()
             if delay > 0:
                 try:
-                    await asyncio.sleep(delay)
+                    await asyncio.wait_for(agent._drain_event.wait(), timeout=delay)
+                except asyncio.TimeoutError:
+                    pass
                 except asyncio.CancelledError:
                     break
             if agent._draining:

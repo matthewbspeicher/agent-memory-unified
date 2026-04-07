@@ -77,7 +77,7 @@ def _make_row(
 
 @pytest.fixture
 async def app_with_trades(_env):
-    settings = Config(broker_mode="paper", api_key="test-key")
+    settings = Config(worker_mode=False, api_key="test-key")
     app = create_app(enable_agent_framework=False, config=settings)
     db = await aiosqlite.connect(":memory:")
     db.row_factory = aiosqlite.Row
@@ -145,7 +145,7 @@ class TestScorecardEndpoint:
         assert "momentum" in agent_names
 
     async def test_scorecard_empty_result(self, _env):
-        settings = Config(broker_mode="paper", api_key="test-key")
+        settings = Config(worker_mode=False, api_key="test-key")
         app = create_app(enable_agent_framework=False, config=settings)
         db = await aiosqlite.connect(":memory:")
         db.row_factory = aiosqlite.Row

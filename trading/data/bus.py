@@ -193,6 +193,16 @@ class DataBus:
             return []
         return await self._trade_store.get_trades(limit=limit)
 
+    # --- Prediction Markets ---
+
+    async def get_kalshi_markets(
+        self, category: str | None = None
+    ) -> list:
+        """Delegate to the Kalshi data source for prediction market data."""
+        if not self._kalshi_source:
+            return []
+        return await self._kalshi_source.get_markets(category=category)
+
     # --- Internal ---
 
     async def _fetch_from_sources(self, method: str, capability: str, *args):

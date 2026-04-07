@@ -60,7 +60,10 @@ class RedisSignalBridge:
         if self._pubsub:
             await self._pubsub.unsubscribe(self._channel)
         if self._redis:
-            await self._redis.close()
+            try:
+                await self._redis.aclose()
+            except Exception as e:
+                logger.error(f"Error closing Redis connection: {e}")
         logger.info("RedisSignalBridge stopped")
 
     async def _listen_event_bus(self):

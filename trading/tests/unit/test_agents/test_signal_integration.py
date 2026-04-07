@@ -15,7 +15,7 @@ from agents.models import (
     Opportunity,
 )
 from agents.signal_adapter import SignalAdapterRunner
-from broker.models import Symbol
+from broker.models import PredictionContract, Symbol
 from data.signal_bus import SignalBus
 
 
@@ -70,11 +70,16 @@ async def test_full_signal_flow():
     meta = MetaAgent(config=meta_config, runner=runner, signal_bus=signal_bus)
 
     mock_data_bus = MagicMock()
-    mock_data_bus.get_kalshi_markets = AsyncMock(
-        return_value=[
-            {"ticker": "AAPL-YES", "volume": 5000, "avg_volume": 1000, "yes_ask": 0.65},
-        ]
+    contract = PredictionContract(
+        ticker="AAPL-YES",
+        title="Test Market",
+        category="economics",
+        close_time=datetime.now(timezone.utc),
+        volume_24h=5000,
+        yes_ask=65,
     )
+    object.__setattr__(contract, "avg_volume", 1000)
+    mock_data_bus.get_kalshi_markets = AsyncMock(return_value=[contract])
     adapter = PredictionMarketAdapter(
         data_bus=mock_data_bus, volume_spike_threshold=2.0
     )

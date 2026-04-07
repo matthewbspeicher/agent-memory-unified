@@ -59,7 +59,7 @@ def _record(record_id: str, **overrides) -> dict:
 
 @pytest.fixture
 async def app_with_shadow_store(_env):
-    settings = Config(broker_mode="paper", api_key="test-key")
+    settings = Config(worker_mode=False, api_key="test-key")
     app = create_app(enable_agent_framework=False, config=settings)
     db = await aiosqlite.connect(":memory:")
     db.row_factory = aiosqlite.Row
@@ -217,7 +217,7 @@ class TestShadowExecutionsAPI:
         assert resp.status_code in (401, 403)
 
     async def test_shadow_routes_return_501_when_store_not_configured(self, _env):
-        settings = Config(broker_mode="paper", api_key="test-key")
+        settings = Config(worker_mode=False, api_key="test-key")
         app = create_app(enable_agent_framework=False, config=settings)
         client = TestClient(app)
 
@@ -241,7 +241,7 @@ class TestShadowExecutionsAPI:
 
     async def test_promote_returns_501_without_agent_store(self, _env):
         """Promote endpoint returns 501 if agent store not configured."""
-        settings = Config(broker_mode="paper", api_key="test-key")
+        settings = Config(worker_mode=False, api_key="test-key")
         app = create_app(enable_agent_framework=False, config=settings)
         client = TestClient(app)
 

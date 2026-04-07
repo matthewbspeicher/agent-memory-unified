@@ -67,17 +67,35 @@ async def test_adapter_runner_ignores_unknown_name():
 
 
 from unittest.mock import AsyncMock, MagicMock
+from datetime import datetime, timezone
 from agents.adapters.prediction_market import PredictionMarketAdapter
+from broker.models import PredictionContract
+
+
+def _make_contract(
+    ticker: str = "AAPL-YES",
+    volume_24h: int = 1000,
+    yes_ask: int | None = 55,
+    **kwargs,
+) -> PredictionContract:
+    return PredictionContract(
+        ticker=ticker,
+        title="Test Market",
+        category="economics",
+        close_time=datetime.now(timezone.utc),
+        volume_24h=volume_24h,
+        yes_ask=yes_ask,
+        **kwargs,
+    )
 
 
 @pytest.mark.asyncio
 async def test_prediction_market_adapter_detects_volume_spike():
     mock_data_bus = MagicMock()
-    mock_data_bus.get_kalshi_markets = AsyncMock(
-        return_value=[
-            {"ticker": "AAPL-YES", "volume": 3000, "avg_volume": 1000, "yes_ask": 0.55},
-        ]
-    )
+    contract = _make_contract(volume_24h=3000, yes_ask=55)
+    # avg_volume isn't a PredictionContract field — set it dynamically for the test
+    object.__setattr__(contract, "avg_volume", 1000)
+    mock_data_bus.get_kalshi_markets = AsyncMock(return_value=[contract])
     adapter = PredictionMarketAdapter(
         data_bus=mock_data_bus, volume_spike_threshold=2.0, price_move_threshold=0.10
     )
@@ -92,11 +110,9 @@ async def test_prediction_market_adapter_detects_volume_spike():
 @pytest.mark.asyncio
 async def test_prediction_market_adapter_ignores_normal_volume():
     mock_data_bus = MagicMock()
-    mock_data_bus.get_kalshi_markets = AsyncMock(
-        return_value=[
-            {"ticker": "AAPL-YES", "volume": 1200, "avg_volume": 1000, "yes_ask": 0.55},
-        ]
-    )
+    contract = _make_contract(volume_24h=1200, yes_ask=55)
+    object.__setattr__(contract, "avg_volume", 1000)
+    mock_data_bus.get_kalshi_markets = AsyncMock(return_value=[contract])
     adapter = PredictionMarketAdapter(
         data_bus=mock_data_bus, volume_spike_threshold=2.0, price_move_threshold=0.10
     )
