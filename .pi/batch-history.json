@@ -1,0 +1,125 @@
+[
+  {
+    "batchId": "20260407T121549",
+    "status": "completed",
+    "startedAt": 1775578549589,
+    "endedAt": 1775583172089,
+    "durationMs": 4622500,
+    "totalWaves": 1,
+    "totalTasks": 5,
+    "succeededTasks": 5,
+    "failedTasks": 0,
+    "skippedTasks": 0,
+    "blockedTasks": 0,
+    "tokens": {
+      "input": 323,
+      "output": 74649,
+      "cacheRead": 10933593,
+      "cacheWrite": 280075,
+      "costUsd": 9.08510525
+    },
+    "tasks": [
+      {
+        "taskId": "TP-001",
+        "taskName": "TP-001",
+        "status": "succeeded",
+        "wave": 1,
+        "lane": 1,
+        "durationMs": 280170,
+        "tokens": {
+          "input": 48,
+          "output": 12468,
+          "cacheRead": 1207830,
+          "cacheWrite": 41054,
+          "costUsd": 1.1724425
+        },
+        "exitReason": ".DONE file created by lane-runner"
+      },
+      {
+        "taskId": "TP-010",
+        "taskName": "TP-010",
+        "status": "succeeded",
+        "wave": 1,
+        "lane": 1,
+        "durationMs": 3455837,
+        "tokens": {
+          "input": 64,
+          "output": 14308,
+          "cacheRead": 1730122,
+          "cacheWrite": 75228,
+          "costUsd": 1.6932559999999999
+        },
+        "exitReason": ".DONE file created by lane-runner"
+      },
+      {
+        "taskId": "TP-012",
+        "taskName": "TP-012",
+        "status": "succeeded",
+        "wave": 1,
+        "lane": 1,
+        "durationMs": 785692,
+        "tokens": {
+          "input": 102,
+          "output": 23754,
+          "cacheRead": 5096926,
+          "cacheWrite": 78870,
+          "costUsd": 3.635760500000001
+        },
+        "exitReason": ".DONE file created by lane-runner"
+      },
+      {
+        "taskId": "TP-005",
+        "taskName": "TP-005",
+        "status": "succeeded",
+        "wave": 1,
+        "lane": 2,
+        "durationMs": 297864,
+        "tokens": {
+          "input": 63,
+          "output": 14414,
+          "cacheRead": 1819424,
+          "cacheWrite": 46759,
+          "costUsd": 1.5626207499999996
+        },
+        "exitReason": ".DONE file created by lane-runner"
+      },
+      {
+        "taskId": "TP-013",
+        "taskName": "TP-013",
+        "status": "succeeded",
+        "wave": 1,
+        "lane": 3,
+        "durationMs": 214723,
+        "tokens": {
+          "input": 46,
+          "output": 9705,
+          "cacheRead": 1079291,
+          "cacheWrite": 38164,
+          "costUsd": 1.0210255
+        },
+        "exitReason": ".DONE file created by lane-runner"
+      }
+    ],
+    "waves": [
+      {
+        "wave": 1,
+        "tasks": [
+          "TP-001",
+          "TP-010",
+          "TP-012",
+          "TP-005",
+          "TP-013"
+        ],
+        "mergeStatus": "succeeded",
+        "durationMs": 3455837,
+        "tokens": {
+          "input": 323,
+          "output": 74649,
+          "cacheRead": 10933593,
+          "cacheWrite": 280075,
+          "costUsd": 9.08510525
+        }
+      }
+    ]
+  }
+]

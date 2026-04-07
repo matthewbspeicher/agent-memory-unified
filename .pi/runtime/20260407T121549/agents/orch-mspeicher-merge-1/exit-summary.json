@@ -1,0 +1,22 @@
+{
+  "exitCode": null,
+  "exitSignal": "SIGTERM",
+  "tokens": {
+    "input": 10,
+    "output": 1506,
+    "cacheRead": 63778,
+    "cacheWrite": 10696
+  },
+  "cost": 0.136439,
+  "toolCalls": 14,
+  "retries": 0,
+  "compactions": 0,
+  "durationSec": 33,
+  "lastToolCall": "write: /opt/agent-memory-unified/.pi/merge-result-w1-lane1-mspeicher-20260407T121549.js",
+  "error": null,
+  "contextUsage": {
+    "tokens": 9675,
+    "contextWindow": 1000000,
+    "percent": 0.9674999999999999
+  }
+}

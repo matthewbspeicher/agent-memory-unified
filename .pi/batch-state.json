@@ -1,13 +1,13 @@
 {
   "schemaVersion": 4,
-  "phase": "executing",
+  "phase": "completed",
   "batchId": "20260407T121549",
   "baseBranch": "main",
   "orchBranch": "orch/mspeicher-20260407T121549",
   "mode": "repo",
   "startedAt": 1775578549589,
-  "updatedAt": 1775578839636,
-  "endedAt": null,
+  "updatedAt": 1775583172523,
+  "endedAt": 1775583172523,
   "currentWaveIndex": 0,
   "totalWaves": 1,
   "wavePlan": [
@@ -57,82 +57,89 @@
     {
       "taskId": "TP-001",
       "laneNumber": 1,
-      "sessionName": "orch-mspeicher-lane-1",
+      "sessionName": "orch-mspeicher-lane-1-worker",
       "status": "succeeded",
       "taskFolder": "/opt/agent-memory-unified/taskplane-tasks/TP-001-fix-taoshi-bridge-dedup",
-      "startedAt": 1775578552233,
-      "endedAt": 1775578821300,
+      "startedAt": 1775578551673,
+      "endedAt": 1775578831843,
       "doneFileFound": true,
-      "exitReason": "Pending execution",
+      "exitReason": ".DONE file created by lane-runner",
       "segmentIds": [
         "TP-001::default"
       ],
-      "activeSegmentId": "TP-001::default"
+      "activeSegmentId": null
     },
     {
       "taskId": "TP-005",
       "laneNumber": 2,
-      "sessionName": "orch-mspeicher-lane-2",
+      "sessionName": "orch-mspeicher-lane-2-worker",
       "status": "succeeded",
       "taskFolder": "/opt/agent-memory-unified/taskplane-tasks/TP-005-structured-logging",
-      "startedAt": 1775578552233,
-      "endedAt": 1775578839635,
+      "startedAt": 1775578551885,
+      "endedAt": 1775578849749,
       "doneFileFound": true,
-      "exitReason": "Pending execution",
+      "exitReason": ".DONE file created by lane-runner",
       "segmentIds": [
         "TP-005::default"
       ],
-      "activeSegmentId": "TP-005::default"
+      "activeSegmentId": null
     },
     {
       "taskId": "TP-010",
       "laneNumber": 1,
-      "sessionName": "orch-mspeicher-lane-1",
-      "status": "running",
+      "sessionName": "orch-mspeicher-lane-1-worker",
+      "status": "succeeded",
       "taskFolder": "/opt/agent-memory-unified/taskplane-tasks/TP-010-health-check-endpoints",
-      "startedAt": 1775578821300,
-      "endedAt": null,
-      "doneFileFound": false,
-      "exitReason": "Pending execution",
+      "startedAt": 1775578831911,
+      "endedAt": 1775582287748,
+      "doneFileFound": true,
+      "exitReason": ".DONE file created by lane-runner",
       "segmentIds": [
         "TP-010::default"
       ],
-      "activeSegmentId": "TP-010::default"
+      "activeSegmentId": null
     },
     {
       "taskId": "TP-012",
       "laneNumber": 1,
-      "sessionName": "orch-mspeicher-lane-1",
-      "status": "pending",
+      "sessionName": "orch-mspeicher-lane-1-worker",
+      "status": "succeeded",
       "taskFolder": "/opt/agent-memory-unified/taskplane-tasks/TP-012-fix-test-suite",
-      "startedAt": null,
-      "endedAt": null,
-      "doneFileFound": false,
-      "exitReason": "Pending execution",
+      "startedAt": 1775582287815,
+      "endedAt": 1775583073507,
+      "doneFileFound": true,
+      "exitReason": ".DONE file created by lane-runner",
       "segmentIds": [
         "TP-012::default"
       ],
-      "activeSegmentId": "TP-012::default"
+      "activeSegmentId": null
     },
     {
       "taskId": "TP-013",
       "laneNumber": 3,
-      "sessionName": "orch-mspeicher-lane-3",
+      "sessionName": "orch-mspeicher-lane-3-worker",
       "status": "succeeded",
       "taskFolder": "/opt/agent-memory-unified/taskplane-tasks/TP-013-laravel-api-decision",
-      "startedAt": 1775578552233,
-      "endedAt": 1775578759442,
+      "startedAt": 1775578552106,
+      "endedAt": 1775578766829,
       "doneFileFound": true,
-      "exitReason": "Pending execution",
+      "exitReason": ".DONE file created by lane-runner",
       "segmentIds": [
         "TP-013::default"
       ],
-      "activeSegmentId": "TP-013::default"
+      "activeSegmentId": null
     }
   ],
-  "mergeResults": [],
+  "mergeResults": [
+    {
+      "waveIndex": 0,
+      "status": "succeeded",
+      "failedLane": null,
+      "failureReason": null
+    }
+  ],
   "totalTasks": 5,
-  "succeededTasks": 0,
+  "succeededTasks": 5,
   "failedTasks": 0,
   "skippedTasks": 0,
   "blockedTasks": 0,
@@ -154,75 +161,75 @@
       "segmentId": "TP-001::default",
       "taskId": "TP-001",
       "repoId": "default",
-      "status": "running",
+      "status": "succeeded",
       "laneId": "lane-1",
       "sessionName": "orch-mspeicher-lane-1",
       "worktreePath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-1",
       "branch": "task/mspeicher-lane-1-20260407T121549",
       "startedAt": 1775578551573,
-      "endedAt": null,
+      "endedAt": 1775578831843,
       "retries": 0,
-      "exitReason": "Segment running",
+      "exitReason": ".DONE file created by lane-runner",
       "dependsOnSegmentIds": []
     },
     {
       "segmentId": "TP-010::default",
       "taskId": "TP-010",
       "repoId": "default",
-      "status": "running",
+      "status": "succeeded",
       "laneId": "lane-1",
       "sessionName": "orch-mspeicher-lane-1",
       "worktreePath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-1",
       "branch": "task/mspeicher-lane-1-20260407T121549",
       "startedAt": 1775578551573,
-      "endedAt": null,
+      "endedAt": 1775582287748,
       "retries": 0,
-      "exitReason": "Segment running",
+      "exitReason": ".DONE file created by lane-runner",
       "dependsOnSegmentIds": []
     },
     {
       "segmentId": "TP-012::default",
       "taskId": "TP-012",
       "repoId": "default",
-      "status": "running",
+      "status": "succeeded",
       "laneId": "lane-1",
       "sessionName": "orch-mspeicher-lane-1",
       "worktreePath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-1",
       "branch": "task/mspeicher-lane-1-20260407T121549",
       "startedAt": 1775578551573,
-      "endedAt": null,
+      "endedAt": 1775583073507,
       "retries": 0,
-      "exitReason": "Segment running",
+      "exitReason": ".DONE file created by lane-runner",
       "dependsOnSegmentIds": []
     },
     {
       "segmentId": "TP-005::default",
       "taskId": "TP-005",
       "repoId": "default",
-      "status": "running",
+      "status": "succeeded",
       "laneId": "lane-2",
       "sessionName": "orch-mspeicher-lane-2",
       "worktreePath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-2",
       "branch": "task/mspeicher-lane-2-20260407T121549",
       "startedAt": 1775578551573,
-      "endedAt": null,
+      "endedAt": 1775578849749,
       "retries": 0,
-      "exitReason": "Segment running",
+      "exitReason": ".DONE file created by lane-runner",
       "dependsOnSegmentIds": []
     },
     {
       "segmentId": "TP-013::default",
       "taskId": "TP-013",
       "repoId": "default",
-      "status": "running",
+      "status": "succeeded",
       "laneId": "lane-3",
       "sessionName": "orch-mspeicher-lane-3",
       "worktreePath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-3",
       "branch": "task/mspeicher-lane-3-20260407T121549",
       "startedAt": 1775578551573,
-      "endedAt": null,
+      "endedAt": 1775578766829,
       "retries": 0,
-      "exitReason": "Segment running",
+      "exitReason": ".DONE file created by lane-runner",
       "dependsOnSegmentIds": []
     }
   ]

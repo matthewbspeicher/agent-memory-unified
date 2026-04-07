@@ -3,29 +3,29 @@
   "laneNumber": 1,
   "laneId": "lane-1",
   "repoId": "default",
-  "taskId": "TP-010",
-  "segmentId": "TP-010::default",
-  "status": "running",
+  "taskId": "TP-012",
+  "segmentId": "TP-012::default",
+  "status": "complete",
   "worker": {
     "agentId": "orch-mspeicher-lane-1-worker",
-    "status": "running",
-    "elapsedMs": 0,
-    "toolCalls": 57,
-    "contextPct": 3.7571,
-    "costUsd": 1.3811654999999998,
-    "lastTool": "edit: /opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-1/taskplane-",
-    "inputTokens": 53,
-    "outputTokens": 12398,
-    "cacheReadTokens": 1263776,
-    "cacheWriteTokens": 70250
+    "status": "exited",
+    "elapsedMs": 785590,
+    "toolCalls": 106,
+    "contextPct": 7.4940999999999995,
+    "costUsd": 3.635760500000001,
+    "lastTool": "bash: if test -f \"/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-",
+    "inputTokens": 102,
+    "outputTokens": 23754,
+    "cacheReadTokens": 5096926,
+    "cacheWriteTokens": 78870
   },
   "reviewer": null,
   "progress": {
     "currentStep": "Step 4: Documentation & Delivery",
-    "checked": 8,
-    "total": 9,
+    "checked": 15,
+    "total": 15,
     "iteration": 1,
     "reviews": 0
   },
-  "updatedAt": 1775582241351
+  "updatedAt": 1775583073507
 }

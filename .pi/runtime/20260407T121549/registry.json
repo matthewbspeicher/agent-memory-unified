@@ -1,25 +1,25 @@
 {
   "batchId": "20260407T121549",
-  "updatedAt": 1775582240224,
+  "updatedAt": 1775583171581,
   "agents": {
     "orch-mspeicher-lane-1-worker": {
       "batchId": "20260407T121549",
       "agentId": "orch-mspeicher-lane-1-worker",
       "role": "worker",
       "laneNumber": 1,
-      "taskId": "TP-010",
+      "taskId": "TP-012",
       "repoId": "default",
-      "pid": 220205,
+      "pid": 223950,
       "parentPid": 219009,
-      "startedAt": 1775578832018,
-      "status": "running",
+      "startedAt": 1775582287913,
+      "status": "exited",
       "cwd": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-1",
       "packet": {
-        "promptPath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-1/taskplane-tasks/TP-010-health-check-endpoints/PROMPT.md",
-        "statusPath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-1/taskplane-tasks/TP-010-health-check-endpoints/STATUS.md",
-        "donePath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-1/taskplane-tasks/TP-010-health-check-endpoints/.DONE",
-        "reviewsDir": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-1/taskplane-tasks/TP-010-health-check-endpoints/.reviews",
-        "taskFolder": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-1/taskplane-tasks/TP-010-health-check-endpoints"
+        "promptPath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-1/taskplane-tasks/TP-012-fix-test-suite/PROMPT.md",
+        "statusPath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-1/taskplane-tasks/TP-012-fix-test-suite/STATUS.md",
+        "donePath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-1/taskplane-tasks/TP-012-fix-test-suite/.DONE",
+        "reviewsDir": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-1/taskplane-tasks/TP-012-fix-test-suite/.reviews",
+        "taskFolder": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-1/taskplane-tasks/TP-012-fix-test-suite"
       }
     },
     "orch-mspeicher-lane-2-worker": {
@@ -61,6 +61,48 @@
         "reviewsDir": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-3/taskplane-tasks/TP-013-laravel-api-decision/.reviews",
         "taskFolder": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-3/taskplane-tasks/TP-013-laravel-api-decision"
       }
+    },
+    "orch-mspeicher-merge-1": {
+      "batchId": "20260407T121549",
+      "agentId": "orch-mspeicher-merge-1",
+      "role": "merger",
+      "laneNumber": null,
+      "taskId": null,
+      "repoId": "default",
+      "pid": 239632,
+      "parentPid": 219009,
+      "startedAt": 1775583138642,
+      "status": "killed",
+      "cwd": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/merge",
+      "packet": null
+    },
+    "orch-mspeicher-merge-2": {
+      "batchId": "20260407T121549",
+      "agentId": "orch-mspeicher-merge-2",
+      "role": "merger",
+      "laneNumber": null,
+      "taskId": null,
+      "repoId": "default",
+      "pid": 239261,
+      "parentPid": 219009,
+      "startedAt": 1775583100334,
+      "status": "killed",
+      "cwd": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/merge",
+      "packet": null
+    },
+    "orch-mspeicher-merge-3": {
+      "batchId": "20260407T121549",
+      "agentId": "orch-mspeicher-merge-3",
+      "role": "merger",
+      "laneNumber": null,
+      "taskId": null,
+      "repoId": "default",
+      "pid": 238765,
+      "parentPid": 219009,
+      "startedAt": 1775583074092,
+      "status": "killed",
+      "cwd": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/merge",
+      "packet": null
     }
   }
 }

@@ -1,0 +1,82 @@
+<h2>Three Approaches for the Frontend Redesign</h2>
+<p class="subtitle">Each addresses unified ops, agent visibility, and infra health — but with different philosophies</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Mission Control — Single Pane of Glass</h3>
+      <p>Replace the current Dashboard with a dense, real-time <strong>Mission Control</strong> page. One screen with widget panels: agent activity feed, infra health grid, validator status, open trades, and alerts. Think Grafana meets Bloomberg Terminal.</p>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>Pros</h4>
+          <ul>
+            <li>Everything on one screen — zero clicking</li>
+            <li>Fastest time-to-answer for "is everything OK?"</li>
+            <li>Natural fit for your Neural Mesh aesthetic</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>Cons</h4>
+          <ul>
+            <li>Dense — can feel overwhelming</li>
+            <li>Hard to make responsive for smaller screens</li>
+            <li>Existing detail pages (Bittensor, trades) still needed for drill-down</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Hub & Spoke — Smart Landing + Focused Pages</h3>
+      <p>Build a lightweight <strong>Status Hub</strong> that shows health indicators and recent activity at a glance, with one-click drill-down into focused pages: Agent Console, Infra Monitor, Bittensor Dashboard, Trading Desk. Reorganize navigation into Ops vs Community.</p>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>Pros</h4>
+          <ul>
+            <li>Quick health check without information overload</li>
+            <li>Each domain gets proper depth</li>
+            <li>Clean navigation restructure (Ops / Community split)</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>Cons</h4>
+          <ul>
+            <li>Still requires some navigation to get full picture</li>
+            <li>Hub page could feel thin if you want detail</li>
+            <li>More pages to build</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Hybrid — Mission Control with Drawer Drill-downs</h3>
+      <p>A dense Mission Control screen (like A) but each panel expands into a <strong>slide-out drawer</strong> for detail, so you never leave the page. Combined with a nav restructure (Ops / Community). Best of both worlds.</p>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>Pros</h4>
+          <ul>
+            <li>Single page feel — context is never lost</li>
+            <li>Density of A with the depth of B</li>
+            <li>Drawers can lazy-load heavy content</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>Cons</h4>
+          <ul>
+            <li>Most complex to build</li>
+            <li>Drawer UX needs careful design to not feel cramped</li>
+            <li>May need to rethink existing detail pages as drawer content</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

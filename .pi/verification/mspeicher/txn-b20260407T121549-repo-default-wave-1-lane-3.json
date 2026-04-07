@@ -1,0 +1,16 @@
+{
+  "opId": "mspeicher",
+  "batchId": "20260407T121549",
+  "waveIndex": 1,
+  "laneNumber": 3,
+  "repoId": null,
+  "baseHEAD": "00b486644ea28bb1c3a8abdcdd4571302499eac7",
+  "laneHEAD": "71f57e3d3b1b02ff5ef1627a6d9665f11595a10d",
+  "mergedHEAD": "92ec4c3dbfa594df19e9a3a30e06b63b9df48b8f",
+  "status": "committed",
+  "rollbackAttempted": false,
+  "rollbackResult": null,
+  "recoveryCommands": [],
+  "startedAt": "2026-04-07T17:31:13.976Z",
+  "completedAt": "2026-04-07T17:31:40.212Z"
+}

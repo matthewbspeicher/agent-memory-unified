@@ -1,0 +1,14 @@
+{
+  "batchId": "20260407T121549",
+  "agentId": "orch-mspeicher-merge-2",
+  "role": "merger",
+  "laneNumber": null,
+  "taskId": null,
+  "repoId": "default",
+  "pid": 239261,
+  "parentPid": 219009,
+  "startedAt": 1775583100334,
+  "status": "killed",
+  "cwd": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/merge",
+  "packet": null
+}

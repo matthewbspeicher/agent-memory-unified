@@ -558,7 +558,11 @@ async def test_rehydrate_indexes_entries():
     with patch("journal.indexer.SentenceTransformer") as MockST:
         mock_model = MagicMock()
         mock_model.get_sentence_embedding_dimension.return_value = 384
-        mock_model.encode.return_value = np.random.randn(384).astype(np.float32)
+        def _mock_encode(texts, **kwargs):
+            if isinstance(texts, list):
+                return np.random.randn(len(texts), 384).astype(np.float32)
+            return np.random.randn(384).astype(np.float32)
+        mock_model.encode.side_effect = _mock_encode
         MockST.return_value = mock_model
 
         idx = JournalIndexer(

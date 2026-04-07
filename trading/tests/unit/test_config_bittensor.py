@@ -1,7 +1,16 @@
 """Tests for BittensorConfig nested extraction."""
 
 import os
+import pytest
 from config import load_config, BittensorConfig
+
+
+@pytest.fixture(autouse=True)
+def _clean_sta_env(monkeypatch):
+    """Remove all STA_ env vars so load_config gets true defaults."""
+    for key in list(os.environ):
+        if key.startswith("STA_"):
+            monkeypatch.delenv(key)
 
 
 class TestBittensorConfigNested:

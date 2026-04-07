@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 from fastapi.testclient import TestClient
 
 from api.app import create_app
@@ -9,6 +10,7 @@ from storage.shadow import ShadowExecutionStore
 from utils.background_tasks import BackgroundTaskManager
 
 
+@pytest.mark.integration
 def test_agent_framework_startup_loads_shared_learning_config(tmp_path) -> None:
     agents_path = tmp_path / "agents.empty.yaml"
     agents_path.write_text("agents: []\n")
@@ -36,6 +38,7 @@ def test_agent_framework_startup_loads_shared_learning_config(tmp_path) -> None:
         assert client.app.state.confidence_calibration_store is not None
 
 
+@pytest.mark.integration
 def test_agent_framework_startup_wires_shadow_services_into_app_state(
     tmp_path,
 ) -> None:
