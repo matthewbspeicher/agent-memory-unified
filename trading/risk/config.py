@@ -74,9 +74,14 @@ def load_risk_config(
     agent_store=None,
     settings=None,
     journal_manager=None,
+    preloaded_data: dict | None = None,
 ) -> RiskEngine:
-    with open(path) as f:
-        data = yaml.safe_load(f)
+    # Use pre-loaded data if provided, otherwise read from disk
+    if preloaded_data is not None:
+        data = preloaded_data
+    else:
+        with open(path) as f:
+            data = yaml.safe_load(f)
 
     risk_data = data.get("risk", data)
 

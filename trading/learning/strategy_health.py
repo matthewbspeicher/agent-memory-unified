@@ -365,8 +365,11 @@ class StrategyHealthEngine:
 
         Returns mapping of agent_name → resulting status string.
         """
-        results: dict[str, str] = {}
-        for name in agent_names:
+
+        # Use asyncio.gather for parallel execution
+        async def eval_one(name: str) -> tuple[str, str]:
             status = await self.evaluate(name)
-            results[name] = status.value
-        return results
+            return name, status.value
+
+        results_list = await asyncio.gather(*[eval_one(name) for name in agent_names])
+        return dict(results_list)

@@ -180,10 +180,18 @@ def _ensure_strategies_registered() -> None:
     register_strategy("ensemble_optimizer", EnsembleOptimizer)
 
 
-def load_agents_config(path: str, prompt_store: Any = None) -> list[Agent]:
+def load_agents_config(
+    path: str,
+    prompt_store: Any = None,
+    preloaded_data: dict | None = None,
+) -> list[Agent]:
     _ensure_strategies_registered()
-    with open(path) as f:
-        data = yaml.safe_load(f)
+    # Use pre-loaded data if provided, otherwise read from disk
+    if preloaded_data is not None:
+        data = preloaded_data
+    else:
+        with open(path) as f:
+            data = yaml.safe_load(f)
 
     from pydantic import ValidationError
 

@@ -1,4 +1,5 @@
 from functools import lru_cache
+import hmac
 
 from fastapi import HTTPException, Security, Request
 from fastapi.security import APIKeyHeader
@@ -22,6 +23,7 @@ def verify_api_key(
         raise HTTPException(
             status_code=503, detail="API not available — no API key configured"
         )
-    if api_key != settings.api_key:
+    # Use timing-safe comparison to prevent timing attacks
+    if not hmac.compare_digest(api_key, settings.api_key):
         raise HTTPException(status_code=401, detail="Invalid API key")
     return api_key

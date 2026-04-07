@@ -505,6 +505,15 @@ async def _setup_bittensor_integration(
         task_mgr.create_task(aggregator.start(), name="consensus_aggregator")
         logger.info("MinerConsensusAggregator started")
 
+        # Validate at least one Bittensor data path is active
+        direct_query = getattr(config.bittensor, "direct_query_enabled", False)
+        if not direct_query and not taoshi_root:
+            logger.warning(
+                "Bittensor: Both direct_query and TaoshiBridge are disabled. "
+                "No miner data will be collected. Set STA_BITTENSOR_DIRECT_QUERY_ENABLED=true "
+                "or STA_TAOSHI_VALIDATOR_ROOT=/path/to/taoshi-vanta"
+            )
+
         # Intelligence Layer
         from intelligence.layer import IntelligenceLayer
         from memory.market_regime import RegimeMemoryManager

@@ -200,14 +200,26 @@ class MinerEvaluator:
         rollups = await self.store.get_accuracy_rollup(hotkeys, config.lookback_windows)
 
         inputs = []
-        for hotkey, r in rollups.items():
-            async with self.store._db.execute(
-                "SELECT incentive_score FROM bittensor_raw_forecasts WHERE miner_hotkey = ? ORDER BY collected_at DESC LIMIT 1",
-                (hotkey,),
-            ) as cursor:
-                row = await cursor.fetchone()
-                incentive = row[0] if row and row[0] is not None else 0.0
 
+        # Batch fetch all incentive scores in a single query
+        if hotkeys:
+            placeholders = ",".join("?" * len(hotkeys))
+            async with self.store._db.execute(
+                f"SELECT miner_hotkey, incentive_score FROM bittensor_raw_forecasts "
+                f"WHERE miner_hotkey IN ({placeholders}) "
+                f"ORDER BY collected_at DESC",
+                tuple(hotkeys),
+            ) as cursor:
+                rows = await cursor.fetchall()
+
+            # Create a dict of hotkey -> incentive (most recent per hotkey)
+            incentive_map = {}
+            for hotkey, incentive in rows:
+                if hotkey not in incentive_map:
+                    incentive_map[hotkey] = incentive if incentive is not None else 0.0
+
+        for hotkey, r in rollups.items():
+            incentive = incentive_map.get(hotkey, 0.0)
             inputs.append(
                 MinerRankingInput(
                     miner_hotkey=hotkey,
