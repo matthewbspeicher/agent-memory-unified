@@ -9,6 +9,8 @@ use App\Models\TradingStats;
 use App\Models\ArenaProfile;
 use Illuminate\Support\Facades\DB;
 
+use App\ValueObjects\Decimal;
+
 class TradingService
 {
     /**
@@ -18,31 +20,32 @@ class TradingService
      */
     public function computeChildPnl(Trade $child, Trade $parent): array
     {
+        $childEntry = Decimal::from($child->entry_price);
+        $parentEntry = Decimal::from($parent->entry_price);
+        $childQty = Decimal::from($child->quantity);
+        $parentQty = Decimal::from($parent->quantity);
+
         if ($parent->direction === 'long') {
             // Long entry, short exit: profit when exit > entry
-            $grossPnl = bcmul(bcsub($child->entry_price, $parent->entry_price, 8), $child->quantity, 8);
+            $grossPnl = $childEntry->sub($parentEntry)->mul($childQty);
         } else {
             // Short entry, long exit: profit when entry > exit
-            $grossPnl = bcmul(bcsub($parent->entry_price, $child->entry_price, 8), $child->quantity, 8);
+            $grossPnl = $parentEntry->sub($childEntry)->mul($childQty);
         }
 
         // Apportion parent fee by share of quantity
-        $feeShare = bcmul(
-            $parent->fees,
-            bcdiv($child->quantity, $parent->quantity, 8),
-            8
-        );
-        $totalFees = bcadd($feeShare, $child->fees, 8);
-        $netPnl = bcsub($grossPnl, $totalFees, 8);
+        $feeShare = Decimal::from($parent->fees)->mul($childQty->div($parentQty));
+        $totalFees = $feeShare->add($child->fees);
+        $netPnl = $grossPnl->sub($totalFees);
 
-        $costBasis = bcmul($parent->entry_price, $child->quantity, 8);
-        $pnlPercent = $costBasis > 0
-            ? bcmul(bcdiv($netPnl, $costBasis, 8), '100', 4)
-            : '0.0000';
+        $costBasis = $parentEntry->mul($childQty);
+        $pnlPercent = $costBasis->isGreaterThan('0')
+            ? $netPnl->div($costBasis)->mul('100')
+            : Decimal::from('0');
 
         return [
-            'pnl' => $netPnl,
-            'pnl_percent' => $pnlPercent,
+            'pnl' => $netPnl->toString(),
+            'pnl_percent' => $pnlPercent->toString(),
         ];
     }
 
@@ -63,30 +66,32 @@ class TradingService
             // Aggregate PnL across all children onto parent
             // Load the children once
             $children = $parent->children()->get();
-            $totalChildPnl = $children->sum('pnl');
-            $totalChildQty = $children->sum('quantity');
+            $totalChildPnl = Decimal::from($children->sum('pnl'));
+            $totalChildQty = Decimal::from($children->sum('quantity'));
 
-            $costBasis = bcmul($parent->entry_price, $parent->quantity, 8);
-            $parentPnlPercent = $costBasis > 0
-                ? bcmul(bcdiv((string) $totalChildPnl, $costBasis, 8), '100', 4)
-                : '0.0000';
+            $costBasis = Decimal::from($parent->entry_price)->mul($parent->quantity);
+            $parentPnlPercent = $costBasis->isGreaterThan('0')
+                ? $totalChildPnl->div($costBasis)->mul('100')
+                : Decimal::from('0');
 
             $parentUpdate = [
-                'pnl' => (string) $totalChildPnl,
-                'pnl_percent' => $parentPnlPercent,
+                'pnl' => $totalChildPnl->toString(),
+                'pnl_percent' => $parentPnlPercent->toString(),
             ];
 
             // Check if fully closed
-            if (bccomp((string) $totalChildQty, $parent->quantity, 8) >= 0) {
+            if ($totalChildQty->isGreaterThanOrEqualTo($parent->quantity)) {
                 // Weighted average exit price from children
-                $weightedExitSum = '0';
+                $weightedExitSum = Decimal::from('0');
                 foreach ($children as $c) {
-                    $weightedExitSum = bcadd($weightedExitSum, bcmul($c->entry_price, $c->quantity, 8), 8);
+                    $weightedExitSum = $weightedExitSum->add(
+                        Decimal::from($c->entry_price)->mul($c->quantity)
+                    );
                 }
-                $weightedExitPrice = bcdiv($weightedExitSum, (string) $totalChildQty, 8);
+                $weightedExitPrice = $weightedExitSum->div($totalChildQty);
 
                 $parentUpdate['status'] = 'closed';
-                $parentUpdate['exit_price'] = $weightedExitPrice;
+                $parentUpdate['exit_price'] = $weightedExitPrice->toString();
                 $parentUpdate['exit_at'] = $child->entry_at;
             }
 
@@ -121,19 +126,19 @@ class TradingService
             return;
         }
 
-        $totalQty = '0';
-        $totalCost = '0';
+        $totalQty = Decimal::from('0');
+        $totalCost = Decimal::from('0');
 
         /** @var \App\Models\Trade $entry */
         foreach ($openEntries as $entry) {
-            $remainingQty = $entry->remainingQuantity();
-            $totalQty = bcadd($totalQty, $remainingQty, 8);
-            $totalCost = bcadd($totalCost, bcmul($entry->entry_price, $remainingQty, 8), 8);
+            $remainingQty = Decimal::from($entry->remainingQuantity());
+            $totalQty = $totalQty->add($remainingQty);
+            $totalCost = $totalCost->add(Decimal::from($entry->entry_price)->mul($remainingQty));
         }
 
-        $avgPrice = bccomp($totalQty, '0', 8) > 0
-            ? bcdiv($totalCost, $totalQty, 8)
-            : '0.00000000';
+        $avgPrice = $totalQty->isGreaterThan('0')
+            ? $totalCost->div($totalQty)
+            : Decimal::from('0');
 
         Position::updateOrCreate(
             [
@@ -142,8 +147,8 @@ class TradingService
                 'paper' => $paper,
             ],
             [
-                'quantity' => $totalQty,
-                'avg_entry_price' => $avgPrice,
+                'quantity' => $totalQty->toString(),
+                'avg_entry_price' => $avgPrice->toString(),
             ]
         );
     }

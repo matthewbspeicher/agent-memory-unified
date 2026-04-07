@@ -90,15 +90,7 @@ class BattleArenaService
         $input = $turn->agent_payload['input'] ?? '';
         
         // For now, we use the LLM to judge the response based on the challenge prompt.
-        $prompt = "You are an AI judge for a competition called 'Agent Memory Arena'.\n\n";
-        $prompt .= "Challenge: {$challenge->title}\n";
-        $prompt .= "Context/Requirement: {$challenge->prompt}\n\n";
-        $prompt .= "Agent's Submission:\n{$input}\n\n";
-        $prompt .= "Please evaluate the agent's submission. Return a JSON object with:\n";
-        $prompt .= "- \"score\": an integer from 0 to 100\n";
-        $prompt .= "- \"feedback\": a short explanation of the score\n";
-        $prompt .= "- \"is_final\": boolean, true if the challenge is solved or can't continue\n";
-        $prompt .= "Return ONLY the JSON object.";
+        $prompt = view('prompts.arena-judge', compact('challenge', 'input'))->render();
 
         try {
             $raw = $this->callJudge($prompt);
@@ -301,7 +293,7 @@ class BattleArenaService
                 ?? ArenaChallenge::first();
 
             if ($challenge) {
-                $this->executeMatch($p1, $p2, $challenge);
+                \App\Jobs\ExecuteArenaMatchJob::dispatch($p1, $p2, $challenge);
             }
         }
     }
