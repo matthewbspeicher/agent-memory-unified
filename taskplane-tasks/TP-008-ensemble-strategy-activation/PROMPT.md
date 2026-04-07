@@ -20,8 +20,8 @@ Activate the existing ensemble/multi-factor strategy code so Bittensor miner sig
 
 ## Dependencies
 
-- **Task:** TP-002 (signal pipeline must work)
-- **Task:** TP-007 (miner scoring feeds quality signals)
+- **None**
+- **None**
 
 ## Context to Read First
 

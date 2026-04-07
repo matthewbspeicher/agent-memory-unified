@@ -20,7 +20,7 @@ Extend the existing Bittensor dashboard at `/bittensor` with panels for: signal 
 
 ## Dependencies
 
-- **Task:** TP-002 (needs working signal pipeline for meaningful data)
+- **None**
 
 ## Context to Read First
 

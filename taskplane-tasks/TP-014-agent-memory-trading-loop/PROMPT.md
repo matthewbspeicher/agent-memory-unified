@@ -20,9 +20,9 @@ Wire the vector memory system into the trading strategy loop so agents can store
 
 ## Dependencies
 
-- **Task:** TP-013 (must decide whether memory lives in Laravel or FastAPI)
-- **Task:** TP-002 (signal pipeline must work)
-- **Task:** TP-008 (strategies must be active)
+- **None**
+- **None**
+- **None**
 - **External:** PostgreSQL with pgvector extension
 
 ## Context to Read First

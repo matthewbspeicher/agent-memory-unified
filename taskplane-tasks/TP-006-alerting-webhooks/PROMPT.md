@@ -20,8 +20,8 @@ Add a notification system that sends alerts via Discord webhook (and generic web
 
 ## Dependencies
 
-- **Task:** TP-002 (needs signal pipeline for trade decision alerts)
-- **Task:** TP-005 (structured logging makes event detection cleaner)
+- **None**
+- **None**
 
 ## Context to Read First
 

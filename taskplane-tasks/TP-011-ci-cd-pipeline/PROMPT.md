@@ -20,7 +20,7 @@ Set up a comprehensive GitHub Actions CI/CD pipeline. There's already a `.github
 
 ## Dependencies
 
-- **Task:** TP-012 (test suite must be green for CI to be meaningful)
+- **None**
 
 ## Context to Read First
 

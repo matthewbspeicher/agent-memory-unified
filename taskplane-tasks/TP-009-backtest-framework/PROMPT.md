@@ -20,8 +20,8 @@ Build a backtesting framework that can replay historical miner positions from Ta
 
 ## Dependencies
 
-- **Task:** TP-002 (strategies must be wired to test)
-- **Task:** TP-003 (paper broker for simulated execution)
+- **None**
+- **None**
 
 ## Context to Read First
 

@@ -20,7 +20,7 @@ Implement a paper trading mode that validates the full signal→trade pipeline w
 
 ## Dependencies
 
-- **Task:** TP-002 (signal pipeline must work end-to-end)
+- **None**
 
 ## Context to Read First
 

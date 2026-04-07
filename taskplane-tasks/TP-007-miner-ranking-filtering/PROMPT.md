@@ -22,7 +22,7 @@ Build a lightweight miner scoring system that tracks historical accuracy of mine
 
 ## Dependencies
 
-- **Task:** TP-002 (consensus aggregator must exist to consume scores)
+- **None**
 - **External:** PostgreSQL running
 
 ## Context to Read First
