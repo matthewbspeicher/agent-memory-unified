@@ -180,7 +180,7 @@ class RiskAnalytics:
         # For 95% VaR, we want the 5th percentile
         # For 99% VaR, we want the 1st percentile
         percentile = (1 - confidence) * 100
-        return abs(np.percentile(returns, percentile))
+        return float(abs(np.percentile(returns, percentile)))
 
     def calculate_cvar(
         self,
@@ -200,7 +200,7 @@ class RiskAnalytics:
         if not tail_returns:
             return var
 
-        return abs(np.mean(tail_returns))
+        return float(abs(np.mean(tail_returns)))
 
     def update_equity(self, equity: Decimal) -> None:
         """Update equity for drawdown tracking."""

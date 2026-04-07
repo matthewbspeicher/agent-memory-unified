@@ -36,7 +36,15 @@ class RiskRule(ABC):
     @abstractmethod
     def evaluate(
         self, trade: OrderBase, quote: Quote, ctx: PortfolioContext
-    ) -> RiskResult: ...
+    ) -> RiskResult:
+        """Synchronous evaluation. Override async_evaluate for async implementation."""
+        ...
+
+    async def async_evaluate(
+        self, trade: OrderBase, quote: Quote, ctx: PortfolioContext
+    ) -> RiskResult:
+        """Default async implementation calls synchronous evaluate."""
+        return self.evaluate(trade, quote, ctx)
 
 
 class MaxPositionSize(RiskRule):

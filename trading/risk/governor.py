@@ -150,6 +150,17 @@ class CapitalGovernor(RiskRule):
         self._watchdog = DrawdownWatchdog(perf_store, agent_store, self._gov_config)
         self._cache: Optional[GovernorCache] = None
 
+    def evaluate(
+        self, trade: OrderBase, quote: Quote, ctx: PortfolioContext
+    ) -> RiskResult:
+        """Synchronous evaluation - not supported for async governor."""
+        return RiskResult(
+            passed=True,
+            rule_name=self.name,
+            reason="CapitalGovernor requires async evaluation",
+            adjusted_quantity=Decimal("1"),
+        )
+
     async def _refresh_cache_if_needed(self) -> None:
         now = time.time()
         if (
@@ -170,7 +181,7 @@ class CapitalGovernor(RiskRule):
             # Run periodic watchdog check
             await self._watchdog.check_all_agents(list(rankings_dict.keys()))
 
-    async def evaluate(
+    async def async_evaluate(
         self, trade: OrderBase, quote: Quote, ctx: PortfolioContext
     ) -> RiskResult:
         await self._refresh_cache_if_needed()

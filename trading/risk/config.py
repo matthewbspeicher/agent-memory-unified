@@ -55,6 +55,8 @@ class RiskConfigSchema(BaseModel):
 
 def _build_rule(rule_config: dict) -> RiskRule:
     rule_type = rule_config.get("type")
+    if rule_type is None:
+        raise ValueError("Risk rule config missing 'type' field")
     cls = _RULE_REGISTRY.get(rule_type)
     if cls is None:
         raise ValueError(
@@ -90,7 +92,7 @@ def load_risk_config(
     if isinstance(ks_config, dict) and ks_config.get("enabled", False):
         ks.enable("enabled in config")
 
-    rules = []
+    rules: list[RiskRule] = []
 
     # Prepend CapitalGovernor if dependencies are provided
     governor = None

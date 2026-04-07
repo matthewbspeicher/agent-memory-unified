@@ -21,7 +21,18 @@ class DejaVuGuard(RiskRule):
         self._journal_manager = journal_manager
         self.max_similar_losses = max_similar_losses
 
-    async def evaluate(
+    def evaluate(
+        self, trade: OrderBase, quote: Quote, ctx: PortfolioContext
+    ) -> RiskResult:
+        """Synchronous evaluation - not supported for async guard."""
+        return RiskResult(
+            passed=True,
+            rule_name=self.name,
+            reason="DejaVuGuard requires async evaluation",
+            adjusted_quantity=trade.quantity,
+        )
+
+    async def async_evaluate(
         self, trade: OrderBase, quote: Quote, ctx: PortfolioContext
     ) -> RiskResult:
         try:
