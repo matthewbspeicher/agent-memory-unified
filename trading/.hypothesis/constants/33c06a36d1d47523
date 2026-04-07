@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/strategies/volume_spike.py
+# hypothesis_version: 6.151.11
+
+[0.5, 1.0, 2.0, '1', '1d', '1mo', 'VOLUME_SPIKE', 'avg_volume', 'current_volume', 'volume_ratio', 'volume_threshold']

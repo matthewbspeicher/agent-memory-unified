@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/api/routes/opportunities.py
+# hypothesis_version: 6.151.11
+
+[403, 404, 86400, '/opportunities', '/{opportunity_id}', 'Authorization', 'Signature required', 'Snapshot not found', 'approve', 'approved', 'data', 'disabled', 'error', 'id', 'message', 'ok', 'opportunities', 'q', 'reject', 'rejected', 'results', 'status']

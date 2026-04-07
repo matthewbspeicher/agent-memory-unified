@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/strategies/bittensor_signal.py
+# hypothesis_version: 6.151.11
+
+[0.002, 0.2, 0.25, 0.65, 1.0, 600, '5m', 'BTCUSD', 'BUY', 'SELL', '_bittensor_source', 'agreement_ratio', 'allow_short_signals', 'bittensor', 'derivation_version', 'direction_score', 'expected_return', 'is_low_confidence', 'min_abs_direction', 'min_agreement_ratio', 'min_expected_return', 'responder_count', 'source', 'symbol', 'timeframe', 'use_weighted_view', 'weighted_direction', 'window_id']

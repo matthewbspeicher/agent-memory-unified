@@ -4,12 +4,6 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-## [x] Track: Strategy & Scoring (Miner Accuracy & Ensemble Wiring)
-Implement accuracy-based ranking and activate multi-factor strategies.
-*Link: [./tracks/strategy_scoring/](./tracks/strategy_scoring/)*
-
----
-
 ## [ ] Track: Intelligence (Vector Memory Loop)
 Integrate vector memory into the trading strategy cycle.
 *Link: [./tracks/intelligence_memory/](./tracks/intelligence_memory/)*

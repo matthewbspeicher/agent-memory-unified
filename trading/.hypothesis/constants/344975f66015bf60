@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/learning/triggers.py
+# hypothesis_version: 6.151.11
+
+[0.0, 252, '0', 'above', 'action', 'all_of', 'any_of', 'below', 'buy', 'comparison', 'consecutive_days', 'consecutive_losses', 'entry_fees', 'entry_price', 'exit_fees', 'exit_price', 'metric', 'net_pnl', 'notify', 'paper_', 'quantity', 'sharpe_ratio_7d', 'side', 'threshold']

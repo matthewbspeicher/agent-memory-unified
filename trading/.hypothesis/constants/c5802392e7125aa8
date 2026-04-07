@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/api/routes/tuning.py
+# hypothesis_version: 6.151.11
+
+[0.5, 1.5, 404, 500, '/evolution/trigger', '/tuning', '/{agent_name}/cycle', '6mo', 'AAPL', 'GOOGL', 'MSFT', 'agent_name', 'creation_context', 'data_bus', 'db', 'execution_rate', 'improvement', 'message', 'name', 'new_overrides', 'ok', 'parameters', 'parent_name', 'parent_sharpe', 'reason', 'recommendations', 'sharpe_ratio', 'spawned_agents', 'status', 'strategy', 'total_trades', 'tuning', 'universe', 'variant_sharpe', 'win_rate']

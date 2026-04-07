@@ -5,14 +5,23 @@ from collections import defaultdict
 
 from data.signal_bus import SignalBus
 from agents.models import AgentSignal
-from integrations.bittensor.signals import BittensorSignalPayload, create_bittensor_agent_signal
+from integrations.bittensor.signals import (
+    BittensorSignalPayload,
+    create_bittensor_agent_signal,
+)
 
 logger = logging.getLogger(__name__)
+
 
 class MinerConsensusAggregator:
     """Aggregates individual bittensor_miner_position signals into bittensor_consensus signals."""
 
-    def __init__(self, signal_bus: SignalBus, store: BittensorStore | None = None, window_minutes: int = 5):
+    def __init__(
+        self,
+        signal_bus: SignalBus,
+        store: BittensorStore | None = None,
+        window_minutes: int = 5,
+    ):
         self.signal_bus = signal_bus
         self.store = store
         self.window_minutes = window_minutes
@@ -28,10 +37,13 @@ class MinerConsensusAggregator:
         """Fetch latest miner rankings and cache them as weights."""
         if not self.store:
             return
-        
+
         now = datetime.now(timezone.utc)
-        if self._weights_last_updated and (now - self._weights_last_updated).total_seconds() < 300:
-            return # cache for 5 mins
+        if (
+            self._weights_last_updated
+            and (now - self._weights_last_updated).total_seconds() < 300
+        ):
+            return  # cache for 5 mins
 
         try:
             rankings = await self.store.get_miner_rankings(limit=256)
@@ -67,10 +79,10 @@ class MinerConsensusAggregator:
             direction = payload.get("direction", "flat")
             # Default to 0.5 weight if miner has no ranking yet
             weight = self._miner_weights.get(hotkey, 0.5)
-            
+
             if direction in direction_scores:
                 direction_scores[direction] += weight
-            
+
             total_weight += weight
 
         total_miners = len(active_positions)
@@ -86,9 +98,12 @@ class MinerConsensusAggregator:
 
         # Weighted confidence
         confidence = weighted_count / total_weight
-        
+
         # Leveraged expected return proxy (unweighted average for now)
-        avg_leverage = sum(p.get("leverage", 0.0) for p in active_positions.values()) / total_miners
+        avg_leverage = (
+            sum(p.get("leverage", 0.0) for p in active_positions.values())
+            / total_miners
+        )
 
         # Map to expected consensus directions
         mapped_direction = "flat"
@@ -106,13 +121,13 @@ class MinerConsensusAggregator:
             confidence=confidence,
             expected_return=avg_leverage,
             window_id=window_id,
-            miner_count=total_miners
+            miner_count=total_miners,
         )
 
         consensus_signal = create_bittensor_agent_signal(
             payload=consensus_payload,
             source_agent="miner_consensus_aggregator",
-            ttl_minutes=30
+            ttl_minutes=30,
         )
 
         await self.signal_bus.publish(consensus_signal)
@@ -124,8 +139,10 @@ class MinerConsensusAggregator:
         cutoff_time = now - timedelta(minutes=self.window_minutes)
 
         for symbol, hotkeys in self.positions.items():
-            active_count = sum(1 for pos_time, _ in hotkeys.values() if pos_time >= cutoff_time)
+            active_count = sum(
+                1 for pos_time, _ in hotkeys.values() if pos_time >= cutoff_time
+            )
             if active_count > 0:
                 status[symbol] = {"active_miners": active_count}
-                
+
         return status

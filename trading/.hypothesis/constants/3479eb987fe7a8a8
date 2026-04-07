@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/data/backtest.py
+# hypothesis_version: 6.151.11
+
+[0.0, 1.0, 100, 126, 252, 504, 1260, '0', '0.001', '0.01', '1.00', '100000.0', '1d', '1mo', '1y', '2y', '3mo', '5y', '6mo', 'BUY', 'SimulatedFill', 'SimulatedFill | None', 'Technology', 'backtest', 'cash', 'current_time not set', 'equity', 'executed', 'final_equity', 'historical_replay', 'inf', 'initial_equity', 'max', 'opportunities', 'snapshots', 'time']

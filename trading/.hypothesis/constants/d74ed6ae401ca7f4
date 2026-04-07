@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/strategies/exit_monitor.py
+# hypothesis_version: 6.151.11
+
+[1.0, 300, '100', 'BUY', 'DataBus', 'ExitManager | None', 'account_id', 'broker_id', 'current_price', 'entry_price', 'entry_quantity', 'exit_position', 'exit_rule', 'id', 'kalshi', 'kalshi_paper', 'polymarket', 'polymarket_paper', 'position_id', 'side', 'symbol', 'tracked_position_id']

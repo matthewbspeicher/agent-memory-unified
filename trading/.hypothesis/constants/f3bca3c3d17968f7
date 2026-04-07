@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/exits/resolution_tracker.py
+# hypothesis_version: 6.151.11
+
+[600, 'CANCELLED', 'EventBus | None', 'KalshiClient | None', 'NO', 'PaperStore', 'YES', 'broker', 'closed', 'finalized', 'kalshi', 'market_resolved', 'no', 'polymarket', 'resolution', 'resolved', 'result', 'status', 'ticker', 'void', 'winning_outcomes', 'yes']

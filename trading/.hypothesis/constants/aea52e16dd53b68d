@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/adapters/ibkr/errors.py
+# hypothesis_version: 6.151.11
+
+[201, 'insufficient', 'margin', 'market is closed', 'max rate of messages']

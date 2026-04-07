@@ -3,6 +3,7 @@
 Covers: /health-internal (Redis, TaoshiBridge, SignalBus fields),
         /ready (readiness probe with dependency checks).
 """
+
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime, timezone, timedelta
@@ -11,6 +12,7 @@ from datetime import datetime, timezone, timedelta
 # ---------------------------------------------------------------------------
 # /health-internal — new dependency fields
 # ---------------------------------------------------------------------------
+
 
 class TestHealthInternalRedis:
     def test_redis_ok(self, client):
@@ -112,6 +114,7 @@ class TestHealthInternalSignalBus:
 # ---------------------------------------------------------------------------
 # /ready — readiness probe
 # ---------------------------------------------------------------------------
+
 
 class TestReadyEndpoint:
     def test_ready_all_healthy(self, client):

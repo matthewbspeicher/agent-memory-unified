@@ -10,8 +10,12 @@ async def test_risk_audit_low_vol_no_veto():
     """Low volatility should not trigger veto."""
     provider = RiskAuditProvider(var_threshold_pct=5.0, horizon_days=5)
 
-    with patch.object(provider, "_fetch_current_price", new_callable=AsyncMock, return_value=50000.0):
-        with patch.object(provider, "_fetch_volatility", new_callable=AsyncMock, return_value=0.10):
+    with patch.object(
+        provider, "_fetch_current_price", new_callable=AsyncMock, return_value=50000.0
+    ):
+        with patch.object(
+            provider, "_fetch_volatility", new_callable=AsyncMock, return_value=0.10
+        ):
             report = await provider.analyze("BTCUSD")
 
     assert report is not None
@@ -25,8 +29,12 @@ async def test_risk_audit_high_vol_triggers_veto():
     """Very high volatility should trigger veto."""
     provider = RiskAuditProvider(var_threshold_pct=5.0, horizon_days=5)
 
-    with patch.object(provider, "_fetch_current_price", new_callable=AsyncMock, return_value=50000.0):
-        with patch.object(provider, "_fetch_volatility", new_callable=AsyncMock, return_value=2.0):
+    with patch.object(
+        provider, "_fetch_current_price", new_callable=AsyncMock, return_value=50000.0
+    ):
+        with patch.object(
+            provider, "_fetch_volatility", new_callable=AsyncMock, return_value=2.0
+        ):
             report = await provider.analyze("BTCUSD")
 
     assert report is not None
@@ -39,7 +47,12 @@ async def test_risk_audit_high_vol_triggers_veto():
 async def test_risk_audit_api_failure():
     provider = RiskAuditProvider()
 
-    with patch.object(provider, "_fetch_current_price", new_callable=AsyncMock, side_effect=Exception("no data")):
+    with patch.object(
+        provider,
+        "_fetch_current_price",
+        new_callable=AsyncMock,
+        side_effect=Exception("no data"),
+    ):
         report = await provider.analyze("BTCUSD")
 
     assert report is None
@@ -49,8 +62,12 @@ async def test_risk_audit_api_failure():
 async def test_risk_audit_zero_price():
     provider = RiskAuditProvider()
 
-    with patch.object(provider, "_fetch_current_price", new_callable=AsyncMock, return_value=0.0):
-        with patch.object(provider, "_fetch_volatility", new_callable=AsyncMock, return_value=0.5):
+    with patch.object(
+        provider, "_fetch_current_price", new_callable=AsyncMock, return_value=0.0
+    ):
+        with patch.object(
+            provider, "_fetch_volatility", new_callable=AsyncMock, return_value=0.5
+        ):
             report = await provider.analyze("BTCUSD")
 
     assert report is None

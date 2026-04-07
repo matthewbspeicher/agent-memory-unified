@@ -20,6 +20,10 @@ class OnChainProvider(BaseIntelProvider):
         return "on_chain"
 
     async def analyze(self, symbol: str) -> IntelReport | None:
+        if not self.coinglass_api_key:
+            logger.debug("OnChainProvider: No API key, skipping.")
+            return None
+
         try:
             netflow = await self._fetch_exchange_netflow(symbol)
             avg_30d = await self._fetch_exchange_netflow_30d_avg(symbol)
@@ -46,12 +50,10 @@ class OnChainProvider(BaseIntelProvider):
         )
 
     async def _fetch_exchange_netflow(self, symbol: str = "BTCUSD") -> float:
-        """Fetch latest exchange netflow from CoinGlass API."""
+        """Fetch current exchange netflow. Positive = inflow, negative = outflow."""
         import aiohttp
 
-        if not self.coinglass_api_key:
-            raise ValueError("No CoinGlass API key configured")
-        coin = symbol[:3]
+        coin = symbol[:3]  # "BTCUSD" -> "BTC"
         async with aiohttp.ClientSession() as session:
             async with session.get(
                 "https://open-api-v3.coinglass.com/api/indicator/exchange/netflow-total",
@@ -60,14 +62,15 @@ class OnChainProvider(BaseIntelProvider):
                 timeout=aiohttp.ClientTimeout(total=5),
             ) as resp:
                 data = await resp.json()
-                return float(data.get("data", [{}])[-1].get("value", 0.0))
+                items = data.get("data", [])
+                if not items:
+                    return 0.0
+                return float(items[-1].get("value", 0.0))
 
     async def _fetch_exchange_netflow_30d_avg(self, symbol: str = "BTCUSD") -> float:
-        """Fetch 30-day average exchange netflow from CoinGlass API."""
+        """Fetch 30-day average netflow for comparison."""
         import aiohttp
 
-        if not self.coinglass_api_key:
-            raise ValueError("No CoinGlass API key configured")
         coin = symbol[:3]
         async with aiohttp.ClientSession() as session:
             async with session.get(
@@ -84,30 +87,33 @@ class OnChainProvider(BaseIntelProvider):
 
     @staticmethod
     def _netflow_to_score(netflow: float, avg_30d: float) -> float:
-        """Convert netflow to a score between -1.0 and 1.0.
-
-        Negative netflow (outflow from exchanges) = accumulation = bullish (positive score).
-        Positive netflow (inflow to exchanges) = distribution = bearish (negative score).
+        """Negative netflow (outflow/accumulation) -> positive score (bullish).
+        Positive netflow (inflow/distribution) -> negative score (bearish).
+        Normalized against 30-day average.
         """
         if avg_30d == 0:
             return 0.0
         ratio = netflow / abs(avg_30d)
+        # Clamp ratio to [-1, 1] range, then invert (outflow = bullish)
         clamped = max(-1.0, min(1.0, ratio))
-        return -clamped * 0.5
+        return -clamped * 0.5  # scale to [-0.5, 0.5]
 
     @staticmethod
     def _netflow_to_confidence(netflow: float, avg_30d: float) -> float:
-        """Higher deviation from average = higher confidence in the signal."""
         if avg_30d == 0:
             return 0.3
         deviation = abs(netflow) / abs(avg_30d)
+        # Higher deviation = higher confidence
         return min(0.3 + deviation * 0.3, 1.0)
 
     @staticmethod
     def _check_veto(netflow: float, avg_30d: float) -> tuple[bool, str | None]:
-        """Veto if exchange inflow exceeds 2x the 30-day average (panic selling risk)."""
+        """Veto if exchange inflow exceeds 2x 30-day average."""
         if avg_30d == 0:
             return False, None
         if netflow > 0 and netflow > abs(avg_30d) * 2.0:
-            return True, f"Exchange inflow {netflow:.0f} exceeds 2x 30d avg ({abs(avg_30d):.0f})"
+            return (
+                True,
+                f"Exchange inflow {netflow:.0f} exceeds 2x 30d avg ({abs(avg_30d):.0f})",
+            )
         return False, None

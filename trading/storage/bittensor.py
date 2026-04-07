@@ -494,7 +494,9 @@ class BittensorStore:
 
     async def get_processed_position_uuids(self) -> set[str]:
         """Return all position UUIDs already processed by TaoshiBridge."""
-        cursor = await self._db.execute("SELECT position_uuid FROM bittensor_processed_positions")
+        cursor = await self._db.execute(
+            "SELECT position_uuid FROM bittensor_processed_positions"
+        )
         rows = await cursor.fetchall()
         return {row[0] for row in rows}
 

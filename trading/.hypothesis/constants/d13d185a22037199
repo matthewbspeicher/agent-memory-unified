@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/api/routes/shadow.py
+# hypothesis_version: 6.151.11
+
+[100, 400, 404, 501, 1000, '/executions', '/shadow', '/summary', 'agent_name', 'agent_runner', 'agent_store', 'creation_context', 'manual', 'min_cycles', 'min_win_rate', 'name', 'previous_shadow_mode', 'promoted_at', 'promoted_by', 'promotion_criteria', 'promotion_history', 'promotion_rationale', 'rationale', 'shadow', 'shadow_mode', 'shadow_stats', 'stats', 'total_count', 'total_pnl', 'win_rate']

@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/agents/models.py
+# hypothesis_version: 6.151.11
+
+[1.0, 'annotate_only', 'approved', 'assisted', 'auto_execute', 'autonomous', 'error', 'executed', 'expired', 'monitored', 'notify', 'pending', 'rejected', 'running', 'stopped', 'suggest_trade']

@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/api/deps.py
+# hypothesis_version: 6.151.11
+
+['agent_runner', 'broker', 'deps not initialized', 'event_bus', 'opportunity_store', 'risk_engine', 'trade_store']

@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/agents/analytics.py
+# hypothesis_version: 6.151.11
+
+[0.0, 252, 1000, 'AgentRunner | None', 'BUY', 'DataBus', 'SELL', 'TradeStore | None', 'avg_fill_price', 'commission', 'executed', 'filled_quantity', 'order_result', 'side', 'status']

@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/adapters/alpaca/market_data.py
+# hypothesis_version: 6.151.11
+
+[180, 365, '%Y-%m-%dT00:00:00Z', '%Y-%m-%dT23:59:59Z', '+00:00', '0.01', '15Min', '15m', '1Day', '1Hour', '1Min', '1d', '1h', '1m', '1mo', '1y', '2', '30Min', '30m', '3mo', '5Min', '5d', '5m', '60m', '6mo', 'Z', 'ap', 'bp', 'c', 'h', 'l', 'min_order_size', 'name', 'o', 'quote', 'quotes', 't', 'v']

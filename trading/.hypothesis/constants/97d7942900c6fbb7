@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/adapters/polymarket/broker.py
+# hypothesis_version: 6.151.11
+
+[5.0, '+00:00', '0', '0.0', '1', '1000000', '401', '404', 'CANCELLED', 'ContractDetails', 'EXPIRED', 'MATCHED', 'POLYMARKET', 'Unknown SDK error', 'YES', 'Z', 'asks', 'avg_price', 'balance', 'bids', 'conditionId', 'end_date_iso', 'errorMsg', 'failed', 'id', 'orderID', 'price', 'question', 'rejected', 'size', 'size_matched', 'status', 'status_code', 'success']

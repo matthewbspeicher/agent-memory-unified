@@ -95,7 +95,8 @@ class BittensorAlphaAgent(Agent):
             logger,
             logging.INFO,
             "trade.decision",
-            "BittensorAgent: High-conviction signal for %s (%s)" % (symbol_ticker, direction),
+            "BittensorAgent: High-conviction signal for %s (%s)"
+            % (symbol_ticker, direction),
             data={
                 "symbol": symbol_ticker,
                 "direction": direction,

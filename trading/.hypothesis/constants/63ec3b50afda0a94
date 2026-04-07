@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/whatsapp/webhook.py
+# hypothesis_version: 6.151.11
+
+[200, 401, 403, 1000, ',', '/webhook', '/whatsapp', 'Rate limited: %s***', 'X-Hub-Signature-256', 'body', 'changes', 'entry', 'from', 'hub.challenge', 'hub.mode', 'hub.verify_token', 'id', 'messages', 'sha256=', 'subscribe', 'text', 'text/plain', 'value', 'whatsapp']

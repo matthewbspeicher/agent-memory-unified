@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/adapters/kalshi/client.py
+# hypothesis_version: 6.151.11
+
+[10.0, 100, 1000, '/markets', '/portfolio/balance', '/portfolio/orders', '/portfolio/positions', '/trade-api/v2', '/trade-api/ws/v2', '?', 'Content-Type', 'DELETE', 'GET', 'KALSHI-ACCESS-KEY', 'POST', 'action', 'all', 'application/json', 'buy', 'category', 'channels', 'cmd', 'count', 'cursor', 'depth', 'expiration_ts', 'https://', 'id', 'limit', 'market', 'market_positions', 'markets', 'open', 'order', 'orderbook', 'orders', 'params', 'side', 'status', 'subscribe', 'ticker', 'trades', 'type', 'v2', 'ws/v2', 'wss://', 'yes', 'yes_price']

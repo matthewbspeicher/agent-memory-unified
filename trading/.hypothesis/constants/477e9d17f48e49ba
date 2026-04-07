@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/regime/context.py
+# hypothesis_version: 6.151.11
+
+['as_of', 'downtrend', 'equity', 'event_regime', 'high', 'liquidity_regime', 'low', 'market_state', 'medium', 'n/a', 'normal', 'range', 'source_version', 'trend_regime', 'unknown', 'uptrend', 'v1', 'volatility_regime']

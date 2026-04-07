@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/api/auth.py
+# hypothesis_version: 6.151.11
+
+[401, 503, 'Invalid API key', 'X-API-Key', 'config']

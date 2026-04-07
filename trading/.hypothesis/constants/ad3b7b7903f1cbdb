@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/data/sources/newsapi.py
+# hypothesis_version: 6.151.11
+
+[10.0, 900, '+00:00', 'Z', 'apiKey', 'articles', 'en', 'language', 'open', 'pageSize', 'publishedAt', 'q', 'title', 'url']

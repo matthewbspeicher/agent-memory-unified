@@ -1,6 +1,7 @@
 import logging
 import json
 from typing import Dict, Any, List
+
 try:
     import redis.asyncio as aioredis
 except ImportError:
@@ -8,8 +9,11 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+
 class MemoryConsolidator:
-    def __init__(self, llm_client, redis_client: aioredis.Redis, stream_name: str = "events"):
+    def __init__(
+        self, llm_client, redis_client: aioredis.Redis, stream_name: str = "events"
+    ):
         self.llm = llm_client
         self.redis = redis_client
         self.stream_name = stream_name
@@ -35,7 +39,9 @@ class MemoryConsolidator:
             logger.info(f"No memories provided for agent {agent_id}. Skipping.")
             return
 
-        logger.info(f"Starting consolidation for Agent {agent_id} with {len(memories)} memories.")
+        logger.info(
+            f"Starting consolidation for Agent {agent_id} with {len(memories)} memories."
+        )
 
         # Prepare payload for LLM
         memories_text = []
@@ -52,7 +58,7 @@ class MemoryConsolidator:
         )
 
         try:
-            # We assume self.llm has an async generate or similar method. 
+            # We assume self.llm has an async generate or similar method.
             # We'll use a generic __call__ or generate pattern, but let's carefully try to use what exists.
             # Usually it's an instance of an LLM client (e.g. litellm or langchain or internal wrapper)
             if hasattr(self.llm, "agenerate_text"):
@@ -62,7 +68,9 @@ class MemoryConsolidator:
                 consolidated_value = await self.llm(prompt)
             else:
                 # Mock response if LLM client is a mock or interface is unknown
-                logger.warning("LLM client interface not fully mapped, using default summarization.")
+                logger.warning(
+                    "LLM client interface not fully mapped, using default summarization."
+                )
                 consolidated_value = f"Consolidated {len(memories)} memories into a general strategic outline."
         except Exception as e:
             logger.error(f"LLM consolidation failed: {e}")
@@ -79,14 +87,17 @@ class MemoryConsolidator:
                 "consolidated_memory": {
                     "type": "consolidated",
                     "value": consolidated_value,
-                    "summary": f"Consolidated from {len(memories)} earlier memories"
-                }
-            }
+                    "summary": f"Consolidated from {len(memories)} earlier memories",
+                },
+            },
         }
 
         try:
-            await self.redis.xadd(self.stream_name, {"data": json.dumps(completion_payload)})
-            logger.info(f"Published memory.consolidation.completed for Agent {agent_id}")
+            await self.redis.xadd(
+                self.stream_name, {"data": json.dumps(completion_payload)}
+            )
+            logger.info(
+                f"Published memory.consolidation.completed for Agent {agent_id}"
+            )
         except Exception as e:
             logger.error(f"Failed to publish completion event to Redis: {e}")
-

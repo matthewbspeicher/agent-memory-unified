@@ -4,7 +4,13 @@ from intelligence.models import IntelReport
 from intelligence.enrichment import enrich_confidence
 
 
-def _make_report(source: str, score: float, confidence: float, veto: bool = False, veto_reason: str | None = None) -> IntelReport:
+def _make_report(
+    source: str,
+    score: float,
+    confidence: float,
+    veto: bool = False,
+    veto_reason: str | None = None,
+) -> IntelReport:
     return IntelReport(
         source=source,
         symbol="BTCUSD",
@@ -45,7 +51,15 @@ def test_conflicting_report_is_ignored():
 
 
 def test_veto_returns_zero_confidence():
-    reports = [_make_report("anomaly", score=-0.8, confidence=0.9, veto=True, veto_reason="5x volume spike")]
+    reports = [
+        _make_report(
+            "anomaly",
+            score=-0.8,
+            confidence=0.9,
+            veto=True,
+            veto_reason="5x volume spike",
+        )
+    ]
     conf, enrichment = enrich_confidence(0.65, 0.5, reports, WEIGHTS)
     assert conf == 0.0
     assert enrichment.vetoed is True
@@ -92,7 +106,13 @@ def test_zero_base_confidence():
 
 def test_veto_checked_before_enrichment():
     reports = [
-        _make_report("anomaly", score=-0.9, confidence=0.95, veto=True, veto_reason="extreme volume"),
+        _make_report(
+            "anomaly",
+            score=-0.9,
+            confidence=0.95,
+            veto=True,
+            veto_reason="extreme volume",
+        ),
         _make_report("on_chain", score=0.8, confidence=0.9),
     ]
     conf, enrichment = enrich_confidence(0.65, 0.5, reports, WEIGHTS)

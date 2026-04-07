@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/strategies/polymarket_news_arb.py
+# hypothesis_version: 6.151.11
+
+[5.0, 8.0, 100.0, 500, '\n- ', '+00:00', './/item', 'POLY', 'Short explanation', 'Z', '_app_state', '_polymarket_source', 'apiKey', 'articles', 'confidence', 'crypto', 'description', 'implied_probability', 'integer', 'llm_prob', 'market_prob', 'markets finance', 'max_markets_per_scan', 'min_confidence', 'min_days_to_close', 'min_volume', 'newsapi_key', 'object', 'pageSize', 'politics', 'polymarket', 'properties', 'q', 'reasoning', 'required', 'rss_feeds', 'string', 'tags', 'threshold_cents', 'title', 'type']

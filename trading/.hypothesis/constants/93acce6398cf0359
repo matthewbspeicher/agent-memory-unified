@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/adapters/tradier/order_manager.py
+# hypothesis_version: 6.151.11
+
+[0.0, 1.0, 10.0, 30.0, 'avg_fill_price', 'buy', 'canceled', 'day', 'exec_quantity', 'expired', 'filled', 'id', 'limit', 'market', 'order', 'quantity', 'rejected', 'sell', 'status', 'stop', 'stop_limit', 'trailing_stop']

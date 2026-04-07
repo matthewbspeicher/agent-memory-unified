@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/data/universe.py
+# hypothesis_version: 6.151.11
+
+['AAPL', 'ABBV', 'ABT', 'ACN', 'ADBE', 'ADI', 'AMAT', 'AMD', 'AMGN', 'AMZN', 'ASML', 'AVGO', 'AXP', 'AZN', 'BA', 'BAC', 'BKNG', 'BRK.B', 'CAT', 'CDNS', 'COST', 'CRM', 'CSCO', 'CTAS', 'CVX', 'DE', 'DHR', 'DIS', 'DJIA', 'DOW', 'DXCM', 'FTNT', 'GILD', 'GOOG', 'GOOGL', 'GS', 'HD', 'HON', 'IBM', 'INTC', 'INTU', 'ISRG', 'JNJ', 'JPM', 'KDP', 'KLAC', 'KO', 'LIN', 'LLY', 'LOW', 'LRCX', 'MA', 'MAR', 'MCD', 'MCHP', 'META', 'MMM', 'MNST', 'MRK', 'MRVL', 'MSFT', 'MU', 'NASDAQ100', 'NEE', 'NFLX', 'NKE', 'NVDA', 'NXPI', 'ORCL', 'ORLY', 'PANW', 'PCAR', 'PDD', 'PEP', 'PG', 'PM', 'QCOM', 'REGN', 'SBUX', 'SNPS', 'SP500', 'SPGI', 'TEAM', 'TMO', 'TMUS', 'TRV', 'TSLA', 'TXN', 'UNH', 'UPS', 'V', 'VRTX', 'VZ', 'WBA', 'WDAY', 'WMT', 'XOM']

@@ -9,6 +9,7 @@ from strategies.bittensor_consensus import BittensorAlphaAgent
 from agents.models import AgentConfig, ActionLevel, AgentSignal
 from agents.runner import AgentRunner
 
+
 @pytest.mark.asyncio
 async def test_bittensor_mock_e2e_loop():
     """
@@ -51,14 +52,14 @@ async def test_bittensor_mock_e2e_loop():
         "price": 65000.0,
         "open_ms": int(now.timestamp() * 1000),
         "direction": "long",
-        "miner_hotkey": "test_miner"
+        "miner_hotkey": "test_miner",
     }
 
     sig = AgentSignal(
         source_agent="taoshi_bridge",
         signal_type="bittensor_miner_position",
         payload=base_payload,
-        expires_at=now + timedelta(minutes=30)
+        expires_at=now + timedelta(minutes=30),
     )
 
     # Publish the raw position to the bus
@@ -71,7 +72,9 @@ async def test_bittensor_mock_e2e_loop():
 
     await aggregator.stop()
 
-    assert len(emitted_opps) > 0, "Agent did not emit any opportunities from aggregated signals"
+    assert len(emitted_opps) > 0, (
+        "Agent did not emit any opportunities from aggregated signals"
+    )
     opp = emitted_opps[0]
     assert opp.agent_name == "bt_agent"
     assert opp.symbol.ticker == "BTC/USD"

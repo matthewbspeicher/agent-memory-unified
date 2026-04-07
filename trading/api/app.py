@@ -494,8 +494,10 @@ async def _setup_bittensor_integration(
 
         aggregator = MinerConsensusAggregator(
             signal_bus=signal_bus,
-            store=app.state.bittensor_store if hasattr(app.state, "bittensor_store") else None,
-            window_minutes=5
+            store=app.state.bittensor_store
+            if hasattr(app.state, "bittensor_store")
+            else None,
+            window_minutes=5,
         )
         app.state.consensus_aggregator = aggregator
         task_mgr.create_task(aggregator.start(), name="consensus_aggregator")

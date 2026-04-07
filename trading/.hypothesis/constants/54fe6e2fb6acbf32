@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/api/routes/learning.py
+# hypothesis_version: 6.151.11
+
+['/api/agents', '/{name}/overrides', '/{name}/performance', '/{name}/pnl', '/{name}/trust', 'agent', 'closed', 'learning', 'message', 'none', 'open', 'overrides_deleted', 'rest_api', 'status', 'trust_level']

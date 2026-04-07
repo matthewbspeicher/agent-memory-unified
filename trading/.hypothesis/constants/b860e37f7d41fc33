@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/sizing/kelly.py
+# hypothesis_version: 6.151.11
+
+[0.0, 1.0, '0', '0.10', '0.5', '1']

@@ -383,7 +383,7 @@ def load_config(env_file: str = ".env") -> Config:
                 continue
 
         if field_name.startswith("intel_"):
-            nested_name = field_name[len("intel_"):]
+            nested_name = field_name[len("intel_") :]
             if nested_name in intel_annotations:
                 _set_nested(
                     config.intel,

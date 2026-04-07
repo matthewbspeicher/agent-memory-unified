@@ -81,6 +81,7 @@ class TestLoadConfigFromDotEnv:
     def test_reads_dotenv_file(self, tmp_path, monkeypatch):
         # Clear all STA_ env vars so only .env file values apply
         import os
+
         for key in list(os.environ):
             if key.startswith("STA_"):
                 monkeypatch.delenv(key)

@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/risk/governor.py
+# hypothesis_version: 6.151.11
+
+[-1.0, 0.0, 0.1, 0.5, 0.7, 1.0, 1.5, 3.0, 5.0, 100.0, 1000.0, 300, '1', 'AUTONOMOUS', 'MONITORED', 'UNKNOWN', 'agent_name', 'base_allocation_usd', 'cache', 'capital_allocation', 'capital_governor', 'circuit_breakers', 'daily_pnl_pct', 'governor.yaml', 'max_drawdown_24h_pct', 'portfolio_risk', 'r', 'scaling_factor', 'trust_level', 'ttl_seconds', 'unknown']

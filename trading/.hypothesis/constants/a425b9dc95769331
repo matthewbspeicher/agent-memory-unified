@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/storage/trade_analytics.py
+# hypothesis_version: 6.151.11
+
+[500, 1000, ' AND agent_name = ?', ' AND exit_time >= ?', ', ', '?', 'agent_name', 'created_at', 'tracked_position_id', 'updated_at']

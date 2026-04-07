@@ -16,7 +16,11 @@ from integrations.bittensor.scheduler import next_hash_window
 router = APIRouter()
 
 
-@router.get("/api/bittensor/status", response_model=BittensorStatusResponse, response_model_exclude_none=True)
+@router.get(
+    "/api/bittensor/status",
+    response_model=BittensorStatusResponse,
+    response_model_exclude_none=True,
+)
 async def bittensor_status(
     request: Request,
     _: str = Depends(verify_api_key),
@@ -39,15 +43,19 @@ async def bittensor_status(
             "direct_query_enabled": direct_query_enabled,
         }
         if direct_query_enabled:
-            scheduler_data.update({
-                "last_window_collected": (
-                    scheduler.last_success_at.isoformat()
-                    if getattr(scheduler, "last_success_at", None)
-                    else None
-                ),
-                "next_window": next_hash_window(now).isoformat(),
-                "windows_collected_total": getattr(scheduler, "windows_collected_total", 0),
-            })
+            scheduler_data.update(
+                {
+                    "last_window_collected": (
+                        scheduler.last_success_at.isoformat()
+                        if getattr(scheduler, "last_success_at", None)
+                        else None
+                    ),
+                    "next_window": next_hash_window(now).isoformat(),
+                    "windows_collected_total": getattr(
+                        scheduler, "windows_collected_total", 0
+                    ),
+                }
+            )
 
     # Miners section
     direct_query_on = scheduler and getattr(scheduler, "_direct_query_enabled", False)
@@ -125,7 +133,11 @@ async def bittensor_status(
     }
 
 
-@router.get("/api/bittensor/rankings", response_model=BittensorRankingsResponse, response_model_exclude_none=True)
+@router.get(
+    "/api/bittensor/rankings",
+    response_model=BittensorRankingsResponse,
+    response_model_exclude_none=True,
+)
 async def bittensor_rankings(
     request: Request,
     limit: int = 50,
@@ -155,7 +167,11 @@ async def bittensor_rankings(
     }
 
 
-@router.get("/api/bittensor/metrics", response_model=BittensorMetricsResponse, response_model_exclude_none=True)
+@router.get(
+    "/api/bittensor/metrics",
+    response_model=BittensorMetricsResponse,
+    response_model_exclude_none=True,
+)
 async def bittensor_metrics(
     request: Request,
     _: str = Depends(verify_api_key),
@@ -184,7 +200,11 @@ async def bittensor_metrics(
     return result
 
 
-@router.get("/api/bittensor/signals", response_model=BittensorSignalsResponse, response_model_exclude_none=True)
+@router.get(
+    "/api/bittensor/signals",
+    response_model=BittensorSignalsResponse,
+    response_model_exclude_none=True,
+)
 async def bittensor_signals(
     request: Request,
     symbol: str = "BTCUSD",

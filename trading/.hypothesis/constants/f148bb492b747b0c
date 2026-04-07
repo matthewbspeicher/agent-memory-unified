@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/storage/external.py
+# hypothesis_version: 6.151.11
+
+[3600, ' AND ', ' GROUP BY symbol', ' WHERE ', ',', '0', '?', 'BEGIN', 'account_id = ?', 'broker = ?', 'cash', 'cost_basis', 'current_value', 'description', 'last_price', 'net_liquidation', 'quantity', 'symbol']

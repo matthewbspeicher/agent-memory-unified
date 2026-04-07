@@ -20,7 +20,7 @@ class CustomJSONEncoder(json.JSONEncoder):
 @router.websocket("/public")
 async def public_websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
-    
+
     # We can just start sending events
     event_bus = get_event_bus()
     try:
@@ -30,6 +30,7 @@ async def public_websocket_endpoint(websocket: WebSocket):
             await websocket.send_text(payload)
     except WebSocketDisconnect:
         pass
+
 
 @router.websocket("")
 async def websocket_endpoint(websocket: WebSocket):

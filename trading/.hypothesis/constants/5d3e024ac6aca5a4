@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/adapters/ibkr/orders.py
+# hypothesis_version: 6.151.11
+
+['ApiCancelled', 'Cancelled', 'Filled', 'Inactive', 'LMT', 'MKT', 'PreSubmitted', 'STP', 'STP LMT', 'Submitted', 'TRAIL']

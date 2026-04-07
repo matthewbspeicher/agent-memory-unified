@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/adapters/fidelity/watcher.py
+# hypothesis_version: 6.151.11
+
+['%Y%m%dT%H%M%SZ', '*.csv', '0', 'cash', 'cost_basis', 'current_value', 'data/imports', 'description', 'failed', 'fidelity', 'last_price', 'net_liquidation', 'processed', 'quantity', 'replace', 'symbol', 'utf-8']

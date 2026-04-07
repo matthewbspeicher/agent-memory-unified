@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/learning/confidence_calibration.py
+# hypothesis_version: 6.151.11
+
+[0.0, 0.005, 0.015, 0.03, 0.1, 0.25, 0.5, 0.6, 0.75, 1.0, 1.25, '30d', '90d', 'N/A', 'all', 'avg_net_pnl', 'avg_net_return_pct', 'calibrated_score', 'confidence', 'exit_time', 'expectancy', 'insufficient', 'max_drawdown', 'net_pnl', 'net_return_pct', 'profit_factor', 'realized_outcome', 'sample_quality', 'strong', 'trade_count', 'unknown', 'usable', 'weak', 'win', 'win_rate']

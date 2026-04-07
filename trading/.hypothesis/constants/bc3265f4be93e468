@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/execution/costs.py
+# hypothesis_version: 6.151.11
+
+['10000', '2', 'Order', 'SELL', 'unknown']

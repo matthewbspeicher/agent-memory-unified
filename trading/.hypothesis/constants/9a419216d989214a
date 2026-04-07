@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/utils/config_loader.py
+# hypothesis_version: 6.151.11
+
+['/app']

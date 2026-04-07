@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/agents/tuning.py
+# hypothesis_version: 6.151.11
+
+[0.05, 0.1, 0.4, 0.5, 0.6, 0.7, 0.95, 100, 500, 600, '\n- ', ', ', 'AgentRunner', 'Key lesson', 'OpportunityStore', 'TradeStore', '```', 'confidence_threshold', 'executed', 'execution_rate', 'rejected', 'status', 'value', 'win_rate']

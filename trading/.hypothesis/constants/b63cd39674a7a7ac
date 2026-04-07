@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/adapters/polymarket/client.py
+# hypothesis_version: 6.151.11
+
+[100, 256, 384, '_owner', '_spender', '_value', 'active', 'address', 'allowance', 'api_key', 'api_passphrase', 'api_secret', 'approve', 'approved', 'balance', 'balanceOf', 'bool', 'constant', 'data', 'from', 'function', 'inputs', 'isApprovedForAll', 'limit', 'market', 'name', 'next_cursor', 'nonce', 'operator', 'outputs', 'owner', 'setApprovalForAll', 'true', 'type', 'uint256']

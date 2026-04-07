@@ -213,9 +213,9 @@ class TaoshiScheduler:
             self._collection_durations.append(duration)
             if len(self._collection_durations) > 100:
                 self._collection_durations = self._collection_durations[-100:]
-            self.metrics.avg_collection_duration_secs = (
-                sum(self._collection_durations) / len(self._collection_durations)
-            )
+            self.metrics.avg_collection_duration_secs = sum(
+                self._collection_durations
+            ) / len(self._collection_durations)
             self.metrics.last_miner_response_rate = (
                 len(forward_forecasts) / self.last_window_miner_count
                 if self.last_window_miner_count > 0

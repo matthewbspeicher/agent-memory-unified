@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/risk/engine.py
+# hypothesis_version: 6.151.11
+
+['action', 'cancel_all_orders', 'kill_switch', 'orders']

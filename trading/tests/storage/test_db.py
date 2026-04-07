@@ -70,8 +70,7 @@ class TestDatabaseConnectionConnect:
 
                 mock_create_pool.assert_called_once()
                 assert (
-                    mock_create_pool.call_args[0][0]
-                    == "postgresql://user:pass@host/db"
+                    mock_create_pool.call_args[0][0] == "postgresql://user:pass@host/db"
                 )
                 mock_postgres_cls.assert_called_once_with(mock_pool)
                 assert db == mock_postgres_db
@@ -162,8 +161,6 @@ class TestDatabaseConnectionConnect:
                 await db_conn.connect()
 
                 mock_init.assert_called_once_with(mock_db)
-
-
 
 
 class TestDatabaseConnectionClose:

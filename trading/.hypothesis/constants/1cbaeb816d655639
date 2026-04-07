@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/whatsapp/proactive.py
+# hypothesis_version: 6.151.11
+
+[0.0, 0.2, 0.5, 1.0, -1900, 300, 2000, 3600, 14400, 28800, 86400, '%Y-%m-%d', '%m%d%H%M', '...[truncated]...\n', '6mo', 'AAPL', 'ACTIVE', 'GOOGL', 'MSFT', 'RUNNING', 'WhatsAppAssistant', '_agent_store', '_db', 'check_health', 'creation_context', 'dormant', 'hermes.proactive', 'hermes_full_autonomy', 'improvement', 'min_sharpe', 'min_trades', 'name', 'parameters', 'parent_name', 'parent_sharpe', 'promotion_criteria', 'reason', 'resolved_count', 'shadow_mode', 'sharpe_ratio', 'spawn_shadow', 'status', 'strategy', 'total_trades', 'universe', 'variant_sharpe', 'win_rate']

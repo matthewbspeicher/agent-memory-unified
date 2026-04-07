@@ -24,7 +24,9 @@ logger = logging.getLogger(__name__)
 class IntelligenceLayer:
     """Orchestrates intel providers, enriches consensus signals, publishes results."""
 
-    def __init__(self, signal_bus: SignalBus, config: IntelligenceConfig, memory_manager=None):
+    def __init__(
+        self, signal_bus: SignalBus, config: IntelligenceConfig, memory_manager=None
+    ):
         self.signal_bus = signal_bus
         self.config = config
         self._running = False
@@ -40,13 +42,17 @@ class IntelligenceLayer:
         )
 
         # Circuit breakers (one per provider)
-        cb = lambda: ProviderCircuitBreaker(config.circuit_breaker_failures, config.circuit_breaker_reset_seconds)
+        def make_breaker() -> ProviderCircuitBreaker:
+            return ProviderCircuitBreaker(
+                config.circuit_breaker_failures, config.circuit_breaker_reset_seconds
+            )
+
         self._breakers: dict[str, ProviderCircuitBreaker] = {
-            "on_chain": cb(),
-            "sentiment": cb(),
-            "anomaly": cb(),
-            "regime": cb(),
-            "risk_audit": cb(),
+            "on_chain": make_breaker(),
+            "sentiment": make_breaker(),
+            "anomaly": make_breaker(),
+            "regime": make_breaker(),
+            "risk_audit": make_breaker(),
         }
 
         # Metrics
@@ -75,10 +81,14 @@ class IntelligenceLayer:
         direction = payload.get("direction", "flat")
 
         # Map direction to numeric score for enrichment
-        direction_score = {"bullish": 1.0, "bearish": -1.0, "flat": 0.0}.get(direction, 0.0)
+        direction_score = {"bullish": 1.0, "bearish": -1.0, "flat": 0.0}.get(
+            direction, 0.0
+        )
 
         if not self.config.enabled:
-            await self._publish_enriched(signal, base_confidence, vetoed=False, enrichment_data={})
+            await self._publish_enriched(
+                signal, base_confidence, vetoed=False, enrichment_data={}
+            )
             return
 
         reports = await self._gather_intel(symbol)
@@ -93,10 +103,27 @@ class IntelligenceLayer:
 
         if enrichment.vetoed:
             self._vetos_issued += 1
-            log_event(logger, logging.WARNING, "intel.veto", f"Intel veto for {symbol}: {enrichment.veto_reason}", data={"symbol": symbol, "reason": enrichment.veto_reason})
+            log_event(
+                logger,
+                logging.WARNING,
+                "intel.veto",
+                f"Intel veto for {symbol}: {enrichment.veto_reason}",
+                data={"symbol": symbol, "reason": enrichment.veto_reason},
+            )
         else:
             self._enrichments_applied += 1
-            log_event(logger, logging.INFO, "intel.enrichment", f"Intel enrichment for {symbol}: {base_confidence:.3f} -> {enriched_confidence:.3f}", data={"symbol": symbol, "base": base_confidence, "enriched": enriched_confidence, "adjustment": enrichment.adjustment})
+            log_event(
+                logger,
+                logging.INFO,
+                "intel.enrichment",
+                f"Intel enrichment for {symbol}: {base_confidence:.3f} -> {enriched_confidence:.3f}",
+                data={
+                    "symbol": symbol,
+                    "base": base_confidence,
+                    "enriched": enriched_confidence,
+                    "adjustment": enrichment.adjustment,
+                },
+            )
 
         await self._publish_enriched(
             signal,
@@ -141,7 +168,9 @@ class IntelligenceLayer:
                 timeout=timeout,
             )
         except asyncio.TimeoutError:
-            logger.warning("Intelligence gathering timed out after %dms", self.config.timeout_ms)
+            logger.warning(
+                "Intelligence gathering timed out after %dms", self.config.timeout_ms
+            )
             return []
 
         reports = []
@@ -153,7 +182,13 @@ class IntelligenceLayer:
 
         return reports
 
-    async def _publish_enriched(self, original: AgentSignal, enriched_confidence: float, vetoed: bool, enrichment_data: dict) -> None:
+    async def _publish_enriched(
+        self,
+        original: AgentSignal,
+        enriched_confidence: float,
+        vetoed: bool,
+        enrichment_data: dict,
+    ) -> None:
         enriched_payload = dict(original.payload)
         enriched_payload["enriched_confidence"] = enriched_confidence
         enriched_payload["vetoed"] = vetoed

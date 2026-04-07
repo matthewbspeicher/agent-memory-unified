@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/api/routes/import_portfolio.py
+# hypothesis_version: 6.151.11
+
+[400, '/import/fidelity', '/portfolio/external', '0', 'accounts', 'accounts_imported', 'balances', 'cash', 'cost_basis', 'current_value', 'description', 'fidelity', 'id', 'import', 'import_age_hours', 'last_price', 'name', 'net_liquidation', 'positions', 'quantity', 'symbol', 'total_positions', 'utf-8', 'value']

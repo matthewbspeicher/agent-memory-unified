@@ -47,9 +47,7 @@ class TwitterAdapter(SignalAdapter):
         try:
             markets = await self._data_bus.get_kalshi_markets()
             tickers = [
-                m.ticker
-                for m in markets[:5]
-                if TICKER_PATTERN.match(m.ticker or "")
+                m.ticker for m in markets[:5] if TICKER_PATTERN.match(m.ticker or "")
             ]
         except Exception as e:
             logger.error("TwitterAdapter: failed to get tickers from DataBus: %s", e)

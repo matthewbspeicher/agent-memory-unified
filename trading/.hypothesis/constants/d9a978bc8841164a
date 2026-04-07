@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/strategies/llm_analyst.py
+# hypothesis_version: 6.151.11
+
+[0.5, 2048, '-y', '@remembr/mcp-server', 'LLM scan failed: %s', 'LLM_SIGNAL', 'REMEMBR_API_KEY', '[', ']', 'assistant', 'confidence', 'content', 'description', 'input_schema', 'is_error', 'name', 'npx', 'reasoning', 'remembr_api_token', 'role', 'signal', 'text', 'ticker', 'tool_result', 'tool_use', 'tool_use_id', 'type', 'user']

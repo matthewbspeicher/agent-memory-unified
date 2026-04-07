@@ -69,6 +69,7 @@ class StructuredTextFormatter(logging.Formatter):
 # Convenience helpers
 # ---------------------------------------------------------------------------
 
+
 def log_event(
     logger: logging.Logger,
     level: int,
@@ -101,6 +102,7 @@ def log_event(
 # ---------------------------------------------------------------------------
 # Root logger configuration — call once at startup
 # ---------------------------------------------------------------------------
+
 
 def setup_logging(
     level: str = "INFO",

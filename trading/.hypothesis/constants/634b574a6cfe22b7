@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/api/routes/strategy_analytics.py
+# hypothesis_version: 6.151.11
+
+[100, 200, 500, 1000, 10000, '-inf', '/scorecard', '/{agent_name}', '/{agent_name}/trades', '30d', '7d', '90d', '^(7d|30d|90d|all)$', 'all', 'broker_id', 'expectancy', 'liquidity_regime', 'side', 'strategy-analytics', 'symbol', 'trend_regime', 'volatility_regime']

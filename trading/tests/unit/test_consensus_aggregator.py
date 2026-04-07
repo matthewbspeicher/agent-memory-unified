@@ -7,6 +7,7 @@ from agents.models import AgentSignal
 from data.signal_bus import SignalBus
 from integrations.bittensor.consensus_aggregator import MinerConsensusAggregator
 
+
 @pytest.mark.asyncio
 async def test_consensus_aggregator_emits_consensus():
     signal_bus = SignalBus()
@@ -14,7 +15,7 @@ async def test_consensus_aggregator_emits_consensus():
     await aggregator.start()
 
     published_signals = []
-    
+
     async def mock_publish(signal: AgentSignal):
         if signal.signal_type == "bittensor_consensus":
             published_signals.append(signal)
@@ -27,7 +28,7 @@ async def test_consensus_aggregator_emits_consensus():
         "symbol": "BTCUSD",
         "leverage": 1.0,
         "price": 65000.0,
-        "open_ms": int(now.timestamp() * 1000)
+        "open_ms": int(now.timestamp() * 1000),
     }
 
     # 3 bullish miners
@@ -35,12 +36,12 @@ async def test_consensus_aggregator_emits_consensus():
         payload = base_payload.copy()
         payload["miner_hotkey"] = f"hotkey{i}"
         payload["direction"] = "long"
-        
+
         sig = AgentSignal(
             source_agent="taoshi_bridge",
             signal_type="bittensor_miner_position",
             payload=payload,
-            expires_at=now + timedelta(minutes=30)
+            expires_at=now + timedelta(minutes=30),
         )
         await aggregator._handle_miner_position(sig)
 
@@ -56,6 +57,7 @@ async def test_consensus_aggregator_emits_consensus():
 
     await aggregator.stop()
 
+
 @pytest.mark.asyncio
 async def test_stale_positions_are_ignored():
     signal_bus = SignalBus()
@@ -63,7 +65,7 @@ async def test_stale_positions_are_ignored():
     await aggregator.start()
 
     published_signals = []
-    
+
     async def mock_publish(signal: AgentSignal):
         if signal.signal_type == "bittensor_consensus":
             published_signals.append(signal)
@@ -78,16 +80,16 @@ async def test_stale_positions_are_ignored():
         "direction": "long",
         "leverage": 1.0,
         "price": 3500.0,
-        "open_ms": int((now - timedelta(minutes=10)).timestamp() * 1000) # 10 mins old
+        "open_ms": int((now - timedelta(minutes=10)).timestamp() * 1000),  # 10 mins old
     }
 
     sig = AgentSignal(
         source_agent="taoshi_bridge",
         signal_type="bittensor_miner_position",
         payload=payload,
-        expires_at=now + timedelta(minutes=30)
+        expires_at=now + timedelta(minutes=30),
     )
-    
+
     await aggregator._handle_miner_position(sig)
     await asyncio.sleep(0.1)
 

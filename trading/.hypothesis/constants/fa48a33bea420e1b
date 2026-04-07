@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/api/dependencies.py
+# hypothesis_version: 6.151.11
+
+[401, 403, 500, 'Bearer ', 'JWT_SECRET', 'db', 'redis', 'scopes']

@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/storage/paper.py
+# hypothesis_version: 6.151.11
+
+[0.0, 100000.0, "(datetime('now'))", '-1', '0', '0.00', '1', '1.00', 'NO', 'NOW()', 'PAPER', 'YES', 'already exists', 'asset_type', 'avg_cost', 'avg_fill_price', 'buying_power', 'cash', 'filled_quantity', 'maintenance_margin', 'net_liquidation', 'order_id', 'quantity', 'realized_pnl', 'resolved_at', 'status', 'symbol']

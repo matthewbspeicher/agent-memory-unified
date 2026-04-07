@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/adapters/kalshi/data_source.py
+# hypothesis_version: 6.151.11
+
+['+00:00', '1.00', '100', 'Z', 'category', 'close_time', 'last_price', 'no', 'no_dollars', 'open', 'open_interest', 'orderbook_fp', 'result', 'ticker', 'title', 'volume_24h', 'yes', 'yes_ask', 'yes_bid', 'yes_dollars', 'yes_price']

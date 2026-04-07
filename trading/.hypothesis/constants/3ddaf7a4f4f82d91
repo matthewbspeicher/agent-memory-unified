@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/storage/spreads.py
+# hypothesis_version: 6.151.11
+
+[0.0, 'gap_cents', 'id', 'kalshi_cents', 'kalshi_ticker', 'match_score', 'observed_at', 'poly_cents', 'poly_ticker']

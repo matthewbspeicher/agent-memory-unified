@@ -38,29 +38,31 @@ class SentimentProvider(BaseIntelProvider):
         )
 
     async def _fetch_fear_greed(self) -> int:
+        """Fetch current Fear & Greed Index."""
         import aiohttp
+
         async with aiohttp.ClientSession() as session:
             async with session.get(
-                "https://api.alternative.me/fng/?limit=1", timeout=aiohttp.ClientTimeout(total=5)
+                "https://api.alternative.me/fng/?limit=1",
+                timeout=aiohttp.ClientTimeout(total=5),
             ) as resp:
                 data = await resp.json()
                 return int(data["data"][0]["value"])
 
     @staticmethod
     def _fg_to_score(value: int) -> float:
-        """Convert Fear & Greed (0-100) to contrarian score (-1 to +1).
+        """Convert Fear & Greed (0-100) to score (-1 to +1), contrarian.
 
-        Low fear/greed values (extreme fear) produce positive scores (bullish contrarian signal).
-        High values (extreme greed) produce negative scores (bearish contrarian signal).
+        Extreme fear (0-25) -> bullish (+0.2 to +0.5)
+        Neutral (25-75) -> near zero
+        Extreme greed (75-100) -> bearish (-0.2 to -0.5)
         """
+        # Linear mapping: 0 -> +0.5, 50 -> 0.0, 100 -> -0.5
         return (50 - value) / 100.0
 
     @staticmethod
     def _fg_to_confidence(value: int) -> float:
-        """Convert Fear & Greed distance from neutral to confidence (0.3 to 1.0).
-
-        Extreme values (near 0 or 100) yield higher confidence.
-        Neutral values (near 50) yield lower confidence.
-        """
+        """Confidence is higher at extremes, lower near neutral."""
         distance_from_center = abs(value - 50)
+        # 0 at center, 1.0 at extremes
         return min(distance_from_center / 50.0, 1.0) * 0.7 + 0.3

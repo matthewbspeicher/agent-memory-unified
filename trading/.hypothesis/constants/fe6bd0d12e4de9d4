@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/strategies/bittensor_consensus.py
+# hypothesis_version: 6.151.11
+
+[0.015, 0.7, '-', '0', 'USD', 'action', 'bittensor_consensus', 'bullish', 'confidence', 'create_opportunity', 'direction', 'expected_return', 'flat', 'min_agreement', 'min_return', 'skip', 'symbol', 'trade.decision']

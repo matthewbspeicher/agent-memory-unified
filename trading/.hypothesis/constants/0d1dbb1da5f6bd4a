@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/adapters/alpaca/client.py
+# hypothesis_version: 6.151.11
+
+[1.0, 2.0, 4.0, 15.0, 403, 422, 429, 10000, ',', '/v2/account', '/v2/clock', '/v2/orders', '/v2/positions', 'APCA-API-KEY-ID', 'APCA-API-SECRET-KEY', 'DELETE', 'Forbidden', 'GET', 'POST', 'Unprocessable', 'all', 'bars', 'buying power', 'code', 'end', 'feed', 'halted', 'iex', 'insufficient', 'limit', 'limit_price', 'message', 'next_page_token', 'not tradable', 'order_class', 'page_token', 'params', 'qty', 'side', 'start', 'status', 'stop_loss', 'stop_price', 'symbol', 'symbols', 'take_profit', 'time_in_force', 'timeframe', 'trail_percent', 'trail_price', 'type']

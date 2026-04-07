@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/api/routes/portfolio.py
+# hypothesis_version: 6.151.11
+
+['/portfolio/summary', '0', 'avg_cost', 'balance', 'brokers', 'buying_power', 'cash', 'connected', 'demo', 'dry_run', 'equity', 'kalshi', 'kalshi_demo', 'market_value', 'net_liquidation', 'open_positions', 'polymarket', 'polymarket_dry_run', 'positions', 'quantity', 'settings', 'symbol', 'totals', 'unrealized_pnl']

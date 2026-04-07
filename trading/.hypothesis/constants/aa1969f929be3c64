@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/broker/paper.py
+# hypothesis_version: 6.151.11
+
+[0.001, 100000.0, '0.001', 'BEGIN', 'PAPER', 'limit_price']

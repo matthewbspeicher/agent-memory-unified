@@ -57,7 +57,9 @@ class AnomalyProvider(BaseIntelProvider):
         raise NotImplementedError("Requires exchange API integration")
 
     @staticmethod
-    def _compute_score(volume_ratio: float, price_direction: float, spread_ratio: float) -> float:
+    def _compute_score(
+        volume_ratio: float, price_direction: float, spread_ratio: float
+    ) -> float:
         score = 0.0
         if volume_ratio >= 3.0:
             score += price_direction * 0.2
@@ -71,13 +73,22 @@ class AnomalyProvider(BaseIntelProvider):
 
     @staticmethod
     def _compute_confidence(volume_ratio: float, spread_ratio: float) -> float:
-        volume_conf = min((volume_ratio - 1.0) / 4.0, 0.5) if volume_ratio > 1.0 else 0.0
-        spread_conf = min((spread_ratio - 1.0) / 2.0, 0.3) if spread_ratio > 1.0 else 0.0
+        volume_conf = (
+            min((volume_ratio - 1.0) / 4.0, 0.5) if volume_ratio > 1.0 else 0.0
+        )
+        spread_conf = (
+            min((spread_ratio - 1.0) / 2.0, 0.3) if spread_ratio > 1.0 else 0.0
+        )
         return min(0.3 + volume_conf + spread_conf, 1.0)
 
     @staticmethod
-    def _check_veto(volume_ratio: float, price_direction: float) -> tuple[bool, str | None]:
+    def _check_veto(
+        volume_ratio: float, price_direction: float
+    ) -> tuple[bool, str | None]:
         """Veto if volume > 5x normal AND price moving against (likely manipulation/black swan)."""
         if volume_ratio > 5.0 and price_direction < 0:
-            return True, f"Volume {volume_ratio:.1f}x normal with price declining — possible manipulation"
+            return (
+                True,
+                f"Volume {volume_ratio:.1f}x normal with price declining — possible manipulation",
+            )
         return False, None

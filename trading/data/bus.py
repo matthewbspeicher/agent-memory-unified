@@ -195,9 +195,7 @@ class DataBus:
 
     # --- Prediction Markets ---
 
-    async def get_kalshi_markets(
-        self, category: str | None = None
-    ) -> list:
+    async def get_kalshi_markets(self, category: str | None = None) -> list:
         """Delegate to the Kalshi data source for prediction market data."""
         if not self._kalshi_source:
             return []

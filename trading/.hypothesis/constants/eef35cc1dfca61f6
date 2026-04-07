@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/api/routes/backtest.py
+# hypothesis_version: 6.151.11
+
+[1.0, 100000.0, 100, 400, 404, 501, '/backtest', '/backtest/results', '/backtest/sandbox', '1d', '6mo', 'AAPL', 'AMZN', 'Backtest', 'GOOGL', 'MSFT', 'TSLA', '_source', 'agent_name', 'backtest_min_sharpe', 'backtest_min_trades', 'data_bus', 'data_end', 'data_start', 'db', 'final_equity', 'initial_equity', 'is_deployable', 'max_drawdown', 'parameters', 'profit_factor', 'sandbox', 'settings', 'sharpe_ratio', 'snapshots', 'total_pnl', 'total_trades', 'win_rate']

@@ -806,6 +806,7 @@ async def init_db(db: aiosqlite.Connection) -> None:
     except Exception:
         pass  # Column already exists
 
+
 async def get_db(path: str = "data.db") -> aiosqlite.Connection:
     db = await aiosqlite.connect(path)
     db.row_factory = aiosqlite.Row

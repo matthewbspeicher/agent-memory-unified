@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/data/massive.py
+# hypothesis_version: 6.151.11
+
+[30.0, 5000, 'adjusted', 'apiKey', 'asc', 'close', 'day', 'desc', 'gainers', 'limit', 'long_window', 'next_url', 'order', 'results', 'series_type', 'short_window', 'signal_window', 'sort', 'ticker', 'tickers', 'timespan', 'window']

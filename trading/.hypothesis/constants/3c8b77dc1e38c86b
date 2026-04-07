@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/data/sources/rss_news.py
+# hypothesis_version: 6.151.11
+
+[5.0, 200, '+00:00', 'Z', 'id', 'link', 'open', 'published', 'published_parsed', 'source', 'text', 'ticker', 'title', 'updated', 'updated_parsed', 'url']

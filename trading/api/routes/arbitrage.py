@@ -48,6 +48,7 @@ async def execute_arbitrage(req: ExecuteArbRequest, request: Request):
         # requires ArbTrade model construction from the observed spread.
         # Currently returns on claim success — wire execute_arbitrage() for full flow.
         import logging
+
         logging.getLogger(__name__).warning(
             "Arb spread %d claimed by %s but dual-leg execution not wired — returning claim-only.",
             req.observation_id,

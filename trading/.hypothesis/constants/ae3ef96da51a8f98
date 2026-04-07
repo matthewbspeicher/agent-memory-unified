@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/analytics/execution_costs.py
+# hypothesis_version: 6.151.11
+
+[0.95, '-inf', 'avg_fee_dollars', 'avg_slippage_bps', 'avg_spread_bps', 'fees_total', 'group_key', 'median_slippage_bps', 'median_spread_bps', 'p95_slippage_bps', 'partial', 'partial_fill_rate', 'rejected', 'rejection_rate', 'slippage_bps', 'spread_bps', 'status', 'trade_count', 'unknown']

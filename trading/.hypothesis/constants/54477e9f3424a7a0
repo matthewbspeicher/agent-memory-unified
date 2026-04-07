@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/strategies/multi_factor.py
+# hypothesis_version: 6.151.11
+
+[-1.0, 0.0, 0.3, 0.4, 0.6, 1.0, 50.0, '1', '1d', '3mo', 'MULTI_FACTOR_BUY', 'composite', 'composite_threshold', 'lookback_days', 'macd_factor', 'macd_weight', 'rsi', 'rsi_factor', 'rsi_period', 'rsi_weight', 'volume_factor', 'volume_weight']

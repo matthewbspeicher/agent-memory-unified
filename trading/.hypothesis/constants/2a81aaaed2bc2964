@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/whatsapp/client.py
+# hypothesis_version: 6.151.11
+
+[10.0, 200, 401, 'Authorization', 'Content-Type', 'application/json', 'body', 'caption', 'chart.png', 'code', 'components', 'en_US', 'file', 'id', 'image', 'image/png', 'invalid parameter', 'language', 'last_inbound_at', 'message_id', 'messages', 'messaging_product', 'name', 'parameters', 'phone', 'read', 'send_template', 'send_text', 'status', 'template', 'text', 'to', 'type', 'whatsapp']

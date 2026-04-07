@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/adapters/polymarket/paper.py
+# hypothesis_version: 6.151.11
+
+['0.01', '0.99', '100', 'POLYMARKET_PAPER', 'polymarket_paper']

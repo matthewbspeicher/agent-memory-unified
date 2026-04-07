@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/strategies/cross_platform_arb.py
+# hypothesis_version: 6.151.11
+
+[0.35, '10', '100', 'BUY', 'KALSHI', 'POLYMARKET', 'alert_on_spread', 'climate', 'crypto', 'economics', 'gap_cents', 'kalshi', 'kalshi_categories', 'kalshi_cents', 'kalshi_ticker', 'match_score', 'min_match_similarity', 'politics', 'poly_ticker', 'polymarket', 'polymarket_cents', 'polymarket_tags', 'target_broker', 'threshold_cents']

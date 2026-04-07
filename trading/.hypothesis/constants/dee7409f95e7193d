@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/adapters/polymarket/ws_feed.py
+# hypothesis_version: 6.151.11
+
+[100, '0', 'EventBus', 'Market', 'PolymarketDataSource', 'asset_id', 'assets_ids', 'auth', 'condition_id', 'event_type', 'polymarket.quote', 'price', 'price_change', 'type', 'yes_cents']

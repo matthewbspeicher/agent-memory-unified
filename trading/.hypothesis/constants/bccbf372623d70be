@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/agents/config.py
+# hypothesis_version: 6.151.11
+
+['action_level', 'agents', 'annotate_only', 'bittensor_alpha', 'bittensor_signal', 'breakout', 'continuous', 'conviction_exit', 'correlation_monitor', 'cron', 'empirical_gate', 'ensemble_optimizer', 'exit_monitor', 'exit_rules', 'interval', 'kalshi_calibration', 'kalshi_news_arb', 'kalshi_time_decay', 'llm', 'mean_reversion', 'momentum', 'monitored', 'multi_factor', 'notify', 'off', 'on_demand', 'partial_exit', 'polymarket_news_arb', 'position_monitor', 'pre_expiry_exit', 'prediction_time_exit', 'regime_policy_mode', 'remembr_api_token', 'rsi', 'runtime_overrides', 'static_gate', 'stop_loss', 'strategy', 'take_profit', 'tax_loss', 'time_exit', 'trailing_stop', 'trust_level', 'type', 'volume_spike']

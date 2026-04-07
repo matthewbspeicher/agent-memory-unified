@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/backtesting/sandbox.py
+# hypothesis_version: 6.151.11
+
+[0.0, 0.3, 25.0, 100, 252, 504, 1000, '0', '100000', '1d', '6mo', 'avg_trade_pnl', 'equity', 'error', 'evaluation_time_ms', 'final_equity', 'inf', 'initial_capital', 'initial_equity', 'is_viable', 'max_drawdown_pct', 'on_demand', 'parameters', 'period', 'profit_factor', 'sharpe_ratio', 'snapshots', 'sortino_ratio', 'strategy', 'symbols_tested', 'total_return_pct', 'total_trades', 'win_rate']

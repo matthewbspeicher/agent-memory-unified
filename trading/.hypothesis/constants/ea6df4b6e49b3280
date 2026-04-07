@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/api/routes/trades.py
+# hypothesis_version: 6.151.11
+
+[400, 403, 404, 500, '/trades', '/{trade_id}', 'Trade created', 'Trade not found', 'agent_name', 'db', 'message', 'ok', 'opportunity_id', 'order_result', 'risk_evaluation', 'status', 'sub', 'trades']

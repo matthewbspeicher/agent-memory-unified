@@ -27,7 +27,7 @@ def test_agent_framework_startup_loads_shared_learning_config(tmp_path) -> None:
         db_path=str(db_path),
         database_url=None,
         paper_trading=True,
-        broker=BrokerConfig(ib_host="")
+        broker=BrokerConfig(ib_host=""),
     )
 
     app = create_app(enable_agent_framework=True, config=config)
@@ -57,7 +57,7 @@ def test_agent_framework_startup_wires_shadow_services_into_app_state(
         db_path=str(db_path),
         database_url=None,
         paper_trading=True,
-        broker=BrokerConfig(ib_host="")
+        broker=BrokerConfig(ib_host=""),
     )
 
     app = create_app(enable_agent_framework=True, config=config)

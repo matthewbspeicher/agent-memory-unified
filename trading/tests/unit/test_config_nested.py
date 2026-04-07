@@ -16,14 +16,14 @@ class TestNestedConfig:
     def test_bittensor_config_nested(self):
         """Bittensor settings should be accessible via config.bittensor."""
         config = load_config(env_file="/dev/null")
-        assert hasattr(config, 'bittensor')
+        assert hasattr(config, "bittensor")
         assert config.bittensor.enabled is False
         assert config.bittensor.network == "finney"
         assert config.bittensor.subnet_uid == 8
 
     def test_broker_config_nested(self):
         config = load_config(env_file="/dev/null")
-        assert hasattr(config, 'broker')
+        assert hasattr(config, "broker")
         assert config.broker.ib_host == "127.0.0.1"
         assert config.broker.mode == "paper"
 

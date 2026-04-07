@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from intelligence.models import IntelReport, IntelEnrichment
 
 
@@ -32,9 +33,7 @@ def enrich_confidence(
 
     for report in reports:
         if report.veto:
-            return 0.0, IntelEnrichment(
-                vetoed=True, veto_reason=report.veto_reason
-            )
+            return 0.0, IntelEnrichment(vetoed=True, veto_reason=report.veto_reason)
 
         alignment = report.score * _sign(direction_score)
 
@@ -43,11 +42,13 @@ def enrich_confidence(
             weight = weights.get(report.source, 0.0)
             adjustment = alignment * report.confidence * weight
             total_adjustment += adjustment
-            contributions.append({
-                "source": report.source,
-                "adjustment": adjustment,
-                "alignment": alignment,
-            })
+            contributions.append(
+                {
+                    "source": report.source,
+                    "adjustment": adjustment,
+                    "alignment": alignment,
+                }
+            )
 
     max_adjustment = base_confidence * max_adjustment_pct
     total_adjustment = _clamp(total_adjustment, -max_adjustment, max_adjustment)

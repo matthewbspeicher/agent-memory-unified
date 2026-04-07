@@ -81,7 +81,11 @@ class TaoshiBridge:
         if self._store:
             try:
                 existing = await self._store.get_processed_position_uuids()
-                self._seen_position_uuids.update(existing)
+                # Load existing UUIDs into hash-based tracking (mark all as "seen" with empty hash)
+                for uuid in existing:
+                    self._seen_positions[uuid] = (
+                        ""  # Empty hash = seen, will be updated on next poll
+                    )
                 logger.info(
                     "TaoshiBridge: loaded %d seen positions from store", len(existing)
                 )

@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/storage/postgres.py
+# hypothesis_version: 6.151.11
+
+[',', ', ', ';', '?', 'INSERT INTO', 'NOW()', 'SELECT', 'WITH', 'agent_name', 'confidence_bucket', 'consensus_votes', 'side', 'symbol', 'window_label']

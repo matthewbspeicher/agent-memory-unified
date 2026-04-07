@@ -9,13 +9,15 @@ class IntelligenceConfig:
     timeout_ms: int = 2000
     min_providers: int = 1
     veto_threshold: int = 1  # 1=any, 2=majority
-    weights: dict[str, float] = field(default_factory=lambda: {
-        "on_chain": 0.15,
-        "sentiment": 0.10,
-        "anomaly": 0.05,
-        "regime": 0.10,
-        "risk_audit": 0.05,
-    })
+    weights: dict[str, float] = field(
+        default_factory=lambda: {
+            "on_chain": 0.15,
+            "sentiment": 0.10,
+            "anomaly": 0.05,
+            "regime": 0.10,
+            "risk_audit": 0.05,
+        }
+    )
     risk_var_threshold_pct: float = 5.0
     risk_horizon_days: int = 5
     max_adjustment_pct: float = 0.30

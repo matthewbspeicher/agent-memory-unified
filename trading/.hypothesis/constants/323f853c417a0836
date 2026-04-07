@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/adapters/kalshi/broker.py
+# hypothesis_version: 6.151.11
+
+[100, 200, 86400, '+00:00', '0', '0.01', '1', '100', '99', 'KALSHI', 'Z', 'available_balance', 'avg_price', 'canceled', 'category', 'close_time', 'contracts_filled', 'count', 'executed', 'fees_paid', 'market_exposure', 'market_ticker', 'msg', 'no', 'order_id', 'partially_filled', 'pending', 'portfolio_value', 'position', 'prediction_market', 'price', 'rest', 'resting', 'status', 'ticker', 'title', 'total_traded', 'type', 'volume', 'yes', 'yes_ask', 'yes_bid', 'yes_price']

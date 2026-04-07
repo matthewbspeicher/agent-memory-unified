@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/api/routes/signal_features.py
+# hypothesis_version: 6.151.11
+
+[0.5, 100, 404, 500, 503, 1000, '/backfill', '/{opportunity_id}', '1.0-backfill', 'Filter by agent name', 'agent_name', 'asset_type', 'broker_id', 'capture_status', 'confidence', 'created_at', 'data', 'data_bus', 'failed', 'id', 'kalshi', 'kalshi_paper', 'note', 'pending', 'polymarket', 'polymarket_paper', 'processed', 'reasoning', 'signal', 'signal-features', 'skipped', 'status', 'symbol', 'synthetic_backfill']

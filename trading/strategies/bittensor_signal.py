@@ -95,7 +95,9 @@ class BittensorSignalAgent(StructuredAgent):
         if intel_enabled:
             signal_bus = getattr(data, "_signal_bus", None)
             if signal_bus:
-                enriched_signals = signal_bus.query(signal_type="intel_enriched_consensus")
+                enriched_signals = signal_bus.query(
+                    signal_type="intel_enriched_consensus"
+                )
                 for s in reversed(enriched_signals):
                     if s.payload.get("symbol") == symbol:
                         intel_enrichment = s.payload
@@ -139,7 +141,9 @@ class BittensorSignalAgent(StructuredAgent):
                     "responder_count": view.responder_count,
                     "derivation_version": view.derivation_version,
                     "is_low_confidence": view.is_low_confidence,
-                    "intel": intel_enrichment.get("intel") if intel_enrichment else None,
+                    "intel": intel_enrichment.get("intel")
+                    if intel_enrichment
+                    else None,
                 },
                 timestamp=view.timestamp,
                 status=OpportunityStatus.PENDING,

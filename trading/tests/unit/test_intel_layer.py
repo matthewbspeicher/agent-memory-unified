@@ -1,4 +1,5 @@
 """Tests for IntelligenceLayer orchestrator."""
+
 import pytest
 import asyncio
 from datetime import datetime, timedelta, timezone
@@ -11,7 +12,13 @@ from intelligence.models import IntelReport
 from intelligence.layer import IntelligenceLayer
 
 
-def _make_report(source: str, score: float, confidence: float, veto: bool = False, veto_reason: str | None = None) -> IntelReport:
+def _make_report(
+    source: str,
+    score: float,
+    confidence: float,
+    veto: bool = False,
+    veto_reason: str | None = None,
+) -> IntelReport:
     return IntelReport(
         source=source,
         symbol="BTCUSD",
@@ -24,7 +31,9 @@ def _make_report(source: str, score: float, confidence: float, veto: bool = Fals
     )
 
 
-def _make_consensus_signal(symbol: str = "BTCUSD", direction: str = "bullish", confidence: float = 0.8) -> AgentSignal:
+def _make_consensus_signal(
+    symbol: str = "BTCUSD", direction: str = "bullish", confidence: float = 0.8
+) -> AgentSignal:
     return AgentSignal(
         source_agent="miner_consensus_aggregator",
         signal_type="bittensor_consensus",
@@ -50,7 +59,9 @@ async def test_layer_enriches_consensus_signal():
     layer._on_chain = MagicMock()
     layer._on_chain.analyze = AsyncMock(return_value=_make_report("on_chain", 0.5, 0.8))
     layer._sentiment = MagicMock()
-    layer._sentiment.analyze = AsyncMock(return_value=_make_report("sentiment", 0.3, 0.6))
+    layer._sentiment.analyze = AsyncMock(
+        return_value=_make_report("sentiment", 0.3, 0.6)
+    )
     layer._anomaly = MagicMock()
     layer._anomaly.analyze = AsyncMock(return_value=_make_report("anomaly", 0.1, 0.5))
 
@@ -85,9 +96,15 @@ async def test_layer_veto_blocks_signal():
     layer = IntelligenceLayer(signal_bus=signal_bus, config=config)
 
     layer._on_chain = MagicMock()
-    layer._on_chain.analyze = AsyncMock(return_value=_make_report("on_chain", -0.8, 0.9, veto=True, veto_reason="massive inflow"))
+    layer._on_chain.analyze = AsyncMock(
+        return_value=_make_report(
+            "on_chain", -0.8, 0.9, veto=True, veto_reason="massive inflow"
+        )
+    )
     layer._sentiment = MagicMock()
-    layer._sentiment.analyze = AsyncMock(return_value=_make_report("sentiment", 0.2, 0.5))
+    layer._sentiment.analyze = AsyncMock(
+        return_value=_make_report("sentiment", 0.2, 0.5)
+    )
     layer._anomaly = MagicMock()
     layer._anomaly.analyze = AsyncMock(return_value=_make_report("anomaly", 0.0, 0.3))
 

@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/storage/agent_registry.py
+# hypothesis_version: 6.151.11
+
+['active', 'continuous', 'created_by', 'creation_context', 'generation', 'hermes', 'human', 'interval', 'interval_or_cron', 'monitored', 'name', 'parameters', 'parent_name', 'promotion_criteria', 'retired', 'runtime_overrides', 'schedule', 'shadow_mode', 'status', 'strategy', 'trust_level', 'universe']

@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/risk/pnl.py
+# hypothesis_version: 6.151.11
+
+['0', '0.0000', '0.00000000', '100', 'long', 'pnl', 'pnl_percent']

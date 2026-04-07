@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/agents/adapters/prediction_market.py
+# hypothesis_version: 6.151.11
+
+[0.0, 0.1, 2.0, 'avg_volume', 'bearish', 'bullish', 'current_price', 'direction', 'kalshi', 'magnitude', 'move_pct', 'prediction_market', 'prev_price', 'price_dislocation', 'source', 'ticker', 'volume', 'volume_anomaly']

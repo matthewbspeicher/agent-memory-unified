@@ -24,9 +24,7 @@ class ProviderCircuitBreaker:
         if self.state == "open":
             if self._should_attempt_reset():
                 return await self._half_open_probe(func)
-            raise CircuitOpenError(
-                f"Circuit open, retry after {self.reset_timeout}s"
-            )
+            raise CircuitOpenError(f"Circuit open, retry after {self.reset_timeout}s")
 
         try:
             result = await func()

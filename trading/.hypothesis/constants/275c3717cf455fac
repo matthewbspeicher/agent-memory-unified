@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/learning/reflection.py
+# hypothesis_version: 6.151.11
+
+[100, 512, ', ', '\\[.*\\]', 're']

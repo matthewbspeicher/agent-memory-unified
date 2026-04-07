@@ -40,6 +40,7 @@ class RegimeProvider(BaseIntelProvider):
             regime = self.memory_manager.detect_regime(bars)
 
             from broker.models import Symbol as SymbolModel
+
             memories = await self.memory_manager.recall_similar_regimes(
                 SymbolModel(ticker=symbol), regime
             )
@@ -83,6 +84,8 @@ class RegimeProvider(BaseIntelProvider):
         prices = [float(b.close) for b in bars]
         if len(prices) < 2:
             return 0.0
-        returns = [(prices[i] - prices[i - 1]) / prices[i - 1] for i in range(1, len(prices))]
+        returns = [
+            (prices[i] - prices[i - 1]) / prices[i - 1] for i in range(1, len(prices))
+        ]
         avg = sum(returns) / len(returns)
         return (sum((r - avg) ** 2 for r in returns) / len(returns)) ** 0.5

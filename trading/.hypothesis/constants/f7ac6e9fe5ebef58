@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/data/massive_source.py
+# hypothesis_version: 6.151.11
+
+[1000.0, 1000000000.0, 180, 365, 730, 1825, 3650, '10y', '15m', '1d', '1h', '1m', '1mo', '1wk', '1y', '2m', '2y', '30m', '3mo', '5d', '5m', '5y', '60m', '6mo', 'P', 'c', 'day', 'h', 'hour', 'l', 'lastQuote', 'lastTrade', 'massive', 'max', 'minute', 'month', 'o', 'p', 't', 'v', 'value', 'values', 'week']

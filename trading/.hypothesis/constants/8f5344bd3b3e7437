@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/risk/rules.py
+# hypothesis_version: 6.151.11
+
+[100, '0', '100', 'max_combo_delta', 'max_correlation', 'max_daily_loss', 'max_daily_trades', 'max_drawdown_pct', 'max_open_positions', 'max_position_size', 'net_liquidation', 'price_histories', 'quantity', 'sector_concentration', 'side', 'symbol']

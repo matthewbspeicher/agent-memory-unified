@@ -8,14 +8,15 @@ from datetime import datetime
 class IntelReport:
     """Standardized output from any intelligence provider."""
 
-    source: str          # "on_chain", "sentiment", "anomaly"
-    symbol: str          # "BTCUSD"
+    source: str  # "on_chain", "sentiment", "anomaly"
+    symbol: str  # "BTCUSD"
     timestamp: datetime
-    score: float         # -1.0 to +1.0 (bearish to bullish)
-    confidence: float    # 0.0 to 1.0
-    veto: bool           # True = hard block this trade
-    veto_reason: str | None
-    details: dict        # source-specific data
+    score: float  # -1.0 to +1.0 (bearish to bullish)
+    confidence: float  # 0.0 to 1.0
+    veto: bool  # True = hard block this trade
+    veto_reason: str | None = None
+    regime_context: str | None = None  # Linked to RegimeAwareAgent
+    details: dict = field(default_factory=dict)  # source-specific data
 
 
 @dataclass

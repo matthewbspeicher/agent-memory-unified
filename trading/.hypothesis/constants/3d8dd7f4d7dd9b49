@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/strategies/kalshi_time_decay.py
+# hypothesis_version: 6.151.11
+
+[0.0, 0.2, 0.8, 0.85, 100, 200, 86400, '100', '20', 'KALSHI', 'SELL_NO', 'SELL_YES', '_kalshi_source', 'categories', 'category', 'close_time', 'days_to_close', 'max_days_to_close', 'max_price_cents', 'min_volume', 'volume_24h', 'yes_price_cents']

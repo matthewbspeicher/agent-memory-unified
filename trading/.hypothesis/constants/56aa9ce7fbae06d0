@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/tournament/engine.py
+# hypothesis_version: 6.151.11
+
+[1.0, 400, 'Backtest', 'Live Full', 'Live Limited', 'Paper', 'RECOMMENDATION:', 'TOURNAMENT', 'demote', 'go', 'manual override', 'no-go', 'promote', 'stage_transition', 'tournament']

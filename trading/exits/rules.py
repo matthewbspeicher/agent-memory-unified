@@ -379,6 +379,7 @@ class ConvictionExitRule(ExitRule):
             "side": self.side,
         }
 
+
 @dataclass
 class StagnationExitRule(ExitRule):
     """Exit if the position does not reach a minimum profit percentage within a certain time frame."""
@@ -426,6 +427,7 @@ class StagnationExitRule(ExitRule):
             "entry_price": str(self.entry_price),
             "side": self.side,
         }
+
 
 def parse_rule(d: dict[str, Any]) -> ExitRule | None:
     """Reconstruct an ExitRule from a dictionary."""

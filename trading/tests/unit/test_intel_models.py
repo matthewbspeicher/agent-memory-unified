@@ -77,7 +77,13 @@ def test_intelligence_config_defaults():
     assert cfg.enabled is False
     assert cfg.timeout_ms == 2000
     assert cfg.veto_threshold == 1
-    assert cfg.weights == {"on_chain": 0.15, "sentiment": 0.10, "anomaly": 0.05, "regime": 0.10, "risk_audit": 0.05}
+    assert cfg.weights == {
+        "on_chain": 0.15,
+        "sentiment": 0.10,
+        "anomaly": 0.05,
+        "regime": 0.10,
+        "risk_audit": 0.05,
+    }
     assert cfg.max_adjustment_pct == 0.30
 
 

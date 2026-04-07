@@ -51,7 +51,9 @@ class RiskAuditProvider(BaseIntelProvider):
         # Normalized: 0 at threshold, -1 at 2x threshold
         score = 0.0
         if var_99_pct > self.var_threshold_pct:
-            score = -min((var_99_pct - self.var_threshold_pct) / self.var_threshold_pct, 1.0)
+            score = -min(
+                (var_99_pct - self.var_threshold_pct) / self.var_threshold_pct, 1.0
+            )
 
         return IntelReport(
             source=self.name,
@@ -87,7 +89,9 @@ class RiskAuditProvider(BaseIntelProvider):
             price = current_price
             for _ in range(horizon_days):
                 z = random.gauss(0, 1)
-                change = math.exp(-0.5 * (volatility ** 2) * dt + volatility * math.sqrt(dt) * z)
+                change = math.exp(
+                    -0.5 * (volatility**2) * dt + volatility * math.sqrt(dt) * z
+                )
                 price *= change
             results.append(price)
 

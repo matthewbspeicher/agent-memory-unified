@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/execution/arbitrage.py
+# hypothesis_version: 6.151.11
+
+[-1.0, 0.0, 1.0, 100.0, 1000.0, '0', 'ARB', 'Aborted: Slippage', 'Aborted: Toxicity', 'Both legs failed', 'Leg A failed', 'Leg B failed', 'arb.state_change', 'arb_coordinator', 'arbitrage', 'ds', 'dual', 'filled', 'get_live_quote', 'leg_a', 'leg_b', 'limit_price', 'pending', 'polymarket', 'spread_convergence', 'submitted', 'track16']

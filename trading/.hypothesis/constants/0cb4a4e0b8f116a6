@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/api/routes/markets_browser.py
+# hypothesis_version: 6.151.11
+
+[0.35, 100, 168, '/markets', '/markets/spreads/top', 'KALSHI_PAPER', '_kalshi_source', '_news_source', '_polymarket_source', 'avg_cost', 'close_time', 'current_gap', 'data_bus', 'final_score', 'gap_cents', 'kalshi', 'kalshi_cents', 'kalshi_ticker', 'matches', 'max_gap', 'min_gap', 'note', 'observations', 'observed_at', 'paper_store', 'poly_cents', 'poly_ticker', 'polymarket', 'positions', 'quantity', 'realized_pnl', 'signals', 'spread_store', 'ticker']
