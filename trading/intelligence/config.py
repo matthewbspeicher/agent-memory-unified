@@ -14,6 +14,7 @@ class IntelligenceConfig:
             "on_chain": 0.15,
             "sentiment": 0.10,
             "anomaly": 0.05,
+            "order_flow": 0.12,
             "regime": 0.10,
             "risk_audit": 0.05,
         }

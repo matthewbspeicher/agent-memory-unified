@@ -15,6 +15,7 @@ from intelligence.providers.anomaly import AnomalyProvider
 from intelligence.providers.on_chain import OnChainProvider
 from intelligence.providers.sentiment import SentimentProvider
 from intelligence.providers.regime import RegimeProvider
+from intelligence.providers.order_flow import OrderFlowProvider
 from intelligence.providers.risk_audit import RiskAuditProvider
 from utils.logging import log_event
 
@@ -36,6 +37,7 @@ class IntelligenceLayer:
         self._sentiment = SentimentProvider()
         self._anomaly = AnomalyProvider()
         self._regime = RegimeProvider(memory_manager=memory_manager)
+        self._order_flow = OrderFlowProvider()
         self._risk_audit = RiskAuditProvider(
             var_threshold_pct=config.risk_var_threshold_pct,
             horizon_days=config.risk_horizon_days,
@@ -51,6 +53,7 @@ class IntelligenceLayer:
             "on_chain": make_breaker(),
             "sentiment": make_breaker(),
             "anomaly": make_breaker(),
+            "order_flow": make_breaker(),
             "regime": make_breaker(),
             "risk_audit": make_breaker(),
         }
@@ -142,6 +145,7 @@ class IntelligenceLayer:
             ("on_chain", self._on_chain),
             ("sentiment", self._sentiment),
             ("anomaly", self._anomaly),
+            ("order_flow", self._order_flow),
             ("regime", self._regime),
             ("risk_audit", self._risk_audit),
         ]
