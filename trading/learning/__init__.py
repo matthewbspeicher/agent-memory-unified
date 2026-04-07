@@ -13,6 +13,11 @@ from learning.ensemble_optimizer import (
     EnsembleOptimizer,
     EnsembleSignal,
 )
+from learning.forecast import (
+    DirectionalForecastModel,
+    ForecastOutput,
+    TimeSeriesForecaster,
+)
 from learning.rl_position_sizer import (
     RLPositionSizer,
     SizingState,
@@ -29,6 +34,9 @@ __all__ = [
     "EnsembleMethod",
     "EnsembleOptimizer",
     "EnsembleSignal",
+    "DirectionalForecastModel",
+    "ForecastOutput",
+    "TimeSeriesForecaster",
     "RLPositionSizer",
     "SizingState",
     "TradingSizingEnv",
