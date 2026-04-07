@@ -1,6 +1,6 @@
 # TP-012: Fix Test Suite — Status
 
-**Current Step:** Step 1: Fix Test Infrastructure
+**Current Step:** Step 2: Fix Broken Tests
 **Status:** 🟡 In Progress
 **Last Updated:** 2026-04-07
 **Review Level:** 1
@@ -29,11 +29,13 @@ M
 ---
 
 ### Step 2: Fix Broken Tests
-**Status:** ⬜ Not Started
+**Status:** 🟨 In Progress
 
-> ⚠️ Hydrate: Expand checkboxes when entering this step
-
-- [ ] Complete step objectives
+- [ ] Fix config tests: add env var isolation so container STA_ vars don't leak
+- [ ] Fix adapter retry tests: update mock to match v10 API (capitalized Subtensor)
+- [ ] Fix optimizer tests: add missing data_start column to test DDL
+- [ ] Fix backtest API tests: same schema issue
+- [ ] Fix journal indexer test: hnswlib vector dimension mismatch
 
 ---
 
