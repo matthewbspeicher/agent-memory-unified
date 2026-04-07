@@ -1,6 +1,6 @@
 # TP-012: Fix Test Suite — Status
 
-**Current Step:** Step 2: Fix Broken Tests
+**Current Step:** Step 3: Testing & Verification
 **Status:** 🟡 In Progress
 **Last Updated:** 2026-04-07
 **Review Level:** 1
@@ -40,11 +40,11 @@ M
 ---
 
 ### Step 3: Testing & Verification
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete
 
-> ⚠️ Hydrate: Expand checkboxes when entering this step
-
-- [ ] Complete step objectives
+- [x] Run unit test suite with --timeout=30 — 1664 passed, 0 failed, 2 deselected
+- [x] Verify ≥90% pass rate — 100% pass rate
+- [x] Document skipped tests: test_app_startup (2 tests) marked @pytest.mark.integration (need Redis + agent framework)
 
 ---
 
