@@ -180,6 +180,18 @@ class MinerEvaluator:
             evaluated_at=datetime.now(timezone.utc),
         )
 
+    def _determine_lifecycle_status(self, miner_data: MinerRankingInput) -> str:
+        """Apply Vanta network rules for elimination and probation."""
+        # 10% maximum drawdown elimination rule
+        if miner_data.max_drawdown >= 0.10:
+            return "eliminated"
+
+        # Probation for consistent underperformance (e.g., <30% accuracy after 20 windows)
+        if miner_data.windows_evaluated >= 20 and miner_data.direction_accuracy < 0.30:
+            return "probation"
+
+        return "active"
+
     async def refresh_rankings(self):
         """Aggregate accuracy records and update miner rankings in the store."""
         config = RankingConfig(
