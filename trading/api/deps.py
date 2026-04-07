@@ -51,6 +51,13 @@ def get_risk_engine():
     return engine
 
 
+def get_risk_analytics():
+    """Get RiskAnalytics instance for real-time risk calculations."""
+    if _app_state is None:
+        raise RuntimeError("deps not initialized")
+    return getattr(_app_state, "risk_analytics", None)
+
+
 def get_event_bus() -> EventBus:
     if _app_state is None:
         raise RuntimeError("deps not initialized")

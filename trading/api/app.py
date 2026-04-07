@@ -936,6 +936,14 @@ async def lifespan(app: FastAPI):
         app.state.event_bus = event_bus
         app.state.signal_bus = signal_bus
 
+        # Attach risk evaluator to signal bus
+        if risk_analytics:
+            from trading.risk import attach_risk_evaluator
+
+            risk_evaluator = attach_risk_evaluator(signal_bus, risk_analytics)
+            app.state.risk_evaluator = risk_evaluator
+            _log.info("RiskAwareSignalEvaluator attached to SignalBus")
+
         # --- Redis Connection + Signal Bridge ---
         from api.startup.redis import setup_redis
 
@@ -1395,6 +1403,43 @@ async def lifespan(app: FastAPI):
 
         set_risk_engine(risk_engine)
         app.state.risk_engine = risk_engine
+
+        # --- Risk Analytics Setup ---
+        from trading.risk import RiskAnalytics, RiskLimit
+
+        risk_limits = RiskLimit(
+            max_var_95_pct=config.max_var_95_pct
+            if hasattr(config, "max_var_95_pct")
+            else 0.02,
+            max_var_99_pct=config.max_var_99_pct
+            if hasattr(config, "max_var_99_pct")
+            else 0.04,
+            max_drawdown_pct=config.max_drawdown_pct
+            if hasattr(config, "max_drawdown_pct")
+            else 0.10,
+            max_leverage=config.max_leverage
+            if hasattr(config, "max_leverage")
+            else 2.0,
+            max_margin_utilization=config.max_margin_utilization
+            if hasattr(config, "max_margin_utilization")
+            else 0.80,
+        )
+        risk_analytics = RiskAnalytics(limits=risk_limits)
+        app.state.risk_analytics = risk_analytics
+        _log.info(
+            "RiskAnalytics initialized with limits: VaR95=%s, VaR99=%s, DD=%s",
+            risk_limits.max_var_95_pct,
+            risk_limits.max_var_99_pct,
+            risk_limits.max_drawdown_pct,
+        )
+
+        # Circuit breakers for risk providers
+        from trading.risk import RiskProviderCircuitBreakerManager
+
+        risk_cb_manager = RiskProviderCircuitBreakerManager()
+        app.state.risk_cb_manager = risk_cb_manager
+        _log.info("RiskProviderCircuitBreakerManager initialized")
+
         from notifications.composite import CompositeNotifier
         from notifications.slack import SlackNotifier
 
