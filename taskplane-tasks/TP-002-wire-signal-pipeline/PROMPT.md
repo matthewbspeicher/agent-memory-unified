@@ -29,7 +29,7 @@ Build a `MinerConsensusAggregator` that subscribes to individual miner position 
 
 ## Dependencies
 
-- **Task:** TP-001 (bridge must emit signals for this to have data)
+- **None**
 
 ## Context to Read First
 
