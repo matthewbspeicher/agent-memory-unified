@@ -119,6 +119,12 @@ agents:
       max_weighting_divergence: 0.25
       use_weighted_view: false
       allow_short_signals: true
+      intel_enabled: true
+      intel_weights:
+        on_chain: 0.15
+        sentiment: 0.10
+        anomaly: 0.05
+      intel_veto_threshold: 1
 
   - name: bittensor_eth_5m
     strategy: bittensor_signal
@@ -137,6 +143,12 @@ agents:
       max_weighting_divergence: 0.25
       use_weighted_view: false
       allow_short_signals: true
+      intel_enabled: true
+      intel_weights:
+        on_chain: 0.15
+        sentiment: 0.10
+        anomaly: 0.05
+      intel_veto_threshold: 1
 
   - name: meta_agent
     strategy: meta_agent
