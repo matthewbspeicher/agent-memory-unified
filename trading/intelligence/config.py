@@ -19,7 +19,7 @@ class IntelligenceConfig:
     circuit_breaker_failures: int = 3
     circuit_breaker_reset_seconds: int = 60
 
-    # API keys (all optional -- providers degrade gracefully)
+    # API keys (all optional — providers degrade gracefully)
     coinglass_api_key: str | None = None
     glassnode_api_key: str | None = None
     lunarcrush_api_key: str | None = None

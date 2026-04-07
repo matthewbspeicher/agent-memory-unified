@@ -8,7 +8,7 @@ from intelligence.providers.on_chain import OnChainProvider
 
 @pytest.mark.asyncio
 async def test_on_chain_accumulation_bullish():
-    provider = OnChainProvider()
+    provider = OnChainProvider(coinglass_api_key="test-key")
     with patch.object(provider, "_fetch_exchange_netflow", new_callable=AsyncMock, return_value=-5000.0):
         with patch.object(provider, "_fetch_exchange_netflow_30d_avg", new_callable=AsyncMock, return_value=2000.0):
             report = await provider.analyze("BTCUSD")
@@ -20,7 +20,7 @@ async def test_on_chain_accumulation_bullish():
 
 @pytest.mark.asyncio
 async def test_on_chain_distribution_bearish():
-    provider = OnChainProvider()
+    provider = OnChainProvider(coinglass_api_key="test-key")
     with patch.object(provider, "_fetch_exchange_netflow", new_callable=AsyncMock, return_value=3000.0):
         with patch.object(provider, "_fetch_exchange_netflow_30d_avg", new_callable=AsyncMock, return_value=2000.0):
             report = await provider.analyze("BTCUSD")
@@ -31,7 +31,7 @@ async def test_on_chain_distribution_bearish():
 
 @pytest.mark.asyncio
 async def test_on_chain_veto_on_massive_inflow():
-    provider = OnChainProvider()
+    provider = OnChainProvider(coinglass_api_key="test-key")
     with patch.object(provider, "_fetch_exchange_netflow", new_callable=AsyncMock, return_value=5000.0):
         with patch.object(provider, "_fetch_exchange_netflow_30d_avg", new_callable=AsyncMock, return_value=2000.0):
             report = await provider.analyze("BTCUSD")

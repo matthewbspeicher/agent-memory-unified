@@ -45,12 +45,15 @@ class AnomalyProvider(BaseIntelProvider):
         )
 
     async def _fetch_volume_ratio(self, symbol: str) -> float:
+        """Current volume / 20-period average volume. Override in tests."""
         raise NotImplementedError("Requires exchange API integration")
 
     async def _fetch_price_direction(self, symbol: str) -> float:
+        """Recent price movement: +1 = up, -1 = down, 0 = flat. Override in tests."""
         raise NotImplementedError("Requires exchange API integration")
 
     async def _fetch_spread_ratio(self, symbol: str) -> float:
+        """Current spread / average spread. >1 = widening. Override in tests."""
         raise NotImplementedError("Requires exchange API integration")
 
     @staticmethod
@@ -74,6 +77,7 @@ class AnomalyProvider(BaseIntelProvider):
 
     @staticmethod
     def _check_veto(volume_ratio: float, price_direction: float) -> tuple[bool, str | None]:
+        """Veto if volume > 5x normal AND price moving against (likely manipulation/black swan)."""
         if volume_ratio > 5.0 and price_direction < 0:
             return True, f"Volume {volume_ratio:.1f}x normal with price declining — possible manipulation"
         return False, None
