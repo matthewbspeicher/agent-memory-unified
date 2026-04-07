@@ -1,6 +1,6 @@
 # TP-010: Health Check Endpoints — Status
 
-**Current Step:** Step 1: Enhance Health Endpoints
+**Current Step:** Step 3: Testing & Verification
 **Status:** 🟡 In Progress
 **Last Updated:** 2026-04-07
 **Review Level:** 0
@@ -29,11 +29,10 @@ S
 ---
 
 ### Step 2: Write Tests
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete
 
-> ⚠️ Hydrate: Expand checkboxes when entering this step
-
-- [ ] Complete step objectives
+- [x] Test /health-internal with Redis, TaoshiBridge, SignalBus mocks
+- [x] Test /ready returns 200 when healthy and 503 when dependency down
 
 ---
 
