@@ -29,13 +29,13 @@ M
 ---
 
 ### Step 2: Fix Broken Tests
-**Status:** 🟨 In Progress
+**Status:** ✅ Complete
 
-- [ ] Fix config tests: add env var isolation so container STA_ vars don't leak
-- [ ] Fix adapter retry tests: update mock to match v10 API (capitalized Subtensor)
-- [ ] Fix optimizer tests: add missing data_start column to test DDL
-- [ ] Fix backtest API tests: same schema issue
-- [ ] Fix journal indexer test: hnswlib vector dimension mismatch
+- [x] Fix config tests: add env var isolation so container STA_ vars don't leak
+- [x] Fix adapter retry tests: update mock to match v10 API (capitalized Subtensor)
+- [x] Fix optimizer tests: schema already correct in worktree (container was stale)
+- [x] Fix backtest API tests: same schema issue (db.py was stale in container)
+- [x] Fix journal indexer test: mock encode() now returns correct 2D shape
 
 ---
 
