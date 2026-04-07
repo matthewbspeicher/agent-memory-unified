@@ -3,7 +3,8 @@ import pytest
 from config import load_config
 
 
-def test_supabase_config_default_none():
+def test_supabase_config_default_none(monkeypatch):
+    monkeypatch.setenv("STA_API_KEY", "test-key")
     c = load_config(env_file="nonexistent.env")
     assert hasattr(c, "supabase_url")
     assert hasattr(c, "supabase_anon_key")
