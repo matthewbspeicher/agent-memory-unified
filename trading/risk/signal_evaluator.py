@@ -12,7 +12,7 @@ from typing import Any
 
 from agents.models import AgentSignal
 from data.signal_bus import SignalBus
-from trading.risk import RiskAnalytics
+from risk.analytics import RiskAnalytics
 
 logger = logging.getLogger(__name__)
 
