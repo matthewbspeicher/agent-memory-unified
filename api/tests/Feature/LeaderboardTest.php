@@ -34,7 +34,7 @@ class LeaderboardTest extends TestCase
         $response->assertOk()
             ->assertJsonStructure([
                 'type',
-                'entries',
+                'data',
             ]);
     }
 }

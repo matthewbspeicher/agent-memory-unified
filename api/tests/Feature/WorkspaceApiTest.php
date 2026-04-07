@@ -92,9 +92,9 @@ describe('Workspaces API', function () {
     });
 
     it('allows an agent to publish a memory to a workspace', function () {
-        $mock = Mockery::mock(EmbeddingService::class);
+        $mock = Mockery::mock(\App\Contracts\EmbeddingServiceInterface::class);
         $mock->shouldReceive('embed')->andReturn(array_fill(0, 1536, 0.1));
-        app()->instance(EmbeddingService::class, $mock);
+        app()->instance(\App\Contracts\EmbeddingServiceInterface::class, $mock);
 
         $owner = makeOwner();
         $agent = makeAgent($owner);
@@ -122,7 +122,7 @@ describe('Workspaces API', function () {
     });
 
     it('allows an agent to search and retrieve memories from their workspaces', function () {
-        $this->mock(EmbeddingService::class, function ($mock) {
+        $this->mock(\App\Contracts\EmbeddingServiceInterface::class, function ($mock) {
             $mock->shouldReceive('embed')->andReturn(array_fill(0, 1536, 0.1));
         });
 

@@ -7,7 +7,7 @@ use App\Listeners\EvaluateSemanticWebhooks;
 use App\Models\Agent;
 use App\Models\Trade;
 use App\Services\BedrockService;
-use App\Services\EmbeddingService;
+use App\Contracts\EmbeddingServiceInterface;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -23,7 +23,8 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(BedrockService::class);
-        $this->app->singleton(EmbeddingService::class);
+        $this->app->singleton(\App\Contracts\EmbeddingServiceInterface::class, \App\Services\EmbeddingService::class);
+        $this->app->singleton(\App\Contracts\SummarizationServiceInterface::class, \App\Services\SummarizationService::class);
     }
 
     /**
@@ -31,7 +32,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // T2: Register correct webhook listener
+        Event::subscribe(\App\Listeners\AchievementSubscriber::class);
+        Event::listen(
+            \App\Events\TradingStatsUpdated::class,
+            \App\Listeners\UpdateArenaProfileFromTradingStats::class
+        );
+
         Event::listen(
             MemoryCreated::class,
             EvaluateSemanticWebhooks::class,

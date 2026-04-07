@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Contracts\SummarizationServiceInterface;
 use App\Models\Agent;
 use App\Models\ArenaChallenge;
 use App\Models\ArenaSession;
@@ -11,7 +12,7 @@ use Illuminate\Support\Facades\DB;
 class BattleArenaService
 {
     public function __construct(
-        private readonly SummarizationService $llm,
+        private readonly SummarizationServiceInterface $llm,
     ) {}
 
     /**

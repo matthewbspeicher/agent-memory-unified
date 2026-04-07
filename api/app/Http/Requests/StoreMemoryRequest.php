@@ -15,13 +15,18 @@ class StoreMemoryRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'key' => ['sometimes', 'nullable', 'string', 'max:255'],
             'value' => ['required', 'string', 'min:1', 'max:100000'],
-            'type' => ['sometimes', Rule::in(['note', 'lesson', 'preference', 'fact', 'procedure'])],
-            'visibility' => ['sometimes', Rule::in(['private', 'public'])],
-            'tags' => ['sometimes', 'array'],
-            'tags.*' => ['string'],
+            'type' => ['sometimes', 'string', Rule::in(\App\Models\Memory::TYPES)],
+            'category' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'visibility' => ['sometimes', Rule::in(['private', 'public', 'workspace', 'shared'])],
+            'importance' => ['sometimes', 'integer', 'min:1', 'max:10'],
+            'confidence' => ['sometimes', 'numeric', 'min:0', 'max:1'],
+            'tags' => ['sometimes', 'array', 'max:10'],
+            'tags.*' => ['string', 'max:50'],
             'metadata' => ['sometimes', 'array'],
-            'ttl' => ['sometimes', 'string'],
+            'expires_at' => ['sometimes', 'nullable', 'date', 'after:now', 'prohibits:ttl'],
+            'ttl' => ['sometimes', 'nullable', 'string', 'regex:/^\d+[hmd]$/', 'prohibits:expires_at'],
             'workspace_id' => ['sometimes', 'uuid'],
             'agent_id' => ['sometimes', 'uuid'],
         ];

@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Contracts\EmbeddingServiceInterface;
+use App\Contracts\SummarizationServiceInterface;
+
 use App\Http\Controllers\Controller;
 use App\Jobs\DispatchWebhook;
 use App\Models\WebhookSubscription;
-use App\Services\EmbeddingService;
 use App\Traits\ResolvesAgent;
 use App\Http\Requests\CreateWebhookRequest;
 use Illuminate\Http\JsonResponse;
@@ -49,7 +51,7 @@ class WebhookController extends Controller
 
         $embedding = null;
         if (in_array('memory.semantic_match', $validated['events']) && ! empty($validated['semantic_query'])) {
-            $embeddings = app(EmbeddingService::class);
+            $embeddings = app(\App\Contracts\EmbeddingServiceInterface::class);
             $embedding = '['.implode(',', $embeddings->embed($validated['semantic_query'])).']';
         }
 

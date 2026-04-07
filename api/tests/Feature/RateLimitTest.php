@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\RateLimiter;
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
-    $this->mock(EmbeddingService::class, function ($mock) {
+    $this->mock(\App\Contracts\EmbeddingServiceInterface::class, function ($mock) {
         $mock->shouldReceive('embed')
             ->andReturn(array_fill(0, 1536, 0.1));
         $mock->shouldReceive('embedBatch')

@@ -14,7 +14,7 @@ beforeEach(function () {
 });
 
 it('embeds memories that are missing embeddings', function () {
-    $this->mock(EmbeddingService::class, function ($mock) {
+    $this->mock(\App\Contracts\EmbeddingServiceInterface::class, function ($mock) {
         $mock->shouldReceive('embedBatch')
             ->once()
             ->andReturn([array_fill(0, 1536, 0.5)]);
@@ -34,7 +34,7 @@ it('embeds memories that are missing embeddings', function () {
 });
 
 it('skips memories that already have embeddings', function () {
-    $this->mock(EmbeddingService::class, function ($mock) {
+    $this->mock(\App\Contracts\EmbeddingServiceInterface::class, function ($mock) {
         $mock->shouldNotReceive('embedBatch');
     });
 

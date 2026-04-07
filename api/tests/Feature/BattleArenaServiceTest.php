@@ -24,8 +24,8 @@ class BattleArenaServiceTest extends TestCase
     {
         parent::setUp();
 
-        $this->summarizationServiceMock = Mockery::mock(SummarizationService::class);
-        $this->app->instance(SummarizationService::class, $this->summarizationServiceMock);
+        $this->summarizationServiceMock = Mockery::mock(\App\Contracts\SummarizationServiceInterface::class);
+        $this->app->instance(\App\Contracts\SummarizationServiceInterface::class, $this->summarizationServiceMock);
         
         $this->service = app(BattleArenaService::class);
     }

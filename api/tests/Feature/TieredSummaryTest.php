@@ -8,12 +8,12 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
-    $this->mock(EmbeddingService::class, function ($mock) {
+    $this->mock(\App\Contracts\EmbeddingServiceInterface::class, function ($mock) {
         $mock->shouldReceive('embed')
             ->andReturn(array_fill(0, 1536, 0.1));
     });
 
-    $this->mock(SummarizationService::class, function ($mock) {
+    $this->mock(\App\Contracts\SummarizationServiceInterface::class, function ($mock) {
         $mock->shouldReceive('generateSummary')
             ->andReturn('A concise summary of the memory content.');
         $mock->shouldReceive('summarize')

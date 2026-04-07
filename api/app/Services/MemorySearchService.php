@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Contracts\EmbeddingServiceInterface;
 use App\Models\Agent;
 use App\Models\Memory;
 use Illuminate\Support\Collection;
@@ -10,7 +11,7 @@ use Illuminate\Support\Facades\Log;
 class MemorySearchService
 {
     public function __construct(
-        private readonly EmbeddingService $embeddings,
+        private readonly EmbeddingServiceInterface $embeddings,
     ) {}
 
     public function searchForAgent(Agent $agent, string $q, int $limit = 10, array $tags = [], ?string $type = null, ?string $category = null): Collection

@@ -35,7 +35,7 @@ it('can register a webhook', function () {
 });
 
 it('can register a semantic webhook', function () {
-    $this->mock(EmbeddingService::class, function ($mock) {
+    $this->mock(\App\Contracts\EmbeddingServiceInterface::class, function ($mock) {
         $mock->shouldReceive('embed')
             ->andReturn(array_fill(0, 1536, 0.1));
     });

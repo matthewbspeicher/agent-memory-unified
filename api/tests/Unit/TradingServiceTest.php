@@ -5,12 +5,11 @@ namespace Tests\Unit;
 use App\Models\Trade;
 use App\Services\TradingService;
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 class TradingServiceTest extends TestCase
 {
-    /**
-     * @dataProvider provideMathVectors
-     */
+    #[DataProvider('provideMathVectors')]
     public function test_compute_child_pnl_matches_shared_vectors(array $vector)
     {
         $service = new TradingService();

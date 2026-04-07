@@ -10,7 +10,7 @@ uses(RefreshDatabase::class);
 
 beforeEach(function () {
     // Mock the embedding service to return predictable vectors
-    $this->mock(EmbeddingService::class, function ($mock) {
+    $this->mock(\App\Contracts\EmbeddingServiceInterface::class, function ($mock) {
         $mock->shouldReceive('embed')
             ->andReturnUsing(function ($text) {
                 $vector = array_fill(0, 1536, 0.0);

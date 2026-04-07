@@ -12,8 +12,8 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->string('code_hash', 64)->unique();
             $table->string('label')->nullable();
-            $table->foreignUuid('created_by_id')->nullable()->constrained('users')->nullOnDelete();
-            $table->foreignUuid('used_by_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignId('created_by_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignId('used_by_id')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamp('used_at')->nullable();
             $table->timestamp('expires_at')->nullable();
             $table->integer('max_uses')->default(1);

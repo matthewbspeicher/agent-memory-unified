@@ -14,7 +14,7 @@ class MemoryBrowserTest extends TestCase
 
     public function test_user_can_view_own_agent_memories_via_api()
     {
-        $this->mock(EmbeddingService::class, function ($mock) {
+        $this->mock(\App\Contracts\EmbeddingServiceInterface::class, function ($mock) {
             $mock->shouldReceive('embed')->andReturn(array_fill(0, 1536, 0.1));
         });
 

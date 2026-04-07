@@ -11,7 +11,7 @@ uses(RefreshDatabase::class);
 
 // Mock embeddings for all tests — we don't want real OpenAI calls
 beforeEach(function () {
-    $this->mock(EmbeddingService::class, function ($mock) {
+    $this->mock(\App\Contracts\EmbeddingServiceInterface::class, function ($mock) {
         $mock->shouldReceive('embed')
             ->andReturn(array_fill(0, 1536, 0.1));
 
@@ -31,7 +31,7 @@ describe('POST /v1/memories/compact', function () {
         $mem1 = Memory::factory()->create(['agent_id' => $agent->id, 'key' => 'm1', 'value' => 'Fact 1']);
         $mem2 = Memory::factory()->create(['agent_id' => $agent->id, 'key' => 'm2', 'value' => 'Fact 2']);
 
-        $this->mock(SummarizationService::class, function ($mock) {
+        $this->mock(\App\Contracts\SummarizationServiceInterface::class, function ($mock) {
             $mock->shouldReceive('summarize')->andReturn('Compacted summary.');
             $mock->shouldReceive('generateSummary')->andReturn(null);
         });

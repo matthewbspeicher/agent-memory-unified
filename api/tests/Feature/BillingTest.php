@@ -94,9 +94,9 @@ describe('workspace creation', function () {
 
 describe('write access', function () {
     beforeEach(function () {
-        $mock = Mockery::mock(EmbeddingService::class);
+        $mock = Mockery::mock(\App\Contracts\EmbeddingServiceInterface::class);
         $mock->shouldReceive('embed')->andReturn(array_fill(0, 1536, 0.1));
-        app()->instance(EmbeddingService::class, $mock);
+        app()->instance(\App\Contracts\EmbeddingServiceInterface::class, $mock);
     });
 
     it('allows write on all agents regardless of count', function () {

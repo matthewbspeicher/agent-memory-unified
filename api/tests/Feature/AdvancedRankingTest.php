@@ -11,7 +11,7 @@ use Illuminate\Support\Carbon;
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
-    $this->mock(EmbeddingService::class, function ($mock) {
+    $this->mock(\App\Contracts\EmbeddingServiceInterface::class, function ($mock) {
         $mock->shouldReceive('embed')
             ->andReturnUsing(function ($text) {
                 // Return a dummy vector so the DB doesn't complain

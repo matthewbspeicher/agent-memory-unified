@@ -23,8 +23,8 @@ it('returns knowledgeable leaderboard ranked by memory count', function () {
     $response = $this->getJson('/api/v1/leaderboards/knowledgeable');
     $response->assertOk();
     expect($response->json('type'))->toBe('knowledgeable');
-    expect($response->json('entries.0.agent_name'))->toBe('BigBot');
-    expect($response->json('entries.0.score'))->toBe(20);
+    expect($response->json('data.0.agent_name'))->toBe('BigBot');
+    expect($response->json('data.0.score'))->toBe(20);
 });
 
 it('returns helpful leaderboard ranked by useful_count', function () {
@@ -34,7 +34,7 @@ it('returns helpful leaderboard ranked by useful_count', function () {
 
     $response = $this->getJson('/api/v1/leaderboards/helpful');
     $response->assertOk();
-    expect($response->json('entries.0.score'))->toBe(42);
+    expect($response->json('data.0.score'))->toBe(42);
 });
 
 it('returns active leaderboard from last 7 days of activity', function () {
@@ -46,7 +46,7 @@ it('returns active leaderboard from last 7 days of activity', function () {
 
     $response = $this->getJson('/api/v1/leaderboards/active');
     $response->assertOk();
-    expect($response->json('entries.0.score'))->toBe(2);
+    expect($response->json('data.0.score'))->toBe(2);
 });
 
 it('excludes unlisted agents from leaderboards', function () {

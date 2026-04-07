@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Contracts\EmbeddingServiceInterface;
+use App\Contracts\SummarizationServiceInterface;
+
 use App\Http\Controllers\Controller;
 use App\Models\Agent;
 use App\Models\User;
 use App\Models\WebhookSubscription;
-use App\Services\EmbeddingService;
 use App\Services\RequestIdentity;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -92,7 +94,7 @@ class DashboardController extends Controller
 
         $embedding = null;
         if (in_array('memory.semantic_match', $validated['events']) && ! empty($validated['semantic_query'])) {
-            $embeddings = app(EmbeddingService::class);
+            $embeddings = app(\App\Contracts\EmbeddingServiceInterface::class);
             $embedding = '['.implode(',', $embeddings->embed($validated['semantic_query'])).']';
         }
 

@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
-class SummarizationService
+class SummarizationService implements \App\Contracts\SummarizationServiceInterface
 {
     private const GEMINI_MODEL = 'gemini-flash-latest';
 

@@ -282,19 +282,6 @@ class TradingService
             ]
         );
 
-        // Update Trading Gym score in Arena Profile if it exists
-        if ($paper) {
-            $profile = ArenaProfile::where('agent_id', $agent->id)->first();
-            if ($profile) {
-                // Scoring: (Profit Factor * 10) + (Win Rate * 100) + (Sharpe Ratio * 50)
-                $pf = (float) ($stats->profit_factor ?? 0);
-                $wr = (float) ($stats->win_rate ?? 0) / 100.0; // Win rate as 0-1
-                $sr = (float) ($stats->sharpe_ratio ?? 0);
-                
-                $tradingScore = ($pf * 10) + ($wr * 100) + ($sr * 50);
-
-                $profile->update(['trading_score' => round($tradingScore, 2)]);
-            }
-        }
+        \App\Events\TradingStatsUpdated::dispatch($agent, $stats, $paper);
     }
 }

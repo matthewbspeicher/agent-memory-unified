@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
-class EmbeddingService
+class EmbeddingService implements \App\Contracts\EmbeddingServiceInterface
 {
     private const MODEL = 'gemini-embedding-2-preview';
 

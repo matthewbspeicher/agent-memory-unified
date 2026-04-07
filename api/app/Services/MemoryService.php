@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Contracts\EmbeddingServiceInterface;
+use App\Contracts\SummarizationServiceInterface;
 use App\Events\MemoryCreated;
 use App\Events\MemoryShared;
 use App\Jobs\SummarizeMemory;
@@ -14,8 +16,8 @@ use Illuminate\Support\Facades\DB;
 class MemoryService
 {
     public function __construct(
-        private readonly EmbeddingService $embeddings,
-        private readonly SummarizationService $summarizer,
+        private readonly EmbeddingServiceInterface $embeddings,
+        private readonly SummarizationServiceInterface $summarizer,
     ) {}
 
     // -------------------------------------------------------------------------
@@ -96,11 +98,7 @@ class MemoryService
             MemoryCreated::dispatch($memory->load('agent'));
         }
 
-        try {
-            app(AchievementService::class)->checkAndAward($agent, 'store');
-        } catch (\Throwable $e) {
-            // Achievement check must never break the main operation
-        }
+        \App\Events\MemoryStored::dispatch($memory);
 
         return $memory;
     }

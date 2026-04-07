@@ -3,7 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\Memory;
-use App\Services\SummarizationService;
+use App\Contracts\SummarizationServiceInterface;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -25,7 +25,7 @@ class SummarizeMemory implements ShouldQueue
     /**
      * Execute the job.
      */
-    public function handle(SummarizationService $summarizer): void
+    public function handle(SummarizationServiceInterface $summarizer): void
     {
         if ($this->memory->summary) {
             return;

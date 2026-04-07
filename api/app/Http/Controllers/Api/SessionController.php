@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Contracts\EmbeddingServiceInterface;
+use App\Contracts\SummarizationServiceInterface;
+
 use App\Concerns\FormatsMemories;
 use App\Http\Controllers\Controller;
 use App\Models\Agent;
 use App\Services\AchievementService;
 use App\Services\MemoryService;
-use App\Services\SummarizationService;
 use App\Traits\ResolvesAgent;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,7 +22,7 @@ class SessionController extends Controller
 
     public function __construct(
         private readonly MemoryService $memories,
-        private readonly SummarizationService $summarizer,
+        private readonly \App\Contracts\SummarizationServiceInterface $summarizer
     ) {}
 
     /**
