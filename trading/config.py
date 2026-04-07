@@ -300,7 +300,7 @@ def _parse_value(value: str, field_type: type) -> Any:
 
 def _load_dotenv(env_file: str) -> dict[str, str]:
     """Load .env file into a dictionary"""
-    env_vars = {}
+    env_vars: dict[str, str] = {}
     if not Path(env_file).exists():
         return env_vars
 

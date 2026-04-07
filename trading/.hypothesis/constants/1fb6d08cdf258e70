@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/storage/bittensor.py
+# hypothesis_version: 6.151.11
+
+[100, ', ', '?', 'actual_return', 'agreement_ratio', 'alpha_used', 'bars_used', 'bearish_count', 'bullish_count', 'captured_at', 'collected_at', 'derivation_version', 'direction_accuracy', 'direction_correct', 'evaluated_at', 'feature_ids', 'flat_count', 'hash_verified', 'hashed_predictions', 'hybrid_score', 'incentive_score', 'internal_score', 'is_low_confidence', 'magnitude_error', 'mean_magnitude_error', 'metagraph_block', 'miner_hotkey', 'miner_uid', 'outcome_bars', 'path_correlation', 'predicted_return', 'prediction_size', 'predictions', 'realized_path', 'realized_return', 'request_uuid', 'responder_count', 'rowcount', 'schema_id', 'scoring_version', 'source', 'stake_tao', 'stream_id', 'symbol', 'timeframe', 'timestamp', 'topic_id', 'updated_at', 'vtrust', 'weighted_direction', 'window_id', 'windows_evaluated']

@@ -93,7 +93,7 @@ def log_event(
     data:
         Optional dict of structured key/value pairs attached to the event.
     """
-    extra = {"event_type": event_type}
+    extra: dict[str, Any] = {"event_type": event_type}
     if data:
         extra["event_data"] = data
     logger.log(level, msg, extra=extra, **kwargs)

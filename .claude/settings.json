@@ -1,8 +1,4 @@
 {
-  "enabledPlugins": {
-    "superpowers@claude-plugins-official": true,
-    "commit-commands@claude-plugins-official": true
-  },
   "hooks": {
     "PreToolUse": [
       {
@@ -27,5 +23,23 @@
         ]
       }
     ]
+  },
+  "enabledPlugins": {
+    "superpowers@claude-plugins-official": true,
+    "commit-commands@claude-plugins-official": true,
+    "scientific-skills@claude-scientific-skills": true,
+    "vercel@claude-plugins-official": true,
+    "trading-ideas@claude-equity-research-marketplace": true,
+    "trading-strategy-backtester@claude-code-plugins-plus-skills": true,
+    "crypto-signal-generator@claude-code-plugins-plus-skills": true,
+    "arbitrage-opportunity-finder@claude-code-plugins-plus-skills": true,
+    "market-sentiment-analyzer@claude-code-plugins-plus-skills": true,
+    "on-chain-analytics@claude-code-plugins-plus-skills": true,
+    "anomaly-detection-system@claude-code-plugins-plus-skills": true,
+    "time-series-forecaster@claude-code-plugins-plus-skills": true,
+    "whale-alert-monitor@claude-code-plugins-plus-skills": true,
+    "market-movers-scanner@claude-code-plugins-plus-skills": true,
+    "crypto-portfolio-tracker@claude-code-plugins-plus-skills": true,
+    "options-flow-analyzer@claude-code-plugins-plus-skills": true
   }
 }

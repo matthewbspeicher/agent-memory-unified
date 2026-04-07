@@ -1,0 +1,25 @@
+{
+  "batchId": "20260407T134521",
+  "laneNumber": 1,
+  "laneId": "lane-1",
+  "repoId": "default",
+  "taskId": "TP-002",
+  "segmentId": "TP-002::default",
+  "status": "running",
+  "worker": {
+    "agentId": "orch-mspeicher-lane-1-worker",
+    "status": "running",
+    "elapsedMs": 0,
+    "toolCalls": 72,
+    "contextPct": 4.920673370361328,
+    "costUsd": 0.9629833999999996,
+    "lastTool": "bash: cd trading && PYTHONPATH=.. python -m pytest tests/ -v --tb=short",
+    "inputTokens": 192942,
+    "outputTokens": 13831,
+    "cacheReadTokens": 2055637,
+    "cacheWriteTokens": 0
+  },
+  "reviewer": null,
+  "progress": null,
+  "updatedAt": 1775584786863
+}

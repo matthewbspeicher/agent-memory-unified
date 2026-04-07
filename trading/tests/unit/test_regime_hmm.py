@@ -1,10 +1,11 @@
 """Tests for HMM-based regime detection in RegimeMemoryManager."""
+
 import pytest
 from unittest.mock import MagicMock
 from decimal import Decimal
 from datetime import datetime, timezone
 
-from memory.regime import RegimeMemoryManager
+from memory.market_regime import RegimeMemoryManager
 
 
 def _make_bars(prices: list[float]):
@@ -66,6 +67,7 @@ def test_hmm_detects_trending_bear(manager):
 def test_hmm_detects_quiet_or_volatile(manager):
     """Sideways market should detect range-bound regime."""
     import random
+
     random.seed(42)
     prices = [100.0]
     for _ in range(50):
@@ -78,14 +80,22 @@ def test_hmm_detects_quiet_or_volatile(manager):
 def test_hmm_returns_valid_regime_label(manager):
     """Whatever the data, result should be a known regime label."""
     import random
+
     random.seed(123)
     prices = [100.0]
     for _ in range(60):
         prices.append(prices[-1] * (1 + random.gauss(0, 0.01)))
     bars = _make_bars(prices)
     result = manager.detect_regime(bars)
-    valid = {"trending_bull", "trending_bear", "quiet_range", "volatile_range",
-             "volatile_uptrend", "volatile_downtrend", "unknown"}
+    valid = {
+        "trending_bull",
+        "trending_bear",
+        "quiet_range",
+        "volatile_range",
+        "volatile_uptrend",
+        "volatile_downtrend",
+        "unknown",
+    }
     assert result in valid, f"Got unexpected regime: {result}"
 
 
@@ -93,11 +103,17 @@ def test_heuristic_method_directly(manager):
     """Test the static heuristic method independently."""
     # Strong positive returns
     returns = [0.01] * 20
-    assert manager._detect_regime_heuristic(returns) in ("trending_bull", "volatile_uptrend")
+    assert manager._detect_regime_heuristic(returns) in (
+        "trending_bull",
+        "volatile_uptrend",
+    )
 
     # Strong negative returns
     returns = [-0.01] * 20
-    assert manager._detect_regime_heuristic(returns) in ("trending_bear", "volatile_downtrend")
+    assert manager._detect_regime_heuristic(returns) in (
+        "trending_bear",
+        "volatile_downtrend",
+    )
 
     # Near-zero returns, low vol
     returns = [0.0001, -0.0001] * 10

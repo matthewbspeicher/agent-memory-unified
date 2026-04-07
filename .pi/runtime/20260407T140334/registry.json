@@ -1,0 +1,66 @@
+{
+  "batchId": "20260407T140334",
+  "updatedAt": 1775585160189,
+  "agents": {
+    "orch-mspeicher-lane-1-worker": {
+      "batchId": "20260407T140334",
+      "agentId": "orch-mspeicher-lane-1-worker",
+      "role": "worker",
+      "laneNumber": 1,
+      "taskId": "TP-003",
+      "repoId": "default",
+      "pid": 258243,
+      "parentPid": 257692,
+      "startedAt": 1775585053023,
+      "status": "exited",
+      "cwd": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T140334/lane-1",
+      "packet": {
+        "promptPath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T140334/lane-1/taskplane-tasks/TP-003-paper-trading-mode/PROMPT.md",
+        "statusPath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T140334/lane-1/taskplane-tasks/TP-003-paper-trading-mode/STATUS.md",
+        "donePath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T140334/lane-1/taskplane-tasks/TP-003-paper-trading-mode/.DONE",
+        "reviewsDir": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T140334/lane-1/taskplane-tasks/TP-003-paper-trading-mode/.reviews",
+        "taskFolder": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T140334/lane-1/taskplane-tasks/TP-003-paper-trading-mode"
+      }
+    },
+    "orch-mspeicher-lane-2-worker": {
+      "batchId": "20260407T140334",
+      "agentId": "orch-mspeicher-lane-2-worker",
+      "role": "worker",
+      "laneNumber": 2,
+      "taskId": "TP-007",
+      "repoId": "default",
+      "pid": 258474,
+      "parentPid": 257692,
+      "startedAt": 1775585105213,
+      "status": "exited",
+      "cwd": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T140334/lane-2",
+      "packet": {
+        "promptPath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T140334/lane-2/taskplane-tasks/TP-007-miner-ranking-filtering/PROMPT.md",
+        "statusPath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T140334/lane-2/taskplane-tasks/TP-007-miner-ranking-filtering/STATUS.md",
+        "donePath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T140334/lane-2/taskplane-tasks/TP-007-miner-ranking-filtering/.DONE",
+        "reviewsDir": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T140334/lane-2/taskplane-tasks/TP-007-miner-ranking-filtering/.reviews",
+        "taskFolder": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T140334/lane-2/taskplane-tasks/TP-007-miner-ranking-filtering"
+      }
+    },
+    "orch-mspeicher-lane-3-worker": {
+      "batchId": "20260407T140334",
+      "agentId": "orch-mspeicher-lane-3-worker",
+      "role": "worker",
+      "laneNumber": 3,
+      "taskId": "TP-009",
+      "repoId": "default",
+      "pid": 258220,
+      "parentPid": 257692,
+      "startedAt": 1775585052373,
+      "status": "exited",
+      "cwd": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T140334/lane-3",
+      "packet": {
+        "promptPath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T140334/lane-3/taskplane-tasks/TP-009-backtest-framework/PROMPT.md",
+        "statusPath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T140334/lane-3/taskplane-tasks/TP-009-backtest-framework/STATUS.md",
+        "donePath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T140334/lane-3/taskplane-tasks/TP-009-backtest-framework/.DONE",
+        "reviewsDir": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T140334/lane-3/taskplane-tasks/TP-009-backtest-framework/.reviews",
+        "taskFolder": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T140334/lane-3/taskplane-tasks/TP-009-backtest-framework"
+      }
+    }
+  }
+}

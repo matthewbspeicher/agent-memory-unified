@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/adapters/remembr/turbo.py
+# hypothesis_version: 6.151.11
+
+[200, 384, 100000, '_current_id', '_distance', '_id_to_internal', '_memory_id', 'all-MiniLM-L6-v2', 'cosine', 'metadata.json', 'metadata_cache', 'r', 'turboquant.bin', 'w']

@@ -1,0 +1,20 @@
+{
+  "batchId": "20260407T140334",
+  "agentId": "orch-mspeicher-lane-3-worker",
+  "role": "worker",
+  "laneNumber": 3,
+  "taskId": "TP-009",
+  "repoId": "default",
+  "pid": 258220,
+  "parentPid": 257692,
+  "startedAt": 1775585052373,
+  "status": "exited",
+  "cwd": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T140334/lane-3",
+  "packet": {
+    "promptPath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T140334/lane-3/taskplane-tasks/TP-009-backtest-framework/PROMPT.md",
+    "statusPath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T140334/lane-3/taskplane-tasks/TP-009-backtest-framework/STATUS.md",
+    "donePath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T140334/lane-3/taskplane-tasks/TP-009-backtest-framework/.DONE",
+    "reviewsDir": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T140334/lane-3/taskplane-tasks/TP-009-backtest-framework/.reviews",
+    "taskFolder": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T140334/lane-3/taskplane-tasks/TP-009-backtest-framework"
+  }
+}

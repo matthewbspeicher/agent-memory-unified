@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/intelligence/circuit_breaker.py
+# hypothesis_version: 6.151.11
+
+['T', 'closed', 'open']

@@ -1,0 +1,31 @@
+{
+  "batchId": "20260407T140334",
+  "laneNumber": 3,
+  "laneId": "lane-3",
+  "repoId": "default",
+  "taskId": "TP-009",
+  "segmentId": "TP-009::default",
+  "status": "failed",
+  "worker": {
+    "agentId": "orch-mspeicher-lane-3-worker",
+    "status": "crashed",
+    "elapsedMs": 70203,
+    "toolCalls": 9,
+    "contextPct": 1.45721435546875,
+    "costUsd": 0.07539180000000001,
+    "lastTool": "bash: find trading/tests -name \"*taoshi*\"",
+    "inputTokens": 22461,
+    "outputTokens": 939,
+    "cacheReadTokens": 96009,
+    "cacheWriteTokens": 0
+  },
+  "reviewer": null,
+  "progress": {
+    "currentStep": "Step 0: Preflight",
+    "checked": 0,
+    "total": 10,
+    "iteration": 3,
+    "reviews": 0
+  },
+  "updatedAt": 1775585122578
+}

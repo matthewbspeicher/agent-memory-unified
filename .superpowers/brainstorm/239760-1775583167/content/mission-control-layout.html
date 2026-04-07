@@ -1,0 +1,155 @@
+<h2>Mission Control — Layout</h2>
+<p class="subtitle">Dense single-page dashboard with drawer drill-downs. Each panel is clickable to expand.</p>
+
+<div class="mockup">
+  <div class="mockup-header">Mission Control — /mission-control</div>
+  <div class="mockup-body" style="padding: 16px; background: #0a0a1a;">
+
+    <!-- Row 1: Status Bar -->
+    <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+      <div style="flex: 1; background: rgba(6,182,212,0.1); border: 1px solid rgba(6,182,212,0.3); border-radius: 8px; padding: 12px; text-align: center;">
+        <div style="color: #06B6D4; font-size: 11px; text-transform: uppercase; letter-spacing: 1px;">System Status</div>
+        <div style="color: #10B981; font-size: 20px; font-weight: 700; margin-top: 4px;">● All Clear</div>
+      </div>
+      <div style="flex: 1; background: rgba(6,182,212,0.1); border: 1px solid rgba(6,182,212,0.3); border-radius: 8px; padding: 12px; text-align: center;">
+        <div style="color: #06B6D4; font-size: 11px; text-transform: uppercase; letter-spacing: 1px;">Agents Active</div>
+        <div style="color: #fff; font-size: 20px; font-weight: 700; margin-top: 4px;">11 / 13</div>
+      </div>
+      <div style="flex: 1; background: rgba(6,182,212,0.1); border: 1px solid rgba(6,182,212,0.3); border-radius: 8px; padding: 12px; text-align: center;">
+        <div style="color: #06B6D4; font-size: 11px; text-transform: uppercase; letter-spacing: 1px;">Open Trades</div>
+        <div style="color: #fff; font-size: 20px; font-weight: 700; margin-top: 4px;">4</div>
+      </div>
+      <div style="flex: 1; background: rgba(6,182,212,0.1); border: 1px solid rgba(6,182,212,0.3); border-radius: 8px; padding: 12px; text-align: center;">
+        <div style="color: #06B6D4; font-size: 11px; text-transform: uppercase; letter-spacing: 1px;">Validator</div>
+        <div style="color: #10B981; font-size: 20px; font-weight: 700; margin-top: 4px;">● Healthy</div>
+      </div>
+      <div style="flex: 1; background: rgba(6,182,212,0.1); border: 1px solid rgba(6,182,212,0.3); border-radius: 8px; padding: 12px; text-align: center;">
+        <div style="color: #06B6D4; font-size: 11px; text-transform: uppercase; letter-spacing: 1px;">Daily P&L</div>
+        <div style="color: #10B981; font-size: 20px; font-weight: 700; margin-top: 4px;">+$127.40</div>
+      </div>
+    </div>
+
+    <!-- Row 2: Main Panels -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+
+      <!-- Agent Activity Panel -->
+      <div style="background: rgba(167,139,250,0.08); border: 1px solid rgba(167,139,250,0.25); border-radius: 8px; padding: 14px; cursor: pointer;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <div style="color: #A78BFA; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">Agent Activity</div>
+          <div style="color: rgba(255,255,255,0.3); font-size: 11px;">click to expand →</div>
+        </div>
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; line-height: 1.8;">
+          <div style="color: rgba(255,255,255,0.7);">
+            <span style="color: #10B981;">12:31</span> <span style="color: #A78BFA;">trend-follower</span> signal BTC/USD LONG (conf: 0.82)
+          </div>
+          <div style="color: rgba(255,255,255,0.7);">
+            <span style="color: #10B981;">12:30</span> <span style="color: #06B6D4;">mean-reversion</span> closed ETH/USD +2.1%
+          </div>
+          <div style="color: rgba(255,255,255,0.7);">
+            <span style="color: #F59E0B;">12:28</span> <span style="color: #F43F5E;">arb-scanner</span> spread below threshold, skipping
+          </div>
+          <div style="color: rgba(255,255,255,0.7);">
+            <span style="color: #10B981;">12:25</span> <span style="color: #A78BFA;">sentiment-nlp</span> bearish signal SPY (conf: 0.71)
+          </div>
+          <div style="color: rgba(255,255,255,0.4);">
+            <span style="color: rgba(255,255,255,0.3);">12:20</span> <span style="color: rgba(255,255,255,0.3);">+ 23 more events</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Infrastructure Panel -->
+      <div style="background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.25); border-radius: 8px; padding: 14px; cursor: pointer;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <div style="color: #10B981; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">Infrastructure</div>
+          <div style="color: rgba(255,255,255,0.3); font-size: 11px;">click to expand →</div>
+        </div>
+        <div style="font-size: 12px; line-height: 2;">
+          <div style="display: flex; justify-content: space-between; color: rgba(255,255,255,0.8);">
+            <span>Trading Engine</span> <span style="color: #10B981;">● Running</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; color: rgba(255,255,255,0.8);">
+            <span>PostgreSQL</span> <span style="color: #10B981;">● Connected</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; color: rgba(255,255,255,0.8);">
+            <span>Redis</span> <span style="color: #10B981;">● Connected</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; color: rgba(255,255,255,0.8);">
+            <span>Taoshi Bridge</span> <span style="color: #10B981;">● Polling (12 miners)</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; color: rgba(255,255,255,0.8);">
+            <span>Railway</span> <span style="color: #10B981;">● Healthy</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; color: rgba(255,255,255,0.8);">
+            <span>API Latency (p95)</span> <span style="color: rgba(255,255,255,0.6);">42ms</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 3: Secondary Panels -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+
+      <!-- Validator Compact -->
+      <div style="background: rgba(6,182,212,0.08); border: 1px solid rgba(6,182,212,0.25); border-radius: 8px; padding: 14px; cursor: pointer;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <div style="color: #06B6D4; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">Validator</div>
+          <div style="color: rgba(255,255,255,0.3); font-size: 11px;">click to expand →</div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px;">
+          <div>
+            <div style="color: rgba(255,255,255,0.4); font-size: 10px; text-transform: uppercase;">Hash Pass Rate</div>
+            <div style="color: #fff; font-size: 18px; font-weight: 600;">94.2%</div>
+          </div>
+          <div>
+            <div style="color: rgba(255,255,255,0.4); font-size: 10px; text-transform: uppercase;">Weights Set</div>
+            <div style="color: #fff; font-size: 18px; font-weight: 600;">147</div>
+          </div>
+          <div>
+            <div style="color: rgba(255,255,255,0.4); font-size: 10px; text-transform: uppercase;">Top Miner Score</div>
+            <div style="color: #fff; font-size: 18px; font-weight: 600;">0.8921</div>
+          </div>
+          <div>
+            <div style="color: rgba(255,255,255,0.4); font-size: 10px; text-transform: uppercase;">Response Rate</div>
+            <div style="color: #fff; font-size: 18px; font-weight: 600;">87%</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Trades Compact -->
+      <div style="background: rgba(244,63,94,0.08); border: 1px solid rgba(244,63,94,0.25); border-radius: 8px; padding: 14px; cursor: pointer;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <div style="color: #F43F5E; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">Open Trades</div>
+          <div style="color: rgba(255,255,255,0.3); font-size: 11px;">click to expand →</div>
+        </div>
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; line-height: 2;">
+          <div style="display: flex; justify-content: space-between; color: rgba(255,255,255,0.8);">
+            <span>BTC/USD <span style="color: #10B981;">LONG</span></span> <span style="color: #10B981;">+1.8%</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; color: rgba(255,255,255,0.8);">
+            <span>ETH/USD <span style="color: #F43F5E;">SHORT</span></span> <span style="color: #10B981;">+0.4%</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; color: rgba(255,255,255,0.8);">
+            <span>SOL/USD <span style="color: #10B981;">LONG</span></span> <span style="color: #F43F5E;">-0.6%</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; color: rgba(255,255,255,0.8);">
+            <span>SPY <span style="color: #F43F5E;">SHORT</span></span> <span style="color: #10B981;">+0.2%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Drawer hint -->
+    <div style="margin-top: 16px; text-align: center; color: rgba(255,255,255,0.2); font-size: 11px; font-style: italic;">
+      ↑ Click any panel to open its detail drawer (slides in from right)
+    </div>
+
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>Layout Summary</h3>
+  <p><strong>Row 1 — Status Bar:</strong> Five KPI tiles for instant health check. Green/yellow/red indicators.</p>
+  <p><strong>Row 2 — Primary Panels:</strong> Agent Activity (live feed) and Infrastructure (service status). These are your biggest blind spots, so they get top billing.</p>
+  <p><strong>Row 3 — Secondary Panels:</strong> Validator (compact metrics from existing Bittensor page) and Open Trades (positions at a glance).</p>
+  <p><strong>Drawers:</strong> Clicking any panel slides in a right-side drawer with full detail — agent logs, infra metrics history, full Bittensor dashboard, trade management. You never leave the page.</p>
+</div>

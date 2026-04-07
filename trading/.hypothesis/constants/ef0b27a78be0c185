@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/learning/trade_reflector.py
+# hypothesis_version: 6.151.11
+
+[1.0, 1.5, 2.0, 100.0, 512, '-', ':', 'Market observation', 'USD', 'data', 'deep_reflection', 'direction', 'entry_price', 'exit_price', 'id', 'long', 'loss', 'market_observation', 'market_phase', 'no', 'none', 'opportunity_id', 'outcome', 'pnl', 'regime', 'short', 'symbol', 'unknown', 'yes']

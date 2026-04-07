@@ -1,0 +1,20 @@
+{
+  "batchId": "20260407T134521",
+  "agentId": "orch-mspeicher-lane-1-worker",
+  "role": "worker",
+  "laneNumber": 1,
+  "taskId": "TP-002",
+  "repoId": "default",
+  "pid": 253659,
+  "parentPid": 253563,
+  "startedAt": 1775583922863,
+  "status": "running",
+  "cwd": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T134521/lane-1",
+  "packet": {
+    "promptPath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T134521/lane-1/taskplane-tasks/TP-002-wire-signal-pipeline/PROMPT.md",
+    "statusPath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T134521/lane-1/taskplane-tasks/TP-002-wire-signal-pipeline/STATUS.md",
+    "donePath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T134521/lane-1/taskplane-tasks/TP-002-wire-signal-pipeline/.DONE",
+    "reviewsDir": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T134521/lane-1/taskplane-tasks/TP-002-wire-signal-pipeline/.reviews",
+    "taskFolder": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T134521/lane-1/taskplane-tasks/TP-002-wire-signal-pipeline"
+  }
+}

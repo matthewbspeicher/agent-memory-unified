@@ -1,0 +1,31 @@
+{
+  "batchId": "20260407T140334",
+  "laneNumber": 2,
+  "laneId": "lane-2",
+  "repoId": "default",
+  "taskId": "TP-007",
+  "segmentId": "TP-007::default",
+  "status": "failed",
+  "worker": {
+    "agentId": "orch-mspeicher-lane-2-worker",
+    "status": "crashed",
+    "elapsedMs": 54975,
+    "toolCalls": 9,
+    "contextPct": 3.2388687133789062,
+    "costUsd": 0.12443379999999998,
+    "lastTool": "edit",
+    "inputTokens": 41148,
+    "outputTokens": 884,
+    "cacheReadTokens": 157649,
+    "cacheWriteTokens": 0
+  },
+  "reviewer": null,
+  "progress": {
+    "currentStep": "Step 0: Preflight",
+    "checked": 0,
+    "total": 9,
+    "iteration": 3,
+    "reviews": 0
+  },
+  "updatedAt": 1775585160190
+}

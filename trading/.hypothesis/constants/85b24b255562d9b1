@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/intelligence/providers/anomaly.py
+# hypothesis_version: 6.151.11
+
+[-1.0, -0.001, 0.0, 0.001, 0.1, 0.2, 0.3, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0, 10000, '/USDT', '1h', '5m', 'BTC/USDT', 'BTCUSD', 'ETH/USDT', 'ETHUSD', 'SOL/USDT', 'SOLUSD', 'USD', 'anomaly', 'asks', 'bids', 'price_direction', 'spread_ratio', 'volume_ratio']

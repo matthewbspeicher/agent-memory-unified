@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/api/routes/intelligence.py
+# hypothesis_version: 6.151.11
+
+['/intelligence', '/status', 'enabled', 'intelligence', 'intelligence_layer', 'not_initialized', 'status']

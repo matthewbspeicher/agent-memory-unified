@@ -1,0 +1,20 @@
+{
+  "batchId": "20260407T140334",
+  "agentId": "orch-mspeicher-lane-1-worker",
+  "role": "worker",
+  "laneNumber": 1,
+  "taskId": "TP-003",
+  "repoId": "default",
+  "pid": 258243,
+  "parentPid": 257692,
+  "startedAt": 1775585053023,
+  "status": "exited",
+  "cwd": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T140334/lane-1",
+  "packet": {
+    "promptPath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T140334/lane-1/taskplane-tasks/TP-003-paper-trading-mode/PROMPT.md",
+    "statusPath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T140334/lane-1/taskplane-tasks/TP-003-paper-trading-mode/STATUS.md",
+    "donePath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T140334/lane-1/taskplane-tasks/TP-003-paper-trading-mode/.DONE",
+    "reviewsDir": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T140334/lane-1/taskplane-tasks/TP-003-paper-trading-mode/.reviews",
+    "taskFolder": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T140334/lane-1/taskplane-tasks/TP-003-paper-trading-mode"
+  }
+}

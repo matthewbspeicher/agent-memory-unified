@@ -13,6 +13,11 @@ from learning.ensemble_optimizer import (
     EnsembleOptimizer,
     EnsembleSignal,
 )
+from learning.rl_position_sizer import (
+    RLPositionSizer,
+    SizingState,
+    TradingSizingEnv,
+)
 
 __all__ = [
     "CorrelationConfig",
@@ -24,4 +29,7 @@ __all__ = [
     "EnsembleMethod",
     "EnsembleOptimizer",
     "EnsembleSignal",
+    "RLPositionSizer",
+    "SizingState",
+    "TradingSizingEnv",
 ]

@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/config.py
+# hypothesis_version: 6.151.11
+
+[0.001, 0.003, 0.1, 0.7, 1.0, 1.2, 1.5, 5.0, 100.0, 10000.0, 200, 300, 500, 4001, 4002, 8000, 100000, '#', ',', '.env', '1', '127.0.0.1', '30 8 * * 1-5', '=', 'BTCUSD-5m', 'INFO', 'REDIS_PRIVATE_URL', 'REDIS_URL', 'STA_', 'all', 'all-MiniLM-L6-v2', 'alpaca', 'anthropic', 'bedrock', 'bittensor', 'bittensor_', 'broker', 'broker_mode', 'broker_routing', 'claude-haiku-4-5', 'cosine', 'data.db', 'data/imports', 'data/journal_index', 'data/memory.db', 'fallback_chain', 'finney', 'groq', 'ib_', 'ibkr', 'iex', 'incentive', 'intel_', 'json', 'kalshi', 'live', 'llm', 'llm_fallback_chain', 'mode', 'ollama', 'paper', 'polymarket', 'redis_url', 'routing', 'rule-based', 'sta_hotkey', 'sta_wallet', 'tradier', 'true', 'v1', 'ws://localhost:9944', 'yes']

@@ -1,0 +1,78 @@
+<h2>Drawer Behavior — How should it feel?</h2>
+<p class="subtitle">The drawer is how you go from "glance" to "detail" without leaving Mission Control</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Overlay Drawer (recommended)</h3>
+      <p>Slides in from the right over the dashboard content. Semi-transparent backdrop dims the panels behind. Click backdrop or press Escape to close. Dashboard stays mounted underneath.</p>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>Pros</h4>
+          <ul>
+            <li>Simple mental model — open/close, dashboard is always "there"</li>
+            <li>Drawer can be wide (50-60% of viewport) for dense content</li>
+            <li>Easy to implement with existing React patterns</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>Cons</h4>
+          <ul>
+            <li>Can't see dashboard panels while drawer is open</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Push Drawer</h3>
+      <p>Slides in from the right and pushes dashboard content to the left. Dashboard panels compress/reflow to fill remaining space. No backdrop needed.</p>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>Pros</h4>
+          <ul>
+            <li>Dashboard panels remain visible (compressed) alongside detail</li>
+            <li>Side-by-side: glance at status bar while reading agent logs</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>Cons</h4>
+          <ul>
+            <li>Dashboard panels may get too narrow to be useful</li>
+            <li>More complex layout math (responsive reflow)</li>
+            <li>Can feel janky if not carefully animated</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Full-Width Takeover</h3>
+      <p>Clicking a panel transitions the entire content area to that panel's detail view. Back button or breadcrumb to return. More like page navigation but within the Mission Control shell.</p>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>Pros</h4>
+          <ul>
+            <li>Maximum space for detail content</li>
+            <li>Simplest to build — just conditional rendering</li>
+            <li>No drawer animation complexity</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>Cons</h4>
+          <ul>
+            <li>Loses the "single pane of glass" feel</li>
+            <li>Feels more like page navigation than drill-down</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

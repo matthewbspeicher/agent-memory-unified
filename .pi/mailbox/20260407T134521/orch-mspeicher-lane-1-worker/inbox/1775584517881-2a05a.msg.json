@@ -1,0 +1,11 @@
+{
+  "id": "1775584517881-2a05a",
+  "batchId": "20260407T134521",
+  "from": "supervisor",
+  "to": "orch-mspeicher-lane-1-worker",
+  "timestamp": 1775584517881,
+  "type": "steer",
+  "content": "You are on Step 4. Remember: Do NOT run the full test suite with a long timeout. Many integration tests hang because they need live Postgres/Redis/IBKR connections. Instead: 1) Run only unit tests: `PYTHONPATH=\"..:.\" python -m pytest tests/unit/ -v --tb=short --timeout=30 -x`. 2) Skip any tests that hang. 3) If your new unit tests for the aggregator pass, move to Step 5!",
+  "expectsReply": false,
+  "replyTo": null
+}

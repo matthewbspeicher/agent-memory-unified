@@ -9,6 +9,7 @@ from integrations.bittensor.signals import (
     BittensorSignalPayload,
     create_bittensor_agent_signal,
 )
+from storage.bittensor import BittensorStore
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,38 @@ class MinerConsensusAggregator:
         self._reference_time: datetime | None = None
         self._miner_weights: dict[str, float] = {}
         self._weights_last_updated: datetime | None = None
+
+    def set_reference_time(self, dt: datetime | None):
+        """Used for backtesting to override 'now'."""
+        self._reference_time = dt
+
+    async def start(self):
+        self._running = True
+        self.signal_bus.subscribe(self._handle_miner_position)
+        logger.info(
+            f"MinerConsensusAggregator started (window: {self.window_minutes}m)"
+        )
+
+    async def stop(self):
+        self._running = False
+
+    async def _handle_miner_position(self, signal: AgentSignal):
+        if signal.signal_type != "bittensor_miner_position":
+            return
+
+        payload = signal.payload
+        symbol = payload.get("symbol")
+        hotkey = payload.get("miner_hotkey")
+        open_ms = payload.get("open_ms", 0)
+
+        if not symbol or not hotkey:
+            return
+
+        open_time = datetime.fromtimestamp(open_ms / 1000.0, tz=timezone.utc)
+
+        async with self._lock:
+            self.positions[symbol][hotkey] = (open_time, payload)
+            await self._evaluate_consensus(symbol)
 
     async def _refresh_weights(self):
         """Fetch latest miner rankings and cache them as weights."""

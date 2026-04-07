@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/intelligence/config.py
+# hypothesis_version: 6.151.11
+
+[0.05, 0.1, 0.12, 0.15, 0.3, 5.0, 300, 2000, 'anomaly', 'derivatives', 'on_chain', 'order_flow', 'regime', 'risk_audit', 'sentiment']

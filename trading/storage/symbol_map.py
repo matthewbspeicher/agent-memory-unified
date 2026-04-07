@@ -28,16 +28,15 @@ class SignalMapper:
     def map_to_symbol(self, external_symbol: str) -> Optional[Symbol]:
         """Maps an external string like 'BTCUSD' to a Symbol object."""
         entry = self._map.get(external_symbol)
-        if not entry:
-            # Try fuzzy match or default to CRYPTO if it looks like one
-            if len(external_symbol) == 6:  # e.g. BTCUSD
-                return Symbol(
-                    ticker=f"{external_symbol[:3]}/{external_symbol[3:]}",
-                    asset_type=AssetType.STOCK,
-                )
+        if entry is None:
             return None
 
-        return Symbol(ticker=entry["ticker"], asset_type=entry["asset_type"])
+        # Handle case where asset_type is a string
+        asset_type = entry["asset_type"]
+        if isinstance(asset_type, str):
+            asset_type = AssetType(asset_type)
+
+        return Symbol(ticker=entry["ticker"], asset_type=asset_type)
 
     def map_to_prediction_market(
         self, external_symbol: str, markets: list

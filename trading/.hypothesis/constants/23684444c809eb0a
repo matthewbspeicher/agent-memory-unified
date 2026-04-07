@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/memory/market_regime.py
+# hypothesis_version: 6.151.11
+
+[0.0005, 0.005, 0.5, 'context', 'diag', 'market_regime', 'metrics', 'private', 'quiet_range', 'regime', 'symbol', 'trending_bear', 'trending_bull', 'type', 'unknown', 'volatile_downtrend', 'volatile_range', 'volatile_uptrend']

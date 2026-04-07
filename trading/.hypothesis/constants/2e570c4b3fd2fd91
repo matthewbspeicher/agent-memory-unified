@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/intelligence/providers/order_flow.py
+# hypothesis_version: 6.151.11
+
+[0.0, 1e-15, 1e-09, 0.1, 0.2, 0.3, 0.4, 2.0, 6.0, 200, 'ADA/USDT', 'ADAUSD', 'AVAX/USDT', 'AVAXUSD', 'BNB/USDT', 'BNBUSD', 'BTC/USDT', 'BTCUSD', 'DOGE/USDT', 'DOGEUSD', 'ETH/USDT', 'ETHUSD', 'SOL/USDT', 'SOLUSD', 'XRP/USDT', 'XRPUSD', 'amount', 'bearish_divergence', 'binance', 'bullish_divergence', 'buy', 'confirming', 'cvd_final', 'cvd_slope', 'divergence_type', 'enableRateLimit', 'exchange', 'neutral', 'order_flow', 'price', 'price_slope', 'side', 'timestamp', 'trade_count']

@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/storage/db.py
+# hypothesis_version: 6.151.11
+
+['INTEGER', 'REAL', 'TEXT', 'account_id', 'agent_name', 'avg_loss', 'avg_win', 'broker_id', 'daily_pnl', 'daily_pnl_pct', 'data.db', 'expires_at', 'max_drawdown', 'open_positions', 'pool', 'profit_factor', 'sharpe_ratio', 'total_pnl', 'total_trades']

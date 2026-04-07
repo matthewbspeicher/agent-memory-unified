@@ -8,7 +8,7 @@ from intelligence.models import IntelReport
 from intelligence.providers.base import BaseIntelProvider
 
 if TYPE_CHECKING:
-    from memory.regime import RegimeMemoryManager
+    from memory.market_regime import RegimeMemoryManager
 
 logger = logging.getLogger(__name__)
 
@@ -92,11 +92,15 @@ class RegimeProvider(BaseIntelProvider):
                 bars = []
                 for candle in ohlcv:
                     ts = datetime.fromtimestamp(candle[0] / 1000, tz=timezone.utc)
-                    bars.append(Bar(
-                        symbol=SymbolModel(ticker=symbol, asset_type=AssetType.CRYPTO),
-                        timestamp=ts,
-                        close=Decimal(str(candle[4])),
-                    ))
+                    bars.append(
+                        Bar(
+                            symbol=SymbolModel(
+                                ticker=symbol, asset_type=AssetType.CRYPTO
+                            ),
+                            timestamp=ts,
+                            close=Decimal(str(candle[4])),
+                        )
+                    )
                 return bars
             finally:
                 await exchange.close()

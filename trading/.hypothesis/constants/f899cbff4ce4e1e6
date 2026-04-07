@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/risk/signal_evaluator.py
+# hypothesis_version: 6.151.11
+
+[0.0, 0.1, 0.3, 0.5, 0.8, 1.0, '0', 'close', 'confidence', 'signal_type']

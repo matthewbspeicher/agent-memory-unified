@@ -120,6 +120,7 @@ Before I coordinate the agents, I need to understand your requirements better:
 | `project-planner` | Planning | Task breakdown, milestones, roadmap |
 | `seo-specialist` | SEO & Marketing | SEO optimization, meta tags, analytics |
 | `game-developer` | Game Development | Unity, Godot, Unreal, Phaser, multiplayer |
+| `quant-analyst` | Quantitative Finance | Signal validation, risk audit, Monte Carlo, regime detection |
 
 ---
 
@@ -147,6 +148,7 @@ Before I coordinate the agents, I need to understand your requirements better:
 | `explorer-agent` | Codebase discovery | ❌ Write operations |
 | `penetration-tester` | Security testing | ❌ Feature code |
 | `game-developer` | Game logic, scenes, assets | ❌ Web/mobile components |
+| `quant-analyst` | Risk audit, signal validation, quant metrics | ❌ Production code, feature code |
 
 ### File Type Ownership
 

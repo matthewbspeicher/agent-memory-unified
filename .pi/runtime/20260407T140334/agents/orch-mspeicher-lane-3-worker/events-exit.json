@@ -1,0 +1,22 @@
+{
+  "exitCode": 0,
+  "exitSignal": null,
+  "tokens": {
+    "input": 22461,
+    "output": 939,
+    "cacheRead": 96009,
+    "cacheWrite": 0
+  },
+  "cost": 0.07539180000000001,
+  "toolCalls": 9,
+  "retries": 1,
+  "compactions": 0,
+  "durationSec": 70,
+  "lastToolCall": "bash: find trading/tests -name \"*taoshi*\"",
+  "error": null,
+  "contextUsage": {
+    "tokens": 15280,
+    "contextWindow": 1048576,
+    "percent": 1.45721435546875
+  }
+}

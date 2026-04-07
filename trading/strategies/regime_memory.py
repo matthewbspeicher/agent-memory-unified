@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, List, Dict, Any
 from agents.base import Agent
 from agents.models import AgentConfig, Opportunity, AgentSignal
 from strategies.bittensor_consensus import BittensorAlphaAgent
-from memory.regime import RegimeMemoryManager
+from memory.market_regime import RegimeMemoryManager
 from adapters.remembr.client import AsyncRemembrClient
 
 if TYPE_CHECKING:

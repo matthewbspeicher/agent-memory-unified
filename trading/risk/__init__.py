@@ -18,7 +18,7 @@ Exports:
 - CircuitBreakerOpenError: Exception for open circuit
 """
 
-from trading.risk.analytics import (
+from risk.analytics import (
     PortfolioRisk,
     PositionRisk,
     RiskAnalytics,
@@ -26,14 +26,14 @@ from trading.risk.analytics import (
     RiskMetric,
     RiskViolation,
 )
-from trading.risk.circuit_breaker import (
+from risk.circuit_breaker import (
     CircuitBreakerConfig,
     CircuitBreakerOpenError,
     CircuitState,
     RiskProviderCircuitBreaker,
     RiskProviderCircuitBreakerManager,
 )
-from trading.risk.signal_evaluator import (
+from risk.signal_evaluator import (
     RiskAwareSignalEvaluator,
     SignalRiskResult,
     attach_risk_evaluator,

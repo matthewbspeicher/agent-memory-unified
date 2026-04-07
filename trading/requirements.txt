@@ -49,7 +49,7 @@ websockets>=12.0
 httpx-sse>=0.4.0
 
 # bittensor subnet integration
-bittensor>=8.0.0
+bittensor>=10.2.0
 
 # testing
 pytest>=8.0.0

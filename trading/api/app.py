@@ -507,7 +507,7 @@ async def _setup_bittensor_integration(
 
         # Intelligence Layer
         from intelligence.layer import IntelligenceLayer
-        from memory.regime import RegimeMemoryManager
+        from memory.market_regime import RegimeMemoryManager
         from memory.vector_service import MarketVectorService
         from remembr.client import AsyncRemembrClient
 
@@ -520,7 +520,9 @@ async def _setup_bittensor_integration(
                     base_url=config.remembr_base_url,
                 )
                 _vector_service = MarketVectorService(llm_client=llm_client)
-                regime_mem = RegimeMemoryManager(_remembr_client, vector_service=_vector_service)
+                regime_mem = RegimeMemoryManager(
+                    _remembr_client, vector_service=_vector_service
+                )
             except Exception as e:
                 logger.warning("Failed to init RegimeMemoryManager: %s", e)
 
@@ -1495,6 +1497,7 @@ async def lifespan(app: FastAPI):
 
         if config.discord_webhook_url:
             from notifications.discord import DiscordNotifier
+
             active_notifiers.append(DiscordNotifier(config.discord_webhook_url))
             _log.info("Discord notifier enabled")
 
@@ -1861,6 +1864,7 @@ def create_app(
     app.include_router(shadow_route.router)
 
     from api.routes import intelligence as intelligence_route
+
     app.include_router(intelligence_route.router)
 
     from api.startup.error_handlers import register_error_handlers

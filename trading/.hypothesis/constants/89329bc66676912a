@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/intelligence/providers/regime.py
+# hypothesis_version: 6.151.11
+
+[0.0, 0.1, 0.5, 1.0, 120, 1000, '/USDT', '1h', 'BTC/USDT', 'BTCUSD', 'ETH/USDT', 'ETHUSD', 'USD', 'recalled_count', 'regime', 'volatility']

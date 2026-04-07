@@ -90,7 +90,10 @@ class AgentStore:
             ),
         )
         await self._db.commit()
-        return await self.get(name)
+        result = await self.get(name)
+        if result is None:
+            raise RuntimeError(f"Failed to create agent {name}: not found after insert")
+        return result
 
     async def get(self, name: str) -> dict[str, Any] | None:
         """Get agent by name."""
@@ -178,9 +181,19 @@ class AgentStore:
         """Upsert agent (insert or replace if exists)."""
         existing = await self.get(name)
         if existing is None:
-            return await self.create({"name": name, **entry})
+            result: dict[str, Any] = await self.create({"name": name, **entry})
+            if result is None:
+                raise RuntimeError(
+                    f"Failed to upsert agent {name}: create returned None"
+                )
+            return result
         else:
-            return await self.update(name, entry)
+            result: dict[str, Any] = await self.update(name, entry)
+            if result is None:
+                raise RuntimeError(
+                    f"Failed to upsert agent {name}: update returned None"
+                )
+            return result
 
     async def set_status(self, name: str, status: str) -> dict[str, Any] | None:
         """Set agent status (active, dormant, retired)."""

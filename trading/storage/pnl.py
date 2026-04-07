@@ -55,7 +55,10 @@ class TrackedPositionStore:
             params,
         )
         await self._db.commit()
-        return cursor.lastrowid
+        row_id = cursor.lastrowid
+        if row_id is None:
+            raise RuntimeError("Failed to insert position: no row ID returned")
+        return row_id
 
     async def close_position(
         self,

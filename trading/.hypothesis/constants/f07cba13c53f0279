@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/risk/analytics.py
+# hypothesis_version: 6.151.11
+
+[0.0, 0.02, 0.04, 0.05, 0.1, 0.15, 0.8, 0.95, 0.99, 1.0, 1.5, 2.0, -252, 100, 252, 3600, '0', '1', 'avg_price', 'critical', 'cvar', 'exposure', 'leverage', 'margin_utilization', 'max_drawdown', 'max_drawdown_pct', 'max_leverage', 'max_net_exposure_pct', 'max_var_95_pct', 'quantity', 'symbol', 'var_95', 'var_99', 'warning']
