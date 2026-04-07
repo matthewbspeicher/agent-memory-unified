@@ -102,6 +102,23 @@ class PaperAccountProvider(AccountProvider):
     ) -> list[OrderResult]:
         return await self._store.get_order_history(account_id)
 
+    async def apply_carry_fees(self, positions: list[Position], daily_rate: Decimal = Decimal("0.0001")) -> Decimal:
+        """Deduct holding costs for open positions overnight."""
+        total_fee = Decimal("0")
+        for pos in positions:
+            position_value = abs(pos.market_value)
+            fee = position_value * daily_rate
+            total_fee += fee
+            
+        # Deduct from paper cash balance in DB
+        db = await self._store._get_db()
+        await db.execute(
+            "UPDATE paper_accounts SET cash = cash - ? WHERE account_id = ?",
+            (float(total_fee), PAPER_ACCOUNT_ID)
+        )
+        await db.commit()
+        return total_fee
+
 
 # ---------------------------------------------------------------------------
 # Market Data — delegates to actual provider (wired after construction)
