@@ -1,7 +1,7 @@
 # TP-005: Structured Logging — Status
 
-**Current Step:** Step 3: Testing & Verification
-**Status:** 🟡 In Progress
+**Current Step:** Step 4: Documentation & Delivery
+**Status:** ✅ Complete
 **Last Updated:** 2026-04-07
 **Review Level:** 1
 **Review Counter:** 0
@@ -45,11 +45,10 @@ M
 ---
 
 ### Step 4: Documentation & Delivery
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete
 
-> ⚠️ Hydrate: Expand checkboxes when entering this step
-
-- [ ] Complete step objectives
+- [x] Add logging configuration section to CLAUDE.md
+- [x] Log discoveries
 
 ---
 
@@ -60,6 +59,8 @@ M
 ## Discoveries
 | Discovery | Disposition | Location |
 |-----------|-------------|----------|
+| All 33 test collection errors are pre-existing missing deps (matplotlib, opentelemetry, eth_account, etc.) | Tech debt | trading/tests/ |
+| TaoshiBridge had its own handler setup bypassing root logger config | Fixed in TP-005 | trading/integrations/bittensor/taoshi_bridge.py |
 
 ## Execution Log
 | Timestamp | Action | Outcome |

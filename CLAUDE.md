@@ -139,6 +139,29 @@ git config core.hooksPath .githooks
 ./shared/types/scripts/generate-types.sh
 ```
 
+### Structured Logging
+
+The trading engine uses structured logging (`trading/utils/logging.py`) with two output formats:
+
+| Env Var | Values | Default | Description |
+|---------|--------|---------|-------------|
+| `STA_LOG_LEVEL` | DEBUG, INFO, WARNING, ERROR | INFO | Root log level |
+| `STA_LOG_FORMAT` | json, text | json | Output format |
+
+**JSON format** (default, machine-readable):
+```json
+{"ts": "2026-04-07T12:00:00+00:00", "level": "INFO", "logger": "integrations.bittensor.taoshi_bridge", "msg": "TaoshiBridge: 3 new signals", "event_type": "bridge.poll", "data": {"new_signals": 3, "miners": 12}}
+```
+
+**Text format** (human-readable):
+```
+2026-04-07 12:00:00 INFO     [integrations.bittensor.taoshi_bridge] [bridge.poll] TaoshiBridge: 3 new signals
+```
+
+**Event types:** `signal.received`, `signal.consensus`, `trade.decision`, `trade.executed`, `bridge.poll`, `bridge.signal`, `error`
+
+Use `log_event(logger, level, event_type, msg, data={...})` from `utils.logging` for structured events.
+
 ### Testing
 
 ```bash
