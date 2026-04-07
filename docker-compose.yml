@@ -70,9 +70,9 @@ services:
       dockerfile: Dockerfile
     ports:
       - "3000:3000"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
+    environment:
+      PORT: "3000"
+      VITE_TRADING_API_URL: http://localhost:8080
 
 volumes:
   postgres_data:
