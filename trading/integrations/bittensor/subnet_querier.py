@@ -40,15 +40,15 @@ class SubnetQuerier:
 
     def __init__(
         self,
-        wallet: bt.wallet.Wallet,
+        wallet: bt.Wallet,
         network: str = "finney",
     ):
         self.wallet = wallet
         self.network = network
-        self._subtensor = bt.subtensor(network=network)
-        self._dendrite = bt.dendrite(wallet=wallet)
+        self._subtensor = bt.Subtensor(network=network)
+        self._dendrite = bt.Dendrite(wallet=wallet)
 
-    def query_subnet(
+    async def query_subnet(
         self,
         subnet_uid: int,
         timeout: float = 12.0,
@@ -78,24 +78,33 @@ class SubnetQuerier:
                 return []
 
             # Query a subset of miners
-            responses = self._dendrite(
+            responses = await self._dendrite(
                 axons=axons[:10],  # Query top 10 by stake
                 synapse=bt.Synapse(),
                 timeout=timeout,
             )
 
             signals = []
-            for resp in responses:
-                if resp.neuron and hasattr(resp, "hotkey"):
-                    signal = SubnetSignal(
-                        subnet=subnet_uid,
-                        hotkey=resp.neuron.hotkey,
-                        signal_type=self._get_signal_type(subnet_uid),
-                        value=0.0,  # Would parse from response
-                        confidence=0.5,
-                        timestamp=resp.neuron.last_update,
-                    )
-                    signals.append(signal)
+            items = (
+                list(responses) if isinstance(responses, (list, tuple)) else [responses]
+            )
+            for resp in items:
+                if not resp or not hasattr(resp, "neuron"):
+                    continue
+
+                neuron = getattr(resp, "neuron")
+                if neuron is None or not hasattr(neuron, "hotkey"):
+                    continue
+
+                signal = SubnetSignal(
+                    subnet=subnet_uid,
+                    hotkey=getattr(neuron, "hotkey", ""),
+                    signal_type=self._get_signal_type(subnet_uid),
+                    value=0.0,  # Would parse from response
+                    confidence=0.5,
+                    timestamp=getattr(neuron, "last_update", 0.0),
+                )
+                signals.append(signal)
 
             logger.info("Queried subnet %d, got %d responses", subnet_uid, len(signals))
             return signals
@@ -113,21 +122,21 @@ class SubnetQuerier:
         }
         return mapping.get(subnet_uid, "unknown")
 
-    def query_sp500_oracle(self) -> list[SubnetSignal]:
+    async def query_sp500_oracle(self) -> list[SubnetSignal]:
         """Query SN28 for S&P 500 predictions."""
-        return self.query_subnet(28)
+        return await self.query_subnet(28)
 
-    def query_bitquant(self) -> list[SubnetSignal]:
+    async def query_bitquant(self) -> list[SubnetSignal]:
         """Query SN15 for BitQuant analysis."""
-        return self.query_subnet(15)
+        return await self.query_subnet(15)
 
-    def query_all(self) -> dict[str, list[SubnetSignal]]:
+    async def query_all(self) -> dict[str, list[SubnetSignal]]:
         """Query all integrated subnets."""
         results = {}
 
         for subnet_name, subnet_uid in [("sp500", 28), ("bitquant", 15)]:
             try:
-                results[subnet_name] = self.query_subnet(subnet_uid)
+                results[subnet_name] = await self.query_subnet(subnet_uid)
             except Exception as e:
                 logger.warning(
                     "Failed to query %s (SN%d): %s", subnet_name, subnet_uid, e
@@ -140,7 +149,7 @@ class SubnetQuerier:
 def create_querier() -> SubnetQuerier | None:
     """Create a SubnetQuerier if wallet is available."""
     try:
-        wallet = bt.wallet()
+        wallet = bt.Wallet()
         if not wallet.hotkey:
             logger.warning("No hotkey configured, multi-subnet disabled")
             return None

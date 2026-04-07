@@ -4,6 +4,7 @@ import hashlib
 import json
 import logging
 import math
+from dataclasses import asdict
 from datetime import datetime, timezone
 
 from integrations.bittensor.models import PredictionRequest, RawMinerForecast
@@ -162,6 +163,52 @@ class TaoshiProtocolAdapter:
         """Build a prediction request for a given stream."""
         return PredictionRequest(stream_id=stream_id)
 
+    @staticmethod
+    def _coerce_response_items(response: Any) -> list[Any]:
+        if response is None:
+            return []
+        if isinstance(response, (list, tuple)):
+            return list(response)
+        return [response]
+
+    @staticmethod
+    def _safe_index(values: Any, index: int | None) -> Any | None:
+        if index is None:
+            return None
+        if not values:
+            return None
+        try:
+            return values[index]
+        except Exception:
+            return None
+
+    def _build_query_payload(self, request: PredictionRequest) -> Any:
+        """Build an object suitable for dendrite query dispatch."""
+        try:
+            import bittensor as bt  # type: ignore[import-not-found]
+
+            synapse = bt.Synapse()
+            for key, value in asdict(request).items():
+                setattr(synapse, key, value)
+            return synapse
+        except Exception:
+            return request
+
+    async def _query_single_miner(
+        self,
+        uid: int,
+        axon: Any,
+        payload: Any,
+        timeout: float,
+    ) -> tuple[int, list[Any] | Any]:
+        """Query a single miner through dendrite."""
+        response = await self._dendrite(
+            axons=[axon],
+            synapse=payload,
+            timeout=timeout,
+        )
+        return uid, self._coerce_response_items(response)
+
     async def query_miners(
         self,
         axons: list,
@@ -179,20 +226,59 @@ class TaoshiProtocolAdapter:
         now = datetime.now(tz=timezone.utc)
         metagraph = self._metagraph
         block = getattr(metagraph, "block", None) if metagraph else None
+        if not axons or not uids:
+            return []
+
+        uid_index = (
+            {uid: index for index, uid in enumerate(list(metagraph.uids))}
+            if metagraph is not None
+            else {}
+        )
+        payload = self._build_query_payload(request)
+        semaphore = asyncio.Semaphore(min(16, len(axons)))
+
+        async def _bounded_query(
+            task_uid: int, task_axon: Any
+        ) -> tuple[int, list[Any] | Any] | None:
+            async with semaphore:
+                try:
+                    return await self._query_single_miner(
+                        task_uid,
+                        task_axon,
+                        payload,
+                        timeout,
+                    )
+                except Exception as exc:
+                    logger.debug("Miner %d: query failed: %s", task_uid, exc)
+                    return None
+
+        raw_results = await asyncio.gather(
+            *[_bounded_query(uid, axon) for uid, axon in zip(uids, axons)],
+            return_exceptions=False,
+        )
 
         forecasts: list[RawMinerForecast] = []
-        for uid, axon in zip(uids, axons):
-            try:
-                response = await self._dendrite(
-                    axons=[axon],
-                    timeout=timeout,
-                )
-                predictions = (
-                    getattr(response, "predictions", None) if response else None
-                )
-                hashed = (
-                    getattr(response, "hashed_predictions", None) if response else None
-                )
+        for result in raw_results:
+            if result is None:
+                continue
+
+            uid, responses = result
+            idx = uid_index.get(uid)
+            if not responses:
+                logger.debug("Miner %d: no response", uid)
+                continue
+
+            for response in responses:
+                if response is None:
+                    continue
+
+                predictions = None
+                if isinstance(response, dict):
+                    predictions = response.get("predictions")
+                    hashed = response.get("hashed_predictions")
+                else:
+                    predictions = getattr(response, "predictions", None)
+                    hashed = getattr(response, "hashed_predictions", None)
 
                 if predictions is None or not self.validate_tensor(
                     predictions, request.prediction_size
@@ -200,25 +286,15 @@ class TaoshiProtocolAdapter:
                     logger.debug("Miner %d: invalid or missing response", uid)
                     continue
 
-                idx = list(metagraph.uids).index(uid) if metagraph else None
-                incentive = metagraph.I[idx] if metagraph and idx is not None else None
-                vtrust = (
-                    getattr(metagraph, "validator_trust", [None] * ((idx or 0) + 1))[
-                        idx
-                    ]
-                    if metagraph and idx is not None
-                    else None
+                incentive = self._safe_index(getattr(metagraph, "I", []), idx)
+                vtrust = self._safe_index(
+                    getattr(metagraph, "validator_trust", []), idx
                 )
-                stake = (
-                    getattr(metagraph, "S", [None] * ((idx or 0) + 1))[idx]
-                    if metagraph and idx is not None
-                    else None
-                )
-                hotkey = (
-                    metagraph.hotkeys[idx]
-                    if metagraph and idx is not None
-                    else str(uid)
-                )
+                stake = self._safe_index(getattr(metagraph, "S", []), idx)
+                if metagraph is not None and idx is not None:
+                    hotkey = metagraph.hotkeys[idx]
+                else:
+                    hotkey = str(uid)
 
                 forecasts.append(
                     RawMinerForecast(
@@ -243,9 +319,6 @@ class TaoshiProtocolAdapter:
                         metagraph_block=block,
                     )
                 )
-            except Exception as e:
-                logger.debug("Miner %d: query failed: %s", uid, e)
-                continue
 
         return forecasts
 

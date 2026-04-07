@@ -25,6 +25,7 @@ mcp = FastMCP("Backtest")
 
 logger = logging.getLogger("backtest_mcp")
 
+
 @mcp.tool()
 async def run_taoshi_backtest(
     symbols: List[str],
@@ -35,7 +36,7 @@ async def run_taoshi_backtest(
 ) -> str:
     """
     Run a Taoshi consensus strategy backtest for a set of symbols and date range.
-    
+
     Args:
         symbols: List of tickers (e.g. ["BTCUSD", "EURUSD"])
         start_date: Start date in YYYY-MM-DD format
@@ -46,9 +47,9 @@ async def run_taoshi_backtest(
     try:
         sd = date.fromisoformat(start_date)
         ed = date.fromisoformat(end_date)
-        
+
         taoshi_root = os.path.join(PROJECT_ROOT, "taoshi-vanta")
-        
+
         config = BacktestConfig(
             name=f"MCP_Backtest_{start_date}_{end_date}",
             agent_names=["bittensor_alpha"],
@@ -58,20 +59,23 @@ async def run_taoshi_backtest(
             timeframe="1h",
             initial_capital=Decimal(str(initial_capital)),
             slippage_bps=slippage_bps,
-            metadata={
-                "agent_parameters": {
-                    "min_agreement": 0.6,
-                    "min_return": 0.001
-                }
-            }
+            metadata={"agent_parameters": {"min_agreement": 0.6, "min_return": 0.001}},
         )
 
         # Mapping for yfinance
         ticker_map = {
-            "BTCUSD": "BTC-USD", "ETHUSD": "ETH-USD", "SOLUSD": "SOL-USD",
-            "DOGEUSD": "DOGE-USD", "XRPUSD": "XRP-USD", "LTCUSD": "LTC-USD",
-            "EURUSD": "EURUSD=X", "GBPUSD": "GBPUSD=X", "USDJPY": "USDJPY=X",
-            "AUDUSD": "AUDUSD=X", "XAUUSD": "GC=F", "XAGUSD": "SI=F",
+            "BTCUSD": "BTC-USD",
+            "ETHUSD": "ETH-USD",
+            "SOLUSD": "SOL-USD",
+            "DOGEUSD": "DOGE-USD",
+            "XRPUSD": "XRP-USD",
+            "LTCUSD": "LTC-USD",
+            "EURUSD": "EURUSD=X",
+            "GBPUSD": "GBPUSD=X",
+            "USDJPY": "USDJPY=X",
+            "AUDUSD": "AUDUSD=X",
+            "XAUUSD": "GC=F",
+            "XAGUSD": "SI=F",
         }
 
         # Fetch data
@@ -81,22 +85,24 @@ async def run_taoshi_backtest(
             df = yf.download(yf_ticker, start=sd, end=ed, interval="1h", progress=False)
             if df.empty:
                 continue
-                
+
             bars = []
             for ts, row in df.iterrows():
                 try:
                     if isinstance(df.columns, pd.MultiIndex):
-                        close_val = float(row['Close'][yf_ticker])
+                        close_val = float(row["Close"][yf_ticker])
                     else:
-                        close_val = float(row['Close'])
+                        close_val = float(row["Close"])
                 except Exception:
                     close_val = float(row.iloc[3])
 
-                bars.append(Bar(
-                    symbol=Symbol(ticker=s),
-                    timestamp=ts.to_pydatetime(),
-                    close=Decimal(str(close_val))
-                ))
+                bars.append(
+                    Bar(
+                        symbol=Symbol(ticker=s),
+                        timestamp=ts.to_pydatetime(),
+                        close=Decimal(str(close_val)),
+                    )
+                )
             historical_data[s] = bars
 
         if not historical_data:
@@ -104,7 +110,7 @@ async def run_taoshi_backtest(
 
         engine = TaoshiBacktestEngine(taoshi_root)
         result = await engine.run(config, historical_data)
-        
+
         summary = (
             f"Backtest Complete: {result.status}\n"
             f"Total Return: {result.total_return_pct:.2f}%\n"
@@ -115,8 +121,10 @@ async def run_taoshi_backtest(
         )
         return summary
 
-    except Exception as e:
-        return f"Backtest failed: {str(e)}"
+    except Exception:
+        logger.exception("Backtest execution failed")
+        return "Backtest failed. Please check server logs for details."
+
 
 if __name__ == "__main__":
     mcp.run()

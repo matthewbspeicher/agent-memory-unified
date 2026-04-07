@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 from datetime import datetime, timezone
 from decimal import Decimal
 
@@ -161,7 +162,9 @@ class MinerEvaluator:
             try:
                 import numpy as np
 
-                path_corr = float(np.corrcoef(predicted_path, actual_path)[0, 1])
+                value = float(np.corrcoef(predicted_path, actual_path)[0, 1])
+                if math.isfinite(value):
+                    path_corr = max(-1.0, min(1.0, value))
             except Exception:
                 pass
 

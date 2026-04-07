@@ -317,6 +317,7 @@ class TaoshiScheduler:
         """Main collection loop. Runs until stop() is called or task is cancelled."""
         self._running = True
         if not self._direct_query_enabled:
+            self._running = False
             logger.info(
                 "TaoshiScheduler: direct dendrite queries disabled "
                 "(STA_BITTENSOR_DIRECT_QUERY_ENABLED=false). "
