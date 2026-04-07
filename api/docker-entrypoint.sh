@@ -3,19 +3,18 @@ set -e
 
 echo "[entrypoint] Starting application..."
 
-# Clear all previous caches to avoid state pollution
-php artisan optimize:clear
-
-# Run migrations (non-blocking — server starts even if DB is temporarily unavailable)
+# Run migrations FIRST (must happen before any cache commands on fresh DB)
 echo "[entrypoint] Running migrations..."
 php artisan migrate --force 2>&1 || echo "[entrypoint] WARNING: Migration failed, continuing anyway"
 
 echo "[entrypoint] Seeding Arena gyms..."
 php artisan db:seed --class=ArenaGymSeeder --force 2>&1 || echo "[entrypoint] WARNING: Arena Seeding failed"
 
-# Clear and rebuild caches
+# Now safe to clear and rebuild caches (tables exist after migration)
+echo "[entrypoint] Clearing stale caches..."
+php artisan optimize:clear 2>&1 || echo "[entrypoint] WARNING: optimize:clear failed, continuing"
+
 echo "[entrypoint] Caching config..."
-php artisan config:clear 2>/dev/null
 php artisan config:cache 2>&1 || echo "[entrypoint] WARNING: Config cache failed"
 php artisan route:cache 2>&1 || echo "[entrypoint] WARNING: Route cache failed"
 php artisan view:cache 2>&1 || echo "[entrypoint] WARNING: View cache failed"
