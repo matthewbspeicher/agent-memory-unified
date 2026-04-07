@@ -87,6 +87,10 @@ class Config:
     bittensor: BittensorConfig = field(default_factory=BittensorConfig)
     llm: LLMConfig = field(default_factory=LLMConfig)
 
+    # Logging
+    log_level: str = "INFO"
+    log_format: str = "json"
+
     # Node Role
     worker_mode: bool = False
     oracle_url: str | None = None

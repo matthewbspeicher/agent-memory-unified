@@ -852,6 +852,11 @@ async def lifespan(app: FastAPI):
     if broker:
         set_broker(broker)
 
+    # --- Structured logging setup (before anything else) ---
+    from utils.logging import setup_logging
+
+    setup_logging(level=config.log_level, fmt=config.log_format)
+
     enabled = getattr(app.state, "enable_agent_framework", False)
 
     from utils.background_tasks import BackgroundTaskManager
