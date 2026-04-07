@@ -1,13 +1,7 @@
-import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Activity, BrainCircuit, Database, Terminal, Search, Settings, TrendingUp, LogOut, Compass, FolderOpen, Swords, Globe, Trophy, Server } from 'lucide-react';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
+import { Activity, BrainCircuit, Terminal, Search, Settings, LogOut, Compass, FolderOpen, Swords, Globe, Trophy, Server } from 'lucide-react';
+import { cn } from '../lib/utils';
 import { useAuth } from '../lib/auth';
-
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
 
 function NavItem({ to, icon: Icon, label, isActive, accent = 'cyan' }: { to: string, icon: any, label: string, isActive?: boolean, accent?: 'cyan' | 'violet' | 'green' }) {
   const accentActive = {

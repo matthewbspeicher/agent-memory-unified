@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi.testclient import TestClient
 
 from api.app import create_app
-from config import Config
+from config import Config, BrokerConfig
 from execution.shadow import ShadowExecutor, ShadowOutcomeResolver
 from storage.shadow import ShadowExecutionStore
 from utils.background_tasks import BackgroundTaskManager
@@ -24,7 +24,8 @@ def test_agent_framework_startup_loads_shared_learning_config(tmp_path) -> None:
         import_dir=str(import_dir),
         db_path=str(db_path),
         database_url=None,
-        paper_trading=True
+        paper_trading=True,
+        broker=BrokerConfig(ib_host="")
     )
 
     app = create_app(enable_agent_framework=True, config=config)
@@ -52,7 +53,8 @@ def test_agent_framework_startup_wires_shadow_services_into_app_state(
         import_dir=str(import_dir),
         db_path=str(db_path),
         database_url=None,
-        paper_trading=True
+        paper_trading=True,
+        broker=BrokerConfig(ib_host="")
     )
 
     app = create_app(enable_agent_framework=True, config=config)

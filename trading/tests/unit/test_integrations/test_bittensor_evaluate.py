@@ -97,10 +97,13 @@ async def test_evaluate_window_skips_insufficient_candles():
     mock_coingecko = MagicMock()
     mock_coingecko.get_ohlc_closes = AsyncMock(return_value=[100.0, 101.0])
 
+    mock_event_bus = MagicMock()
+    mock_event_bus.publish = AsyncMock()
+
     evaluator = BittensorEvaluator(
         store=mock_store,
         data_bus=MagicMock(),
-        event_bus=MagicMock(),
+        event_bus=mock_event_bus,
         coingecko=mock_coingecko,
     )
 
@@ -161,10 +164,13 @@ async def test_evaluate_window_updates_counters():
 async def test_evaluate_window_skips_unknown_symbol():
     from integrations.bittensor.evaluator import BittensorEvaluator
 
+    mock_event_bus = MagicMock()
+    mock_event_bus.publish = AsyncMock()
+
     evaluator = BittensorEvaluator(
         store=MagicMock(),
         data_bus=MagicMock(),
-        event_bus=MagicMock(),
+        event_bus=mock_event_bus,
         coingecko=None,
     )
 

@@ -6,6 +6,7 @@ Replaces pydantic-settings with a simpler, more testable approach.
 
 import json
 import os
+import types
 import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -305,7 +306,7 @@ def _load_dotenv(env_file: str) -> dict[str, str]:
 
 def _set_nested(obj: Any, field_name: str, raw_value: str, field_type: Any) -> None:
     origin = get_origin(field_type)
-    if origin is Union:
+    if origin is Union or isinstance(field_type, types.UnionType):
         args = get_args(field_type)
         field_type = args[0] if args[0] is not type(None) else args[1]
     try:
@@ -389,7 +390,7 @@ def load_config(env_file: str = ".env") -> Config:
             continue
 
         origin = get_origin(field_type)
-        if origin is Union:
+        if origin is Union or isinstance(field_type, types.UnionType):
             args = get_args(field_type)
             field_type = args[0] if args[0] is not type(None) else args[1]
 

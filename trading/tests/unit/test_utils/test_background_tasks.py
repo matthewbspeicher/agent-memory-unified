@@ -45,7 +45,9 @@ class TestBackgroundTaskManager:
             await asyncio.sleep(999)
 
         mgr.create_task(worker(), name="duplicate")
+        coro = worker()
         with pytest.raises(
             ValueError, match="Task 'duplicate' is already registered and active"
         ):
-            mgr.create_task(worker(), name="duplicate")
+            mgr.create_task(coro, name="duplicate")
+        coro.close()

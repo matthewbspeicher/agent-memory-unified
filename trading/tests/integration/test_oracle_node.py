@@ -1,6 +1,6 @@
 import pytest
 import asyncio
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 from config import Config
 from data.events import EventBus
 from data.redis_bridge import RedisSignalBridge
@@ -9,33 +9,34 @@ from data.redis_bridge import RedisSignalBridge
 @pytest.mark.asyncio
 async def test_redis_signal_bridge_propagation():
     """Verify that EventBus events are propagated to Redis and vice-versa."""
-    # This test requires a mock Redis or a running Redis instance.
-    # We will mock the redis asyncio client.
-
     event_bus = EventBus()
     redis_url = "redis://localhost:6379/0"
     bridge = RedisSignalBridge(event_bus, redis_url, node_id="test-node")
 
-    # Mock Redis
     mock_redis = AsyncMock()
     mock_pubsub = AsyncMock()
-    mock_redis.pubsub.return_value = mock_pubsub
+    mock_redis.pubsub = MagicMock(return_value=mock_pubsub)
 
-    with MagicMock(return_value=mock_redis) as mock_from_url:
-        import redis.asyncio as redis_lib
+    async def _empty_listen():
+        # Yield nothing — keeps the listener task alive without errors
+        while True:
+            await asyncio.sleep(10)
+            yield  # pragma: no cover
 
-        redis_lib.from_url = mock_from_url
+    mock_pubsub.listen = _empty_listen
 
+    with patch("data.redis_bridge.redis.from_url", return_value=mock_redis):
         await bridge.start()
 
-        # Test 1: Local Event -> Redis Publish
+        # Let the bus listener task register its queue subscription
+        await asyncio.sleep(0.05)
+
         signal_data = {"symbol": "AAPL", "side": "BUY"}
         await event_bus.publish("agent_signal", signal_data)
 
-        # Wait for async propagation
+        # Let the bus listener task process the event
         await asyncio.sleep(0.1)
 
-        # Verify redis.publish was called
         assert mock_redis.publish.called
 
         await bridge.stop()

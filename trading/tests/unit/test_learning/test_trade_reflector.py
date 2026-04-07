@@ -133,6 +133,7 @@ def make_closed_trade(
 @pytest.fixture
 def memory_client():
     mc = AsyncMock(spec=TradingMemoryClient)
+    mc.record_trade = AsyncMock(return_value={"id": "trade-1"})
     mc.store_private = AsyncMock(return_value={"id": "mem-1"})
     mc.store_shared = AsyncMock(return_value={"id": "mem-2"})
     mc.search_both = AsyncMock(return_value=[])

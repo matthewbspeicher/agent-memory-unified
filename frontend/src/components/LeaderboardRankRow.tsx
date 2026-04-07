@@ -1,4 +1,4 @@
-import React from 'react';
+import { cn } from '../lib/utils';
 
 export const LeaderboardRankRow = ({ 
   rank = 1, 
@@ -28,7 +28,7 @@ export const LeaderboardRankRow = ({
 
       <div className="flex items-center gap-6 z-10">
         {/* Rank Number */}
-        <div className={`w-8 text-center font-mono text-2xl font-bold ${rankColor} ${rankGlow}`}>
+        <div className={cn("w-8 text-center font-mono text-2xl font-bold", rankColor, rankGlow)}>
           {rank}
         </div>
 
@@ -49,11 +49,12 @@ export const LeaderboardRankRow = ({
           {trend.map((res, i) => (
             <div 
               key={i} 
-              className={`w-1.5 rounded-sm opacity-60 group-hover:opacity-100 transition-opacity duration-300 ${
-                res === 'W' ? 'h-full bg-green-400 shadow-[0_0_8px_rgba(74,222,128,0.5)]' : 
-                res === 'L' ? 'h-2 bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]' : 
-                'h-4 bg-slate-400'
-              }`}
+              className={cn(
+                "w-1.5 rounded-sm opacity-60 group-hover:opacity-100 transition-opacity duration-300",
+                res === 'W' && 'h-full bg-green-400 shadow-[0_0_8px_rgba(74,222,128,0.5)]',
+                res === 'L' && 'h-2 bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]',
+                res === 'D' && 'h-4 bg-slate-400'
+              )}
               title={res === 'W' ? "Win" : res === 'L' ? "Loss" : "Draw"}
             ></div>
           ))}

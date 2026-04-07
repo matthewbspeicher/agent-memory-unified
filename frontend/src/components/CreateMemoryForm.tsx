@@ -24,17 +24,17 @@ export function CreateMemoryForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="bg-gray-800 border border-gray-700 rounded-lg p-4 mb-6">
+    <form onSubmit={handleSubmit} className="bg-slate-900/40 border border-white/10 rounded-xl p-4 mb-6 backdrop-blur-md">
       <textarea
         value={value}
         onChange={(e) => setValue(e.target.value)}
         placeholder="What do you want to remember?"
-        className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px]"
+        className="w-full px-3 py-2 bg-slate-950/60 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 min-h-[100px] font-mono text-sm transition-all"
       />
       
       <div className="mt-3 flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <label className="flex items-center text-sm text-gray-300">
+          <label className="flex items-center text-sm text-slate-300">
             <input
               type="radio"
               value="private"
@@ -44,7 +44,7 @@ export function CreateMemoryForm() {
             />
             Private
           </label>
-          <label className="flex items-center text-sm text-gray-300">
+          <label className="flex items-center text-sm text-slate-300">
             <input
               type="radio"
               value="public"
@@ -59,7 +59,7 @@ export function CreateMemoryForm() {
         <button
           type="submit"
           disabled={!value.trim() || createMutation.isPending}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed font-mono text-sm tracking-wide transition-colors"
         >
           {createMutation.isPending ? 'Saving...' : 'Save Memory'}
         </button>

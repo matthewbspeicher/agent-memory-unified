@@ -7,6 +7,12 @@ import pytest
 from config import Config, load_config
 
 
+@pytest.fixture(autouse=True)
+def _set_api_key(monkeypatch):
+    """Set a default API key to suppress the paper-mode warning in most tests."""
+    monkeypatch.setenv("STA_API_KEY", "test-key")
+
+
 class TestConfigDefaults:
     """Test that Config has sensible defaults"""
 
@@ -17,7 +23,8 @@ class TestConfigDefaults:
         assert config.ib_client_id == 1
         assert config.ib_readonly is False
 
-    def test_default_api_settings(self):
+    def test_default_api_settings(self, monkeypatch):
+        monkeypatch.delenv("STA_API_KEY", raising=False)
         config = Config()
         assert config.api_host == "127.0.0.1"
         assert config.api_port == 8000
@@ -141,11 +148,13 @@ class TestIBPortDefault:
         assert config.ib_port == 7497
 
     def test_live_mode_requires_api_key(self, monkeypatch):
+        monkeypatch.delenv("STA_API_KEY", raising=False)
         monkeypatch.setenv("STA_BROKER_MODE", "live")
         with pytest.raises(ValueError, match="STA_API_KEY must be set"):
             load_config(env_file="nonexistent.env")
 
     def test_paper_mode_without_api_key_warns(self, monkeypatch):
+        monkeypatch.delenv("STA_API_KEY", raising=False)
         monkeypatch.setenv("STA_BROKER_MODE", "paper")
         with pytest.warns(UserWarning, match="paper mode without STA_API_KEY"):
             config = load_config(env_file="nonexistent.env")

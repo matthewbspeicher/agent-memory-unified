@@ -93,6 +93,8 @@ def mock_broker():
 @pytest.fixture
 def client(mock_broker):
     os.environ["STA_API_KEY"] = "test-key"
+    from api.auth import _get_settings
+    _get_settings.cache_clear()
     from api.app import create_app
     from api.deps import _init_state
 
