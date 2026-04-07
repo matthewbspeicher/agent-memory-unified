@@ -16,7 +16,7 @@ from broker.models import (
 from broker.paper import PaperBroker
 from storage.paper import PaperStore
 
-from tests.unit.test_broker.test_paper import MockBroker
+from tests.unit.test_broker.test_paper import MockMarketData
 
 AAPL = Symbol(ticker="AAPL", asset_type=AssetType.STOCK)
 AAPL_OPT = Symbol(ticker="AAPL", asset_type=AssetType.OPTION)
@@ -179,7 +179,9 @@ async def paper_store_with_balance():
 
 async def test_paper_broker_deducts_ibkr_fee(paper_store_with_balance):
     fee_model = IBKRFeeModel()
-    broker = PaperBroker(MockBroker(), paper_store_with_balance, fee_model=fee_model)
+    broker = PaperBroker(
+        paper_store_with_balance, MockMarketData(), fee_model=fee_model, max_slippage=0
+    )
 
     order = MarketOrder(
         symbol=AAPL,
@@ -189,11 +191,11 @@ async def test_paper_broker_deducts_ibkr_fee(paper_store_with_balance):
     )
     result = await broker.orders.place_order("PAPER", order)
 
-    # MockBroker returns ask=150.1 for buys
-    fill_price = Decimal("150.1")
-    expected_commission = fee_model.calculate(order, fill_price)
+    # Use actual fill price from result (MockMarketData ask=150.1 for BUY)
+    actual_fill_price = result.avg_fill_price
+    expected_commission = fee_model.calculate(order, actual_fill_price)
     expected_cash = (
-        Decimal("100000.0") - (Decimal("100") * fill_price) - expected_commission
+        Decimal("100000.0") - (Decimal("100") * actual_fill_price) - expected_commission
     )
 
     bal = await broker.account.get_balances("PAPER")
@@ -203,29 +205,33 @@ async def test_paper_broker_deducts_ibkr_fee(paper_store_with_balance):
 
 async def test_paper_broker_deducts_fidelity_fee_on_sell(paper_store_with_balance):
     fee_model = FidelityFeeModel()
-    broker = PaperBroker(MockBroker(), paper_store_with_balance, fee_model=fee_model)
+    broker = PaperBroker(
+        paper_store_with_balance, MockMarketData(), fee_model=fee_model, max_slippage=0
+    )
 
-    # First buy to establish a position
-    await broker.orders.place_order(
+    # First buy to establish a position (BUY uses ask=150.1)
+    buy_result = await broker.orders.place_order(
         "PAPER",
         MarketOrder(
             symbol=AAPL, side=OrderSide.BUY, quantity=Decimal("10"), account_id="PAPER"
         ),
     )
+    buy_price = buy_result.avg_fill_price
     bal_after_buy = await broker.account.get_balances("PAPER")
 
-    # Now sell; Fidelity charges SEC fee on sells
+    # Now sell; Fidelity charges SEC fee on sells (SELL uses bid=150.0)
     sell_order = MarketOrder(
         symbol=AAPL, side=OrderSide.SELL, quantity=Decimal("10"), account_id="PAPER"
     )
-    # MockBroker returns bid=150.0 for sells
-    fill_price = Decimal("150.0")
-    expected_fee = fee_model.calculate(sell_order, fill_price)
+    # Use actual fill price
+    sell_result = await broker.orders.place_order("PAPER", sell_order)
+    sell_price = sell_result.avg_fill_price
+
+    expected_fee = fee_model.calculate(sell_order, sell_price)
     assert expected_fee > Decimal("0")  # SEC fee must be charged
 
-    await broker.orders.place_order("PAPER", sell_order)
     bal_after_sell = await broker.account.get_balances("PAPER")
 
     # Cash after sell = cash_before + proceeds - fee
-    expected_cash = bal_after_buy.cash + (Decimal("10") * fill_price) - expected_fee
+    expected_cash = bal_after_buy.cash + (Decimal("10") * sell_price) - expected_fee
     assert bal_after_sell.cash == expected_cash

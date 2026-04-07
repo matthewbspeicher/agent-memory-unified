@@ -93,7 +93,7 @@ async def paper_store():
 
 @pytest.fixture
 def paper_broker(paper_store):
-    return PaperBroker(MockBroker(), paper_store)
+    return PaperBroker(paper_store, MockMarketData(), max_slippage=0)
 
 
 @pytest.mark.asyncio
@@ -111,7 +111,7 @@ async def test_paper_order_raises_on_no_price():
     )
     store = AsyncMock()
 
-    mgr = PaperOrderManager(market_data, store)
+    mgr = PaperOrderManager(market_data, store, max_slippage=0)
     order = MarketOrder(
         symbol=Symbol(ticker="AAPL", asset_type=AssetType.STOCK),
         side=OrderSide.BUY,

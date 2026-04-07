@@ -1,8 +1,18 @@
 import os
+import sys
 
 # Prevent libomp fatal abort when hnswlib and torch (via sentence-transformers)
 # both link duplicate OpenMP runtimes — standard macOS/Homebrew workaround.
 os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
+
+# Add project root to path for 'shared' module imports
+PROJECT_ROOT = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+)
+sys.path.insert(0, PROJECT_ROOT)
+
+# Set a test API key to silence "Running in paper mode without STA_API_KEY" warnings
+os.environ.setdefault("STA_API_KEY", "test-key-for-unit-tests")
 
 import pytest
 import aiosqlite
@@ -94,6 +104,7 @@ def mock_broker():
 def client(mock_broker):
     os.environ["STA_API_KEY"] = "test-key"
     from api.auth import _get_settings
+
     _get_settings.cache_clear()
     from api.app import create_app
     from api.deps import _init_state

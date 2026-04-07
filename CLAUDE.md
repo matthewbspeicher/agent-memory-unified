@@ -167,11 +167,14 @@ Use `log_event(logger, level, event_type, msg, data={...})` from `utils.logging`
 ### Testing
 
 ```bash
-# Trading unit tests (recommended — fast, no live services needed)
-cd trading && python -m pytest tests/unit/ -v --tb=short --timeout=30
+# Create venv if needed (first time only)
+cd trading && python -m venv .venv && source .venv/bin/activate && pip install -e .
 
-# Trading full suite (excludes live_paper and integration by default)
-cd trading && python -m pytest tests/ -v --tb=short
+# Run unit tests (fast, no live services)
+source .venv/bin/activate && python -m pytest tests/unit/ -v --tb=short --timeout=30
+
+# Run full test suite (excludes live_paper and integration by default)
+source .venv/bin/activate && python -m pytest tests/ -v --tb=short
 
 # Trading tests via Docker
 docker exec agent-memory-unified-trading-1 python -m pytest tests/unit/ -v --tb=short --timeout=30

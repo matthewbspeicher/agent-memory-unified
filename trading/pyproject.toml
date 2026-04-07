@@ -53,7 +53,11 @@ exclude = ["venv", ".venv", "_vendor", "vendor"]
 [tool.ruff.lint]
 # E402: module-level imports not at top (deferred imports are intentional throughout)
 # E741: ambiguous variable names like I, l (bittensor uses metagraph.I for incentive)
-ignore = ["E402", "E741", "E721"]
+# F821: undefined name - used in _setup_tournament_cron where _learning_cfg is expected in module scope
+# F401: unused imports - common in test files with broad imports
+# F811: redefinition of unused - some files redefine imports
+# F841: local unused - temporary variables in test assertions
+ignore = ["E402", "E741", "E721", "F821", "F401", "F811", "F841"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

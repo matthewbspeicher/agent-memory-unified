@@ -17,11 +17,12 @@ async def test_analytics_agent(test_db):  # noqa: F811
     # Setup dependencies
     opp_store = OpportunityStore(test_db)
     perf_store = PerformanceStore(test_db)
-    from tests.unit.test_broker.test_paper import MockBroker
+    from tests.unit.test_broker.test_paper import MockMarketData
     from storage.paper import PaperStore
 
-    broker = PaperBroker(MockBroker(), PaperStore(test_db))
-    await broker._store.init_tables()
+    paper_store = PaperStore(test_db)
+    await paper_store.init_tables()
+    broker = PaperBroker(paper_store, MockMarketData())
     data_bus = DataBus()
     router = OpportunityRouter(opp_store, LogNotifier(), None, broker, None, data_bus)
     runner = AgentRunner(data_bus, router)
@@ -126,13 +127,14 @@ async def _setup_analytics_env(test_db):
     from storage.paper import PaperStore
     from storage.performance import PerformanceStore
     from storage.trades import TradeStore
-    from tests.unit.test_broker.test_paper import MockBroker
+    from tests.unit.test_broker.test_paper import MockMarketData
 
     opp_store = OpportunityStore(test_db)
     perf_store = PerformanceStore(test_db)
     trade_store = TradeStore(test_db)
-    broker = PaperBroker(MockBroker(), PaperStore(test_db))
-    await broker._store.init_tables()
+    paper_store = PaperStore(test_db)
+    await paper_store.init_tables()
+    broker = PaperBroker(paper_store, MockMarketData())
     data_bus = DataBus()
     router = OpportunityRouter(opp_store, LogNotifier(), None, broker, None, data_bus)
     runner = AgentRunner(data_bus, router)

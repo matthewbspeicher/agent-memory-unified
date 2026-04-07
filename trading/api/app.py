@@ -462,9 +462,14 @@ async def _setup_bittensor_integration(
     app.state.bittensor_enabled_runtime = bittensor_enabled_runtime
 
     # --- Taoshi Bridge (reads official validator's position data) ---
-    taoshi_root = config.taoshi_validator_root if hasattr(config, 'taoshi_validator_root') else None
+    taoshi_root = (
+        config.taoshi_validator_root
+        if hasattr(config, "taoshi_validator_root")
+        else None
+    )
     if not taoshi_root:
         import os
+
         taoshi_root = os.environ.get("STA_TAOSHI_VALIDATOR_ROOT", "")
     if taoshi_root:
         from integrations.bittensor.taoshi_bridge import TaoshiBridge
@@ -472,7 +477,9 @@ async def _setup_bittensor_integration(
 
         bridge = TaoshiBridge(
             taoshi_root=taoshi_root,
-            store=app.state.bittensor_store if hasattr(app.state, 'bittensor_store') else None,
+            store=app.state.bittensor_store
+            if hasattr(app.state, "bittensor_store")
+            else None,
             signal_bus=signal_bus,
             event_bus=event_bus,
             poll_interval=30.0,
@@ -493,7 +500,7 @@ def _setup_tournament_cron(task_mgr, tournament_engine):
     """Set up the tournament cron job to evaluate all tournaments periodically."""
     from croniter import croniter
     import asyncio
-    from datetime import datetime
+    from datetime import datetime, timezone
     import logging
     import json
 
@@ -655,7 +662,7 @@ def _setup_tournament_cron(task_mgr, tournament_engine):
     """Set up the tournament cron job to evaluate all tournaments periodically."""
     from croniter import croniter
     import asyncio
-    from datetime import datetime
+    from datetime import datetime, timezone
     import logging
     import json
 
@@ -766,6 +773,7 @@ async def _start_redis_streams_consumer(
     )
 
     from integrations.memory.consolidator import MemoryConsolidator
+
     consolidator = MemoryConsolidator(llm_client=llm_client, redis_client=redis_client)
 
     async def handle_trade_opened(data: dict):
@@ -779,7 +787,9 @@ async def _start_redis_streams_consumer(
 
     consumer.register("TradeOpened", handle_trade_opened)
     consumer.register("TradeClosed", handle_trade_closed)
-    consumer.register("memory.consolidation.requested", handle_memory_consolidation_requested)
+    consumer.register(
+        "memory.consolidation.requested", handle_memory_consolidation_requested
+    )
 
     task_mgr.create_task(consumer.start(), name="redis_streams_consumer")
     app.state.streams_consumer = consumer
@@ -803,7 +813,7 @@ async def _shutdown_app_state(*, app: FastAPI, runner, logger: logging.Logger):
         logger.info("Stopping agent runner...")
         await runner.stop_all()
         logger.info("Agent runner stopped.")
-    
+
     if hasattr(app.state, "stream_manager"):
         logger.info("Stopping stream manager...")
         await app.state.stream_manager.stop()
@@ -1071,9 +1081,9 @@ async def lifespan(app: FastAPI):
         )
         app.state.confidence_calibration_store = _cc_store
 
-        # Wire DataBus into SimulatedBroker now that it's available
+        # Wire DataBus into PaperBroker now that it's available
         if config.paper_trading and hasattr(broker, "_market_data_provider"):
-            broker._market_data_provider._data_bus = data_bus  # type: ignore[attr-defined]
+            broker._market_data_provider._actual = data_bus  # type: ignore[attr-defined]
 
         # Learning system
         pnl_store = TrackedPositionStore(db)
@@ -1557,7 +1567,7 @@ async def lifespan(app: FastAPI):
         )
 
         # Tournament Engine (optional — only if learning config has tournament.enabled)
-        from datetime import datetime, timezone
+        from datetime import datetime, timezone, timezone
 
         tournament_engine = _setup_tournament_engine(
             app=app,

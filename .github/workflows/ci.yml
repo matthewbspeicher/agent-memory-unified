@@ -89,8 +89,9 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+          cache: 'pip'
 
-      - name: Install linting tools
+      - name: Install ruff
         run: pip install ruff
 
       - name: Ruff check
@@ -172,17 +173,19 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Create virtual environment
+        run: python -m venv .venv
+
       - name: Install dependencies
         run: |
-          grep -v "remembr @" requirements.txt > requirements-ci.txt
-          pip install -r requirements-ci.txt
-          pip install -r requirements-test.txt 2>/dev/null || true
-          pip install pytest-timeout
+          source .venv/bin/activate
+          pip install -e .
+          pip install pytest pytest-asyncio pytest-timeout pytest-cov
 
       - name: Run unit tests
-        env:
-          PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/trading
-        run: python -m pytest tests/unit/ -x --timeout=60 -q
+        run: |
+          source .venv/bin/activate
+          python -m pytest tests/unit/ -x --timeout=60 -q
 
   frontend-test:
     name: Frontend Tests (E2E)
