@@ -89,9 +89,28 @@ class BittensorSignalAgent(StructuredAgent):
         if direction_score < 0 and not allow_short:
             return []
 
+        # Gate: intel veto
+        intel_enabled = self.parameters.get("intel_enabled", False)
+        intel_enrichment = None
+        if intel_enabled:
+            signal_bus = getattr(data, "_signal_bus", None)
+            if signal_bus:
+                enriched_signals = signal_bus.query(signal_type="intel_enriched_consensus")
+                for s in reversed(enriched_signals):
+                    if s.payload.get("symbol") == symbol:
+                        intel_enrichment = s.payload
+                        break
+
+            if intel_enrichment:
+                if intel_enrichment.get("vetoed", False):
+                    return []
+
         # Derive signal
         signal = "BUY" if direction_score > 0 else "SELL"
-        confidence = min(abs(direction_score) * view.agreement_ratio, 1.0)
+        if intel_enrichment and "enriched_confidence" in intel_enrichment:
+            confidence = intel_enrichment["enriched_confidence"]
+        else:
+            confidence = min(abs(direction_score) * view.agreement_ratio, 1.0)
 
         return [
             Opportunity(
@@ -120,6 +139,7 @@ class BittensorSignalAgent(StructuredAgent):
                     "responder_count": view.responder_count,
                     "derivation_version": view.derivation_version,
                     "is_low_confidence": view.is_low_confidence,
+                    "intel": intel_enrichment.get("intel") if intel_enrichment else None,
                 },
                 timestamp=view.timestamp,
                 status=OpportunityStatus.PENDING,
