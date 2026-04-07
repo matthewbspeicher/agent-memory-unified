@@ -1,12 +1,25 @@
 """Tests for multi-subnet querier."""
 
+import sys
+import types
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
 
-from integrations.bittensor.subnet_querier import (
-    SubnetQuerier,
-    SubnetSignal,
-    create_querier,
-)
+
+if "bittensor" not in sys.modules:
+    # Lightweight shim so unit tests don't require the Bittensor dependency.
+    mock_bt = types.ModuleType("bittensor")
+    mock_bt.Wallet = type(
+        "MockWallet", (), {"__init__": lambda self, *args, **kwargs: None}
+    )
+    mock_bt.Subtensor = lambda *args, **kwargs: MagicMock()
+    mock_bt.Dendrite = lambda *args, **kwargs: MagicMock()
+    mock_bt.Synapse = type("Synapse", (), {})
+    sys.modules["bittensor"] = mock_bt
+
+from integrations.bittensor.subnet_querier import SubnetQuerier, SubnetSignal
 
 
 class TestSubnetSignal:
@@ -34,26 +47,65 @@ class TestSubnetQuerier:
         assert querier._get_signal_type(8) == "ptn"
         assert querier._get_signal_type(99) == "unknown"
 
-    @pytest.mark.skipif(
-        not pytest.mark.integration, reason="Requires bittensor network"
-    )
-    def test_query_subnet_returns_list(self):
-        """Integration test - skip unless explicitly enabled."""
-        pass
+    @pytest.mark.asyncio
+    async def test_query_subnet_returns_list(self):
+        """query_subnet parses only active miner responses."""
+        querier = SubnetQuerier.__new__(SubnetQuerier)
+
+        active_axon = SimpleNamespace(uid=0)
+        inactive_axon = SimpleNamespace(uid=1)
+        metagraph = SimpleNamespace(
+            axons=[active_axon, inactive_axon],
+            neurons=[
+                SimpleNamespace(stake=1.0),
+                SimpleNamespace(stake=0.0),
+            ],
+        )
+
+        querier._subtensor = MagicMock()
+        querier._subtensor.metagraph = MagicMock(return_value=metagraph)
+        querier._dendrite = AsyncMock(
+            return_value=SimpleNamespace(
+                neuron=SimpleNamespace(hotkey="hotkeyA", last_update=1234.0)
+            )
+        )
+
+        signals = await querier.query_subnet(28)
+
+        assert len(signals) == 1
+        assert signals[0].subnet == 28
+        assert signals[0].hotkey == "hotkeyA"
+        assert signals[0].signal_type == "sp500"
+        assert signals[0].timestamp == 1234.0
+        querier._dendrite.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_query_all_collects_subnets(self):
+        """query_all collects results for all configured subnet queries."""
+        querier = SubnetQuerier.__new__(SubnetQuerier)
+        querier.query_subnet = AsyncMock(
+            side_effect=[
+                [SubnetSignal(28, "hotkeyA", "sp500", 0.0, 1.0, 0.0)],
+                [SubnetSignal(15, "hotkeyB", "crypto_analysis", 0.0, 1.0, 0.0)],
+            ]
+        )
+
+        result = await querier.query_all()
+
+        assert result["sp500"][0].hotkey == "hotkeyA"
+        assert result["bitquant"][0].hotkey == "hotkeyB"
 
 
 class TestCreateQuerier:
-    def test_create_returns_none_without_wallet(self, monkeypatch):
-        """Test that create_querier returns None without wallet."""
-        # Mock to avoid actual wallet creation
-        import sys
-        import types
+    def test_create_returns_none_without_hotkey(self, monkeypatch):
+        import integrations.bittensor.subnet_querier as module
 
-        # Prevent bittensor import from failing
-        mock_bt = types.ModuleType("bittensor")
-        mock_bt.wallet = type("MockWallet", (), {"__init__": lambda self: None})()
-        mock_bt.subtensor = lambda network: None
+        class MockWallet:
+            def __init__(self, *args, **kwargs):
+                pass
 
-        # This will fail anyway, but let's see what happens
-        # In real environment, we'd mock properly
-        pass
+            hotkey = ""
+
+        monkeypatch.setattr(module.bt, "Wallet", MockWallet)
+
+        assert module.create_querier() is None

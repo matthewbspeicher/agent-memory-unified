@@ -173,6 +173,29 @@ class TestBridgePoll:
         assert signal.payload["order_count"] == 1
         assert bridge.signals_emitted == 1
 
+    async def test_store_loaded_positions_do_not_emit(self, tmp_path):
+        """Positions loaded from store should initialize without duplicate emission."""
+        signal_bus = AsyncMock()
+
+        bridge = TaoshiBridge(
+            taoshi_root=tmp_path,
+            signal_bus=signal_bus,
+        )
+
+        # Simulate warm-start state from prior run via store.
+        bridge._initialized_from_store = {"uuid-001"}
+        bridge._seen_positions["uuid-001"] = ""
+
+        pos = _make_position("uuid-001")
+        _write_position(tmp_path, "hotkey1", "BTCUSD", "uuid-001", pos)
+
+        await bridge._poll()
+
+        assert signal_bus.publish.call_count == 0
+        assert bridge._seen_positions.get("uuid-001") == bridge._hash_position(pos)
+        assert "uuid-001" not in bridge._initialized_from_store
+        assert bridge.signals_emitted == 0
+
     async def test_unchanged_position_no_reemit(self, tmp_path):
         """Same position with no changes should NOT re-emit."""
         signal_bus = AsyncMock()

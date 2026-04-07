@@ -29,7 +29,6 @@ import asyncio
 import hashlib
 import json
 import logging
-import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -57,6 +56,7 @@ class TaoshiBridge:
         self._event_bus = event_bus
         self._poll_interval = poll_interval
         self._running = False
+        self._initialized_from_store: set[str] = set()
 
         # Track what we've already seen — maps {uuid: content_hash}
         # Change detection: emit signal when UUID is new OR hash changed
@@ -81,11 +81,11 @@ class TaoshiBridge:
         if self._store:
             try:
                 existing = await self._store.get_processed_position_uuids()
+                self._initialized_from_store = set(existing)
                 # Load existing UUIDs into hash-based tracking (mark all as "seen" with empty hash)
                 for uuid in existing:
-                    self._seen_positions[uuid] = (
-                        ""  # Empty hash = seen, will be updated on next poll
-                    )
+                    # Empty hash means loaded from store; hash will be refreshed on first poll.
+                    self._seen_positions[uuid] = ""
                 logger.info(
                     "TaoshiBridge: loaded %d seen positions from store", len(existing)
                 )
@@ -152,6 +152,11 @@ class TaoshiBridge:
                                     signal_reason="new_position",
                                 )
                                 new_signals += 1
+                            elif uuid in self._initialized_from_store:
+                                # Position loaded from prior store state; initialize current
+                                # hash without re-emitting a duplicate signal.
+                                self._seen_positions[uuid] = content_hash
+                                self._initialized_from_store.discard(uuid)
                             elif prev_hash != content_hash:
                                 # Position updated (new orders, leverage change, etc.)
                                 self._seen_positions[uuid] = content_hash
@@ -168,6 +173,7 @@ class TaoshiBridge:
         stale_uuids = set(self._seen_positions.keys()) - current_uuids
         for uuid in stale_uuids:
             del self._seen_positions[uuid]
+            self._initialized_from_store.discard(uuid)
         if stale_uuids:
             logger.debug(
                 "TaoshiBridge: cleaned %d closed positions from tracking",
@@ -283,6 +289,21 @@ class TaoshiBridge:
 
         await self._signal_bus.publish(signal)
         self.signals_emitted += 1
+
+        if self._store is not None:
+            position_uuid = str(position.get("position_uuid", ""))
+            if position_uuid:
+                try:
+                    await self._store.save_processed_position_uuid(
+                        position_uuid, hotkey
+                    )
+                except Exception as exc:
+                    logger.debug(
+                        "TaoshiBridge: failed to persist processed position %s: %s",
+                        position_uuid,
+                        exc,
+                    )
+
         log_event(
             logger,
             logging.INFO,

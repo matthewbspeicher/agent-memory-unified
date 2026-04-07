@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock
 
 from integrations.bittensor.adapter import (
     TaoshiProtocolAdapter,
@@ -55,6 +57,7 @@ import hashlib
 import json
 
 from integrations.bittensor.adapter import FORWARD_DELAY_SECONDS
+from integrations.bittensor.models import PredictionRequest
 
 
 def test_forward_delay_constant():
@@ -86,6 +89,77 @@ def test_verify_hash_commitment_invalid():
 def test_verify_hash_commitment_none():
     predictions = [0.1, 0.2, 0.3]
     assert TaoshiProtocolAdapter.verify_hash_commitment(None, predictions) is False
+
+
+async def test_query_miners_accepts_dict_and_object_responses():
+    adapter = TaoshiProtocolAdapter.__new__(TaoshiProtocolAdapter)
+    adapter._dendrite = AsyncMock()
+    adapter._metagraph = MagicMock()
+    adapter._metagraph.uids = [10, 11]
+    adapter._metagraph.hotkeys = ["hotkey-10", "hotkey-11"]
+    adapter._metagraph.I = [0.1, 0.2]
+    adapter._metagraph.validator_trust = [0.9, 0.8]
+    adapter._metagraph.S = [1000.0, 2000.0]
+    adapter._metagraph.block = 123
+
+    request = PredictionRequest(stream_id="BTCUSD-5m", prediction_size=2)
+    axons = [MagicMock(), MagicMock()]
+    uids = [10, 11]
+
+    adapter._dendrite.side_effect = [
+        {"predictions": [1.0, 2.0], "hashed_predictions": "abc"},
+        SimpleNamespace(predictions=[3.0, 4.0], hashed_predictions="def"),
+    ]
+
+    forecasts = await adapter.query_miners(
+        axons=axons,
+        uids=uids,
+        request=request,
+        window_id="2026-04-07-1200",
+        request_uuid="req-1",
+        timeout=12.0,
+    )
+
+    assert len(forecasts) == 2
+    assert forecasts[0].miner_uid == 10
+    assert forecasts[0].miner_hotkey == "hotkey-10"
+    assert forecasts[0].predictions == [1.0, 2.0]
+    assert forecasts[0].hashed_predictions == "abc"
+    assert forecasts[0].incentive_score == 0.1
+    assert forecasts[0].vtrust == 0.9
+
+    assert forecasts[1].miner_uid == 11
+    assert forecasts[1].miner_hotkey == "hotkey-11"
+    assert forecasts[1].predictions == [3.0, 4.0]
+    assert adapter._dendrite.call_count == 2
+
+
+async def test_query_miners_skips_invalid_prediction_shapes():
+    adapter = TaoshiProtocolAdapter.__new__(TaoshiProtocolAdapter)
+    adapter._dendrite = AsyncMock()
+    adapter._metagraph = MagicMock()
+    adapter._metagraph.uids = [10]
+    adapter._metagraph.hotkeys = ["hotkey-10"]
+    adapter._metagraph.I = [0.1]
+    adapter._metagraph.validator_trust = [0.9]
+    adapter._metagraph.S = [1000.0]
+    adapter._metagraph.block = 123
+
+    request = PredictionRequest(stream_id="BTCUSD-5m", prediction_size=2)
+    adapter._dendrite.side_effect = [
+        {"predictions": [1.0], "hashed_predictions": "abc"},
+    ]
+
+    forecasts = await adapter.query_miners(
+        axons=[MagicMock()],
+        uids=[10],
+        request=request,
+        window_id="2026-04-07-1200",
+        request_uuid="req-1",
+        timeout=12.0,
+    )
+
+    assert forecasts == []
 
 
 class TestGetIncentiveScores:
