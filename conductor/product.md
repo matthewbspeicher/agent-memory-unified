@@ -21,6 +21,7 @@ To provide a unified ecosystem for autonomous AI agents that seamlessly combines
 - **Simulation & Validation:** A risk-free paper trading environment and historical backtesting engine to verify strategy performance before deployment.
 - **Miner Performance & Ranking:** Automated accuracy-based scoring for Bittensor miners, enabling weighted consensus and institutional-grade signal validation.
 - **Self-Learning Intelligence Loop:** Deep integration of vector memory (pgvector) to recall historical market contexts, enabling agents to adjust conviction based on past performance in similar regimes.
+- **Mission-Critical Infrastructure:** High-fidelity dashboard for real-time monitoring, multi-channel alerting (Discord/WhatsApp), and an automated CI/CD pipeline ensuring code quality and type safety across the entire monorepo.
 - **Polyglot Monorepo:** A shared codebase architecture using JSON Schema for unified type definitions across PHP, Python, and TypeScript.
 
 ## Success Metrics
