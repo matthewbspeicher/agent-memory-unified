@@ -21,14 +21,14 @@
 ---
 
 ### Step 1: Implement Change Detection
-**Status:** 🟨 In Progress
+**Status:** ✅ Complete
 
-- [ ] Replace set with hash-tracking dict
-- [ ] Add `_hash_position` helper
-- [ ] Emit signals for new AND updated positions
-- [ ] Add `signal_reason` and `order_count` to payload
-- [ ] Clean up closed positions from tracking
-- [ ] Update `get_status()` with new counters
+- [x] Replace set with hash-tracking dict
+- [x] Add `_hash_position` helper
+- [x] Emit signals for new AND updated positions
+- [x] Add `signal_reason` and `order_count` to payload
+- [x] Clean up closed positions from tracking
+- [x] Update `get_status()` with new counters
 
 ---
 

@@ -16,6 +16,7 @@ Architecture:
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import os
@@ -47,14 +48,16 @@ class TaoshiBridge:
         self._poll_interval = poll_interval
         self._running = False
 
-        # Track what we've already seen to avoid duplicates
-        self._seen_position_uuids: set[str] = set()
+        # Track what we've already seen — maps {uuid: content_hash}
+        # Change detection: emit signal when UUID is new OR hash changed
+        self._seen_positions: dict[str, str] = {}
         self._last_scan_at: datetime | None = None
 
         # Stats
         self.miners_tracked: int = 0
         self.open_positions: int = 0
         self.signals_emitted: int = 0
+        self.updates_detected: int = 0
 
     async def run(self) -> None:
         """Main polling loop."""
@@ -69,7 +72,9 @@ class TaoshiBridge:
             try:
                 existing = await self._store.get_processed_position_uuids()
                 self._seen_position_uuids.update(existing)
-                logger.info("TaoshiBridge: loaded %d seen positions from store", len(existing))
+                logger.info(
+                    "TaoshiBridge: loaded %d seen positions from store", len(existing)
+                )
             except Exception as exc:
                 logger.error("TaoshiBridge: failed to load seen positions: %s", exc)
 
@@ -97,6 +102,8 @@ class TaoshiBridge:
         total_open = 0
         new_signals = 0
 
+        current_uuids: set[str] = set()
+
         for miner_dir in miners:
             hotkey = miner_dir.name
             positions_dir = miner_dir / "positions"
@@ -115,17 +122,43 @@ class TaoshiBridge:
                         if pos_file.is_file():
                             total_open += 1
                             uuid = pos_file.stem
-                            if uuid not in self._seen_position_uuids:
-                                self._seen_position_uuids.add(uuid)
-                                pos = self._read_position(pos_file)
-                                if pos:
-                                    await self._emit_signal(pos, hotkey, symbol)
-                                    if self._store:
-                                        await self._store.save_processed_position_uuid(uuid, hotkey)
-                                        forecast = self._create_raw_forecast(pos, hotkey, symbol, uuid)
-                                        if forecast:
-                                            await self._store.save_raw_forecasts([forecast])
-                                    new_signals += 1
+                            current_uuids.add(uuid)
+                            pos = self._read_position(pos_file)
+                            if pos is None:
+                                continue
+                            content_hash = self._hash_position(pos)
+                            prev_hash = self._seen_positions.get(uuid)
+                            if prev_hash is None:
+                                # New position
+                                self._seen_positions[uuid] = content_hash
+                                await self._emit_signal(
+                                    pos,
+                                    hotkey,
+                                    symbol,
+                                    signal_reason="new_position",
+                                )
+                                new_signals += 1
+                            elif prev_hash != content_hash:
+                                # Position updated (new orders, leverage change, etc.)
+                                self._seen_positions[uuid] = content_hash
+                                await self._emit_signal(
+                                    pos,
+                                    hotkey,
+                                    symbol,
+                                    signal_reason="position_updated",
+                                )
+                                new_signals += 1
+                                self.updates_detected += 1
+
+        # Clean up positions no longer on disk (moved to closed/)
+        stale_uuids = set(self._seen_positions.keys()) - current_uuids
+        for uuid in stale_uuids:
+            del self._seen_positions[uuid]
+        if stale_uuids:
+            logger.debug(
+                "TaoshiBridge: cleaned %d closed positions from tracking",
+                len(stale_uuids),
+            )
 
         self.open_positions = total_open
         self._last_scan_at = datetime.now(timezone.utc)
@@ -164,49 +197,33 @@ class TaoshiBridge:
             logger.warning("Failed to read position %s: %s", path, exc)
             return None
 
-    def _create_raw_forecast(
-        self, position: dict, hotkey: str, symbol: str, uuid: str
-    ):
-        from integrations.bittensor.models import RawMinerForecast
+    @staticmethod
+    def _hash_position(position: dict) -> str:
+        """Compute a content hash for change detection.
 
+        Hash is based on order count, latest order timestamp, and latest
+        leverage — the fields most likely to change when a position is
+        updated.  Deterministic for the same position state.
+        """
         orders = position.get("orders", [])
-        if not orders:
-            return None
+        order_count = len(orders)
+        if orders:
+            latest = orders[-1]
+            latest_ts = latest.get("processed_ms", latest.get("price_sources_ts", 0))
+            latest_leverage = latest.get("leverage", 0.0)
+        else:
+            latest_ts = 0
+            latest_leverage = 0.0
 
-        latest_order = orders[-1]
-        price = latest_order.get("price", 0.0)
-
-        # Determine window_id
-        open_ms = position.get("open_ms", 0)
-        open_time = datetime.fromtimestamp(open_ms / 1000.0, tz=timezone.utc)
-        window_minutes = (open_time.minute // 30) * 30
-        window_time = open_time.replace(minute=window_minutes, second=0, microsecond=0)
-        window_id = window_time.strftime("%Y%m%d-%H%M")
-
-        return RawMinerForecast(
-            window_id=window_id,
-            request_uuid=uuid,
-            collected_at=datetime.now(timezone.utc),
-            miner_uid=None,
-            miner_hotkey=hotkey,
-            stream_id="taoshi_bridge",
-            topic_id=0,
-            schema_id=0,
-            symbol=symbol,
-            timeframe="30m",
-            feature_ids=[],
-            prediction_size=1,
-            predictions=[float(price)],
-            hashed_predictions=None,
-            hash_verified=True,
-            incentive_score=None,
-            vtrust=None,
-            stake_tao=None,
-            metagraph_block=None,
-        )
+        raw = f"{order_count}|{latest_ts}|{latest_leverage}"
+        return hashlib.md5(raw.encode()).hexdigest()
 
     async def _emit_signal(
-        self, position: dict, hotkey: str, symbol: str
+        self,
+        position: dict,
+        hotkey: str,
+        symbol: str,
+        signal_reason: str = "new_position",
     ) -> None:
         """Convert a Taoshi position into an AgentSignal and publish."""
         if not self._signal_bus:
@@ -244,6 +261,8 @@ class TaoshiBridge:
                 "position_uuid": position.get("position_uuid", ""),
                 "order_type": order_type,
                 "open_ms": position.get("open_ms", 0),
+                "signal_reason": signal_reason,
+                "order_count": len(orders),
             },
             expires_at=datetime.now(timezone.utc) + timedelta(minutes=30),
         )
@@ -274,7 +293,8 @@ class TaoshiBridge:
             "last_scan_at": (
                 self._last_scan_at.isoformat() if self._last_scan_at else None
             ),
-            "seen_positions": len(self._seen_position_uuids),
+            "seen_positions": len(self._seen_positions),
+            "updates_detected": self.updates_detected,
         }
 
     async def get_miner_summary(self) -> list[dict]:
