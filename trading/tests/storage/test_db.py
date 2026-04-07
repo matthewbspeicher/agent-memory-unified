@@ -43,7 +43,8 @@ class TestDatabaseConnectionConnect:
             mock_db = AsyncMock(spec=aiosqlite.Connection)
             mock_connect.return_value = mock_db
 
-            db = await db_conn.connect()
+            with patch("storage.db.init_db", new_callable=AsyncMock):
+                db = await db_conn.connect()
 
             mock_connect.assert_called_once_with(":memory:")
             assert db == mock_db

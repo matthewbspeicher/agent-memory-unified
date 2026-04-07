@@ -204,6 +204,12 @@ async def init_db(db: aiosqlite.Connection) -> None:
             total_trades INTEGER DEFAULT 0
         );
 
+        CREATE TABLE IF NOT EXISTS bittensor_processed_positions (
+            position_uuid TEXT PRIMARY KEY,
+            miner_hotkey TEXT NOT NULL,
+            processed_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+
         CREATE TABLE IF NOT EXISTS llm_lessons (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             agent_name TEXT NOT NULL,
