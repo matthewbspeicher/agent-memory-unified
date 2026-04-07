@@ -84,6 +84,7 @@ def test_intelligence_config_defaults():
         "order_flow": 0.12,
         "regime": 0.10,
         "risk_audit": 0.05,
+        "derivatives": 0.12,
     }
     assert cfg.max_adjustment_pct == 0.30
 

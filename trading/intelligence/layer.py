@@ -16,6 +16,7 @@ from intelligence.providers.on_chain import OnChainProvider
 from intelligence.providers.sentiment import SentimentProvider
 from intelligence.providers.regime import RegimeProvider
 from intelligence.providers.order_flow import OrderFlowProvider
+from intelligence.providers.derivatives import DerivativesProvider
 from intelligence.providers.risk_audit import RiskAuditProvider
 from utils.logging import log_event
 
@@ -42,6 +43,7 @@ class IntelligenceLayer:
             var_threshold_pct=config.risk_var_threshold_pct,
             horizon_days=config.risk_horizon_days,
         )
+        self._derivatives = DerivativesProvider()
 
         # Circuit breakers (one per provider)
         def make_breaker() -> ProviderCircuitBreaker:
@@ -56,6 +58,7 @@ class IntelligenceLayer:
             "order_flow": make_breaker(),
             "regime": make_breaker(),
             "risk_audit": make_breaker(),
+            "derivatives": make_breaker(),
         }
 
         # Metrics
@@ -148,6 +151,7 @@ class IntelligenceLayer:
             ("order_flow", self._order_flow),
             ("regime", self._regime),
             ("risk_audit", self._risk_audit),
+            ("derivatives", self._derivatives),
         ]
 
         async def _call_provider(name: str, provider) -> IntelReport | None:
