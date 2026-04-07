@@ -471,6 +471,7 @@ async def _setup_bittensor_integration(
 
         bridge = TaoshiBridge(
             taoshi_root=taoshi_root,
+            store=app.state.bittensor_store if hasattr(app.state, 'bittensor_store') else None,
             signal_bus=signal_bus,
             event_bus=event_bus,
             poll_interval=30.0,

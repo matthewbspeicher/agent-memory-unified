@@ -1,0 +1,31 @@
+{
+  "batchId": "20260407T121549",
+  "laneNumber": 3,
+  "laneId": "lane-3",
+  "repoId": "default",
+  "taskId": "TP-013",
+  "segmentId": "TP-013::default",
+  "status": "complete",
+  "worker": {
+    "agentId": "orch-mspeicher-lane-3-worker",
+    "status": "exited",
+    "elapsedMs": 214595,
+    "toolCalls": 56,
+    "contextPct": 3.3453999999999997,
+    "costUsd": 1.0210255,
+    "lastTool": "read: /opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-3/taskplane-",
+    "inputTokens": 46,
+    "outputTokens": 9705,
+    "cacheReadTokens": 1079291,
+    "cacheWriteTokens": 38164
+  },
+  "reviewer": null,
+  "progress": {
+    "currentStep": "Step 3: Documentation & Delivery",
+    "checked": 12,
+    "total": 12,
+    "iteration": 1,
+    "reviews": 0
+  },
+  "updatedAt": 1775578766829
+}

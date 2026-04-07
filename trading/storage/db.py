@@ -177,8 +177,13 @@ async def init_db(db: aiosqlite.Connection) -> None:
             win_rate REAL,
             total_trades INTEGER,
             run_date TEXT NOT NULL,
-            data_start TEXT NOT NULL,
-            data_end TEXT NOT NULL
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+
+        CREATE TABLE IF NOT EXISTS bittensor_processed_positions (
+            position_uuid TEXT PRIMARY KEY,
+            miner_hotkey TEXT NOT NULL,
+            processed_at TEXT NOT NULL DEFAULT (datetime('now'))
         );
 
         CREATE TABLE IF NOT EXISTS tournament_rounds (

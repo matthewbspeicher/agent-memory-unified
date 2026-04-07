@@ -487,3 +487,21 @@ class BittensorStore:
             alpha_used=r["alpha_used"],
             updated_at=datetime.fromisoformat(r["updated_at"]),
         )
+
+    # ------------------------------------------------------------------
+    # Processed positions (for TaoshiBridge persistence)
+    # ------------------------------------------------------------------
+
+    async def get_processed_position_uuids(self) -> set[str]:
+        """Return all position UUIDs already processed by TaoshiBridge."""
+        cursor = await self._db.execute("SELECT position_uuid FROM bittensor_processed_positions")
+        rows = await cursor.fetchall()
+        return {row[0] for row in rows}
+
+    async def save_processed_position_uuid(self, uuid: str, hotkey: str) -> None:
+        """Mark a position UUID as processed."""
+        await self._db.execute(
+            "INSERT OR IGNORE INTO bittensor_processed_positions (position_uuid, miner_hotkey) VALUES (?, ?)",
+            (uuid, hotkey),
+        )
+        await self._db.commit()

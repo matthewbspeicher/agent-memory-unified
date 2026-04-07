@@ -1,0 +1,20 @@
+{
+  "batchId": "20260407T121549",
+  "agentId": "orch-mspeicher-lane-2-worker",
+  "role": "worker",
+  "laneNumber": 2,
+  "taskId": "TP-005",
+  "repoId": "default",
+  "pid": 219164,
+  "parentPid": 219009,
+  "startedAt": 1775578551989,
+  "status": "exited",
+  "cwd": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-2",
+  "packet": {
+    "promptPath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-2/taskplane-tasks/TP-005-structured-logging/PROMPT.md",
+    "statusPath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-2/taskplane-tasks/TP-005-structured-logging/STATUS.md",
+    "donePath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-2/taskplane-tasks/TP-005-structured-logging/.DONE",
+    "reviewsDir": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-2/taskplane-tasks/TP-005-structured-logging/.reviews",
+    "taskFolder": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-2/taskplane-tasks/TP-005-structured-logging"
+  }
+}

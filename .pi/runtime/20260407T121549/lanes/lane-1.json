@@ -1,0 +1,31 @@
+{
+  "batchId": "20260407T121549",
+  "laneNumber": 1,
+  "laneId": "lane-1",
+  "repoId": "default",
+  "taskId": "TP-010",
+  "segmentId": "TP-010::default",
+  "status": "running",
+  "worker": {
+    "agentId": "orch-mspeicher-lane-1-worker",
+    "status": "running",
+    "elapsedMs": 0,
+    "toolCalls": 53,
+    "contextPct": 3.7571,
+    "costUsd": 1.06491075,
+    "lastTool": "bash: cd /opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-1/trading",
+    "inputTokens": 48,
+    "outputTokens": 11808,
+    "cacheReadTokens": 1183954,
+    "cacheWriteTokens": 28399
+  },
+  "reviewer": null,
+  "progress": {
+    "currentStep": "Step 3: Testing & Verification",
+    "checked": 7,
+    "total": 9,
+    "iteration": 1,
+    "reviews": 0
+  },
+  "updatedAt": 1775581753302
+}

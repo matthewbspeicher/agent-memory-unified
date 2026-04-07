@@ -38,12 +38,14 @@ class TaoshiBridge:
     def __init__(
         self,
         taoshi_root: str | Path,
+        store: Any | None = None,
         signal_bus: Any | None = None,
         event_bus: Any | None = None,
         poll_interval: float = 30.0,
     ):
         self._root = Path(taoshi_root)
         self._miners_dir = self._root / "validation" / "miners"
+        self._store = store
         self._signal_bus = signal_bus
         self._event_bus = event_bus
         self._poll_interval = poll_interval
@@ -66,6 +68,14 @@ class TaoshiBridge:
             self._root,
             self._poll_interval,
         )
+
+        if self._store:
+            try:
+                existing = await self._store.get_processed_position_uuids()
+                self._seen_position_uuids.update(existing)
+                logger.info("TaoshiBridge: loaded %d seen positions from store", len(existing))
+            except Exception as exc:
+                logger.error("TaoshiBridge: failed to load seen positions: %s", exc)
 
         while self._running:
             try:
@@ -114,6 +124,8 @@ class TaoshiBridge:
                                 pos = self._read_position(pos_file)
                                 if pos:
                                     await self._emit_signal(pos, hotkey, symbol)
+                                    if self._store:
+                                        await self._store.save_processed_position_uuid(uuid, hotkey)
                                     new_signals += 1
 
         self.open_positions = total_open

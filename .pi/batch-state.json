@@ -1,0 +1,229 @@
+{
+  "schemaVersion": 4,
+  "phase": "executing",
+  "batchId": "20260407T121549",
+  "baseBranch": "main",
+  "orchBranch": "orch/mspeicher-20260407T121549",
+  "mode": "repo",
+  "startedAt": 1775578549589,
+  "updatedAt": 1775578839636,
+  "endedAt": null,
+  "currentWaveIndex": 0,
+  "totalWaves": 1,
+  "wavePlan": [
+    [
+      "TP-001",
+      "TP-010",
+      "TP-012",
+      "TP-005",
+      "TP-013"
+    ]
+  ],
+  "lanes": [
+    {
+      "laneNumber": 1,
+      "laneId": "lane-1",
+      "laneSessionId": "orch-mspeicher-lane-1",
+      "worktreePath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-1",
+      "branch": "task/mspeicher-lane-1-20260407T121549",
+      "taskIds": [
+        "TP-001",
+        "TP-010",
+        "TP-012"
+      ]
+    },
+    {
+      "laneNumber": 2,
+      "laneId": "lane-2",
+      "laneSessionId": "orch-mspeicher-lane-2",
+      "worktreePath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-2",
+      "branch": "task/mspeicher-lane-2-20260407T121549",
+      "taskIds": [
+        "TP-005"
+      ]
+    },
+    {
+      "laneNumber": 3,
+      "laneId": "lane-3",
+      "laneSessionId": "orch-mspeicher-lane-3",
+      "worktreePath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-3",
+      "branch": "task/mspeicher-lane-3-20260407T121549",
+      "taskIds": [
+        "TP-013"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "taskId": "TP-001",
+      "laneNumber": 1,
+      "sessionName": "orch-mspeicher-lane-1",
+      "status": "succeeded",
+      "taskFolder": "/opt/agent-memory-unified/taskplane-tasks/TP-001-fix-taoshi-bridge-dedup",
+      "startedAt": 1775578552233,
+      "endedAt": 1775578821300,
+      "doneFileFound": true,
+      "exitReason": "Pending execution",
+      "segmentIds": [
+        "TP-001::default"
+      ],
+      "activeSegmentId": "TP-001::default"
+    },
+    {
+      "taskId": "TP-005",
+      "laneNumber": 2,
+      "sessionName": "orch-mspeicher-lane-2",
+      "status": "succeeded",
+      "taskFolder": "/opt/agent-memory-unified/taskplane-tasks/TP-005-structured-logging",
+      "startedAt": 1775578552233,
+      "endedAt": 1775578839635,
+      "doneFileFound": true,
+      "exitReason": "Pending execution",
+      "segmentIds": [
+        "TP-005::default"
+      ],
+      "activeSegmentId": "TP-005::default"
+    },
+    {
+      "taskId": "TP-010",
+      "laneNumber": 1,
+      "sessionName": "orch-mspeicher-lane-1",
+      "status": "running",
+      "taskFolder": "/opt/agent-memory-unified/taskplane-tasks/TP-010-health-check-endpoints",
+      "startedAt": 1775578821300,
+      "endedAt": null,
+      "doneFileFound": false,
+      "exitReason": "Pending execution",
+      "segmentIds": [
+        "TP-010::default"
+      ],
+      "activeSegmentId": "TP-010::default"
+    },
+    {
+      "taskId": "TP-012",
+      "laneNumber": 1,
+      "sessionName": "orch-mspeicher-lane-1",
+      "status": "pending",
+      "taskFolder": "/opt/agent-memory-unified/taskplane-tasks/TP-012-fix-test-suite",
+      "startedAt": null,
+      "endedAt": null,
+      "doneFileFound": false,
+      "exitReason": "Pending execution",
+      "segmentIds": [
+        "TP-012::default"
+      ],
+      "activeSegmentId": "TP-012::default"
+    },
+    {
+      "taskId": "TP-013",
+      "laneNumber": 3,
+      "sessionName": "orch-mspeicher-lane-3",
+      "status": "succeeded",
+      "taskFolder": "/opt/agent-memory-unified/taskplane-tasks/TP-013-laravel-api-decision",
+      "startedAt": 1775578552233,
+      "endedAt": 1775578759442,
+      "doneFileFound": true,
+      "exitReason": "Pending execution",
+      "segmentIds": [
+        "TP-013::default"
+      ],
+      "activeSegmentId": "TP-013::default"
+    }
+  ],
+  "mergeResults": [],
+  "totalTasks": 5,
+  "succeededTasks": 0,
+  "failedTasks": 0,
+  "skippedTasks": 0,
+  "blockedTasks": 0,
+  "blockedTaskIds": [],
+  "lastError": null,
+  "errors": [],
+  "resilience": {
+    "resumeForced": false,
+    "retryCountByScope": {},
+    "lastFailureClass": null,
+    "repairHistory": []
+  },
+  "diagnostics": {
+    "taskExits": {},
+    "batchCost": 0
+  },
+  "segments": [
+    {
+      "segmentId": "TP-001::default",
+      "taskId": "TP-001",
+      "repoId": "default",
+      "status": "running",
+      "laneId": "lane-1",
+      "sessionName": "orch-mspeicher-lane-1",
+      "worktreePath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-1",
+      "branch": "task/mspeicher-lane-1-20260407T121549",
+      "startedAt": 1775578551573,
+      "endedAt": null,
+      "retries": 0,
+      "exitReason": "Segment running",
+      "dependsOnSegmentIds": []
+    },
+    {
+      "segmentId": "TP-010::default",
+      "taskId": "TP-010",
+      "repoId": "default",
+      "status": "running",
+      "laneId": "lane-1",
+      "sessionName": "orch-mspeicher-lane-1",
+      "worktreePath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-1",
+      "branch": "task/mspeicher-lane-1-20260407T121549",
+      "startedAt": 1775578551573,
+      "endedAt": null,
+      "retries": 0,
+      "exitReason": "Segment running",
+      "dependsOnSegmentIds": []
+    },
+    {
+      "segmentId": "TP-012::default",
+      "taskId": "TP-012",
+      "repoId": "default",
+      "status": "running",
+      "laneId": "lane-1",
+      "sessionName": "orch-mspeicher-lane-1",
+      "worktreePath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-1",
+      "branch": "task/mspeicher-lane-1-20260407T121549",
+      "startedAt": 1775578551573,
+      "endedAt": null,
+      "retries": 0,
+      "exitReason": "Segment running",
+      "dependsOnSegmentIds": []
+    },
+    {
+      "segmentId": "TP-005::default",
+      "taskId": "TP-005",
+      "repoId": "default",
+      "status": "running",
+      "laneId": "lane-2",
+      "sessionName": "orch-mspeicher-lane-2",
+      "worktreePath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-2",
+      "branch": "task/mspeicher-lane-2-20260407T121549",
+      "startedAt": 1775578551573,
+      "endedAt": null,
+      "retries": 0,
+      "exitReason": "Segment running",
+      "dependsOnSegmentIds": []
+    },
+    {
+      "segmentId": "TP-013::default",
+      "taskId": "TP-013",
+      "repoId": "default",
+      "status": "running",
+      "laneId": "lane-3",
+      "sessionName": "orch-mspeicher-lane-3",
+      "worktreePath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-3",
+      "branch": "task/mspeicher-lane-3-20260407T121549",
+      "startedAt": 1775578551573,
+      "endedAt": null,
+      "retries": 0,
+      "exitReason": "Segment running",
+      "dependsOnSegmentIds": []
+    }
+  ]
+}

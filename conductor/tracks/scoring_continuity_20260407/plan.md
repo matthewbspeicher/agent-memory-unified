@@ -1,15 +1,15 @@
 # Implementation Plan: Validator Scoring Continuity & Pipeline Persistence
 
 ## Phase 1: Persistence Layer
-- [ ] Task: Create `bittensor_processed_positions` table
-    - [ ] Write failing test for table existence and schema in `trading/tests/storage/test_db.py`
-    - [ ] Add table definition to initialization logic or create migration script
-    - [ ] Verify test passes
-- [ ] Task: Implement DB-backed UUID tracking in `TaoshiBridge`
-    - [ ] Write failing test in `trading/tests/integration/test_taoshi_bridge_persistence.py`
-    - [ ] Update `TaoshiBridge` to load/save UUIDs using the database
-    - [ ] Verify test passes
-- [ ] Task: Conductor - User Manual Verification 'Persistence Layer' (Protocol in workflow.md)
+- [x] Task: Create `bittensor_processed_positions` table
+    - [x] Write failing test for table existence and schema in `trading/tests/storage/test_db.py`
+    - [x] Add table definition to initialization logic or create migration script
+    - [x] Verify test passes
+- [x] Task: Implement DB-backed UUID tracking in `TaoshiBridge`
+    - [x] Write failing test in `trading/tests/integration/test_taoshi_bridge_persistence.py`
+    - [x] Update `TaoshiBridge` to load/save UUIDs using the database
+    - [x] Verify test passes
+- [x] Task: Conductor - User Manual Verification 'Persistence Layer' (Protocol in workflow.md)
 
 ## Phase 2: Ingestion & Evaluation
 - [ ] Task: Integrate `TaoshiBridge` with `BittensorStore`

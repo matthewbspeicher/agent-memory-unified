@@ -738,3 +738,11 @@ CREATE TABLE IF NOT EXISTS correlation_matrix (
     computed_at TIMESTAMP NOT NULL,
     PRIMARY KEY (symbol_a, symbol_b, window_days)
 );
+
+CREATE TABLE IF NOT EXISTS bittensor_processed_positions (
+    position_uuid VARCHAR(255) PRIMARY KEY,
+    miner_hotkey VARCHAR(255) NOT NULL,
+    processed_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_bt_processed_hotkey ON bittensor_processed_positions(miner_hotkey);
+

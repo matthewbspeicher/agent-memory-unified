@@ -1,0 +1,20 @@
+{
+  "batchId": "20260407T121549",
+  "agentId": "orch-mspeicher-lane-3-worker",
+  "role": "worker",
+  "laneNumber": 3,
+  "taskId": "TP-013",
+  "repoId": "default",
+  "pid": 219199,
+  "parentPid": 219009,
+  "startedAt": 1775578552230,
+  "status": "exited",
+  "cwd": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-3",
+  "packet": {
+    "promptPath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-3/taskplane-tasks/TP-013-laravel-api-decision/PROMPT.md",
+    "statusPath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-3/taskplane-tasks/TP-013-laravel-api-decision/STATUS.md",
+    "donePath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-3/taskplane-tasks/TP-013-laravel-api-decision/.DONE",
+    "reviewsDir": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-3/taskplane-tasks/TP-013-laravel-api-decision/.reviews",
+    "taskFolder": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-3/taskplane-tasks/TP-013-laravel-api-decision"
+  }
+}

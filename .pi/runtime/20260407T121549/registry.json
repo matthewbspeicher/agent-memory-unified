@@ -1,0 +1,66 @@
+{
+  "batchId": "20260407T121549",
+  "updatedAt": 1775579090868,
+  "agents": {
+    "orch-mspeicher-lane-1-worker": {
+      "batchId": "20260407T121549",
+      "agentId": "orch-mspeicher-lane-1-worker",
+      "role": "worker",
+      "laneNumber": 1,
+      "taskId": "TP-010",
+      "repoId": "default",
+      "pid": 220205,
+      "parentPid": 219009,
+      "startedAt": 1775578832018,
+      "status": "running",
+      "cwd": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-1",
+      "packet": {
+        "promptPath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-1/taskplane-tasks/TP-010-health-check-endpoints/PROMPT.md",
+        "statusPath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-1/taskplane-tasks/TP-010-health-check-endpoints/STATUS.md",
+        "donePath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-1/taskplane-tasks/TP-010-health-check-endpoints/.DONE",
+        "reviewsDir": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-1/taskplane-tasks/TP-010-health-check-endpoints/.reviews",
+        "taskFolder": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-1/taskplane-tasks/TP-010-health-check-endpoints"
+      }
+    },
+    "orch-mspeicher-lane-2-worker": {
+      "batchId": "20260407T121549",
+      "agentId": "orch-mspeicher-lane-2-worker",
+      "role": "worker",
+      "laneNumber": 2,
+      "taskId": "TP-005",
+      "repoId": "default",
+      "pid": 219164,
+      "parentPid": 219009,
+      "startedAt": 1775578551989,
+      "status": "exited",
+      "cwd": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-2",
+      "packet": {
+        "promptPath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-2/taskplane-tasks/TP-005-structured-logging/PROMPT.md",
+        "statusPath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-2/taskplane-tasks/TP-005-structured-logging/STATUS.md",
+        "donePath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-2/taskplane-tasks/TP-005-structured-logging/.DONE",
+        "reviewsDir": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-2/taskplane-tasks/TP-005-structured-logging/.reviews",
+        "taskFolder": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-2/taskplane-tasks/TP-005-structured-logging"
+      }
+    },
+    "orch-mspeicher-lane-3-worker": {
+      "batchId": "20260407T121549",
+      "agentId": "orch-mspeicher-lane-3-worker",
+      "role": "worker",
+      "laneNumber": 3,
+      "taskId": "TP-013",
+      "repoId": "default",
+      "pid": 219199,
+      "parentPid": 219009,
+      "startedAt": 1775578552230,
+      "status": "exited",
+      "cwd": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-3",
+      "packet": {
+        "promptPath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-3/taskplane-tasks/TP-013-laravel-api-decision/PROMPT.md",
+        "statusPath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-3/taskplane-tasks/TP-013-laravel-api-decision/STATUS.md",
+        "donePath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-3/taskplane-tasks/TP-013-laravel-api-decision/.DONE",
+        "reviewsDir": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-3/taskplane-tasks/TP-013-laravel-api-decision/.reviews",
+        "taskFolder": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-3/taskplane-tasks/TP-013-laravel-api-decision"
+      }
+    }
+  }
+}

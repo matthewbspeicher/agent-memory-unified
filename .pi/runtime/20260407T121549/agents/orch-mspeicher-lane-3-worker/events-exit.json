@@ -1,0 +1,22 @@
+{
+  "exitCode": 0,
+  "exitSignal": null,
+  "tokens": {
+    "input": 46,
+    "output": 9705,
+    "cacheRead": 1079291,
+    "cacheWrite": 38164
+  },
+  "cost": 1.0210255,
+  "toolCalls": 56,
+  "retries": 0,
+  "compactions": 0,
+  "durationSec": 215,
+  "lastToolCall": "read: /opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-3/taskplane-",
+  "error": null,
+  "contextUsage": {
+    "tokens": 33454,
+    "contextWindow": 1000000,
+    "percent": 3.3453999999999997
+  }
+}
