@@ -171,3 +171,33 @@ agents:
           enabled: true
           parameters:
             volume_spike_multiplier: 2.5
+
+  - name: bittensor_alpha_ensemble
+    strategy: bittensor_alpha
+    schedule: continuous
+    interval: 60
+    action_level: suggest_trade
+    trust_level: monitored
+    parameters:
+      use_weighted_view: true
+      min_agreement: 0.6
+      min_return: 0.001
+      intel_enabled: true
+      intel_weights:
+        on_chain: 0.20
+        sentiment: 0.15
+        anomaly: 0.10
+        regime: 0.15
+
+  - name: crypto_multi_factor
+    strategy: multi_factor
+    schedule: continuous
+    interval: 3600
+    action_level: notify
+    universe: ["BTCUSD", "ETHUSD", "SOLUSD"]
+    parameters:
+      composite_threshold: 0.65
+      rsi_weight: 0.4
+      macd_weight: 0.3
+      volume_weight: 0.3
+      lookback_days: 20

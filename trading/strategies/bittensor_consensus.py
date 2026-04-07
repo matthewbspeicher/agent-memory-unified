@@ -39,7 +39,12 @@ class BittensorAlphaAgent(Agent):
             self.signal_bus.subscribe(self.handle_signal)
 
     async def handle_signal(self, signal: AgentSignal):
-        if signal.signal_type != "bittensor_consensus":
+        # We now prefer the intel_enriched_consensus signal if intel is enabled
+        target_signal_type = "bittensor_consensus"
+        if self.config.parameters.get("intel_enabled", False):
+            target_signal_type = "intel_enriched_consensus"
+
+        if signal.signal_type != target_signal_type:
             return
 
         payload = signal.payload
@@ -47,8 +52,24 @@ class BittensorAlphaAgent(Agent):
         if not symbol_ticker:
             return
 
+        # Check for veto from Intel Layer
+        if payload.get("vetoed", False):
+            log_event(
+                logger,
+                logging.INFO,
+                "trade.decision",
+                "BittensorAgent: Signal for %s VETOED by Intel Layer" % symbol_ticker,
+                data={
+                    "symbol": symbol_ticker,
+                    "reason": payload.get("intel", {}).get("veto_reason"),
+                    "action": "veto",
+                },
+            )
+            return
+
         direction = payload.get("direction")
-        confidence = payload.get("confidence", 0)
+        # Use enriched confidence if available, otherwise fallback to base
+        confidence = payload.get("enriched_confidence", payload.get("confidence", 0))
         expected_return = payload.get("expected_return", 0)
 
         if direction == "flat":

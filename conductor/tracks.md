@@ -4,7 +4,7 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-## [ ] Track: Strategy & Scoring (Miner Accuracy & Ensemble Wiring)
+## [x] Track: Strategy & Scoring (Miner Accuracy & Ensemble Wiring)
 Implement accuracy-based ranking and activate multi-factor strategies.
 *Link: [./tracks/strategy_scoring/](./tracks/strategy_scoring/)*
 

@@ -128,6 +128,7 @@ async def setup_bittensor(
         from data.bittensor_source import BittensorDataSource
         from integrations.bittensor.adapter import TaoshiProtocolAdapter
         from integrations.bittensor.scheduler import TaoshiScheduler
+        from integrations.bittensor.evaluator import MinerEvaluator
         from integrations.bittensor.models import BittensorMetrics
 
         _bt_metrics = BittensorMetrics()
@@ -165,6 +166,8 @@ async def setup_bittensor(
             direct_query_enabled=config.bittensor.direct_query_enabled,
         )
 
+        _bt_evaluator = MinerEvaluator(store=_bt_store, data_bus=data_bus)
+
         logger.info(
             "Bittensor integration enabled (network=%s, subnet=%d)",
             config.bittensor_network,
@@ -176,6 +179,7 @@ async def setup_bittensor(
             "source": _bt_source,
             "adapter": _bt_adapter,
             "scheduler": _bt_scheduler,
+            "evaluator": _bt_evaluator,
         }
     except Exception as exc:
         logger.warning("Bittensor setup failed (continuing without it): %s", exc)

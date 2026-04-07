@@ -444,9 +444,13 @@ async def _setup_bittensor_integration(
         app.state.bittensor_source = bittensor_components["source"]
         app.state.bittensor_adapter = bittensor_components["adapter"]
         app.state.bittensor_scheduler = bittensor_components["scheduler"]
+        app.state.bittensor_evaluator = bittensor_components["evaluator"]
 
         task_mgr.create_task(
             bittensor_components["scheduler"].run(), name="bittensor_scheduler"
+        )
+        task_mgr.create_task(
+            bittensor_components["evaluator"].run(), name="bittensor_evaluator"
         )
     elif config.bittensor_mock and not bittensor_enabled_runtime:
         from integrations.bittensor.mock_source import MockBittensorSource
@@ -488,21 +492,40 @@ async def _setup_bittensor_integration(
         task_mgr.create_task(bridge.run(), name="taoshi_bridge")
         logger.info("TaoshiBridge started (root=%s)", taoshi_root)
 
-        aggregator = MinerConsensusAggregator(signal_bus=signal_bus, window_minutes=5)
+        aggregator = MinerConsensusAggregator(
+            signal_bus=signal_bus,
+            store=app.state.bittensor_store if hasattr(app.state, "bittensor_store") else None,
+            window_minutes=5
+        )
         app.state.consensus_aggregator = aggregator
         task_mgr.create_task(aggregator.start(), name="consensus_aggregator")
         logger.info("MinerConsensusAggregator started")
 
         # Intelligence Layer
         from intelligence.layer import IntelligenceLayer
+        from memory.regime import RegimeMemoryManager
+        from remembr.client import AsyncRemembrClient
+
+        # Try to init memory manager for regime provider
+        regime_mem = None
+        if config.remembr_api_key:
+            try:
+                _remembr_client = AsyncRemembrClient(
+                    agent_token=config.remembr_api_key,
+                    base_url=config.remembr_base_url,
+                )
+                regime_mem = RegimeMemoryManager(_remembr_client)
+            except Exception as e:
+                logger.warning("Failed to init RegimeMemoryManager: %s", e)
 
         intel_layer = IntelligenceLayer(
             signal_bus=signal_bus,
-            config=settings.intel,
+            config=config.intel,
+            memory_manager=regime_mem,
         )
         app.state.intelligence_layer = intel_layer
         task_mgr.create_task(intel_layer.start(), name="intelligence_layer")
-        logger.info("IntelligenceLayer started (enabled=%s)", settings.intel.enabled)
+        logger.info("IntelligenceLayer started (enabled=%s)", config.intel.enabled)
     else:
         logger.debug("TaoshiBridge disabled — STA_TAOSHI_VALIDATOR_ROOT not set")
 
