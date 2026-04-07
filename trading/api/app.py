@@ -918,6 +918,7 @@ async def lifespan(app: FastAPI):
         signal_bus = SignalBus()
         set_event_bus(event_bus)
         app.state.event_bus = event_bus
+        app.state.signal_bus = signal_bus
 
         # --- Redis Connection + Signal Bridge ---
         from api.startup.redis import setup_redis

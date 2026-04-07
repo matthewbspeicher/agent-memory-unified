@@ -1,5 +1,6 @@
 import logging
 import time
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 
@@ -11,6 +12,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 _start_time = time.time()
+
+# Bridge scan considered stale after this many seconds
+_BRIDGE_STALE_SECONDS = 120
 
 
 @router.get("/health")
@@ -46,6 +50,58 @@ def health(
         "status": "ok",
         "brokers": brokers_status,
         "uptime_seconds": round(time.time() - _start_time),
+    }
+
+
+async def _check_redis(request: Request) -> dict:
+    """Ping Redis and return status dict."""
+    redis = getattr(request.app.state, "redis", None)
+    if redis is None:
+        return {"ok": None, "detail": "not configured"}
+    try:
+        pong = await redis.ping()
+        return {"ok": bool(pong)}
+    except Exception as exc:
+        return {"ok": False, "detail": str(exc)}
+
+
+def _check_taoshi_bridge(request: Request) -> dict:
+    """Return TaoshiBridge running/staleness info."""
+    bridge = getattr(request.app.state, "taoshi_bridge", None)
+    if bridge is None:
+        return {"ok": None, "detail": "not configured"}
+    status = bridge.get_status()
+    running = status.get("running", False)
+    last_scan = status.get("last_scan_at")
+
+    stale = False
+    if last_scan:
+        try:
+            last_dt = datetime.fromisoformat(last_scan)
+            age = (datetime.now(timezone.utc) - last_dt).total_seconds()
+            stale = age > _BRIDGE_STALE_SECONDS
+        except (ValueError, TypeError):
+            stale = True
+
+    return {
+        "ok": running and not stale,
+        "running": running,
+        "last_scan_at": last_scan,
+        "stale": stale,
+    }
+
+
+def _check_signal_bus(request: Request) -> dict:
+    """Return SignalBus subscriber count and signal buffer size."""
+    bus = getattr(request.app.state, "signal_bus", None)
+    if bus is None:
+        return {"ok": None, "detail": "not configured"}
+    subscriber_count = len(getattr(bus, "_subscribers", []))
+    signal_count = len(getattr(bus, "_signals", []))
+    return {
+        "ok": True,
+        "subscriber_count": subscriber_count,
+        "signal_count": signal_count,
     }
 
 
@@ -104,6 +160,15 @@ async def health_internal(request: Request):
             ),
         }
 
+    # Redis check
+    redis_status = await _check_redis(request)
+
+    # TaoshiBridge check
+    bridge_status = _check_taoshi_bridge(request)
+
+    # SignalBus check
+    signal_bus_status = _check_signal_bus(request)
+
     return JSONResponse(
         status_code=200 if healthy else 503,
         content={
@@ -112,6 +177,58 @@ async def health_internal(request: Request):
             "broker": broker_ok,
             "broker_reconnecting": reconnecting,
             "bittensor": bt_health,
+            "redis": redis_status,
+            "taoshi_bridge": bridge_status,
+            "signal_bus": signal_bus_status,
+        },
+    )
+
+
+@router.get("/ready")
+async def readiness_probe(request: Request):
+    """Kubernetes-style readiness probe.
+
+    Returns 200 only when ALL critical dependencies are reachable.
+    Unlike ``/health-internal`` this is deliberately strict — a 503
+    tells the load-balancer to stop routing traffic here.
+    """
+    checks: dict[str, bool | None] = {}
+
+    # 1. Database
+    db = getattr(request.app.state, "db", None)
+    if db is not None:
+        try:
+            await db.execute("SELECT 1")
+            checks["db"] = True
+        except Exception:
+            checks["db"] = False
+    else:
+        checks["db"] = None  # not configured — don't fail
+
+    # 2. Redis
+    redis_result = await _check_redis(request)
+    checks["redis"] = redis_result.get("ok")
+
+    # 3. Broker
+    all_brokers = getattr(request.app.state, "brokers", {})
+    broker = getattr(request.app.state, "broker", None)
+    if all_brokers:
+        checks["broker"] = any(
+            b.connection.is_connected() for b in all_brokers.values()
+        )
+    elif broker is not None:
+        checks["broker"] = broker.connection.is_connected()
+    else:
+        checks["broker"] = None
+
+    # Ready if no check returned False (None = not configured = pass)
+    ready = all(v is not False for v in checks.values())
+
+    return JSONResponse(
+        status_code=200 if ready else 503,
+        content={
+            "ready": ready,
+            "checks": {k: v for k, v in checks.items()},
         },
     )
 

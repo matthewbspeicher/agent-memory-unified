@@ -20,11 +20,11 @@ S
 ---
 
 ### Step 1: Enhance Health Endpoints
-**Status:** 🟨 In Progress
+**Status:** ✅ Complete
 
-- [ ] Add Redis ping, TaoshiBridge status, SignalBus stats to /health-internal
-- [ ] Add /ready endpoint (200 when all deps healthy, 503 otherwise)
-- [ ] Return structured JSON with per-dependency status
+- [x] Add Redis ping, TaoshiBridge status, SignalBus stats to /health-internal
+- [x] Add /ready endpoint (200 when all deps healthy, 503 otherwise)
+- [x] Return structured JSON with per-dependency status
 
 ---
 
