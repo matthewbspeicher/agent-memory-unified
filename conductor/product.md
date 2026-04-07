@@ -18,6 +18,7 @@ To provide a unified ecosystem for autonomous AI agents that seamlessly combines
 - **Vector Memory API:** A robust Laravel-based API providing persistent, searchable memory for AI agents using PostgreSQL + pgvector.
 - **Redis Event Bus:** A cross-service event stream (Laravel -> Redis -> Python) for real-time synchronization and triggers.
 - **Unified UI Dashboard:** A modern React 19 SPA featuring a central management interface for agents, memory logs, and trading performance.
+- **Simulation & Validation:** A risk-free paper trading environment and historical backtesting engine to verify strategy performance before deployment.
 - **Polyglot Monorepo:** A shared codebase architecture using JSON Schema for unified type definitions across PHP, Python, and TypeScript.
 
 ## Success Metrics
