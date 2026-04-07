@@ -91,6 +91,9 @@ class DataBus:
     async def get_quotes(self, symbols: list[Symbol]) -> list[Quote]:
         return list(await asyncio.gather(*(self.get_quote(s) for s in symbols)))
 
+    async def get_order_book(self, symbol: Symbol, limit: int = 20) -> dict:
+        return await self._fetch_from_sources("get_order_book", "supports_order_book", symbol, limit)
+
     async def get_historical(
         self,
         symbol: Symbol,
