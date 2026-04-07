@@ -126,6 +126,9 @@ class TaoshiBridge:
                                     await self._emit_signal(pos, hotkey, symbol)
                                     if self._store:
                                         await self._store.save_processed_position_uuid(uuid, hotkey)
+                                        forecast = self._create_raw_forecast(pos, hotkey, symbol, uuid)
+                                        if forecast:
+                                            await self._store.save_raw_forecasts([forecast])
                                     new_signals += 1
 
         self.open_positions = total_open
@@ -153,6 +156,47 @@ class TaoshiBridge:
         except Exception as exc:
             logger.warning("Failed to read position %s: %s", path, exc)
             return None
+
+    def _create_raw_forecast(
+        self, position: dict, hotkey: str, symbol: str, uuid: str
+    ):
+        from integrations.bittensor.models import RawMinerForecast
+
+        orders = position.get("orders", [])
+        if not orders:
+            return None
+
+        latest_order = orders[-1]
+        price = latest_order.get("price", 0.0)
+
+        # Determine window_id
+        open_ms = position.get("open_ms", 0)
+        open_time = datetime.fromtimestamp(open_ms / 1000.0, tz=timezone.utc)
+        window_minutes = (open_time.minute // 30) * 30
+        window_time = open_time.replace(minute=window_minutes, second=0, microsecond=0)
+        window_id = window_time.strftime("%Y%m%d-%H%M")
+
+        return RawMinerForecast(
+            window_id=window_id,
+            request_uuid=uuid,
+            collected_at=datetime.now(timezone.utc),
+            miner_uid=None,
+            miner_hotkey=hotkey,
+            stream_id="taoshi_bridge",
+            topic_id=0,
+            schema_id=0,
+            symbol=symbol,
+            timeframe="30m",
+            feature_ids=[],
+            prediction_size=1,
+            predictions=[float(price)],
+            hashed_predictions=None,
+            hash_verified=True,
+            incentive_score=None,
+            vtrust=None,
+            stake_tao=None,
+            metagraph_block=None,
+        )
 
     async def _emit_signal(
         self, position: dict, hotkey: str, symbol: str

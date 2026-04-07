@@ -12,12 +12,10 @@
 - [x] Task: Conductor - User Manual Verification 'Persistence Layer' (Protocol in workflow.md)
 
 ## Phase 2: Ingestion & Evaluation
-- [ ] Task: Integrate `TaoshiBridge` with `BittensorStore`
-    - [ ] Write failing test for bridge signal ingestion
-    - [ ] Implement `RawMinerForecast` transformation and store injection in `TaoshiBridge`
-    - [ ] Verify test passes
-- [ ] Task: Verify `BittensorEvaluator` continuity
-    - [ ] Write failing test for evaluator processing bridge-sourced data
-    - [ ] Ensure `BittensorEvaluator` correctly handles windows populated by the bridge
-    - [ ] Verify test passes
-- [ ] Task: Conductor - User Manual Verification 'Ingestion & Evaluation' (Protocol in workflow.md)
+- [x] Task: Integrate `TaoshiBridge` with `BittensorStore`
+    - [x] Write failing test for bridge signal ingestion
+    - [x] Implement `RawMinerForecast` transformation and store injection in `TaoshiBridge`
+    - [x] Verify test passes
+- [x] Task: Verify `BittensorEvaluator` continuity
+    - [x] OBSOLETE: `BittensorEvaluator` was removed in commit 0cccffdbc9d37f5262121d6306b6586e8e43aec8. The official Taoshi validator handles scoring.
+- [x] Task: Conductor - User Manual Verification 'Ingestion & Evaluation' (Protocol in workflow.md)

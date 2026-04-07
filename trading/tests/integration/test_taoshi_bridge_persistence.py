@@ -64,3 +64,12 @@ async def test_taoshi_bridge_persistence_load_and_save(mock_taoshi_root):
     # 2. Check if save_processed_position_uuid was called for the new position
     mock_store.save_processed_position_uuid.assert_called_with("pos-123", "hotkey123")
     assert "pos-123" in bridge._seen_position_uuids
+    
+    # 3. Check if save_raw_forecasts was called
+    mock_store.save_raw_forecasts.assert_called_once()
+    forecasts = mock_store.save_raw_forecasts.call_args[0][0]
+    assert len(forecasts) == 1
+    f = forecasts[0]
+    assert f.miner_hotkey == "hotkey123"
+    assert f.symbol == "BTCUSD"
+    assert f.predictions == [65000.0]
