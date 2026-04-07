@@ -14,7 +14,7 @@ async def setup_redis(config: Config, event_bus: EventBus, app_state) -> None:
         try:
             from redis.asyncio import from_url as redis_from_url
 
-            redis = await redis_from_url(config.redis_url, decode_responses=True)
+            redis = redis_from_url(config.redis_url, decode_responses=True)
             app_state.redis = redis
             _log.info("Redis connected for authentication")
         except ImportError:

@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\Memory;
-use App\Services\EmbeddingService;
+use App\Contracts\EmbeddingServiceInterface;
 use Illuminate\Console\Command;
 
 class EmbedMissingMemories extends Command
@@ -12,7 +12,7 @@ class EmbedMissingMemories extends Command
 
     protected $description = 'Generate embeddings for memories that are missing them';
 
-    public function handle(EmbeddingService $embeddings): int
+    public function handle(EmbeddingServiceInterface $embeddings): int
     {
         $batchSize = (int) $this->option('batch');
         $total = Memory::whereNull('embedding')->count();

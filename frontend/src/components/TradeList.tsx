@@ -1,3 +1,4 @@
+import { cn } from '../lib/utils';
 import type { Trade } from '../lib/api/trading';
 
 interface TradeListProps {
@@ -14,7 +15,7 @@ export function TradeList({ trades }: TradeListProps) {
   }
 
   return (
-    <div className="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
+    <div className="bg-slate-900/40 border border-white/10 rounded-xl overflow-hidden backdrop-blur-md">
       <table className="w-full">
         <thead className="bg-gray-700/50">
           <tr>
@@ -32,27 +33,28 @@ export function TradeList({ trades }: TradeListProps) {
               <td className="px-4 py-3 font-mono text-sm text-gray-100">{trade.symbol}</td>
               <td className="px-4 py-3">
                 <span
-                  className={`px-2 py-1 rounded text-xs font-medium ${
-                    trade.side === 'long'
-                      ? 'bg-green-900/50 text-green-300'
-                      : 'bg-red-900/50 text-red-300'
-                  }`}
+                  className={cn(
+                    "px-2 py-1 rounded text-xs font-medium",
+                    trade.side === 'long' ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-300'
+                  )}
                 >
                   {trade.side}
                 </span>
               </td>
               <td className="px-4 py-3 text-right text-sm text-gray-200">{trade.entry_quantity}</td>
               <td className="px-4 py-3 text-right text-sm text-gray-200">${trade.entry_price}</td>
-              <td className={`px-4 py-3 text-right text-sm font-medium ${
+              <td className={cn(
+                "px-4 py-3 text-right text-sm font-medium",
                 trade.pnl != null && trade.pnl >= 0 ? 'text-green-400' : 'text-red-400'
-              }`}>
+              )}>
                 {trade.pnl ? `$${trade.pnl}` : '-'}
               </td>
               <td className="px-4 py-3">
-                <span className={`text-xs ${
+                <span className={cn(
+                  "text-xs",
                   trade.status === 'open' ? 'text-blue-400' : 
-                  trade.status === 'closed' ? 'text-gray-400' : 'text-yellow-400'
-                }`}>
+                  trade.status === 'closed' ? 'text-slate-400' : 'text-yellow-400'
+                )}>
                   {trade.status}
                 </span>
               </td>

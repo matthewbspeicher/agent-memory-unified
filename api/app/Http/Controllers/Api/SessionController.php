@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Contracts\EmbeddingServiceInterface;
 use App\Contracts\SummarizationServiceInterface;
 
 use App\Concerns\FormatsMemories;

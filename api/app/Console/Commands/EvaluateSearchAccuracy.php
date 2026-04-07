@@ -5,7 +5,7 @@ namespace App\Console\Commands;
 use App\Models\Agent;
 use App\Models\Memory;
 use App\Models\User;
-use App\Services\EmbeddingService;
+use App\Contracts\EmbeddingServiceInterface;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
@@ -28,7 +28,7 @@ class EvaluateSearchAccuracy extends Command
     /**
      * Execute the console command.
      */
-    public function handle(EmbeddingService $embeddings)
+    public function handle(EmbeddingServiceInterface $embeddings)
     {
         $this->info('Starting semantic search evaluation...');
 

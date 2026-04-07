@@ -65,20 +65,16 @@ class TestDatabaseConnectionConnect:
                 mock_postgres_db = MagicMock()
                 mock_postgres_cls.return_value = mock_postgres_db
 
-                with patch(
-                    "storage.db.run_migrations", new_callable=AsyncMock
-                ) as mock_migrations:
-                    db = await db_conn.connect()
+                db = await db_conn.connect()
 
-                    mock_create_pool.assert_called_once()
-                    assert (
-                        mock_create_pool.call_args[0][0]
-                        == "postgresql://user:pass@host/db"
-                    )
-                    mock_postgres_cls.assert_called_once_with(mock_pool)
-                    mock_migrations.assert_called_once_with(mock_postgres_db)
-                    assert db == mock_postgres_db
-                    assert db_conn.connection == mock_postgres_db
+                mock_create_pool.assert_called_once()
+                assert (
+                    mock_create_pool.call_args[0][0]
+                    == "postgresql://user:pass@host/db"
+                )
+                mock_postgres_cls.assert_called_once_with(mock_pool)
+                assert db == mock_postgres_db
+                assert db_conn.connection == mock_postgres_db
 
     @pytest.mark.asyncio
     async def test_connect_postgres_with_ssl(self):
@@ -101,14 +97,13 @@ class TestDatabaseConnectionConnect:
                     mock_postgres_db = MagicMock()
                     mock_postgres_cls.return_value = mock_postgres_db
 
-                    with patch("storage.db.run_migrations", new_callable=AsyncMock):
-                        await db_conn.connect()
+                    await db_conn.connect()
 
-                        mock_ssl.assert_called_once()
-                        # Verify SSL context was passed
-                        call_kwargs = mock_create_pool.call_args[1]
-                        assert call_kwargs["ssl"] == mock_ssl_ctx
-                        assert call_kwargs["statement_cache_size"] == 0
+                    mock_ssl.assert_called_once()
+                    # Verify SSL context was passed
+                    call_kwargs = mock_create_pool.call_args[1]
+                    assert call_kwargs["ssl"] == mock_ssl_ctx
+                    assert call_kwargs["statement_cache_size"] == 0
 
     @pytest.mark.asyncio
     async def test_connect_postgres_ssl_verify_false(self):
@@ -128,12 +123,11 @@ class TestDatabaseConnectionConnect:
                 mock_ssl.return_value = mock_ssl_ctx
 
                 with patch("storage.db.PostgresDB"):
-                    with patch("storage.db.run_migrations", new_callable=AsyncMock):
-                        await db_conn.connect()
+                    await db_conn.connect()
 
-                        # Verify SSL verification was disabled
-                        assert mock_ssl_ctx.check_hostname is False
-                        assert mock_ssl_ctx.verify_mode == 0  # ssl.CERT_NONE
+                    # Verify SSL verification was disabled
+                    assert mock_ssl_ctx.check_hostname is False
+                    assert mock_ssl_ctx.verify_mode == 0  # ssl.CERT_NONE
 
     @pytest.mark.asyncio
     async def test_connect_sets_row_factory_for_sqlite(self):
@@ -168,25 +162,7 @@ class TestDatabaseConnectionConnect:
 
                 mock_init.assert_called_once_with(mock_db)
 
-    @pytest.mark.asyncio
-    async def test_connect_calls_migrations_for_postgres(self):
-        config = Config(database_url="postgresql://user:pass@host/db")
-        db_conn = DatabaseConnection(config)
 
-        mock_pool = AsyncMock()
-        with patch(
-            "asyncpg.create_pool", new_callable=AsyncMock, return_value=mock_pool
-        ):
-            with patch("storage.db.PostgresDB") as mock_postgres_cls:
-                mock_postgres_db = MagicMock()
-                mock_postgres_cls.return_value = mock_postgres_db
-
-                with patch(
-                    "storage.db.run_migrations", new_callable=AsyncMock
-                ) as mock_migrations:
-                    await db_conn.connect()
-
-                    mock_migrations.assert_called_once_with(mock_postgres_db)
 
 
 class TestDatabaseConnectionClose:

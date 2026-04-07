@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api;
 
 use App\Contracts\EmbeddingServiceInterface;
-use App\Contracts\SummarizationServiceInterface;
 
 use App\Http\Controllers\Controller;
 use App\Jobs\DispatchWebhook;

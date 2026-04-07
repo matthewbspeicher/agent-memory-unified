@@ -739,7 +739,7 @@ async def _start_redis_streams_consumer(
     import redis.asyncio as aioredis
 
     redis_url = config.redis_url or "redis://127.0.0.1:6379"
-    redis_client = await aioredis.from_url(redis_url, decode_responses=True)
+    redis_client = aioredis.from_url(redis_url, decode_responses=True)
 
     consumer = StreamsEventConsumer(
         redis=redis_client,
@@ -784,38 +784,55 @@ async def _shutdown_app_state(*, app: FastAPI, runner, logger: logging.Logger):
     if adapter_runner:
         await adapter_runner.stop()
     if runner:
+        logger.info("Stopping agent runner...")
         await runner.stop_all()
+        logger.info("Agent runner stopped.")
+    
     if hasattr(app.state, "stream_manager"):
+        logger.info("Stopping stream manager...")
         await app.state.stream_manager.stop()
+        logger.info("Stream manager stopped.")
 
     for name, broker_obj in getattr(app.state, "brokers", {}).items():
         try:
+            logger.info("Disconnecting broker %s...", name)
             await broker_obj.connection.disconnect()
+            logger.info("Broker %s disconnected.", name)
         except Exception as exc:
             logger.warning("Error disconnecting broker %s: %s", name, exc)
 
     journal_indexer = getattr(app.state, "journal_indexer", None)
     if journal_indexer:
+        logger.info("Stopping journal indexer...")
         await journal_indexer.stop()
+        logger.info("Journal indexer stopped.")
 
     bt_adapter = getattr(app.state, "bittensor_adapter", None)
     if bt_adapter:
         try:
+            logger.info("Closing bittensor adapter...")
             await bt_adapter.close()
+            logger.info("Bittensor adapter closed.")
         except Exception as exc:
             logger.warning("Bittensor adapter close error: %s", exc)
 
     obs = getattr(app.state, "observability_emitter", None)
     if obs:
+        logger.info("Stopping observability emitter...")
         obs.stop()
+        logger.info("Observability emitter stopped.")
 
     redis_bridge = getattr(app.state, "redis_bridge", None)
     if redis_bridge:
+        logger.info("Stopping redis bridge...")
         await redis_bridge.stop()
+        logger.info("Redis bridge stopped.")
 
     redis = getattr(app.state, "redis", None)
     if redis:
+        logger.info("Closing redis...")
         await redis.aclose()
+        logger.info("Redis closed.")
 
 
 @asynccontextmanager
@@ -1697,6 +1714,21 @@ def create_app(
     from api.routes import bittensor as bittensor_route
 
     app.include_router(bittensor_route.router)
+    from api.routes.memory import router as memory_router
+
+    app.include_router(memory_router)
+    from api.routes import confidence_analytics as confidence_analytics_route
+
+    app.include_router(confidence_analytics_route.router)
+    from api.routes.strategy_health import router as strategy_health_router
+
+    app.include_router(strategy_health_router)
+    from api.routes.signal_features import router as signal_features_router
+
+    app.include_router(signal_features_router)
+    from api.routes import shadow as shadow_route
+
+    app.include_router(shadow_route.router)
 
     from api.startup.error_handlers import register_error_handlers
 
