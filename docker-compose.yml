@@ -55,9 +55,6 @@ services:
       - "8080:8080"
     env_file:
       - ./trading/.env
-    environment:
-      DATABASE_URL: postgresql://postgres:secret@postgres/agent_memory
-      REDIS_URL: redis://redis:6379
     depends_on:
       postgres:
         condition: service_healthy

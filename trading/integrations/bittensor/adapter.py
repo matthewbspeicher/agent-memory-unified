@@ -61,16 +61,20 @@ class TaoshiProtocolAdapter:
         last_exc: Exception | None = None
         for attempt in range(1, max_retries + 1):
             try:
-                self._subtensor = bt.subtensor(
+                # bt.Subtensor / bt.Wallet / bt.Dendrite (v10+ capitalized)
+                _Subtensor = getattr(bt, "Subtensor", None) or getattr(bt, "subtensor")
+                _Wallet = getattr(bt, "Wallet", None) or getattr(bt, "wallet")
+                _Dendrite = getattr(bt, "Dendrite", None) or getattr(bt, "dendrite")
+
+                self._subtensor = _Subtensor(
                     network=self._network,
-                    chain_endpoint=self._endpoint,
                 )
-                self._wallet = bt.wallet(
+                self._wallet = _Wallet(
                     name=self._wallet_name,
-                    path=self._hotkey_path,
+                    path=self._hotkey_path or None,
                     hotkey=self._hotkey,
                 )
-                self._dendrite = bt.dendrite(wallet=self._wallet)
+                self._dendrite = _Dendrite(wallet=self._wallet)
                 logger.info(
                     "Bittensor adapter connected (network=%s, endpoint=%s, subnet=%d) on attempt %d",
                     self._network,
