@@ -1,6 +1,7 @@
 # Dependencies
 node_modules/
 vendor/
+!trading/vendor/
 __pycache__/
 *.pyc
 .pytest_cache/
