@@ -52,7 +52,7 @@ Fix the TaoshiBridge so that position **updates** (new orders, leverage changes)
 ### Step 0: Preflight
 
 - [ ] Read `trading/integrations/bittensor/taoshi_bridge.py` fully
-- [ ] Examine sample position files in `taoshi-ptn/validation/miners/` to understand data format (order arrays, timestamps)
+- [ ] Examine sample position files in `taoshi-vanta/validation/miners/` to understand data format (order arrays, timestamps)
 - [ ] Read `conductor/tracks/scoring_continuity_20260407/spec.md` to understand parallel work scope
 - [ ] Read existing test patterns in `trading/tests/integration/test_bittensor_e2e.py`
 

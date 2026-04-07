@@ -54,3 +54,10 @@ bittensor>=10.2.0
 # testing
 pytest>=8.0.0
 pytest-asyncio>=0.24.0
+
+# observability
+prometheus-fastapi-instrumentator>=6.1.0
+sentry-sdk[fastapi,opentelemetry]>=2.0.0
+structlog>=24.0.0
+asgi-correlation-id>=4.0.0
+pytest-xdist>=3.5.0

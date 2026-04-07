@@ -74,6 +74,8 @@ class IntelligenceLayer:
 
     async def stop(self) -> None:
         self._running = False
+        if hasattr(self._anomaly, "close"):
+            await self._anomaly.close()
 
     async def _handle_consensus(self, signal: AgentSignal) -> None:
         if signal.signal_type != "bittensor_consensus":

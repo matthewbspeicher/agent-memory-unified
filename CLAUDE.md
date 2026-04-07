@@ -14,7 +14,7 @@ agent-memory-unified/
 ├── trading/        # FastAPI — Trading Engine (Python 3.13, port 8080)
 ├── frontend/       # React 19 + Vite — Unified UI (port 3000)
 ├── shared/         # JSON Schema types + cross-service auth
-├── taoshi-ptn/     # Official Taoshi PTN validator (separate venv, port 8091)
+├── taoshi-vanta/     # Official Taoshi PTN validator (separate venv, port 8091)
 └── docker-compose.yml
 ```
 
@@ -31,7 +31,7 @@ docker compose up -d trading
 cd frontend && npx vite --host 0.0.0.0 --port 3000
 
 # Taoshi validator (WSL, separate venv)
-cd taoshi-ptn && source venv/bin/activate
+cd taoshi-vanta && source venv/bin/activate
 python neurons/validator.py --netuid 8 --wallet.name sta_wallet --wallet.hotkey sta_hotkey
 ```
 
@@ -55,7 +55,7 @@ The Laravel API (`api/`) is **deprecated**. All active functionality runs throug
 
 Two-process design:
 
-1. **Official Taoshi Validator** (`taoshi-ptn/`) — receives miner trade signals via axon (port 8091), tracks positions in `validation/miners/{hotkey}/`, handles scoring/elimination/plagiarism. Requires `bittensor==9.12.1` (separate venv).
+1. **Official Taoshi Validator** (`taoshi-vanta/`) — receives miner trade signals via axon (port 8091), tracks positions in `validation/miners/{hotkey}/`, handles scoring/elimination/plagiarism. Requires `bittensor==9.12.1` (separate venv).
 
 2. **Trading Engine** (`trading/`) — runs `TaoshiBridge` that polls Taoshi's position files every 30s and feeds signals into the `SignalBus`. Also runs the custom scheduler/evaluator/weight-setter for direct dendrite queries. Uses `bittensor>=10.0.0`.
 
@@ -73,7 +73,7 @@ STA_BITTENSOR_NETWORK=finney
 STA_BITTENSOR_WALLET_NAME=sta_wallet
 STA_BITTENSOR_HOTKEY=sta_hotkey
 STA_BITTENSOR_SUBNET_UID=8
-STA_TAOSHI_VALIDATOR_ROOT=/app/taoshi-ptn
+STA_TAOSHI_VALIDATOR_ROOT=/app/taoshi-vanta
 ```
 
 ### Wallet
@@ -129,7 +129,7 @@ This runs on Windows 11 + WSL2 Ubuntu 24.04. Key gotchas:
 ### Docker
 
 - `Dockerfile.trading` — Python 3.13-slim + uv for fast installs
-- Volume mounts: `./trading:/app/trading`, `./shared:/app/shared`, `./taoshi-ptn:/app/taoshi-ptn:ro`
+- Volume mounts: `./trading:/app/trading`, `./shared:/app/shared`, `./taoshi-vanta:/app/taoshi-vanta:ro`
 - `env_file: ./trading/.env` for all config (no hardcoded env vars in compose)
 - IBKR broker retries 5 times on startup (~90s delay if TWS not running) — this is normal
 

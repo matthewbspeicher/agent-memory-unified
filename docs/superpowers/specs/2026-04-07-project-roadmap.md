@@ -26,7 +26,7 @@
 ### 0.2 Upgrade Bittensor SDK to 10.2.0
 - **Why:** Breaking changes in v10: `ExtrinsicResponse` return type, `Balance` type enforcement, `_ss58` param renames, CRv3 removed
 - **Action:** Upgrade `trading/` from `bittensor>=10.0.0` to `bittensor>=10.2.0`. Audit `adapter.py`, `weight_setter.py` for ExtrinsicResponse handling
-- **Keep:** `taoshi-ptn/` stays on `bittensor==9.12.1` (matches official validator requirements)
+- **Keep:** `taoshi-vanta/` stays on `bittensor==9.12.1` (matches official validator requirements)
 - **Migration guide:** `https://docs.learnbittensor.org/sdk/migration-guide`
 
 ### 0.3 Dev Tooling Quick Wins

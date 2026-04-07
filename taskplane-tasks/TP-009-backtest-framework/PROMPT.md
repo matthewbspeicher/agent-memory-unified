@@ -47,7 +47,7 @@ Build a backtesting framework that can replay historical miner positions from Ta
 ## Steps
 
 ### Step 0: Preflight
-- [ ] Examine closed position file format in `taoshi-ptn/validation/miners/`
+- [ ] Examine closed position file format in `taoshi-vanta/validation/miners/`
 - [ ] Read existing backtest test patterns
 - [ ] Read PaperBroker interface (from TP-003)
 

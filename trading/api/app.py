@@ -1810,6 +1810,26 @@ def create_app(
     app.add_middleware(CorrelationIdMiddleware)
     Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 
+    # Sentry error tracking (if DSN configured)
+    import os
+
+    sentry_dsn = os.getenv("SENTRY_DSN")
+    if sentry_dsn:
+        import sentry_sdk
+        from sentry_sdk.integrations.fastapi import FastApiIntegration
+        from sentry_sdk.integrations.logging import LoggingIntegration
+
+        sentry_sdk.init(
+            dsn=sentry_dsn,
+            integrations=[
+                FastApiIntegration(),
+                LoggingIntegration(level=logging.WARNING),
+            ],
+            traces_sample_rate=0.1,
+            environment=os.getenv("STA_ENV", "development"),
+        )
+        _log.info("Sentry initialized")
+
     if broker:
         set_broker(broker)
     app.state.broker = broker

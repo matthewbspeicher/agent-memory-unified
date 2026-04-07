@@ -14,7 +14,7 @@
 
 ## Phase 2: Backtesting Engine
 - [x] Task: Build `ReplayEngine` (Taoshi Replay)
-    - [x] Load historical signals/positions from `taoshi-ptn/validation/miners/`.
+    - [x] Load historical signals/positions from `taoshi-vanta/validation/miners/`.
     - [x] Run them through strategy `scan()` logic via `TaoshiBacktestEngine`.
 - [x] Task: Performance Reporting
     - [x] Calculate cumulative PnL, Sharpe, and Drawdown.

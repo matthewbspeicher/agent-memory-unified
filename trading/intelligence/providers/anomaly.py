@@ -5,12 +5,19 @@ from datetime import datetime, timezone
 
 from intelligence.models import IntelReport
 from intelligence.providers.base import BaseIntelProvider
+from data.exchange_client import ExchangeClient
 
 logger = logging.getLogger(__name__)
 
 
 class AnomalyProvider(BaseIntelProvider):
     """Detects anomalies via volume deviation, price-volume divergence, spread widening."""
+
+    def __init__(self):
+        self._exchange = ExchangeClient()
+
+    async def close(self):
+        await self._exchange.close()
 
     @property
     def name(self) -> str:
@@ -47,69 +54,54 @@ class AnomalyProvider(BaseIntelProvider):
     async def _fetch_volume_ratio(self, symbol: str) -> float:
         """Current volume / 20-period average volume. Override in tests."""
         try:
-            import ccxt.async_support as ccxt
-
-            exchange = ccxt.binance()
-            try:
-                ticker_map = {"BTCUSD": "BTC/USDT", "ETHUSD": "ETH/USDT", "SOLUSD": "SOL/USDT"}
-                ccxt_symbol = ticker_map.get(symbol, symbol.replace("USD", "/USDT"))
-                ohlcv = await exchange.fetch_ohlcv(ccxt_symbol, "1h", limit=21)
-                if len(ohlcv) < 21:
-                    return 1.0
-                volumes = [c[5] for c in ohlcv]
-                avg_vol = sum(volumes[:-1]) / len(volumes[:-1])
-                return volumes[-1] / avg_vol if avg_vol > 0 else 1.0
-            finally:
-                await exchange.close()
-        except ImportError:
-            raise NotImplementedError("Install ccxt: pip install ccxt")
+            ticker_map = {"BTCUSD": "BTC/USDT", "ETHUSD": "ETH/USDT", "SOLUSD": "SOL/USDT"}
+            ccxt_symbol = ticker_map.get(symbol, symbol.replace("USD", "/USDT"))
+            ohlcv = await self._exchange.exchange.fetch_ohlcv(ccxt_symbol, "1h", limit=21)
+            if len(ohlcv) < 21:
+                return 1.0
+            volumes = [c[5] for c in ohlcv]
+            avg_vol = sum(volumes[:-1]) / len(volumes[:-1])
+            return volumes[-1] / avg_vol if avg_vol > 0 else 1.0
+        except Exception as e:
+            logger.warning(f"Error fetching volume ratio: {e}")
+            return 1.0
 
     async def _fetch_price_direction(self, symbol: str) -> float:
         """Recent price movement: +1 = up, -1 = down, 0 = flat. Override in tests."""
         try:
-            import ccxt.async_support as ccxt
-
-            exchange = ccxt.binance()
-            try:
-                ticker_map = {"BTCUSD": "BTC/USDT", "ETHUSD": "ETH/USDT", "SOLUSD": "SOL/USDT"}
-                ccxt_symbol = ticker_map.get(symbol, symbol.replace("USD", "/USDT"))
-                ohlcv = await exchange.fetch_ohlcv(ccxt_symbol, "5m", limit=2)
-                if len(ohlcv) < 2:
-                    return 0.0
-                prev_close = ohlcv[-2][4]
-                curr_close = ohlcv[-1][4]
-                pct = (curr_close - prev_close) / prev_close
-                if pct > 0.001:
-                    return 1.0
-                elif pct < -0.001:
-                    return -1.0
+            ticker_map = {"BTCUSD": "BTC/USDT", "ETHUSD": "ETH/USDT", "SOLUSD": "SOL/USDT"}
+            ccxt_symbol = ticker_map.get(symbol, symbol.replace("USD", "/USDT"))
+            ohlcv = await self._exchange.exchange.fetch_ohlcv(ccxt_symbol, "5m", limit=2)
+            if len(ohlcv) < 2:
                 return 0.0
-            finally:
-                await exchange.close()
-        except ImportError:
-            raise NotImplementedError("Install ccxt: pip install ccxt")
+            prev_close = ohlcv[-2][4]
+            curr_close = ohlcv[-1][4]
+            pct = (curr_close - prev_close) / prev_close
+            if pct > 0.001:
+                return 1.0
+            elif pct < -0.001:
+                return -1.0
+            return 0.0
+        except Exception as e:
+            logger.warning(f"Error fetching price direction: {e}")
+            return 0.0
 
     async def _fetch_spread_ratio(self, symbol: str) -> float:
         """Current spread / average spread. >1 = widening. Override in tests."""
         try:
-            import ccxt.async_support as ccxt
-
-            exchange = ccxt.binance()
-            try:
-                ticker_map = {"BTCUSD": "BTC/USDT", "ETHUSD": "ETH/USDT", "SOLUSD": "SOL/USDT"}
-                ccxt_symbol = ticker_map.get(symbol, symbol.replace("USD", "/USDT"))
-                orderbook = await exchange.fetch_order_book(ccxt_symbol, limit=5)
-                if not orderbook["bids"] or not orderbook["asks"]:
-                    return 1.0
-                spread = orderbook["asks"][0][0] - orderbook["bids"][0][0]
-                mid = (orderbook["asks"][0][0] + orderbook["bids"][0][0]) / 2
-                spread_bps = (spread / mid) * 10000 if mid > 0 else 0
-                # Normal BTC spread is ~1-2 bps. Ratio > 2 = widening.
-                return spread_bps / 1.5 if spread_bps > 0 else 1.0
-            finally:
-                await exchange.close()
-        except ImportError:
-            raise NotImplementedError("Install ccxt: pip install ccxt")
+            ticker_map = {"BTCUSD": "BTC/USDT", "ETHUSD": "ETH/USDT", "SOLUSD": "SOL/USDT"}
+            ccxt_symbol = ticker_map.get(symbol, symbol.replace("USD", "/USDT"))
+            orderbook = await self._exchange.exchange.fetch_order_book(ccxt_symbol, limit=5)
+            if not orderbook["bids"] or not orderbook["asks"]:
+                return 1.0
+            spread = orderbook["asks"][0][0] - orderbook["bids"][0][0]
+            mid = (orderbook["asks"][0][0] + orderbook["bids"][0][0]) / 2
+            spread_bps = (spread / mid) * 10000 if mid > 0 else 0
+            # Normal BTC spread is ~1-2 bps. Ratio > 2 = widening.
+            return spread_bps / 1.5 if spread_bps > 0 else 1.0
+        except Exception as e:
+            logger.warning(f"Error fetching spread ratio: {e}")
+            return 1.0
 
     @staticmethod
     def _compute_score(

@@ -39,4 +39,4 @@ The "Scoring Continuity" track ensures that the Bittensor Validator node maintai
 
 ## Out of Scope
 *   Fixing the "0% response rate" for the legacy direct dendrite queries.
-*   Modifying the official Taoshi validator code in `taoshi-ptn/`.
+*   Modifying the official Taoshi validator code in `taoshi-vanta/`.

@@ -35,7 +35,7 @@ web3>=7.0.0
 supabase>=2.0.0
 
 # remembr.dev SDK — vendored in vendor/remembr-sdk/)
-remembr @ file://./vendor/remembr-sdk
+remembr @ file:./vendor/remembr-sdk
 
 # journal vector index (optional — gated by STA_JOURNAL_INDEX_ENABLED)
 
@@ -44,7 +44,7 @@ websockets>=12.0
 httpx-sse>=0.4.0
 
 # bittensor subnet integration
-bittensor>=8.0.0
+bittensor>=10.2.0
 
 # testing
 pytest>=8.0.0

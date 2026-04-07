@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/storage/symbol_map.py
+# hypothesis_version: 6.151.11
+
+['BTC/USD', 'BTCUSD', 'ETH/USD', 'ETHUSD', 'EUR/USD', 'EURUSD', 'GBP/USD', 'GBPUSD', 'XAU/USD', 'XAUUSD', 'asset_type', 'ticker']

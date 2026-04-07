@@ -2,7 +2,7 @@
 
 ## Current State
 
-This area covers the full agent-memory-unified monorepo: the FastAPI trading engine (`trading/`), React frontend (`frontend/`), Laravel memory API (`api/`), and Bittensor integration (`taoshi-ptn/`).
+This area covers the full agent-memory-unified monorepo: the FastAPI trading engine (`trading/`), React frontend (`frontend/`), Laravel memory API (`api/`), and Bittensor integration (`taoshi-vanta/`).
 
 ### Active Services
 - **Trading Engine** (FastAPI, port 8080) — running, Bittensor bridge healthy, tracking 92 miners / 59 open positions

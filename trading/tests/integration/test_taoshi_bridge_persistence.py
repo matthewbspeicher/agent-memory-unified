@@ -13,7 +13,7 @@ from integrations.bittensor.taoshi_bridge import TaoshiBridge
 @pytest.fixture
 def mock_taoshi_root(tmp_path):
     """Create a mock Taoshi PTN directory structure."""
-    root = tmp_path / "taoshi-ptn"
+    root = tmp_path / "taoshi-vanta"
     miners_dir = root / "validation" / "miners"
     miner_dir = miners_dir / "hotkey123"
     positions_dir = miner_dir / "positions" / "BTCUSD" / "open"

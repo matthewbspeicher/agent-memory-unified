@@ -188,7 +188,7 @@ Many adapters have Phase 2 features deferred:
 |----------|--------|
 | Critical issues | 2 (1 fixable) |
 | Medium issues | 4 (2 fixable) |
-| TODO/FIXME comments | 25 (1 in trading, 24 in taoshi-ptn) |
+| TODO/FIXME comments | 25 (1 in trading, 24 in taoshi-vanta) |
 | 501 endpoints | 27 (expected feature flags) |
 | Redundant code | None ✅ |
 | Frontend cleanliness | ✅ Clean |

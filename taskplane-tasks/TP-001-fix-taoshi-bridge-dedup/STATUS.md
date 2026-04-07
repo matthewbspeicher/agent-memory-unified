@@ -67,7 +67,7 @@
 
 | Discovery | Disposition | Location |
 |-----------|-------------|----------|
-| No position files exist on disk in dev (taoshi-ptn/validation/miners/ is empty) | Noted — tests use tmp_path fixtures | taoshi-ptn/ |
+| No position files exist on disk in dev (taoshi-vanta/validation/miners/ is empty) | Noted — tests use tmp_path fixtures | taoshi-vanta/ |
 | 13 pre-existing test failures (missing deps: opentelemetry, matplotlib, eth_account, asyncpg) | Out of scope — not caused by this change | trading/tests/ |
 | Conductor track spec confirms DB persistence is separate scope | Awareness only | conductor/tracks/scoring_continuity_20260407/spec.md |
 

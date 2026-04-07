@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/learning/rl_position_sizer.py
+# hypothesis_version: 6.151.11
+
+[-1.0, -0.2, 0.0, 0.0003, 0.001, 0.005, 0.2, 0.3, 0.5, 0.99, 1.0, 5.0, 100, 1000, 10000, 'MlpPolicy', 'Model loaded from %s', 'Model saved to %s', 'No model to save', 'auto', 'cumulative_return', 'cumulative_risk', 'episode_return', 'error', 'experience', 'experience_count', 'insufficient_data', 'is_ready', 'is_trained', 'min_experience', 'position_size', 'quiet', 'render_modes', 'required', 'signal_return', 'state', 'status', 'step', 'steps', 'train_steps', 'trained', 'trending_bear', 'trending_bull', 'unavailable', 'volatile_range']

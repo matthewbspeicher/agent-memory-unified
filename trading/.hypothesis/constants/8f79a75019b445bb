@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/./venv/bin/pytest
+# hypothesis_version: 6.151.11
+
+['.exe', '__main__']

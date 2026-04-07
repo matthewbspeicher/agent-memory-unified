@@ -88,7 +88,7 @@ From `/api/bittensor/status`:
 
 ### Bridge Not Syncing
 - Check if Taoshi validator is running
-- Verify `/app/taoshi-ptn/validation/miners/` directory exists and has files
+- Verify `/app/taoshi-vanta/validation/miners/` directory exists and has files
 
 ### Postgres Issues
 - Verify postgres container: `docker compose ps postgres`

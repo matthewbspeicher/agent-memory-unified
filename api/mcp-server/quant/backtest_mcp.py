@@ -47,7 +47,7 @@ async def run_taoshi_backtest(
         sd = date.fromisoformat(start_date)
         ed = date.fromisoformat(end_date)
         
-        taoshi_root = os.path.join(PROJECT_ROOT, "taoshi-ptn")
+        taoshi_root = os.path.join(PROJECT_ROOT, "taoshi-vanta")
         
         config = BacktestConfig(
             name=f"MCP_Backtest_{start_date}_{end_date}",
