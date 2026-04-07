@@ -8,9 +8,9 @@
 - [x] Task: Conductor - User Manual Verification 'Core Validator Connectivity' (Protocol in workflow.md)
 
 ## Phase 2: Validator Logic & E2E Verification
-- [ ] Task: Verify Validator Scoring & Memory Retrieval
+- [x] Task: Verify Validator Scoring & Memory Retrieval
     - [ ] Run Python integration tests (`pytest`) to verify memory-backed scoring logic
     - [ ] Resolve any identified connectivity issues with external Bittensor/Taoshi services
-- [ ] Task: Document Node Status
+- [x] Task: Document Node Status
     - [ ] Update `PROD-READY.md` with Validator-specific setup and verification results
 - [ ] Task: Conductor - User Manual Verification 'Validator Logic & E2E Verification' (Protocol in workflow.md)
