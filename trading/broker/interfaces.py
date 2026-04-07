@@ -130,3 +130,22 @@ class Broker(ABC):
 
     @abstractmethod
     def capabilities(self) -> BrokerCapabilities: ...
+
+
+class MultiAccountBroker:
+    """Unified interface for managing multiple broker accounts."""
+
+    def __init__(self):
+        self._accounts: dict[str, Broker] = {}
+
+    def register_account(self, account_id: str, broker: Broker):
+        """Map an account ID to a specific broker instance."""
+        self._accounts[account_id] = broker
+
+    def get_broker(self, account_id: str) -> Broker | None:
+        """Retrieve the broker instance for a given account ID."""
+        return self._accounts.get(account_id)
+
+    def list_accounts(self) -> list[str]:
+        """Return all registered account IDs."""
+        return list(self._accounts.keys())

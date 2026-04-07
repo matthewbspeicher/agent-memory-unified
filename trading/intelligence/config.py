@@ -1,15 +1,15 @@
-from dataclasses import dataclass, field
+from __future__ import annotations
+from pydantic import BaseModel, Field
 
 
-@dataclass
-class IntelligenceConfig:
+class IntelligenceConfig(BaseModel):
     """Configuration for the Market Intelligence Layer."""
 
     enabled: bool = False
     timeout_ms: int = 2000
     min_providers: int = 1
     veto_threshold: int = 1  # 1=any, 2=majority
-    weights: dict[str, float] = field(
+    weights: dict[str, float] = Field(
         default_factory=lambda: {
             "on_chain": 0.15,
             "sentiment": 0.10,
