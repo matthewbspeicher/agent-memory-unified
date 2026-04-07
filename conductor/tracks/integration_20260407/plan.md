@@ -7,10 +7,10 @@
     - [x] Verify event persistence and consumer group behavior in Redis
 - [x] Task: Conductor - User Manual Verification 'Core Validator Connectivity' (Protocol in workflow.md)
 
-## Phase 2: Validator Logic & E2E Verification
+## Phase 2: Validator Logic & E2E Verification [checkpoint: b5dbe6a]
 - [x] Task: Verify Validator Scoring & Memory Retrieval
-    - [ ] Run Python integration tests (`pytest`) to verify memory-backed scoring logic
-    - [ ] Resolve any identified connectivity issues with external Bittensor/Taoshi services
+    - [x] Run Python integration tests (`pytest`) to verify memory-backed scoring logic
+    - [x] Resolve any identified connectivity issues with external Bittensor/Taoshi services
 - [x] Task: Document Node Status
-    - [ ] Update `PROD-READY.md` with Validator-specific setup and verification results
-- [ ] Task: Conductor - User Manual Verification 'Validator Logic & E2E Verification' (Protocol in workflow.md)
+    - [x] Update `PROD-READY.md` with Validator-specific setup and verification results
+- [x] Task: Conductor - User Manual Verification 'Validator Logic & E2E Verification' (Protocol in workflow.md)
