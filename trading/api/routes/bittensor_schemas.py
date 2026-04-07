@@ -8,9 +8,10 @@ from pydantic import BaseModel
 
 class SchedulerStatus(BaseModel):
     running: bool
+    direct_query_enabled: bool = False
     last_window_collected: str | None = None
-    next_window: str
-    windows_collected_total: int
+    next_window: str | None = None
+    windows_collected_total: int | None = None
 
 
 class EvaluatorStatus(BaseModel):
@@ -29,8 +30,8 @@ class TopMinerItem(BaseModel):
 
 class MinerSummary(BaseModel):
     total_in_metagraph: int
-    responded_last_window: int
-    response_rate: float
+    responded_last_window: int | None = None
+    response_rate: float | None = None
     top_miners: list[TopMinerItem]
 
 

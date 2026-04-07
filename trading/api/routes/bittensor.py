@@ -31,20 +31,25 @@ async def bittensor_status(
     store = getattr(request.app.state, "bittensor_store", None)
     db = getattr(request.app.state, "db", None)
 
-    # Scheduler section
+    # Scheduler section (direct dendrite queries — disabled by default)
     scheduler_data = {}
     if scheduler:
+        direct_query_enabled = getattr(scheduler, "_direct_query_enabled", False)
         now = datetime.now(tz=timezone.utc)
         scheduler_data = {
             "running": getattr(scheduler, "_running", False),
-            "last_window_collected": (
-                scheduler.last_success_at.isoformat()
-                if getattr(scheduler, "last_success_at", None)
-                else None
-            ),
-            "next_window": next_hash_window(now).isoformat(),
-            "windows_collected_total": getattr(scheduler, "windows_collected_total", 0),
+            "direct_query_enabled": direct_query_enabled,
         }
+        if direct_query_enabled:
+            scheduler_data.update({
+                "last_window_collected": (
+                    scheduler.last_success_at.isoformat()
+                    if getattr(scheduler, "last_success_at", None)
+                    else None
+                ),
+                "next_window": next_hash_window(now).isoformat(),
+                "windows_collected_total": getattr(scheduler, "windows_collected_total", 0),
+            })
 
     # Evaluator section
     evaluator_data = {}
@@ -61,20 +66,25 @@ async def bittensor_status(
         }
 
     # Miners section
+    direct_query_on = scheduler and getattr(scheduler, "_direct_query_enabled", False)
     miners_data: dict = {
         "total_in_metagraph": getattr(scheduler, "last_window_miner_count", 0)
         if scheduler
         else 0,
-        "responded_last_window": getattr(scheduler, "last_window_responder_count", 0)
-        if scheduler
-        else 0,
-        "response_rate": 0.0,
         "top_miners": [],
     }
-    if miners_data["total_in_metagraph"] > 0:
-        miners_data["response_rate"] = round(
-            miners_data["responded_last_window"] / miners_data["total_in_metagraph"], 3
+    if direct_query_on:
+        miners_data["responded_last_window"] = getattr(
+            scheduler, "last_window_responder_count", 0
         )
+        if miners_data["total_in_metagraph"] > 0:
+            miners_data["response_rate"] = round(
+                miners_data["responded_last_window"]
+                / miners_data["total_in_metagraph"],
+                3,
+            )
+        else:
+            miners_data["response_rate"] = 0.0
     if store:
         rankings = await store.get_miner_rankings(limit=10)
         miners_data["top_miners"] = [

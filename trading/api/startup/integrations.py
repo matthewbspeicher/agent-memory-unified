@@ -163,6 +163,7 @@ async def setup_bittensor(
             derivation_version=config.bittensor_derivation_version,
             metrics=_bt_metrics,
             streams=config.bittensor_streams,
+            direct_query_enabled=config.bittensor.direct_query_enabled,
         )
 
         _coingecko_client = None

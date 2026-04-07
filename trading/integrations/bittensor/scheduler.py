@@ -54,6 +54,7 @@ class TaoshiScheduler:
         derivation_version: str = "v1",
         metrics: BittensorMetrics | None = None,
         streams: list[str] | None = None,
+        direct_query_enabled: bool = False,
     ) -> None:
         self._adapter = adapter
         self._store = store
@@ -64,6 +65,7 @@ class TaoshiScheduler:
         self._top_miners = top_miners
         self._derivation_version = derivation_version
         self._streams = streams or ["BTCUSD-5m"]
+        self._direct_query_enabled = direct_query_enabled
         self._running = False
         self.last_success_at: datetime | None = None
         self.windows_collected_total: int = 0
@@ -305,7 +307,14 @@ class TaoshiScheduler:
     async def run(self) -> None:
         """Main collection loop. Runs until stop() is called or task is cancelled."""
         self._running = True
-        logger.info("TaoshiScheduler started")
+        if not self._direct_query_enabled:
+            logger.info(
+                "TaoshiScheduler: direct dendrite queries disabled "
+                "(STA_BITTENSOR_DIRECT_QUERY_ENABLED=false). "
+                "Miner data flows through TaoshiBridge instead."
+            )
+            return
+        logger.info("TaoshiScheduler started (direct dendrite queries enabled)")
         try:
             while self._running:
                 # Circuit breaker: reconnect after 3 consecutive failures

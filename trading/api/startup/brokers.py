@@ -91,6 +91,8 @@ async def setup_brokers(
         return False
 
     # IBKR (optional — skip if ib_host is empty or readonly)
+    # Lazy connect: register immediately, attempt connection in background.
+    # TWS/Gateway may not be running; IBKR auto-reconnects when it comes online.
     if config.ib_host and not config.ib_readonly:
         try:
             from adapters.ibkr.adapter import IBKRBroker
@@ -102,9 +104,14 @@ async def setup_brokers(
                 readonly=config.ib_readonly,
                 order_timeout=config.order_timeout,
             )
-            if await _connect_with_retry(_ibkr, "IBKR"):
-                _all_brokers["ibkr"] = _ibkr
+            _all_brokers["ibkr"] = _ibkr
+            try:
+                await _ibkr.connection.connect()
                 logger.info("IBKR broker connected")
+            except Exception:
+                logger.info(
+                    "IBKR not reachable at startup — will auto-reconnect when TWS/Gateway is available"
+                )
         except Exception as _ibkr_exc:
             logger.warning("IBKR setup failed (continuing without it): %s", _ibkr_exc)
 
