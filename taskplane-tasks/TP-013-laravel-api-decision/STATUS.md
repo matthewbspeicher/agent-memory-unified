@@ -1,7 +1,7 @@
 # TP-013: Laravel Api Decision — Status
 
-**Current Step:** Step 2: Document Decision
-**Status:** 🟡 In Progress
+**Current Step:** Step 3: Documentation & Delivery
+**Status:** ✅ Complete
 **Last Updated:** 2026-04-07
 **Review Level:** 0
 **Review Counter:** 0
@@ -40,11 +40,10 @@ S
 ---
 
 ### Step 3: Documentation & Delivery
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete
 
-> ⚠️ Hydrate: Expand checkboxes when entering this step
-
-- [ ] Complete step objectives
+- [x] Decision documented (DECISION.md written)
+- [x] Discoveries logged in STATUS.md
 
 ---
 
@@ -55,6 +54,10 @@ S
 ## Discoveries
 | Discovery | Disposition | Location |
 |-----------|-------------|----------|
+| Laravel has extensive unused features (Arena, Workspaces, Achievements) with no users | Tech debt — do not migrate | `api/app/Http/Controllers/Api/Arena*`, `Workspace*` |
+| Vector memory with pgvector embeddings is the only high-value unique feature | Future task: migrate to FastAPI | `api/app/Services/EmbeddingService.php`, `MemorySearchService.php` |
+| Trading engine already has basic memory routes | Partial migration started | `trading/api/routes/memory.py` |
+| Laravel dependencies are current (Laravel 12, PHP 8.2+) | No urgency from security perspective | `api/composer.json` |
 
 ## Execution Log
 | Timestamp | Action | Outcome |

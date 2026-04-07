@@ -1,0 +1,6 @@
+completed: 2026-04-07
+decision: Deprecate Laravel API; migrate vector memory to FastAPI when needed
+artifacts:
+  - taskplane-tasks/TP-013-laravel-api-decision/DECISION.md
+  - CLAUDE.md (updated with deprecation notice)
+  - taskplane-tasks/CONTEXT.md (updated known issues)
