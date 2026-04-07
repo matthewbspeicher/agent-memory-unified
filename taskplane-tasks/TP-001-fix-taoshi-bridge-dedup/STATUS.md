@@ -1,6 +1,6 @@
 # TP-001: Fix TaoshiBridge Change Detection — Status
 
-**Current Step:** Step 0: Preflight
+**Current Step:** Step 1: Implement Change Detection
 **Status:** 🟡 In Progress
 **Last Updated:** 2026-04-07
 **Review Level:** 2
@@ -21,7 +21,7 @@
 ---
 
 ### Step 1: Implement Change Detection
-**Status:** ⬜ Not Started
+**Status:** 🟨 In Progress
 
 - [ ] Replace set with hash-tracking dict
 - [ ] Add `_hash_position` helper
