@@ -43,7 +43,12 @@ class RegimeMemoryManager:
         return self._detect_regime_heuristic(returns)
 
     def _detect_regime_hmm(self, returns: List[float]) -> str:
-        """4-state Gaussian HMM on (return, rolling_volatility) features."""
+        """4-state Gaussian HMM for regime segmentation + heuristic labeling.
+
+        The HMM segments the time series into distinct states, then we label
+        the current state using the heuristic on returns within that state.
+        This gives us HMM's transition detection with reliable labeling.
+        """
         import numpy as np
         from hmmlearn.hmm import GaussianHMM
 
@@ -65,32 +70,18 @@ class RegimeMemoryManager:
         )
         model.fit(X)
 
-        # Get the most likely state for the last observation
         states = model.predict(X)
         current_state = states[-1]
 
-        # Map HMM states to regime labels by their learned means
-        # Sort states by (mean_return, mean_vol) to assign labels
-        means = model.means_  # shape (4, 2): [return, vol]
-        state_info = []
-        for i in range(4):
-            state_info.append((i, means[i][0], means[i][1]))
+        # Collect returns belonging to the current state (last 20 or all)
+        state_mask = states == current_state
+        state_returns = ret_arr[state_mask]
+        if len(state_returns) < 2:
+            # Fall back to recent returns
+            state_returns = ret_arr[-10:]
 
-        # Assign labels based on return/vol characteristics
-        # Sort by mean return ascending
-        state_info.sort(key=lambda x: x[1])
-
-        label_map = {}
-        # Lowest return = trending_bear
-        label_map[state_info[0][0]] = "trending_bear"
-        # Highest return = trending_bull
-        label_map[state_info[3][0]] = "trending_bull"
-        # Of the two middle states, higher vol = volatile_range, lower = quiet_range
-        mid_states = sorted(state_info[1:3], key=lambda x: x[2])
-        label_map[mid_states[0][0]] = "quiet_range"
-        label_map[mid_states[1][0]] = "volatile_range"
-
-        return label_map.get(current_state, "unknown")
+        # Label using heuristic on the state's returns
+        return self._detect_regime_heuristic(state_returns.tolist())
 
     @staticmethod
     def _detect_regime_heuristic(returns: List[float]) -> str:

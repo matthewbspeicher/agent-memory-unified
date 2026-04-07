@@ -2,18 +2,26 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
 from intelligence.models import IntelReport
 from intelligence.providers.base import BaseIntelProvider
-from memory.regime import RegimeMemoryManager
+
+if TYPE_CHECKING:
+    from memory.regime import RegimeMemoryManager
 
 logger = logging.getLogger(__name__)
 
 
 class RegimeProvider(BaseIntelProvider):
-    """Uses RegimeMemoryManager to provide historical context and conviction boosts."""
+    """Uses RegimeMemoryManager to provide historical regime context.
 
-    def __init__(self, memory_manager: RegimeMemoryManager | None = None):
+    Score is always 0 (regime doesn't dictate direction), but confidence
+    increases when many similar historical regimes are found in memory.
+    This acts as a conviction multiplier — familiar regimes get higher trust.
+    """
+
+    def __init__(self, memory_manager: "RegimeMemoryManager | None" = None):
         self.memory_manager = memory_manager
 
     @property
@@ -25,50 +33,83 @@ class RegimeProvider(BaseIntelProvider):
             return None
 
         try:
-            import yfinance as yf
-            from broker.models import Bar, Symbol, AssetType
-            
-            ticker_map = {"BTCUSD": "BTC-USD", "ETHUSD": "ETH-USD"}
-            yf_ticker = ticker_map.get(symbol, f"{symbol}=X")
-            
-            df = yf.download(yf_ticker, period="5d", interval="1h", progress=False)
-            if df.empty:
+            bars = await self._fetch_bars(symbol)
+            if not bars or len(bars) < 2:
                 return None
-                
-            bars = []
-            for ts, row in df.iterrows():
-                bars.append(Bar(
-                    symbol=Symbol(ticker=symbol, asset_type=AssetType.FOREX),
-                    timestamp=ts.to_pydatetime().replace(tzinfo=timezone.utc),
-                    close=row['Close']
-                ))
 
             regime = self.memory_manager.detect_regime(bars)
-            memories = await self.memory_manager.recall_similar_regimes(Symbol(ticker=symbol), regime, bars=bars)
-            
-            # Use SimilarityFilter to process neighbors
-            from intelligence.similarity import SimilarityFilter
-            sf = SimilarityFilter(min_neighbors=1)
-            results = sf.process_neighbors(memories)
-            
-            # Conviction boost based on historical win rate
-            adjustment = results.get("confidence_adjustment", 0.0)
-            confidence = min(0.5 + adjustment + (len(memories) * 0.05), 1.0)
+
+            from broker.models import Symbol as SymbolModel
+
+            memories = await self.memory_manager.recall_similar_regimes(
+                SymbolModel(ticker=symbol), regime
+            )
+
+            # Conviction boost: more historical parallels = higher confidence
+            confidence = min(0.5 + (len(memories) * 0.1), 1.0)
+
+            # Store current regime for future recall (fire-and-forget)
+            try:
+                await self.memory_manager.store_regime(
+                    SymbolModel(ticker=symbol),
+                    regime,
+                    {"volatility": self._calc_volatility(bars)},
+                )
+            except Exception:
+                pass  # non-critical
 
             return IntelReport(
                 source=self.name,
                 symbol=symbol,
                 timestamp=datetime.now(timezone.utc),
-                score=0.0, # Regime doesn't dictate direction, only conviction
+                score=0.0,  # regime doesn't dictate direction
                 confidence=confidence,
                 veto=False,
-                regime_context=regime,
+                veto_reason=None,
                 details={
                     "regime": regime,
                     "recalled_count": len(memories),
-                    "memory_analysis": results.get("reasoning")
                 },
             )
         except Exception as e:
             logger.warning("RegimeProvider failed for %s: %s", symbol, e)
             return None
+
+    async def _fetch_bars(self, symbol: str) -> list:
+        """Fetch recent price bars. Override in tests."""
+        try:
+            import ccxt.async_support as ccxt
+
+            exchange = ccxt.binance()
+            try:
+                from broker.models import Bar, Symbol as SymbolModel, AssetType
+                from decimal import Decimal
+
+                ticker_map = {"BTCUSD": "BTC/USDT", "ETHUSD": "ETH/USDT"}
+                ccxt_symbol = ticker_map.get(symbol, symbol.replace("USD", "/USDT"))
+                ohlcv = await exchange.fetch_ohlcv(ccxt_symbol, "1h", limit=120)
+
+                bars = []
+                for candle in ohlcv:
+                    ts = datetime.fromtimestamp(candle[0] / 1000, tz=timezone.utc)
+                    bars.append(Bar(
+                        symbol=SymbolModel(ticker=symbol, asset_type=AssetType.CRYPTO),
+                        timestamp=ts,
+                        close=Decimal(str(candle[4])),
+                    ))
+                return bars
+            finally:
+                await exchange.close()
+        except ImportError:
+            raise NotImplementedError("Install ccxt: pip install ccxt")
+
+    @staticmethod
+    def _calc_volatility(bars: list) -> float:
+        prices = [float(b.close) for b in bars]
+        if len(prices) < 2:
+            return 0.0
+        returns = [
+            (prices[i] - prices[i - 1]) / prices[i - 1] for i in range(1, len(prices))
+        ]
+        avg = sum(returns) / len(returns)
+        return (sum((r - avg) ** 2 for r in returns) / len(returns)) ** 0.5
