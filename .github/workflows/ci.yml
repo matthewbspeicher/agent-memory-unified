@@ -162,6 +162,29 @@ jobs:
   trading-test:
     name: Trading Tests
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: agent_memory_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: secret
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
     defaults:
       run:
         working-directory: trading
@@ -180,12 +203,20 @@ jobs:
         run: |
           source .venv/bin/activate
           pip install -e .
-          pip install pytest pytest-asyncio pytest-timeout pytest-cov
+          pip install pytest pytest-asyncio pytest-timeout pytest-cov aiosqlite
 
       - name: Run unit tests
         run: |
           source .venv/bin/activate
           python -m pytest tests/unit/ -x --timeout=60 -q
+
+      - name: Run integration tests
+        run: |
+          source .venv/bin/activate
+          python -m pytest tests/integration/ -x --timeout=60 -q
+        env:
+          DATABASE_URL: postgresql://postgres:secret@localhost:5432/agent_memory_test
+          REDIS_URL: redis://localhost:6379/0
 
   frontend-test:
     name: Frontend Tests (E2E)

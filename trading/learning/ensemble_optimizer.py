@@ -3,6 +3,7 @@
 Design principles:
 - Performance-weighted: Higher Sharpe ratio agents get more weight
 - Diversity-adjusted: Down-weights agents that are highly correlated
+- Regime-aware: Different strategies for different market conditions
 - Multiple strategies: Supports weighted average, voting, and confidence-weighted methods
 - Best-effort: Gracefully handles missing data and edge cases
 - Configurable: All parameters tuneable via agents.yaml parameters
@@ -23,6 +24,164 @@ if TYPE_CHECKING:
     from learning.correlation_monitor import CorrelationMonitor
 
 logger = logging.getLogger(__name__)
+
+
+class MarketRegime(str, Enum):
+    """Market regime classifications for regime-aware ensemble."""
+
+    BULL = "bull"  # Strong upward trend
+    BEAR = "bear"  # Strong downward trend
+    SIDEWAYS = "sideways"  # Range-bound, low volatility
+    HIGH_VOLATILITY = "high_volatility"  # Elevated volatility
+    LOW_VOLATILITY = "low_volatility"  # Calm markets
+    UNKNOWN = "unknown"
+
+
+@dataclass
+class RegimeWeights:
+    """Regime-specific weight multipliers for different strategy types."""
+
+    trend_following: float = 1.0  # e.g., RSI, momentum agents
+    mean_reversion: float = 1.0  # e.g., pairs trading
+    volatility: float = 1.0  # e.g., straddle, variance agents
+    momentum: float = 1.0  # e.g., breakout agents
+
+
+# Default regime-specific weight adjustments
+# These multipliers are applied to base agent weights based on detected regime
+REGIME_WEIGHT_ADJUSTMENTS: dict[MarketRegime, RegimeWeights] = {
+    MarketRegime.BULL: RegimeWeights(
+        trend_following=1.3,  # Boost trend followers in bull markets
+        mean_reversion=0.7,
+        volatility=0.8,
+        momentum=1.2,
+    ),
+    MarketRegime.BEAR: RegimeWeights(
+        trend_following=1.2,  # Shorting works well in bear
+        mean_reversion=0.9,
+        volatility=1.1,  # Volatility strategies can profit
+        momentum=0.8,
+    ),
+    MarketRegime.SIDEWAYS: RegimeWeights(
+        trend_following=0.7,
+        mean_reversion=1.3,  # Mean reversion works in range-bound
+        volatility=0.9,
+        momentum=0.8,
+    ),
+    MarketRegime.HIGH_VOLATILITY: RegimeWeights(
+        trend_following=0.8,
+        mean_reversion=0.9,
+        volatility=1.4,  # Volatility strategies thrive
+        momentum=0.7,
+    ),
+    MarketRegime.LOW_VOLATILITY: RegimeWeights(
+        trend_following=1.0,
+        mean_reversion=1.1,
+        volatility=0.6,  # Volatility strategies struggle
+        momentum=1.0,
+    ),
+    MarketRegime.UNKNOWN: RegimeWeights(),  # No adjustment
+}
+
+
+class RegimeDetector:
+    """Detects current market regime based on price action and volatility."""
+
+    def __init__(
+        self,
+        lookback_bars: int = 20,
+        volatility_threshold: float = 1.5,  # Std devs above/below mean
+        trend_threshold: float = 0.05,  # 5% move to classify as trending
+    ):
+        self._lookback = lookback_bars
+        self._vol_threshold = volatility_threshold
+        self._trend_threshold = trend_threshold
+
+    def detect(
+        self,
+        prices: list[float],
+    ) -> MarketRegime:
+        """Detect market regime from recent price series.
+
+        Args:
+            prices: List of recent closing prices (oldest first)
+
+        Returns:
+            Detected MarketRegime
+        """
+        if len(prices) < self._lookback:
+            return MarketRegime.UNKNOWN
+
+        recent = prices[-self._lookback :]
+
+        # Calculate metrics
+        returns = self._calculate_returns(recent)
+        if not returns:
+            return MarketRegime.UNKNOWN
+
+        # Trend: linear regression slope
+        slope = self._calculate_slope(recent)
+        trend_pct = slope / recent[0] if recent[0] > 0 else 0
+
+        # Volatility: standard deviation of returns
+        vol = self._calculate_volatility(returns)
+
+        # Detect regime
+        return self._classify_regime(trend_pct, vol)
+
+    def _calculate_returns(self, prices: list[float]) -> list[float]:
+        """Calculate period-over-period returns."""
+        if len(prices) < 2:
+            return []
+        return [
+            (prices[i] - prices[i - 1]) / prices[i - 1] for i in range(1, len(prices))
+        ]
+
+    def _calculate_slope(self, prices: list[float]) -> float:
+        """Calculate linear regression slope using least squares."""
+        n = len(prices)
+        if n < 2:
+            return 0.0
+
+        x_mean = (n - 1) / 2
+        y_mean = sum(prices) / n
+
+        numerator = sum((i - x_mean) * (prices[i] - y_mean) for i in range(n))
+        denominator = sum((i - x_mean) ** 2 for i in range(n))
+
+        if denominator == 0:
+            return 0.0
+
+        return numerator / denominator
+
+    def _calculate_volatility(self, returns: list[float]) -> float:
+        """Calculate annualized volatility from returns."""
+        if len(returns) < 2:
+            return 0.0
+
+        mean = sum(returns) / len(returns)
+        variance = sum((r - mean) ** 2 for r in returns) / len(returns)
+        return (variance**0.5) * (252**0.5)  # Annualized
+
+    def _classify_regime(self, trend_pct: float, volatility: float) -> MarketRegime:
+        """Classify regime based on trend and volatility."""
+        # High volatility detection (above threshold)
+        if volatility > self._vol_threshold:
+            return MarketRegime.HIGH_VOLATILITY
+
+        # Low volatility detection (below half threshold)
+        if volatility < self._vol_threshold * 0.5:
+            return MarketRegime.LOW_VOLATILITY
+
+        # Trend-based classification
+        if abs(trend_pct) > self._trend_threshold:
+            if trend_pct > 0:
+                return MarketRegime.BULL
+            else:
+                return MarketRegime.BEAR
+
+        # Default to sideways
+        return MarketRegime.SIDEWAYS
 
 
 class EnsembleMethod(str, Enum):
@@ -49,6 +208,12 @@ class EnsembleConfig:
     high_correlation_threshold: float = 0.7
     consensus_threshold: float = 0.6  # Min combined confidence to generate signal
     weight_update_frequency_hours: int = 6
+
+    # Regime-aware ensemble settings
+    regime_aware: bool = False  # Enable regime-specific weight adjustments
+    regime_lookback_bars: int = 20  # Bars for regime detection
+    regime_volatility_threshold: float = 1.5  # Std devs for volatility regime
+    regime_trend_threshold: float = 0.05  # 5% move for trend classification
 
     @classmethod
     def from_agent_config(cls, config: Any) -> "EnsembleConfig":

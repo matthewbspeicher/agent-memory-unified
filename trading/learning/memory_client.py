@@ -1,4 +1,4 @@
-"""TradingMemoryClient — namespace-aware wrapper around AsyncRemembrClient."""
+"""TradingMemoryClient — namespace-aware wrapper around AsyncRemembrClient with hybrid fallback."""
 
 from __future__ import annotations
 
@@ -80,3 +80,109 @@ class TradingMemoryClient:
                 seen.add(key)
                 combined.append(r)
         return combined[:top_k]
+
+
+class HybridTradingMemoryClient:
+    """Hybrid memory client with remote primary and local fallback.
+
+    Tries remembr.dev first, falls back to local store on failure.
+    Useful when running without internet or when remembr.dev is down.
+    """
+
+    def __init__(
+        self,
+        remote_client: TradingMemoryClient,
+        local_store: Any | None = None,
+    ) -> None:
+        self._remote = remote_client
+        self._local = local_store
+        self._use_local = False
+
+    async def store_private(self, content: str, tags: list[str] | None = None) -> dict:
+        """Store a memory - remote first, local fallback."""
+        try:
+            return await self._remote.store_private(content, tags)
+        except Exception as e:
+            logger.warning("Remote store_private failed: %s, trying local", e)
+            if self._local:
+                return await self._local.store(
+                    value=content,
+                    visibility="private",
+                    tags=tags,
+                )
+            raise
+
+    async def store_shared(self, content: str, tags: list[str] | None = None) -> dict:
+        """Store a shared memory - remote first, local fallback."""
+        try:
+            return await self._remote.store_shared(content, tags)
+        except Exception as e:
+            logger.warning("Remote store_shared failed: %s, trying local", e)
+            if self._local:
+                return await self._local.store(
+                    value=content,
+                    visibility="public",
+                    tags=tags,
+                )
+            raise
+
+    async def search_both(self, query: str, top_k: int = 5) -> list[dict]:
+        """Search memories - remote first, local fallback."""
+        remote_results: list[dict] = []
+        local_results: list[dict] = []
+
+        # Try remote first
+        try:
+            remote_results = await self._remote.search_both(query, top_k)
+        except Exception as e:
+            logger.warning("Remote search_both failed: %s", e)
+
+        # Try local as supplement/fallback
+        if self._local:
+            try:
+                local_results = await self._local.search(query, limit=top_k)
+            except Exception as e:
+                logger.warning("Local search failed: %s", e)
+
+        # Combine results (remote takes precedence)
+        combined = remote_results.copy()
+        seen = {r.get("value", "")[:80] for r in remote_results}
+        for r in local_results:
+            key = r.get("value", "")[:80]
+            if key not in seen:
+                combined.append(r)
+                seen.add(key)
+
+        return combined[:top_k]
+
+    async def health_check(self) -> dict:
+        """Check health of both backends."""
+        remote_health = {"healthy": False}
+        local_health = {"healthy": False}
+
+        # Check remote
+        try:
+            # Simple check - try a search
+            await self._remote.search_both("health", limit=1)
+            remote_health = {"healthy": True, "backend": "remembr.dev"}
+        except Exception as e:
+            remote_health = {
+                "healthy": False,
+                "backend": "remembr.dev",
+                "error": str(e),
+            }
+
+        # Check local
+        if self._local:
+            local_health = await self._local.health_check()
+            if local_health.get("healthy"):
+                local_health["backend"] = "local"
+
+        # Overall health: remote is preferred, local is fallback
+        return {
+            "remote": remote_health,
+            "local": local_health,
+            "using": "local"
+            if not remote_health.get("healthy") and local_health.get("healthy")
+            else "remote",
+        }

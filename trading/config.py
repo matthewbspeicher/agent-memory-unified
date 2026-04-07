@@ -22,7 +22,7 @@ class BrokerConfig:
     mode: str = "paper"
     primary_broker: str | None = None
     routing: dict[str, str] = field(default_factory=dict)
-    
+
     tradier_token: str | None = None
     tradier_account_id: str | None = None
     tradier_sandbox: bool = True
@@ -156,6 +156,10 @@ class Config:
     remembr_api_key: str | None = None
     remembr_shared_api_key: str | None = None
 
+    # Local Memory Store (fallback when remembr.dev unavailable)
+    local_memory_enabled: bool = False
+    local_memory_db_path: str = "data/memory.db"
+
     # Hardware acceleration
     gpu_enabled: bool = False
 
@@ -224,17 +228,16 @@ class Config:
     backtest_slippage_pct: float = 0.001
     backtest_fee_per_trade: float = 1.00
 
-
     def __getattr__(self, name: str):
         """Backward-compat: config.bittensor_enabled -> config.bittensor.enabled"""
         # Map old flat names to nested paths
         prefixes = {
-            'bittensor_': ('bittensor', 'bittensor_'),
-            'ib_': ('broker', 'ib_'),
+            "bittensor_": ("bittensor", "bittensor_"),
+            "ib_": ("broker", "ib_"),
         }
         for prefix, (group, strip) in prefixes.items():
             if name.startswith(prefix):
-                nested_name = name[len(strip):]
+                nested_name = name[len(strip) :]
                 group_obj = object.__getattribute__(self, group)
                 if hasattr(group_obj, nested_name):
                     return getattr(group_obj, nested_name)
@@ -243,15 +246,15 @@ class Config:
                     return getattr(group_obj, name)
 
         renames = {
-            'broker_mode': ('broker', 'mode'),
-            'broker_routing': ('broker', 'routing'),
-            'llm_fallback_chain': ('llm', 'fallback_chain'),
+            "broker_mode": ("broker", "mode"),
+            "broker_routing": ("broker", "routing"),
+            "llm_fallback_chain": ("llm", "fallback_chain"),
         }
         if name in renames:
             group, nested_name = renames[name]
             return getattr(object.__getattribute__(self, group), nested_name)
-            
-        for group in ('broker', 'llm'):
+
+        for group in ("broker", "llm"):
             group_obj = object.__getattribute__(self, group)
             if hasattr(group_obj, name):
                 return getattr(group_obj, name)
@@ -317,7 +320,9 @@ def _set_nested(obj: Any, field_name: str, raw_value: str, field_type: Any) -> N
     try:
         setattr(obj, field_name, _parse_value(raw_value, field_type))
     except (ValueError, json.JSONDecodeError) as e:
-        raise ValueError(f"Invalid value for {type(obj).__name__}.{field_name}: {raw_value}") from e
+        raise ValueError(
+            f"Invalid value for {type(obj).__name__}.{field_name}: {raw_value}"
+        ) from e
 
 
 def load_config(env_file: str = ".env") -> Config:
@@ -365,27 +370,41 @@ def load_config(env_file: str = ".env") -> Config:
         if field_name.startswith("bittensor_"):
             nested_name = field_name[len("bittensor_") :]
             if nested_name in bt_annotations:
-                _set_nested(config.bittensor, nested_name, raw_value, bt_annotations[nested_name])
+                _set_nested(
+                    config.bittensor,
+                    nested_name,
+                    raw_value,
+                    bt_annotations[nested_name],
+                )
                 continue
 
         if field_name == "broker_mode":
             _set_nested(config.broker, "mode", raw_value, broker_annotations["mode"])
             continue
         elif field_name == "broker_routing":
-            _set_nested(config.broker, "routing", raw_value, broker_annotations["routing"])
+            _set_nested(
+                config.broker, "routing", raw_value, broker_annotations["routing"]
+            )
             continue
         elif field_name == "llm_fallback_chain":
-            _set_nested(config.llm, "fallback_chain", raw_value, llm_annotations["fallback_chain"])
+            _set_nested(
+                config.llm,
+                "fallback_chain",
+                raw_value,
+                llm_annotations["fallback_chain"],
+            )
             continue
 
         if field_name in broker_annotations:
-            _set_nested(config.broker, field_name, raw_value, broker_annotations[field_name])
+            _set_nested(
+                config.broker, field_name, raw_value, broker_annotations[field_name]
+            )
             continue
-            
+
         if field_name in llm_annotations:
             _set_nested(config.llm, field_name, raw_value, llm_annotations[field_name])
             continue
-            
+
         if not hasattr(config, field_name):
             continue  # Ignore unknown fields
 
@@ -415,7 +434,10 @@ def load_config(env_file: str = ".env") -> Config:
 
 def _validate_brokers(config: Config) -> None:
     """Validate broker names"""
-    if config.broker.primary_broker and config.broker.primary_broker not in _KNOWN_BROKERS:
+    if (
+        config.broker.primary_broker
+        and config.broker.primary_broker not in _KNOWN_BROKERS
+    ):
         raise ValueError(
             f"Unknown primary_broker: '{config.broker.primary_broker}'. "
             f"Known: {sorted(_KNOWN_BROKERS)}"
