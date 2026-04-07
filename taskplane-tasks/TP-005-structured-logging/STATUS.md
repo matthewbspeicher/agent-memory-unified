@@ -1,6 +1,6 @@
 # TP-005: Structured Logging — Status
 
-**Current Step:** Step 0: Preflight
+**Current Step:** Step 1: Create Logging Infrastructure
 **Status:** 🟡 In Progress
 **Last Updated:** 2026-04-07
 **Review Level:** 1
@@ -20,11 +20,11 @@ M
 ---
 
 ### Step 1: Create Logging Infrastructure
-**Status:** ⬜ Not Started
+**Status:** 🟨 In Progress
 
-> ⚠️ Hydrate: Expand checkboxes when entering this step
-
-- [ ] Complete step objectives
+- [ ] Create `trading/utils/logging.py` with JSON formatter and event-type support
+- [ ] Add `log_level` and `log_format` fields to Config dataclass in `trading/config.py`
+- [ ] Configure root logger setup in `trading/api/app.py` startup
 
 ---
 
