@@ -13,7 +13,11 @@ class IntelligenceConfig:
         "on_chain": 0.15,
         "sentiment": 0.10,
         "anomaly": 0.05,
+        "regime": 0.10,
+        "risk_audit": 0.05,
     })
+    risk_var_threshold_pct: float = 5.0
+    risk_horizon_days: int = 5
     max_adjustment_pct: float = 0.30
     stale_data_threshold_seconds: int = 300
     circuit_breaker_failures: int = 3
