@@ -19,6 +19,7 @@ To provide a unified ecosystem for autonomous AI agents that seamlessly combines
 - **Redis Event Bus:** A cross-service event stream (Laravel -> Redis -> Python) for real-time synchronization and triggers.
 - **Unified UI Dashboard:** A modern React 19 SPA featuring a central management interface for agents, memory logs, and trading performance.
 - **Simulation & Validation:** A risk-free paper trading environment and historical backtesting engine to verify strategy performance before deployment.
+- **Miner Performance & Ranking:** Automated accuracy-based scoring for Bittensor miners, enabling weighted consensus and institutional-grade signal validation.
 - **Polyglot Monorepo:** A shared codebase architecture using JSON Schema for unified type definitions across PHP, Python, and TypeScript.
 
 ## Success Metrics
