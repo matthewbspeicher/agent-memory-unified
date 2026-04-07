@@ -74,6 +74,9 @@ M
 | 2026-04-07 | Task staged | PROMPT.md and STATUS.md created |
 | 2026-04-07 17:18 | Task started | Runtime V2 lane-runner execution |
 | 2026-04-07 17:18 | Step 0 started | Preflight |
+| 2026-04-07 17:31 | ⚠️ Steering | IMPORTANT: When you reach the testing step, do NOT run the full test suite with a long timeout. Many integration tests hang because they need live Postgres/Redis/IBKR connections that aren't available |
+| 2026-04-07 17:31 | Worker iter 1 | done in 786s, tools: 106 |
+| 2026-04-07 17:31 | Task complete | .DONE created |
 
 ## Blockers
 *None*
