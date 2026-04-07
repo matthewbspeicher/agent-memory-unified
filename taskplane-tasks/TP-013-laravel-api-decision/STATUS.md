@@ -1,6 +1,6 @@
 # TP-013: Laravel Api Decision — Status
 
-**Current Step:** Step 0: Preflight
+**Current Step:** Step 1: Assessment
 **Status:** 🟡 In Progress
 **Last Updated:** 2026-04-07
 **Review Level:** 0
@@ -21,11 +21,12 @@ S
 ---
 
 ### Step 1: Assessment
-**Status:** ⬜ Not Started
+**Status:** 🟨 In Progress
 
-> ⚠️ Hydrate: Expand checkboxes when entering this step
-
-- [ ] Complete step objectives
+- [ ] Inventory Laravel API endpoints and their functionality
+- [ ] Identify unique-to-Laravel features vs trading engine overlap
+- [ ] Check Laravel dependency freshness
+- [ ] Estimate effort for revive/migrate/deprecate paths
 
 ---
 
