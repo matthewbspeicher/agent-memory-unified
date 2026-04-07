@@ -62,8 +62,9 @@ class MarketDataProvider(ABC):
     @abstractmethod
     async def get_quotes(self, symbols: list[Symbol]) -> list[Quote]: ...
 
-    @abstractmethod
-    async def get_order_book(self, symbol: Symbol, limit: int = 20) -> dict: ...
+    async def get_order_book(self, symbol: Symbol, limit: int = 20) -> dict:
+        """Fetch real-time order book. Optional for all providers."""
+        return {"bids": [], "asks": []}
 
     @abstractmethod
     async def stream_quotes(
