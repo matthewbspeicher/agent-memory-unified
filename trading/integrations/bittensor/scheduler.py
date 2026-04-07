@@ -11,6 +11,12 @@ from integrations.bittensor.derivation import derive_consensus_view
 from integrations.bittensor.models import BittensorMetrics
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+if not logger.handlers:
+    _h = logging.StreamHandler()
+    _h.setLevel(logging.DEBUG)
+    _h.setFormatter(logging.Formatter("%(levelname)s:%(name)s:%(message)s"))
+    logger.addHandler(_h)
 
 
 def next_hash_window(now: datetime) -> datetime:
@@ -77,7 +83,14 @@ class TaoshiScheduler:
         axons: list[Any] = list(metagraph.axons)
 
         if self._selection_policy == "all":
-            return list(zip(uids, axons))
+            # Filter out miners with no advertised endpoint or IPv6 (often unreachable)
+            return [
+                (uid, axon)
+                for uid, axon in zip(uids, axons)
+                if getattr(axon, "ip", "0.0.0.0") != "0.0.0.0"
+                and getattr(axon, "port", 0) != 0
+                and ":" not in getattr(axon, "ip", "")
+            ]
 
         # top_n: rank by the chosen metric
         if self._selection_metric == "incentive":

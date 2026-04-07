@@ -40,6 +40,16 @@ class AgentSummary(BaseModel):
     last_opportunity: str | None = None
 
 
+class BridgeStatus(BaseModel):
+    running: bool
+    taoshi_root: str
+    miners_tracked: int
+    open_positions: int
+    signals_emitted: int
+    last_scan_at: str | None = None
+    seen_positions: int
+
+
 class BittensorStatusResponse(BaseModel):
     enabled: bool
     healthy: bool | None = None
@@ -47,6 +57,7 @@ class BittensorStatusResponse(BaseModel):
     evaluator: EvaluatorStatus | None = None
     miners: MinerSummary | None = None
     agent: AgentSummary | None = None
+    bridge: BridgeStatus | None = None
 
 
 # --- /api/bittensor/metrics ---

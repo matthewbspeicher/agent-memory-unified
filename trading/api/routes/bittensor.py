@@ -107,13 +107,18 @@ async def bittensor_status(
         except Exception:
             pass
 
+    # Taoshi Bridge section
+    bridge = getattr(request.app.state, "taoshi_bridge", None)
+    bridge_data = bridge.get_status() if bridge else None
+
     return {
         "enabled": True,
-        "healthy": bool(scheduler and evaluator),
+        "healthy": bool(scheduler and evaluator) or bool(bridge),
         "scheduler": scheduler_data,
         "evaluator": evaluator_data,
         "miners": miners_data,
         "agent": agent_data,
+        "bridge": bridge_data,
     }
 
 
