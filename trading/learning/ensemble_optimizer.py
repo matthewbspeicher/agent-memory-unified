@@ -165,20 +165,19 @@ class RegimeDetector:
 
     def _classify_regime(self, trend_pct: float, volatility: float) -> MarketRegime:
         """Classify regime based on trend and volatility."""
-        # High volatility detection (above threshold)
-        if volatility > self._vol_threshold:
-            return MarketRegime.HIGH_VOLATILITY
-
-        # Low volatility detection (below half threshold)
-        if volatility < self._vol_threshold * 0.5:
-            return MarketRegime.LOW_VOLATILITY
-
-        # Trend-based classification
+        # Check trend first (direction is more important than volatility)
         if abs(trend_pct) > self._trend_threshold:
             if trend_pct > 0:
                 return MarketRegime.BULL
             else:
                 return MarketRegime.BEAR
+
+        # Then check volatility
+        if volatility > self._vol_threshold:
+            return MarketRegime.HIGH_VOLATILITY
+
+        if volatility < self._vol_threshold * 0.5:
+            return MarketRegime.LOW_VOLATILITY
 
         # Default to sideways
         return MarketRegime.SIDEWAYS
