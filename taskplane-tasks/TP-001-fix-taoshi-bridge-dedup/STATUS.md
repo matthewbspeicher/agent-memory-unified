@@ -1,6 +1,6 @@
 # TP-001: Fix TaoshiBridge Change Detection — Status
 
-**Current Step:** Step 1: Implement Change Detection
+**Current Step:** Step 2: Write Tests
 **Status:** 🟡 In Progress
 **Last Updated:** 2026-04-07
 **Review Level:** 2
@@ -33,10 +33,10 @@
 ---
 
 ### Step 2: Write Tests
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete
 
-- [ ] Create `test_taoshi_bridge.py` with 5+ test cases
-- [ ] Update e2e test if needed
+- [x] Create `test_taoshi_bridge.py` with 5+ test cases (11 tests, all passing)
+- [x] Update e2e test if needed (no bridge references, no changes needed)
 
 ---
 
