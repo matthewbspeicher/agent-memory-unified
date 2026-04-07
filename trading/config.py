@@ -12,6 +12,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, get_origin, get_args, Union
 
+from intelligence.config import IntelligenceConfig
+
 
 @dataclass
 class BrokerConfig:
@@ -86,6 +88,7 @@ class Config:
     broker: BrokerConfig = field(default_factory=BrokerConfig)
     bittensor: BittensorConfig = field(default_factory=BittensorConfig)
     llm: LLMConfig = field(default_factory=LLMConfig)
+    intel: IntelligenceConfig = field(default_factory=IntelligenceConfig)
 
     # Logging
     log_level: str = "INFO"
@@ -365,6 +368,7 @@ def load_config(env_file: str = ".env") -> Config:
     bt_annotations = BittensorConfig.__annotations__
     broker_annotations = BrokerConfig.__annotations__
     llm_annotations = LLMConfig.__annotations__
+    intel_annotations = IntelligenceConfig.__annotations__
 
     for field_name, raw_value in config_dict.items():
         if field_name.startswith("bittensor_"):
@@ -375,6 +379,17 @@ def load_config(env_file: str = ".env") -> Config:
                     nested_name,
                     raw_value,
                     bt_annotations[nested_name],
+                )
+                continue
+
+        if field_name.startswith("intel_"):
+            nested_name = field_name[len("intel_"):]
+            if nested_name in intel_annotations:
+                _set_nested(
+                    config.intel,
+                    nested_name,
+                    raw_value,
+                    intel_annotations[nested_name],
                 )
                 continue
 

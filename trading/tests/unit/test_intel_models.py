@@ -68,3 +68,29 @@ def test_intel_record_creation():
     )
     assert record.provider == "sentiment"
     assert record.latency_ms == 95
+
+
+def test_intelligence_config_defaults():
+    from intelligence.config import IntelligenceConfig
+
+    cfg = IntelligenceConfig()
+    assert cfg.enabled is False
+    assert cfg.timeout_ms == 2000
+    assert cfg.veto_threshold == 1
+    assert cfg.weights == {"on_chain": 0.15, "sentiment": 0.10, "anomaly": 0.05}
+    assert cfg.max_adjustment_pct == 0.30
+
+
+def test_intelligence_config_from_env(monkeypatch):
+    monkeypatch.setenv("STA_INTEL_ENABLED", "true")
+    monkeypatch.setenv("STA_INTEL_TIMEOUT_MS", "3000")
+    monkeypatch.setenv("STA_INTEL_VETO_THRESHOLD", "2")
+    monkeypatch.setenv("STA_INTEL_COINGLASS_API_KEY", "test-key-123")
+
+    from config import load_config
+
+    cfg = load_config(env_file="/dev/null")
+    assert cfg.intel.enabled is True
+    assert cfg.intel.timeout_ms == 3000
+    assert cfg.intel.veto_threshold == 2
+    assert cfg.intel.coinglass_api_key == "test-key-123"
