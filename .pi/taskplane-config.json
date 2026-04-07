@@ -1,0 +1,37 @@
+{
+  "taskRunner": {
+    "taskAreas": [
+      {
+        "name": "trading",
+        "path": "taskplane-tasks",
+        "prefix": "TP",
+        "contextDoc": "taskplane-tasks/CONTEXT.md"
+      }
+    ],
+    "referenceDocs": [
+      { "path": "CLAUDE.md", "description": "Project overview, architecture, dev notes" },
+      { "path": "conductor/product.md", "description": "Product vision and goals" },
+      { "path": "conductor/tech-stack.md", "description": "Technology stack details" }
+    ],
+    "standards": [],
+    "testing": {
+      "commands": [
+        "cd trading && python -m pytest tests/ -v --tb=short"
+      ]
+    },
+    "selfDocTargets": [
+      "taskplane-tasks/CONTEXT.md"
+    ],
+    "protectedDocs": [
+      "CLAUDE.md"
+    ],
+    "neverLoad": []
+  },
+  "migrations": {
+    "applied": {
+      "add-supervisor-local-template-v1": {
+        "appliedAt": "2026-04-07T15:55:52.411Z"
+      }
+    }
+  }
+}
