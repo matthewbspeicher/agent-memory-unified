@@ -97,6 +97,8 @@ async def _setup_trade_reflectors(
                 deep_reflection_pnl_multiplier=mem_cfg.deep_reflection.pnl_multiplier,
                 deep_reflection_loss_multiplier=mem_cfg.deep_reflection.loss_multiplier,
                 llm=llm_client,
+                regime_manager=regime_mem,
+                vector_service=_vector_service,
             )
 
         trade_reflector_factory = make_reflector
@@ -506,6 +508,7 @@ async def _setup_bittensor_integration(
         # Intelligence Layer
         from intelligence.layer import IntelligenceLayer
         from memory.regime import RegimeMemoryManager
+        from memory.vector_service import MarketVectorService
         from remembr.client import AsyncRemembrClient
 
         # Try to init memory manager for regime provider
@@ -516,7 +519,8 @@ async def _setup_bittensor_integration(
                     agent_token=config.remembr_api_key,
                     base_url=config.remembr_base_url,
                 )
-                regime_mem = RegimeMemoryManager(_remembr_client)
+                _vector_service = MarketVectorService(llm_client=llm_client)
+                regime_mem = RegimeMemoryManager(_remembr_client, vector_service=_vector_service)
             except Exception as e:
                 logger.warning("Failed to init RegimeMemoryManager: %s", e)
 
@@ -1790,6 +1794,14 @@ def create_app(
     config: Config | None = None,
 ) -> FastAPI:
     app = FastAPI(title="Stock Trading API", version="0.1.0", lifespan=lifespan)
+
+    # Observability middleware
+    from prometheus_fastapi_instrumentator import Instrumentator
+    from asgi_correlation_id import CorrelationIdMiddleware
+
+    app.add_middleware(CorrelationIdMiddleware)
+    Instrumentator().instrument(app).expose(app, endpoint="/metrics")
+
     if broker:
         set_broker(broker)
     app.state.broker = broker
