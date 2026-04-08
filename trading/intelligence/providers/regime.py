@@ -2,7 +2,12 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import TYPE_CHECKING
+
+import joblib
+import numpy as np
+import pandas as pd
 
 from intelligence.models import IntelReport
 from intelligence.providers.base import BaseIntelProvider
@@ -11,6 +16,80 @@ if TYPE_CHECKING:
     from memory.market_regime import RegimeMemoryManager
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# HMM Regime Detection
+# ---------------------------------------------------------------------------
+
+REGIME_STATES = {
+    0: "trending_bull",
+    1: "trending_bear",
+    2: "volatile",
+    3: "quiet",
+}
+
+
+def extract_hmm_features(df: pd.DataFrame) -> np.ndarray:
+    """Extract feature matrix for HMM from OHLCV data."""
+    data = df.copy()
+    data["log_return"] = np.log(data["close"] / data["close"].shift(1))
+    data["realized_vol_20d"] = data["log_return"].rolling(20).std() * np.sqrt(365)
+    vol_mean = data["volume"].rolling(20).mean()
+    vol_std = data["volume"].rolling(20).std()
+    data["volume_zscore"] = (data["volume"] - vol_mean) / vol_std.replace(0, 1)
+    if "funding_rate" not in data.columns:
+        data["funding_rate"] = 0.0
+    else:
+        data["funding_rate"] = data["funding_rate"].fillna(0)
+    feature_cols = ["log_return", "realized_vol_20d", "volume_zscore", "funding_rate"]
+    return data[feature_cols].dropna().values
+
+
+class StableRegimeDetector:
+    """Hysteresis wrapper — requires sustained state change before transition."""
+
+    def __init__(self, min_state_duration: int = 3):
+        self.min_state_duration = min_state_duration
+        self.current_state: int | None = None
+        self.state_age: int = 0
+        self.pending_state: int | None = None
+        self.pending_age: int = 0
+
+    def update(self, raw_state: int) -> tuple[int | None, bool]:
+        if self.current_state is None:
+            if self.pending_state == raw_state:
+                self.pending_age += 1
+            else:
+                self.pending_state = raw_state
+                self.pending_age = 1
+            if self.pending_age >= self.min_state_duration:
+                self.current_state = raw_state
+                self.state_age = self.pending_age
+                self.pending_state = None
+                self.pending_age = 0
+                return self.current_state, False
+            return None, False
+
+        if raw_state == self.current_state:
+            self.state_age += 1
+            self.pending_state = None
+            self.pending_age = 0
+            return self.current_state, False
+
+        if raw_state == self.pending_state:
+            self.pending_age += 1
+        else:
+            self.pending_state = raw_state
+            self.pending_age = 1
+
+        if self.pending_age >= self.min_state_duration:
+            self.current_state = self.pending_state
+            self.state_age = self.pending_age
+            self.pending_state = None
+            self.pending_age = 0
+            return self.current_state, True
+
+        return self.current_state, False
 
 
 class RegimeProvider(BaseIntelProvider):

@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/notifications/log_notifier.py
-# hypothesis_version: 6.151.11
-
-[100, '[ALERT] %s', 'opportunities']

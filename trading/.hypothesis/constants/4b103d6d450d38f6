@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/agents/runner.py
-# hypothesis_version: 6.151.11
-
-[30.0, 200, '_drain_event', 'agent.name', 'agent_name', 'agent_run_complete', 'agent_scan', 'agent_signal', 'assisted', 'autonomous', 'continuous', 'cron', 'expires_at', 'health.status', 'interval', 'interval_or_cron', 'market behavior', 'memories', 'monitored', 'name', 'opportunities.found', 'opportunities_found', 'parameters', 'payload', 'running', 'runtime_overrides', 'schedule', 'shadow_mode', 'signal_type', 'source_agent', 'strategy', 'target_agent', 'ticker', 'timestamp', 'trust_level', 'trusted', 'universe', 'value']

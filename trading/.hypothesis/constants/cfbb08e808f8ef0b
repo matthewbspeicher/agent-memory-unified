@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/storage/signal_features.py
-# hypothesis_version: 6.151.11
-
-[100, ' AND agent_name = ?', ' AND signal = ?', ' AND symbol = ?', ', ', '?', 'created_at', 'feature_payload', 'opportunity_id', 'updated_at', '{}']

@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/strategies/dsl.py
-# hypothesis_version: 6.151.11
-
-[0.0, 0.8, '<', '<=', '==', '>', '>=', 'BUY', 'DSL_MATCH', 'action', 'conditions', 'confidence_threshold', 'current_time', 'ema', 'indicator', 'operator', 'price', 'quantity', 'rsi', 'rule', 'rules', 'sma', 'value']

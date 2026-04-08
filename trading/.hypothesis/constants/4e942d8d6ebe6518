@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/api/routes/tournament.py
-# hypothesis_version: 6.151.11
-
-['/log', '/override', '/stages', '/tournament', 'api', 'message', 'tournament']

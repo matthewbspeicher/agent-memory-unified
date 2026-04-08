@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/strategies/breakout.py
-# hypothesis_version: 6.151.11
-
-[1.0, 2.0, '1', '1d', '6mo', 'RESISTANCE_BREAKOUT', 'close', 'cooldown_hours', 'lookback_days', 'resistance', 'volume_ratio', 'volume_threshold']

@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/strategies/ensemble_optimizer.py
-# hypothesis_version: 6.151.11
-
-[0.0, 0.05, 0.4, 0.5, 1.0, 3600, 'ENSEMBLE', 'avg_loss', 'avg_win', 'expected_return', 'hold', 'kelly', 'lookback_days', 'max_weight', 'min_trades_per_agent', 'min_weight', 'optimization_method', 'sample_count', 'sharpe', 'sharpe_ratio', 'status_type', 'target_agents', 'timestamp', 'weight_update', 'weights', 'win_rate']

@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/adapters/fidelity/parser.py
-# hypothesis_version: 6.151.11
-
-['"', '$', '*', '**', '***', '+', ',', '--', '.', '/', '0', 'Account Name', 'Account Name/Number', 'Account Number', 'Average Cost Basis', 'CORE', 'Cost Basis Per Share', 'Cost Basis Total', 'Current Value', 'Description', 'FCASH', 'Fidelity Crypto®', 'Last Price', 'N/A', 'OLD Crypto - dupe', 'Quantity', 'SPAXX', 'Symbol', 'USD', 'n/a', 'pending activity', 'pending_activity']

@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/storage/opportunities.py
-# hypothesis_version: 6.151.11
-
-[' AND agent_name = ?', ' AND signal = ?', ' AND status = ?', ' AND symbol = ?', 'asset_type', 'broker_id', 'quantity', 'side', 'snapshot_data', 'symbol']

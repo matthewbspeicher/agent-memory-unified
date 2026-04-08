@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/api/routes/execution_analytics.py
-# hypothesis_version: 6.151.11
-
-[100, 1000, 10000, '/summary', '/trades', '/worst', '30d', '7d', '90d', '^(7d|30d|90d|all)$', 'all', 'broker_id', 'execution-analytics', 'symbol']

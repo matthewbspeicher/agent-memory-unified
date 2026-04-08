@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/execution/models.py
-# hypothesis_version: 6.151.11
-
-['0', 'completed', 'concurrent_pending', 'created_at', 'error_message', 'expected_profit_bps', 'failed', 'id', 'init', 'kalshi_first', 'leg_a_failed', 'leg_a_filled', 'leg_a_pending', 'leg_b_failed', 'leg_b_filled', 'leg_b_pending', 'less_liquid_first', 'pending', 'poly_first', 'sequencing', 'state', 'symbol_a', 'symbol_b', 'toxicity_check', 'unwinding', 'unwound', 'updated_at']

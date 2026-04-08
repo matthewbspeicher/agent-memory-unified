@@ -20,6 +20,7 @@ const Webhooks = lazy(() => import('./pages/Webhooks'));
 const WorkspaceList = lazy(() => import('./pages/WorkspaceList'));
 const KnowledgeGraph = lazy(() => import('./pages/KnowledgeGraph'));
 const AgentProfile = lazy(() => import('./pages/AgentProfile'));
+const HeadToHead = lazy(() => import('./pages/HeadToHead'));
 const BittensorNode = lazy(() => import('./pages/BittensorNode'));
 
 function LazyPage({ children }: { children: React.ReactNode }) {
@@ -84,6 +85,14 @@ export const router = createBrowserRouter([
       {
         path: 'arena/matches/:id',
         element: <LazyPage><ArenaMatch /></LazyPage>,
+      },
+      {
+        path: 'arena/competitors/:id',
+        element: <LazyPage><AgentProfile /></LazyPage>,
+      },
+      {
+        path: 'arena/versus/:a/:b',
+        element: <LazyPage><HeadToHead /></LazyPage>,
       },
       {
         path: 'agents/:id',

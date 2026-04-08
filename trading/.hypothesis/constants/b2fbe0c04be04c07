@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/utils/logging.py
-# hypothesis_version: 6.151.11
-
-['%Y-%m-%d %H:%M:%S', 'INFO', 'asyncio', 'data', 'event_data', 'event_type', 'exception', 'httpcore', 'httpx', 'json', 'level', 'logger', 'msg', 'ts', 'urllib3', 'websockets']

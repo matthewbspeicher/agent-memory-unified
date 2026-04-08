@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/intelligence/providers/on_chain.py
-# hypothesis_version: 6.151.11
-
-[-1.0, 0.0, 0.3, 0.5, 1.0, 2.0, '1d', '30d', 'BTCUSD', 'CG-API-KEY', 'avg_30d_netflow', 'coin', 'data', 'exchange_netflow', 'on_chain', 'range', 'value']

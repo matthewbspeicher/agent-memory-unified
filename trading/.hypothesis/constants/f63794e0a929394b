@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/learning/strategy_health.py
-# hypothesis_version: 6.151.11
-
-[0.0, 0.5, 1.0, 5000.0, 'PerformanceStore', 'StrategyHealthConfig', 'StrategyHealthStore', 'auto-evaluated', 'avg_loss', 'avg_win', 'cooldown_hours', 'cooldown_until', 'enabled', 'expectancy', 'manual_override', 'max_drawdown', 'normal', 'profit_factor', 'retired', 'shadow_only', 'status', 'system', 'throttle_multiplier', 'throttled', 'total_pnl', 'total_trades', 'watchlist', 'win_rate']

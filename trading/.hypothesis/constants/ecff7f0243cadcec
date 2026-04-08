@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/analytics/strategy_scorecard.py
-# hypothesis_version: 6.151.11
-
-[0.0, 60.0, 500, 100000, '0', 'account_id', 'agent_name', 'broker_id', 'buy', 'confidence', 'confidence_bucket', 'created_at', 'data', 'entry_fees', 'entry_price', 'entry_quantity', 'entry_spread_bps', 'entry_time', 'exit_fees', 'exit_price', 'exit_reason', 'exit_time', 'feature_payload', 'feature_version', 'flat', 'gross_pnl', 'gross_return_pct', 'hold_minutes', 'id', 'limit', 'limit_price', 'liquidity_regime', 'long', 'loss', 'market', 'market_state', 'net_pnl', 'net_return_pct', 'opportunity_id', 'order_type', 'processed', 'realized_outcome', 'regime', 'regime_label', 'return_pct', 'sell', 'short', 'side', 'signal', 'skipped', 'slippage_bps', 'spread_bps', 'stop', 'stop_limit', 'stop_price', 'strategy_version', 'suggested_trade', 'symbol', 'tracked_position_id', 'trend_regime', 'updated_at', 'volatility_regime', 'win']

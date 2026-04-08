@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/integrations/bittensor/consensus_aggregator.py
-# hypothesis_version: 6.151.11
-
-[0.0, 1000.0, '%Y%m%d-%H%M', '5m', 'active_miners', 'bearish', 'bullish', 'direction', 'flat', 'leverage', 'long', 'miner_hotkey', 'open_ms', 'short', 'symbol']

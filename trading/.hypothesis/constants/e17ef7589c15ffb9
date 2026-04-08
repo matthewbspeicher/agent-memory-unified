@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/api/routes/confidence_analytics.py
-# hypothesis_version: 6.151.11
-
-[0.0, 1.0, '/strategies', '/{agent_name}', '^(30d|90d|all)$', 'agent_name', 'all', 'avg_net_pnl', 'avg_net_return_pct', 'bucket', 'calibrated_score', 'confidence', 'confidence-analytics', 'expectancy', 'insufficient', 'learning_config', 'multiplier', 'profit_factor', 'reason', 'sample_quality', 'trade_count', 'win_rate', 'window', 'would_reject']

@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/execution/tracker.py
-# hypothesis_version: 6.151.11
-
-[0.0, 10000, 'SELL', 'actual_price', 'agent_name', 'broker_id', 'expected_price', 'filled_at', 'opportunity_id', 'quantity', 'side', 'slippage_bps', 'symbol']

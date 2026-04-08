@@ -221,6 +221,16 @@ class AgentWeightProvider:
                 updated_at=datetime.now(timezone.utc),
             )
 
+    def _tier_weight_multiplier(self, elo: int) -> float:
+        """Competition tier affects vote weight."""
+        if elo >= 1400:
+            return 1.5   # Diamond
+        if elo >= 1200:
+            return 1.0   # Gold
+        if elo >= 1000:
+            return 0.8   # Silver
+        return 0.0        # Bronze = shadow mode (no weight)
+
     def compute_vote_weight(
         self,
         opportunity: Opportunity,
@@ -246,7 +256,8 @@ class AgentWeightProvider:
 
         if config.weight_source == WeightSource.ELO:
             # Normalize ELO to 0-1 range (ELO typically 800-2200)
-            return max(0.01, min(1.0, (profile.elo_rating - 800) / 1400))
+            base = max(0.01, min(1.0, (profile.elo_rating - 800) / 1400))
+            return base * self._tier_weight_multiplier(profile.elo_rating)
 
         if config.weight_source == WeightSource.COMPOSITE:
             # Blend confidence with historical performance
@@ -260,7 +271,7 @@ class AgentWeightProvider:
                 + config.sharpe_weight * sharpe_score
                 + config.elo_weight * elo_score
             )
-            return max(0.01, min(1.0, blended))
+            return max(0.01, min(1.0, blended)) * self._tier_weight_multiplier(profile.elo_rating)
 
         return 1.0
 

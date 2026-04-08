@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/api/routes/risk.py
-# hypothesis_version: 6.151.11
-
-[501, 503, '/analytics', '/kill-switch', '/risk', '/rules', '/status', '95', '99', 'Not implemented yet', 'current', 'current_equity', 'current_price', 'cvar', 'drawdown', 'get_positions', 'gross', 'kill_switch', 'kill_switch_reason', 'leverage', 'limit', 'limit_value', 'long', 'max', 'message', 'name', 'net', 'notional', 'peak_equity', 'positions', 'risk', 'rules', 'severity', 'short', 'symbol', 'timestamp', 'total', 'var', 'violations']

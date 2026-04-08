@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/strategies/rsi.py
-# hypothesis_version: 6.151.11
-
-[1.0, 100, '1', 'RSI_OVERBOUGHT', 'RSI_OVERSOLD', 'default', 'int', 'max', 'min', 'overbought', 'oversold', 'period', 'rsi', 'threshold', 'type']

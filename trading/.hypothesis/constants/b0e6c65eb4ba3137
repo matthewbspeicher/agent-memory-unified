@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/strategies/correlation_monitor.py
-# hypothesis_version: 6.151.11
-
-[-1.0, 0.0, 0.5, 0.8, 1.0, -1000, 1000, 'MULTI', 'agent_a', 'agent_b', 'agents', 'agreement_rate', 'alert_type', 'buy', 'correlation', 'high_correlation', 'matrix', 'min_samples', 'negative', 'positive', 'sample_count', 'sell', 'timestamp', 'window_minutes']

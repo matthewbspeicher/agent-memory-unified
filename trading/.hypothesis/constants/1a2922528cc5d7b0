@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/journal/models.py
-# hypothesis_version: 6.151.11
-
-[0.0, '0', 'meta_signals', 'open', 'pending', 'signal_type']

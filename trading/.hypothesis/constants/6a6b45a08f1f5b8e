@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/strategies/kalshi_calibration.py
-# hypothesis_version: 6.151.11
-
-[0.0, 0.25, 1.0, 10.0, 100, 200, '-activity', '0.01', '0.99', '10', 'Authorization', 'KALSHI', 'NO', 'YES', '_kalshi_source', '_settings', 'a', 'an', 'and', 'be', 'binary', 'by', 'community_prediction', 'forecast', 'forecast_type', 'gap_cents', 'id', 'in', 'is', 'kalshi_prob', 'kalshi_ticker', 'limit', 'match_similarity', 'max_markets', 'metaculus_id', 'metaculus_prob', 'metaculus_token', 'min_volume', 'of', 'open', 'or', 'order_by', 'results', 'search', 'status', 'the', 'threshold_cents', 'title', 'to', 'type', 'volume_24h', 'will']

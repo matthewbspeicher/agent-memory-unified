@@ -109,8 +109,9 @@ class TestAgentWeightProvider:
         config = ConsensusConfig(weight_source=WeightSource.ELO)
         opp = make_opp("agent_1", "AAPL", OrderSide.BUY)
         weight = provider.compute_vote_weight(opp, config)
-        # ELO 1500 → (1500 - 800) / 1400 = 0.5
-        assert weight == pytest.approx(0.5, abs=0.001)
+        # ELO 1500 → base = (1500 - 800) / 1400 = 0.5; Diamond tier (>=1400) multiplier = 1.5
+        # weight = 0.5 * 1.5 = 0.75
+        assert weight == pytest.approx(0.75, abs=0.001)
 
     def test_composite_weight(self):
         provider = AgentWeightProvider()
@@ -131,9 +132,10 @@ class TestAgentWeightProvider:
         )
         opp = make_opp("agent_1", "AAPL", OrderSide.BUY, confidence=0.8)
         weight = provider.compute_vote_weight(opp, config)
-        # confidence=0.8, sharpe_norm=(2+2)/6=0.667, elo_norm=(1800-800)/1400=0.714
-        # blended = 0.5*0.8 + 0.3*0.667 + 0.2*0.714 ≈ 0.725
-        assert weight == pytest.approx(0.725, abs=0.01)
+        # confidence=0.8, sharpe_norm=(2+2)/6=0.667, elo_norm=(1800-800)/1600=0.625 (composite uses /1600)
+        # blended = 0.5*0.8 + 0.3*0.667 + 0.2*0.625 ≈ 0.725; Diamond tier (>=1400) multiplier = 1.5
+        # weight = 0.725 * 1.5 = 1.0875
+        assert weight == pytest.approx(1.0875, abs=0.01)
 
     def test_unknown_agent_fallback(self):
         provider = AgentWeightProvider()

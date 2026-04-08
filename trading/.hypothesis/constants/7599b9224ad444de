@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/strategies/multi_timeframe_consensus.py
-# hypothesis_version: 6.151.11
-
-[0.0, 0.5, 0.7, 1.0, 1.5, 2.0, 3.0, '15m', '1d', '1h', '1mo', '3mo', '4h', '5d', '5m', '6mo', 'BEARISH', 'BULLISH', 'above', 'agreeing_count', 'agreeing_timeframes', 'avg_macd_histogram', 'avg_rsi', 'bearish', 'below', 'bullish', 'consensus_ratio', 'direction', 'ema_trend', 'interval', 'macd_histogram', 'min_consensus', 'min_timeframes_agree', 'neutral', 'period', 'rsi', 'rsi_overbought', 'rsi_oversold', 'signals', 'timeframe', 'timeframe_configs', 'timeframe_weights', 'total_timeframes', 'weight']

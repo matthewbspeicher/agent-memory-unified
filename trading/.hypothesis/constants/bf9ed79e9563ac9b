@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/strategies/spread_tracker.py
-# hypothesis_version: 6.151.11
-
-[0.0, 'EventBus', 'SpreadStore', 'arb.spread', 'condition_id', 'data', 'gap_cents', 'kalshi_cents', 'kalshi_ticker', 'observed_at', 'poly_cents', 'poly_ticker', 'polymarket.quote', 'topic', 'yes_cents']

@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/adapters/tradier/client.py
-# hypothesis_version: 6.151.11
-
-[1.0, 2.0, 4.0, 15.0, 400, 401, 404, 429, ',', '/v1/markets/clock', '/v1/markets/history', '/v1/markets/quotes', '/v1/user/profile', 'Accept', 'Authorization', 'Bad request', 'GET', 'POST', 'PUT', 'all', 'application/json', 'class', 'date', 'day', 'duration', 'end', 'equity', 'expiration', 'expirations', 'fault', 'faultstring', 'greeks', 'history', 'id', 'interval', 'null', 'option', 'option_symbol', 'order', 'orders', 'pending', 'position', 'positions', 'price', 'quantity', 'side', 'start', 'stop', 'symbol', 'symbols', 'true', 'type']

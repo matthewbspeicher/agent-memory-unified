@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/strategies/kalshi_news_arb.py
-# hypothesis_version: 6.151.11
-
-[8.0, 100, 86400, '0.01', '0.99', '10', 'KALSHI', 'NO', 'YES', '_anthropic_key', '_kalshi_source', '_settings', 'apiKey', 'articles', 'categories', 'category', 'close_time', 'days_to_close', 'economics', 'gap_cents', 'groq_api_key', 'item', 'llm_confidence', 'llm_prob', 'market_prob', 'markets finance', 'max_markets_per_scan', 'min_confidence', 'min_days_to_close', 'min_volume', 'newsapi_key', 'ollama_base_url', 'pageSize', 'q', 'rss_feeds', 'threshold_cents', 'title', 'volume_24h']

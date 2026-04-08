@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/strategies/momentum.py
-# hypothesis_version: 6.151.11
-
-[1.0, 1.5, '1', '1d', '3mo', 'MOMENTUM_BREAKOUT', 'close', 'cooldown_hours', 'lookback_days', 'prev_high', 'volume_ratio', 'volume_threshold']

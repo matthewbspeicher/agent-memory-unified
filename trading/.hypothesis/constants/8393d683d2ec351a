@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/backtesting/results.py
-# hypothesis_version: 6.151.11
-
-[0.0, 365.25, 100, 252, '0', '1', 'agent_metrics', 'avg_holding_bars', 'avg_losing_trade', 'avg_pnl', 'avg_trade_pnl', 'avg_winning_trade', 'best_trade', 'final_cash', 'final_equity', 'inf', 'largest_loss', 'largest_win', 'max_drawdown_pct', 'profit_factor', 'sharpe_ratio', 'sortino_ratio', 'symbols_traded', 'total_commission', 'total_pnl', 'total_return_pct', 'total_trades', 'win_rate', 'worst_trade']

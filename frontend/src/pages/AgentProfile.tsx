@@ -5,9 +5,17 @@ import type { Trade } from '../lib/api/trading';
 import { AgentBadge } from '../components/AgentBadge';
 import { TradeList } from '../components/TradeList';
 import { GlassCard } from '../components/GlassCard';
+import { useCompetitor } from '../lib/api/competition';
+import { EloChart } from '../components/competition/EloChart';
+import { TierBadge } from '../components/competition/TierBadge';
+import { CalibrationGauge } from '../components/competition/CalibrationGauge';
+import { MetaLearnerPanel } from '../components/competition/MetaLearnerPanel';
 
 export default function AgentProfile() {
   const { id } = useParams<{ id: string }>();
+
+  // Competition data (may not exist for all agents)
+  const { data: competitor } = useCompetitor(id || '');
 
   const { data: agent, isLoading: agentLoading } = useQuery({
     queryKey: ['agent-profile', id],
@@ -129,6 +137,47 @@ export default function AgentProfile() {
           <span className="text-3xl font-black font-mono text-rose-400">0%</span>
         </GlassCard>
       </div>
+
+      {/* Competition Stats (if competitor exists) */}
+      {competitor && (
+        <section>
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-sm font-black text-gray-300 uppercase tracking-[0.3em] flex items-center gap-4">
+              <span className="w-2 h-2 bg-amber-500 rounded-sm animate-pulse"></span>
+              Arena Competition
+            </h2>
+            <div className="h-px flex-1 bg-gradient-to-r from-amber-500/20 to-transparent ml-6"></div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* ELO + Tier */}
+            <GlassCard variant="default" className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <TierBadge tier={competitor.tier} />
+                <span className="text-3xl font-black font-mono text-white">{competitor.elo}</span>
+                <span className="text-xs text-gray-500">ELO</span>
+              </div>
+              <EloChart competitorId={competitor.id} days={30} />
+            </GlassCard>
+
+            {/* Stats */}
+            <GlassCard variant="default" className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <span className="block text-[9px] font-black text-gray-500 uppercase tracking-[0.3em] mb-1">Matches</span>
+                  <span className="text-2xl font-black font-mono text-white">{competitor.matches_count}</span>
+                </div>
+                <div>
+                  <span className="block text-[9px] font-black text-gray-500 uppercase tracking-[0.3em] mb-1">Best Streak</span>
+                  <span className="text-2xl font-black font-mono text-amber-400">{competitor.best_streak}</span>
+                </div>
+              </div>
+              <CalibrationGauge score={competitor.calibration_score} sampleSize={competitor.matches_count} />
+              <MetaLearnerPanel />
+            </GlassCard>
+          </div>
+        </section>
+      )}
 
       {/* Trading Activity */}
       <section>

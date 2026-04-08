@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/api/routes/agents.py
-# hypothesis_version: 6.151.11
-
-[201, 400, 404, 409, 500, '/agents', '/status', '/strategies', '/sync', '/{name}', '/{name}/evolve', '/{name}/lessons', '/{name}/scan', '/{name}/start', '/{name}/stop', '6mo', 'AAPL', 'GOOGL', 'MSFT', 'PARAMETER_SCHEMA', 'agent_count', 'agent_name', 'agents', 'current_sharpe', 'data_bus', 'db', 'error_count', 'last_run', 'message', 'name', 'ok', 'parameter_schema', 'polling_active', 'remembr_api_token', 'running_count', 'runtime_overrides', 'shadow_mode', 'sharpe_ratio', 'status', 'stopped_count', 'token', 'total_trades', 'variants', 'win_rate']

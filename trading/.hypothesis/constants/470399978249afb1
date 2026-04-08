@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/strategies/polymarket_time_decay.py
-# hypothesis_version: 6.151.11
-
-[0.9, 100.0, 86400.0, 100, 500, '+00:00', 'POLY', 'SELL_NO', 'SELL_YES', 'YES_TOO_HIGH', 'YES_TOO_LOW', 'Z', '_app_state', '_polymarket_source', 'days_to_close', 'max_days_to_close', 'max_markets_per_scan', 'max_price_cents', 'min_volume', 'polymarket', 'price', 'side']

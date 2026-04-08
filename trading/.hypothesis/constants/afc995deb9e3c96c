@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/regime/models.py
-# hypothesis_version: 6.151.11
-
-['FAVORABLE', 'UNFAVORABLE', 'UNKNOWN', 'adx', 'bars_analyzed', 'detected_at', 'economic_data', 'high_volatility', 'low_volatility', 'regime', 'sideways', 'sma_slope', 'spread_cents', 'symbol', 'trending_down', 'trending_up', 'unknown', 'volatility_pct', 'volume_24h']

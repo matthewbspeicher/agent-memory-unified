@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/strategies/mean_reversion.py
-# hypothesis_version: 6.151.11
-
-[1.0, 2.0, '1', 'bb_period', 'bb_std', 'lower_band', 'middle_band', 'price', 'rsi', 'rsi_period', 'rsi_threshold']

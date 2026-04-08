@@ -76,6 +76,17 @@ class LLMConfig(BaseModel):
     )
 
 
+class CompetitionConfig(BaseModel):
+    """Arena competition system configuration."""
+    enabled: bool = True
+    initial_elo: int = 1000
+    elo_decay_enabled: bool = True
+    funding_arb_enabled: bool = False
+    hmm_regime_enabled: bool = False
+    meta_learner_enabled: bool = False
+    lunarcrush_enabled: bool = False
+
+
 class Config(BaseModel):
     """Application configuration with strict Pydantic validation."""
 
@@ -85,9 +96,10 @@ class Config(BaseModel):
     bittensor: BittensorConfig = Field(default_factory=BittensorConfig)
     llm: LLMConfig = Field(default_factory=LLMConfig)
     intel: IntelligenceConfig = Field(default_factory=IntelligenceConfig)
+    competition: CompetitionConfig = Field(default_factory=CompetitionConfig)
 
     # Flat accessors for nested config — backward compat with code that does config.ib_host
-    _NESTED_PREFIXES = {"broker": "broker", "bittensor": "bittensor", "llm": "llm", "intel": "intel"}
+    _NESTED_PREFIXES = {"broker": "broker", "bittensor": "bittensor", "llm": "llm", "intel": "intel", "competition": "competition"}
     _BROKER_FIELDS = {"ib_host", "ib_port", "ib_client_id", "ib_readonly", "mode",
                       "primary_broker", "routing", "tradier_token", "tradier_account_id",
                       "tradier_sandbox", "tradier_streaming", "alpaca_api_key",
@@ -271,7 +283,7 @@ def load_config(env_file: str = ".env") -> Any:
             processed_data[k] = v
         if "_" in k:
             prefix, rest = k.split("_", 1)
-            if prefix in ["broker", "bittensor", "llm", "intel"]:
+            if prefix in ["broker", "bittensor", "llm", "intel", "competition"]:
                 if prefix not in processed_data or not isinstance(processed_data.get(prefix), dict):
                     processed_data.setdefault(prefix, {})
                 if isinstance(processed_data.get(prefix), dict):

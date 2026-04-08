@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/observability/heartbeat_watchdog.py
-# hypothesis_version: 6.151.11
-
-[120, '%Y-%m-%dT%H:%M:%S%z', '*', 'ObservabilityEmitter', 'agent_heartbeats', 'agent_name', 'critical', 'elapsed_seconds', 'last_seen']
