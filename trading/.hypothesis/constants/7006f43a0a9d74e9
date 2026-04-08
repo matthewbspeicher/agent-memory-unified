@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/api/routes/orders.py
-# hypothesis_version: 6.151.11
-
-[400, '/orders', '/{order_id}', 'limit', 'market', 'order_id', 'orders', 'status', 'stop', 'stop_limit', 'trailing_stop']

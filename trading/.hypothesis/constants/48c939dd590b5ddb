@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/adapters/ibkr/symbols.py
-# hypothesis_version: 6.151.11
-
-[0.0, '%Y%m', '%Y%m%d', '.', 'BOND', 'C', 'CASH', 'CME', 'FUT', 'IDEALPRO', 'OPT', 'P', 'SMART', 'STK']

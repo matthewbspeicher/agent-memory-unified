@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/storage/execution_costs.py
-# hypothesis_version: 6.151.11
-
-[500, ' AND agent_name = ?', ' AND broker_id = ?', ' AND order_type = ?', ' AND symbol = ?', ', ', '?', 'WHERE 1=1', 'agent_name', 'broker_id', 'created_at', 'order_id', 'order_type', 'symbol']

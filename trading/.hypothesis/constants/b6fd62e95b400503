@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/adapters/remembr/trading.py
-# hypothesis_version: 6.151.11
-
-[0.0, '+00:00', '/trading/alerts', '/trading/export', '/trading/portfolio', '/trading/positions', '/trading/replay', '/trading/risk', '/trading/signals', '/trading/stats', '/trading/trades', '/trading/trades/bulk', 'DELETE', 'Z', 'avg_entry_price', 'avg_pnl_percent', 'best_trade_pnl', 'condition', 'created_at', 'csv', 'current_streak', 'data', 'direction', 'errors', 'exit_offset_pct', 'exit_overrides', 'failed', 'false', 'format', 'id', 'index', 'json', 'limit', 'loss_count', 'memory_id', 'paper', 'parent_status', 'parent_trade_id', 'pnl', 'price', 'profit_factor', 'quantity', 'reason', 'records', 'ref', 'sharpe_ratio', 'status', 'strategy', 'succeeded', 'threshold', 'ticker', 'to_dict', 'total', 'total_pnl', 'total_trades', 'trade', 'trade-exit', 'trade_decision', 'trade_outcome', 'trades', 'true', 'type', 'win_count', 'win_rate', 'worst_trade_pnl']

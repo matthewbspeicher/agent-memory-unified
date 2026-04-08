@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/whatsapp/commands.py
-# hypothesis_version: 6.151.11
-
-['/', 'agents', 'approve', 'backtest', 'brief', 'buy', 'chart', 'help', 'import', 'journal', 'kill', 'markets', 'opportunities', 'optimize', 'paper', 'performance', 'pnl', 'portfolio', 'rank', 'regime', 'reject', 'sell', 'start', 'stop', 'tournament', 'trust', 'unkill', 'warroom']

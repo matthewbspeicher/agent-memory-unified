@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/strategies/polymarket_calibration.py
-# hypothesis_version: 6.151.11
-
-[0.7, 1.0, 5.0, 100.0, 100, 200, 'ARB', 'Authorization', 'POLY', '_app_state', '_polymarket_source', 'binary', 'community_prediction', 'economics', 'external_prob', 'forecast', 'forecast_type', 'limit', 'max_markets_per_scan', 'metaculus_token', 'min_match_similarity', 'open', 'poly_prob', 'polymarket', 'probability', 'question', 'results', 'science', 'search', 'status', 'tags', 'technology', 'threshold_cents', 'title', 'type']

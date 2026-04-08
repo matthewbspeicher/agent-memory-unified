@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/api/routes/ws.py
-# hypothesis_version: 6.151.11
-
-[5.0, 4001, '/public', '/ws', 'Auth timeout', 'Invalid API key', 'api_key', 'auth', 'isoformat', 'type', 'websockets']

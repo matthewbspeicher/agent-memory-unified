@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/adapters/tradier/market_data.py
-# hypothesis_version: 6.151.11
-
-[100, 180, 365, '%Y-%m-%d', '15Min', '15min', '1D', '1Min', '1d', '1min', '1mo', '1y', '3mo', '5Min', '5d', '5min', '6mo', 'ask', 'bid', 'call', 'close', 'daily', 'date', 'expiration_date', 'high', 'last', 'low', 'open', 'option', 'option_type', 'options', 'quote', 'quotes', 'strike', 'symbol', 'volume']

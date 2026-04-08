@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/execution/analyzer.py
-# hypothesis_version: 6.151.11
-
-[0.0, 50.0, 'agent_name', 'avg_slippage_bps', 'edge_eroding', 'fill_count', 'max_slippage_bps', 'min_slippage_bps']

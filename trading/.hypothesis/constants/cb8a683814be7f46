@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/learning/correlation_monitor.py
-# hypothesis_version: 6.151.11
-
-[0.3, 0.5, 0.7, 0.75, 1.0, 'CorrelationConfig', 'CorrelationStore', 'PerformanceStore', 'alert_cooldown_hours', 'critical', 'enabled', 'lookback_days', 'min_trades_for_agent', 'normal', 'warning']

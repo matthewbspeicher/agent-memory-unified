@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/journal/autopsy.py
-# hypothesis_version: 6.151.11
-
-[0.0, 100, 200, 3600, '0', 'N/A', 'None yet', 'Not available', 'OpportunityStore', 'agent_name', 'aiosqlite.Connection', 'buy', 'category', 'closed', 'entry_fees', 'entry_price', 'entry_quantity', 'entry_time', 'exit_fees', 'exit_price', 'exit_time', 'id', 'lesson', 'opportunity_id', 'quote', 'side', 'status', 'symbol', 'unknown']

@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/learning/forecast.py
-# hypothesis_version: 6.151.11
-
-[-0.005, 0.0, 1e-08, 0.001, 0.005, 0.2, 0.33, 'Model loaded from %s', 'Model saved to %s', 'avg_loss', 'cpu', 'cuda', 'cvd', 'down', 'epochs', 'funding', 'neutral', 'samples', 'signal', 'status', 'trained', 'up']

@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/backtesting/vectorbt_engine.py
-# hypothesis_version: 6.151.11
-
-[0.001, 10000, '1D', 'max_drawdown', 'sharpe_ratio', 'total_return', 'trade_count', 'win_rate']

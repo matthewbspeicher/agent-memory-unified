@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/journal/manager.py
-# hypothesis_version: 6.151.11
-
-[5.0, 200, '+00:00', 'EventBus | None', 'Z', 'closed', 'content', 'decision', 'exit_execution', 'exit_reason', 'id', 'journal.entry_added', 'json', 'limit', 'memory_id', 'metadata', 'open', 'private', 'q', 'realized_pnl', 'score', 'status', 'tags', 'timestamp', 'trade_id', 'trade_journal', 'value']

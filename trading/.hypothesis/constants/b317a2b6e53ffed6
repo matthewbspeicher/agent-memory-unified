@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/api/routes/bittensor.py
-# hypothesis_version: 6.151.11
-
-[0.0, 100, '5m', 'BTCUSD', '_running', 'agent', 'alpha_used', 'bittensor_btc_5m', 'bittensor_scheduler', 'bittensor_store', 'bridge', 'cnt', 'consecutive_failures', 'consensus_aggregator', 'db', 'direct_query_enabled', 'direction_accuracy', 'enabled', 'healthy', 'hotkey', 'hybrid_score', 'internal_score', 'is_low_confidence', 'last_opportunity', 'last_success_at', 'latest', 'mean_magnitude_error', 'metrics', 'miner_hotkey', 'miners', 'name', 'next_window', 'ranking_config', 'rankings', 'response_rate', 'running', 'scheduler', 'signals', 'symbol', 'taoshi_bridge', 'timeframe', 'top_miners', 'total_in_metagraph', 'updated_at', 'views', 'windows_collected', 'windows_evaluated', 'windows_failed']

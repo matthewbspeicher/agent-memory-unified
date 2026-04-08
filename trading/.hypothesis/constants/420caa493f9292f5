@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/leaderboard/remembr_sync.py
-# hypothesis_version: 6.151.11
-
-[0.0, 200, 201, 409, 1000, '/', 'Accept', 'Authorization', 'agent', 'agent_1_id', 'agent_2_id', 'agent_id', 'agent_name', 'agent_token', 'application/json', 'completed', 'data', 'description', 'global_elo', 'id', 'loss_count', 'member', 'name', 'remembr_agent_id', 'remembr_token', 'role', 'status', 'streak', 'token', 'win_count', 'winner_id']

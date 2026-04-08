@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/data/redis_bridge.py
-# hypothesis_version: 6.151.11
-
-['_origin_node', '_remote_node', 'agent_signal', 'data', 'message', 'opportunity', 'origin_node', 'sta_distributed_bus', 'topic', 'type']

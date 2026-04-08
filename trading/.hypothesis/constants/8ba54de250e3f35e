@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/storage/performance.py
-# hypothesis_version: 6.151.11
-
-[0.0, 100, '0', 'agent_name', 'avg_loss', 'avg_win', 'daily_pnl', 'daily_pnl_pct', 'id', 'max_drawdown', 'open_positions', 'profit_factor', 'sharpe_ratio', 'timestamp', 'total_pnl', 'total_trades', 'win_rate']

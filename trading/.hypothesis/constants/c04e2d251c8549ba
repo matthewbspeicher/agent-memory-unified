@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/regime/detector.py
-# hypothesis_version: 6.151.11
-
-[-0.005, 0.0, 0.005, 0.1, 0.3, 5.0, 10.0, 25.0, 40.0, 100, 252, 300, 1000, '0x', 'FEDERAL_FUNDS_RATE', 'REAL_GDP', 'apikey', 'ask', 'bid', 'data', 'date', 'fed_rate', 'function', 'gdp', 'interval', 'kalshi', 'monthly', 'quarterly', 'ticker', 'value', 'volume', 'volume_24h']

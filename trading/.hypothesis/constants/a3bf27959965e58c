@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/competition/matcher.py
-# hypothesis_version: 6.151.11
-
-[0.0, 0.3, 0.5, 0.7, 0.8, 0.9, 1.0, 1000, 'agent', 'high', 'id', 'long', 'low', 'medium', 'miner', 'provider', 'short']

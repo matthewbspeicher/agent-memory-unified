@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/data/exchange_client.py
-# hypothesis_version: 6.151.11
-
-[0.0, '/USDT', '/USDT:USDT', 'USD', 'binance', 'enableRateLimit', 'fundingRate']

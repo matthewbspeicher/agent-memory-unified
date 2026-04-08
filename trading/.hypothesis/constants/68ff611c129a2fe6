@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/competition/registry.py
-# hypothesis_version: 6.151.11
-
-['BTC', 'ETH', 'Registered %d miners', 'agents', 'hotkey', 'name', 'schedule', 'strategy']

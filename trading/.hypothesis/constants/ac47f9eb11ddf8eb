@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/intelligence/providers/sentiment.py
-# hypothesis_version: 6.151.11
-
-[0.3, 0.7, 1.0, 50.0, 100.0, 'data', 'fear_greed_value', 'sentiment', 'value']

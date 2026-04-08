@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/agents/meta.py
-# hypothesis_version: 6.151.11
-
-[0.0, 0.05, 0.1, 0.15, 0.3, 0.5, 0.7, 0.95, 1.0, 2.0, '-', '/', 'active_signals', 'bearish', 'bittensor_consensus', 'boost_delta', 'boost_ttl_minutes', 'boosted_agents', 'bullish', 'confidence', 'confidence_threshold', 'direction', 'max_cumulative_boost', 'signal_tickers', 'symbol', 'ticker']

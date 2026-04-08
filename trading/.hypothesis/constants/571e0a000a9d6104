@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/integrations/bittensor/subnet_querier.py
-# hypothesis_version: 6.151.11
-
-[0.0, 0.5, 12.0, 'bitquant', 'crypto_analysis', 'finney', 'hotkey', 'last_update', 'neuron', 'ptn', 'sp500', 'unknown']

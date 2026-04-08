@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/shared/auth/validate.py
-# hypothesis_version: 6.151.11
-
-[300, '*', 'CHANGE_ME', 'HS256', 'Token expired', 'agent', 'amc_', 'id', 'is_active', 'scopes', 'sub', 'type']

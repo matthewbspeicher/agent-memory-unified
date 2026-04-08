@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/learning/optimizer.py
-# hypothesis_version: 6.151.11
-
-[0.001, 'agent_name', 'data_end', 'data_start', 'id', 'max', 'max_drawdown', 'min', 'parameters', 'profit_factor', 'run_date', 'sharpe_ratio', 'step', 'total_pnl', 'total_trades', 'win_rate']

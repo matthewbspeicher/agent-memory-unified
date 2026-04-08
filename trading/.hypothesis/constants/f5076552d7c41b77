@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/notifications/slack.py
-# hypothesis_version: 6.151.11
-
-['Approve', 'Reject', 'action_id', 'actions', 'approve', 'approve_opp', 'blocks', 'button', 'danger', 'elements', 'fields', 'header', 'mrkdwn', 'plain_text', 'primary', 'reject', 'reject_opp', 'section', 'style', 'text', 'type', 'url']

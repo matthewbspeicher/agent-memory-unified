@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/backtesting/models.py
-# hypothesis_version: 6.151.11
-
-[0.0, 0.05, 100, '0', '100000', '1d', '50', 'agent_metrics', 'agent_name', 'avg_holding_bars', 'avg_losing_trade', 'avg_trade_pnl', 'avg_winning_trade', 'commission', 'completed', 'completed_at', 'entry_price', 'entry_time', 'error', 'exit_price', 'exit_time', 'failed', 'fidelity', 'final_cash', 'final_equity', 'flat_per_contract', 'flat_per_share', 'holding_bars', 'ibkr', 'id', 'largest_loss', 'largest_win', 'max_drawdown_pct', 'name', 'pending', 'percent_of_notional', 'pnl', 'pnl_pct', 'profit_factor', 'quantity', 'reasoning', 'running', 'sharpe_ratio', 'side', 'signal', 'sortino_ratio', 'started_at', 'status', 'symbol', 'total_commission', 'total_return_pct', 'total_trades', 'trade_count', 'win_rate', 'zero']

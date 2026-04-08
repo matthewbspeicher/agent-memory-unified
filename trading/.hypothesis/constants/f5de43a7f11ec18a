@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/api/routes/journal.py
-# hypothesis_version: 6.151.11
-
-[202, 400, 404, 409, 501, 502, 503, '/journal', '/journal/search', 'Aegis Journal', 'Authorization', 'Rebuild started', '_rebuild_task', 'agent', 'autopsy', 'content', 'detail', 'entries', 'entry', 'entry_price', 'exit_price', 'id', 'journal_indexer', 'journal_manager', 'journal_service', 'memory_mb', 'metadata', 'pnl', 'ready', 'source', 'status', 'success', 'ticker', 'trade', 'trades', 'type']

@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/backtesting/consensus_sim.py
-# hypothesis_version: 6.151.11
-
-[0.0, 0.001, 0.005, 0.65, 100, 10000, '0', '1', '1d', '3mo', 'BUY', 'SELL', ']', 'avg_consensus_weight', 'avg_cost', 'backtest', 'config_snapshot', 'consensus_metrics', 'consensus_rate', 'consensus_trades', 'equal', 'filtered_trades', 'min_agents', 'per_contract', 'per_share', 'percent', 'quantity', 'regime_breakdown', 'regime_thresholds', 'symbol', 'threshold', 'total_agents', 'total_opportunities', 'unanimous_regimes', 'unknown', 'weight_source', 'weight_threshold', 'window_minutes', '|']

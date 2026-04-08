@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/notifications/whatsapp.py
-# hypothesis_version: 6.151.11
-
-['executed', 'opportunity_alert', 'opportunity_approval']

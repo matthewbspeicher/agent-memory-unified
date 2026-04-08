@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/integrations/bittensor/scheduler.py
-# hypothesis_version: 6.151.11
-
-[-0.3, 0.0, 0.3, 1.0, 5.0, -100, 100, 1800, '%Y%m%d-%H%M', '0.0.0.0', ':', 'BTCUSD-5m', '_signal_bus', 'all', 'bearish', 'bullish', 'error', 'flat', 'hash_verified', 'incentive', 'ip', 'miner_count', 'port', 'responder_count', 'symbol', 'timeframe', 'timestamp', 'top_n', 'v1', 'verified_count', 'window_id']

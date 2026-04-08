@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/storage/pnl.py
-# hypothesis_version: 6.151.11
-
-[100, ' AND agent_name = ?', ' AND exit_time >= ?', ' AND symbol = ?', 'fetchone', 'id', 'symbol', 'total_quantity']

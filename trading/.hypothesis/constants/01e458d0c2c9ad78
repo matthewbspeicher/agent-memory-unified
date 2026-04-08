@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/observability/emitter.py
-# hypothesis_version: 6.151.11
-
-[0.0, 'AlertRouter', 'PerformanceSnapshot', 'action', 'agent_crashed', 'agent_heartbeats', 'agent_idle', 'agent_name', 'agent_run_complete', 'agent_signal', 'agent_signals', 'broker_disconnected', 'commission', 'critical', 'cycle_count', 'data', 'drawdown_breach', 'event_type', 'expected_price', 'expires_at', 'fill_price', 'fill_rate_degrading', 'info', 'last_seen', 'level', 'max_drawdown', 'message', 'metadata', 'metric_snapshots', 'opportunity_found', 'order_rejected', 'payload', 'sharpe', 'signal_type', 'slippage_bps', 'slippage_elevated', 'snapshot_at', 'source_agent', 'status', 'symbol', 'system_events', 'target_agent', 'timestamp', 'topic', 'trade_count', 'trade_events', 'trade_executed', 'warning', 'win_rate']

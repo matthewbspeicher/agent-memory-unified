@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/storage/arbitrage.py
-# hypothesis_version: 6.151.11
-
-['broker_id', 'created_at', 'error_message', 'expected_profit_bps', 'external_order_id', 'fill_price', 'fill_quantity', 'id', 'leg_a', 'leg_b', 'leg_name', 'order_data', 'sequencing', 'state', 'status', 'symbol_a', 'symbol_b', 'updated_at']

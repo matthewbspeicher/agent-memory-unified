@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/adapters/alpaca/order_manager.py
-# hypothesis_version: 6.151.11
-
-[0.0, 1.0, 10.0, 30.0, '0', 'bracket', 'buy', 'canceled', 'cancelled', 'day', 'expired', 'filled', 'filled_avg_price', 'filled_qty', 'gtc', 'id', 'limit', 'limit_price', 'market', 'order_class', 'rejected', 'sell', 'status', 'stop', 'stop_limit', 'stop_loss', 'stop_price', 'take_profit', 'trail_percent', 'trail_price', 'trailing_stop']

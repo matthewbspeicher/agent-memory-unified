@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/whatsapp/charts.py
-# hypothesis_version: 6.151.11
-
-[0.1, 0.2, 0.3, 0.5, 0.8, 100, '#0f3460', '#16213e', '#1a1a2e', '#333', '#666', '#aaa', '#e94560', '#eee', '%1.1f%%', '%m/%d', 'Agg', 'Close', 'No positions', 'Portfolio Allocation', 'Price ($)', 'Volume', 'axes.edgecolor', 'axes.facecolor', 'axes.labelcolor', 'bold', 'center', 'figure.facecolor', 'fontsize', 'grid.alpha', 'grid.color', 'png', 'text.color', 'tight', 'upper left', 'xtick.color', 'y', 'ytick.color']

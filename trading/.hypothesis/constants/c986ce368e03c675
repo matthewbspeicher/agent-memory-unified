@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/adapters/alpaca/_status.py
-# hypothesis_version: 6.151.11
-
-['accepted', 'canceled', 'cancelled', 'expired', 'filled', 'new', 'partially_filled', 'pending_cancel', 'pending_new', 'rejected']

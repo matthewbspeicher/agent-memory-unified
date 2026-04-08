@@ -1,4 +1,0 @@
-# file: /opt/agent-memory-unified/trading/strategies/funding_rate_arb.py
-# hypothesis_version: 6.151.11
-
-[0.0, 0.01, 0.05, 0.2, 0.25, 0.5, 1.0, 365, '/USD', 'BTCUSD', 'BUY', 'ETHUSD', 'SELL', 'USD', 'annualized_rate', 'binance', 'ccxt_symbol', 'default', 'exchange', 'exit_rate', 'float', 'funding_rate', 'funding_rate_arb', 'list', 'max', 'min', 'min_annualized_rate', 'str', 'strategy', 'symbols', 'type']
