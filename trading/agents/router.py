@@ -397,6 +397,29 @@ class OpportunityRouter:
                         "Signal annotation failed for %s: %s", opportunity.id, _sig_exc
                     )
 
+            # --- Index-Guided Strategy Retrieval ---
+            if self._trade_reflector:
+                try:
+                    regime_ctx = opportunity.data.get("regime")
+                    regime_name = regime_ctx.name if regime_ctx else "unknown"
+                    trend = regime_ctx.trend.value if regime_ctx and hasattr(regime_ctx, "trend") else "unknown"
+                    
+                    context_summary = (
+                        f"Symbol: {opportunity.symbol.ticker}\n"
+                        f"Signal Direction: {opportunity.signal}\n"
+                        f"Market Regime: {regime_name}, Trend: {trend}"
+                    )
+                    
+                    strategies = await self._trade_reflector.query_strategies(context_summary)
+                    if strategies:
+                        opportunity.data["strategies"] = [
+                            s.get("value", "") for s in strategies
+                        ]
+                except Exception as _strat_exc:
+                    logger.warning(
+                        "Strategy retrieval failed for %s: %s", opportunity.id, _strat_exc
+                    )
+
             # --- Deja Vu (Memory) annotation ---
             if self._trade_reflector:
                 try:

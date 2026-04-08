@@ -200,3 +200,48 @@ class TradeReflector:
         except Exception as e:
             logger.warning("Memory query failed for %s: %s", agent_name, e)
             return []
+
+    async def query_strategies(self, context_summary: str, max_strategies: int = 2) -> list[dict]:
+        """Use LLM to select strategies from the index, then retrieve their full contents."""
+        try:
+            # 1. Get compressed index
+            index = await self._client.get_index()
+            if not index:
+                return []
+
+            # Format index for the prompt
+            index_text = "\n".join(
+                f"- ID: {item.get('id')}\n  Tags: {item.get('tags')}\n  Summary: {item.get('summary')}"
+                for item in index
+            )
+
+            # 2. Ask LLM to select best strategy IDs
+            prompt = (
+                f"You are a trading strategy selector. Below is the current market context:\n"
+                f"{context_summary}\n\n"
+                f"Below is a catalog of available trading strategies:\n"
+                f"{index_text}\n\n"
+                f"Select up to {max_strategies} strategy IDs that are most relevant to the current market context. "
+                "Return ONLY a comma-separated list of the raw IDs, with no other text, formatting, or explanation. "
+                "If none are relevant, return the exact word: NONE."
+            )
+            
+            result = await self._llm.complete(prompt, max_tokens=100)
+            response_text = (result.text or "").strip()
+            
+            if not response_text or response_text.upper() == "NONE":
+                return []
+                
+            # Parse CSV IDs, ignoring empty strings
+            selected_ids = [s.strip() for s in response_text.split(",") if s.strip()]
+            
+            # 3. Retrieve full strategies
+            if not selected_ids:
+                return []
+                
+            full_strategies = await self._client.search_by_keys(selected_ids)
+            return full_strategies
+            
+        except Exception as e:
+            logger.warning("Strategy index query failed: %s", e)
+            return []
