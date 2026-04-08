@@ -86,6 +86,31 @@ class Config(BaseModel):
     llm: LLMConfig = Field(default_factory=LLMConfig)
     intel: IntelligenceConfig = Field(default_factory=IntelligenceConfig)
 
+    # Flat accessors for nested config — backward compat with code that does config.ib_host
+    _NESTED_PREFIXES = {"broker": "broker", "bittensor": "bittensor", "llm": "llm", "intel": "intel"}
+    _BROKER_FIELDS = {"ib_host", "ib_port", "ib_client_id", "ib_readonly", "mode",
+                      "primary_broker", "routing", "tradier_token", "tradier_account_id",
+                      "tradier_sandbox", "tradier_streaming", "alpaca_api_key",
+                      "alpaca_secret_key", "alpaca_paper", "alpaca_data_feed", "alpaca_streaming"}
+
+    def __getattr__(self, name: str):
+        # Pydantic's __getattr__ handles extra fields. If it raises, try nested delegation.
+        try:
+            return super().__getattr__(name)
+        except AttributeError:
+            pass
+        # Try broker fields first (most common flat access pattern)
+        if name in self._BROKER_FIELDS:
+            return getattr(object.__getattribute__(self, "broker"), name)
+        # Try nested configs by prefix (e.g. bittensor_enabled -> bittensor.enabled)
+        for prefix, attr in self._NESTED_PREFIXES.items():
+            if name.startswith(prefix + "_"):
+                suffix = name[len(prefix) + 1:]
+                nested = object.__getattribute__(self, attr)
+                if hasattr(nested, suffix):
+                    return getattr(nested, suffix)
+        raise AttributeError(f"'Config' object has no attribute {name!r}")
+
     # Missing flat fields for compatibility
     anthropic_api_key: str | None = None
     groq_api_key: str | None = None
@@ -101,6 +126,7 @@ class Config(BaseModel):
     remembr_api_key: str | None = None
     remembr_shared_api_key: str | None = None
     paper_trading: bool | None = None
+    paper_trading_initial_balance: float = 100000.0
     massive_key: str | None = None
     news_feeds: list[str] | None = None
     news_poll_interval: int | None = None
