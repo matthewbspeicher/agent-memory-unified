@@ -95,12 +95,13 @@ class CompetitionStore:
 
     async def ensure_elo_rating(self, competitor_id: str, asset: str) -> None:
         """Create an ELO rating row if it does not exist."""
+        elo_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{competitor_id}:{asset}"))
         sql = """
-            INSERT INTO elo_ratings (competitor_id, asset)
-            VALUES (?, ?)
+            INSERT INTO elo_ratings (id, competitor_id, asset)
+            VALUES (?, ?, ?)
             ON CONFLICT (competitor_id, asset) DO NOTHING
         """
-        await self._db.execute(sql, [competitor_id, asset])
+        await self._db.execute(sql, [elo_id, competitor_id, asset])
 
     async def get_elo(self, competitor_id: str, asset: str) -> int:
         """Return the current ELO for a competitor+asset (default 1000)."""
@@ -125,12 +126,18 @@ class CompetitionStore:
         """
         await self._db.execute(update_sql, [new_elo, tier.value, competitor_id, asset])
 
+        elo_hist_id = str(
+            uuid.uuid5(
+                uuid.NAMESPACE_DNS, f"{competitor_id}:{asset}:{new_elo}:{elo_delta}"
+            )
+        )
         history_sql = """
-            INSERT INTO elo_history (competitor_id, asset, elo, tier, elo_delta)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO elo_history (id, competitor_id, asset, elo, tier, elo_delta)
+            VALUES (?, ?, ?, ?, ?, ?)
         """
         await self._db.execute(
-            history_sql, [competitor_id, asset, new_elo, tier.value, elo_delta]
+            history_sql,
+            [elo_hist_id, competitor_id, asset, new_elo, tier.value, elo_delta],
         )
 
     async def get_elo_history(
@@ -280,7 +287,7 @@ class CompetitionStore:
             INSERT INTO matches (
                 competitor_a_id, competitor_b_id, asset, time_window,
                 winner_id, score_a, score_b, elo_delta_a, elo_delta_b, match_type
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?0)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         await self._db.execute(
             sql,
