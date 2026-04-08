@@ -990,7 +990,7 @@ async def lifespan(app: FastAPI):
 
         from data.sources.yahoo import YahooFinanceSource
         from data.sources.broker_source import BrokerSource
-        from data.interfaces import DataSource
+        from data.sources.base import DataSource
 
         yahoo = YahooFinanceSource()
         broker_source = (
