@@ -1,7 +1,8 @@
 // frontend/src/pages/Arena.tsx
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useLeaderboard, type CompetitorType } from '../lib/api/competition';
+import { useQuery } from '@tanstack/react-query';
+import { competitionApi, type CompetitorType } from '../lib/api/competition';
 import { LeaderboardTable } from '../components/competition/LeaderboardTable';
 import { CompetitionErrorBoundary } from '../components/competition/CompetitionErrorBoundary';
 
@@ -25,7 +26,11 @@ export default function Arena() {
     return () => document.removeEventListener('visibilitychange', handler);
   }, []);
 
-  const { data, isLoading } = useLeaderboard(asset, typeFilter);
+  const { data, isLoading } = useQuery({
+    queryKey: ['competition', 'leaderboard', asset, typeFilter],
+    queryFn: () => competitionApi.getLeaderboard({ asset, type: typeFilter }),
+    refetchInterval: isTabActive ? 30_000 : 120_000,
+  });
 
   return (
     <CompetitionErrorBoundary>

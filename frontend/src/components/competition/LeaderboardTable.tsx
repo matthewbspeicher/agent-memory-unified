@@ -1,6 +1,6 @@
 // frontend/src/components/competition/LeaderboardTable.tsx
 import { useState, useEffect } from 'react';
-import type { Competitor, CompetitorType } from '../../lib/api/competition';
+import type { Competitor } from '../../lib/api/competition';
 import { TierBadge } from './TierBadge';
 import { StreakIndicator } from './StreakIndicator';
 import { CompetitorCard } from './CompetitorCard';
@@ -90,6 +90,17 @@ export function LeaderboardTable({ competitors, isLoading, onRowClick }: Leaderb
           </tr>
         ))}
       </tbody>
+      <tfoot>
+        <tr className="border-t-2 border-gray-600 bg-gray-900/50">
+          <td className="py-2 px-2 text-gray-600">—</td>
+          <td className="py-2 px-2"><span className="text-gray-600 text-xs">BASE</span></td>
+          <td className="py-2 px-2 text-gray-500 italic">Hodler (baseline)</td>
+          <td className="py-2 px-2 text-gray-600 text-xs">baseline</td>
+          <td className="py-2 px-2 text-right font-mono text-gray-500">1000</td>
+          <td className="py-2 px-2 text-right text-gray-600">—</td>
+          <td className="py-2 px-2 text-right text-gray-600">—</td>
+        </tr>
+      </tfoot>
     </table>
   );
 }
