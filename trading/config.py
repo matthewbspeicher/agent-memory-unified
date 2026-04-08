@@ -78,6 +78,7 @@ class LLMConfig(BaseModel):
 
 class CompetitionConfig(BaseModel):
     """Arena competition system configuration."""
+
     enabled: bool = True
     initial_elo: int = 1000
     elo_decay_enabled: bool = True
@@ -99,11 +100,31 @@ class Config(BaseModel):
     competition: CompetitionConfig = Field(default_factory=CompetitionConfig)
 
     # Flat accessors for nested config — backward compat with code that does config.ib_host
-    _NESTED_PREFIXES = {"broker": "broker", "bittensor": "bittensor", "llm": "llm", "intel": "intel", "competition": "competition"}
-    _BROKER_FIELDS = {"ib_host", "ib_port", "ib_client_id", "ib_readonly", "mode",
-                      "primary_broker", "routing", "tradier_token", "tradier_account_id",
-                      "tradier_sandbox", "tradier_streaming", "alpaca_api_key",
-                      "alpaca_secret_key", "alpaca_paper", "alpaca_data_feed", "alpaca_streaming"}
+    _NESTED_PREFIXES = {
+        "broker": "broker",
+        "bittensor": "bittensor",
+        "llm": "llm",
+        "intel": "intel",
+        "competition": "competition",
+    }
+    _BROKER_FIELDS = {
+        "ib_host",
+        "ib_port",
+        "ib_client_id",
+        "ib_readonly",
+        "mode",
+        "primary_broker",
+        "routing",
+        "tradier_token",
+        "tradier_account_id",
+        "tradier_sandbox",
+        "tradier_streaming",
+        "alpaca_api_key",
+        "alpaca_secret_key",
+        "alpaca_paper",
+        "alpaca_data_feed",
+        "alpaca_streaming",
+    }
 
     def __getattr__(self, name: str):
         # Pydantic's __getattr__ handles extra fields. If it raises, try nested delegation.
@@ -117,7 +138,7 @@ class Config(BaseModel):
         # Try nested configs by prefix (e.g. bittensor_enabled -> bittensor.enabled)
         for prefix, attr in self._NESTED_PREFIXES.items():
             if name.startswith(prefix + "_"):
-                suffix = name[len(prefix) + 1:]
+                suffix = name[len(prefix) + 1 :]
                 nested = object.__getattribute__(self, attr)
                 if hasattr(nested, suffix):
                     return getattr(nested, suffix)
@@ -237,23 +258,30 @@ def load_config(env_file: str = ".env") -> Any:
     Uses Pydantic for validation and type conversion.
     """
     from dotenv import load_dotenv
+
     load_dotenv(env_file)
 
     # Load from environment variables
     # Pydantic doesn't automatically load from env unless we use BaseSettings,
     # but we'll manually map common ones or use model_validate()
-    
+
     # Minimal implementation for Task 1:
     config_dict: dict[str, Any] = {}
-    
+
     # Mapping logic... (simplified for brevity, usually we'd use BaseSettings)
     # Since we are in a task context, let's just use model_validate with env overrides
-    
+
     env_data = {}
     for key, value in os.environ.items():
         if key.startswith("STA_"):
             field_name = key[4:].lower()
             env_data[field_name] = value
+
+    # Also accept standard env vars for Railway/cloud compatibility
+    if "DATABASE_URL" in os.environ and "database_url" not in env_data:
+        env_data["database_url"] = os.environ["DATABASE_URL"]
+    if "REDIS_URL" in os.environ and "redis_url" not in env_data:
+        env_data["redis_url"] = os.environ["REDIS_URL"]
 
     # Fields that should remain flat (not split into nested config)
     _flat_fields = set(Config.model_fields.keys())
@@ -284,7 +312,9 @@ def load_config(env_file: str = ".env") -> Any:
         if "_" in k:
             prefix, rest = k.split("_", 1)
             if prefix in ["broker", "bittensor", "llm", "intel", "competition"]:
-                if prefix not in processed_data or not isinstance(processed_data.get(prefix), dict):
+                if prefix not in processed_data or not isinstance(
+                    processed_data.get(prefix), dict
+                ):
                     processed_data.setdefault(prefix, {})
                 if isinstance(processed_data.get(prefix), dict):
                     processed_data[prefix][rest] = v
@@ -306,7 +336,9 @@ def load_config(env_file: str = ".env") -> Any:
             try:
                 llm_nested["fallback_chain"] = json.loads(val)
             except (json.JSONDecodeError, ValueError):
-                llm_nested["fallback_chain"] = [s.strip() for s in val.split(",") if s.strip()]
+                llm_nested["fallback_chain"] = [
+                    s.strip() for s in val.split(",") if s.strip()
+                ]
 
     # Special handling for Railway PORT and standard HOST env vars
     if "PORT" in os.environ:
