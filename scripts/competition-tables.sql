@@ -43,7 +43,7 @@ CREATE TABLE IF NOT EXISTS matches (
     competitor_a_id UUID NOT NULL REFERENCES competitors(id) ON DELETE CASCADE,
     competitor_b_id UUID REFERENCES competitors(id) ON DELETE CASCADE,
     asset VARCHAR(10) NOT NULL,
-    window VARCHAR(10) NOT NULL,
+    time_window VARCHAR(10) NOT NULL,
     winner_id UUID,
     score_a DECIMAL(10, 6),
     score_b DECIMAL(10, 6),

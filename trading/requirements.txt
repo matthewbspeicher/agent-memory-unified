@@ -56,6 +56,11 @@ gymnasium>=0.29.0
 stable-baselines3>=2.1.0
 shimmy>=1.1.0
 
+# competition system
+sse-starlette>=2.0.0
+xgboost>=2.0.0
+hmmlearn>=0.3.0
+
 # testing
 pytest>=8.0.0
 pytest-asyncio>=0.24.0

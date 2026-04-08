@@ -41,4 +41,4 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # Start command via entrypoint
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
-CMD ["python3", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD python3 -m uvicorn main:app --host 0.0.0.0 --port $PORT

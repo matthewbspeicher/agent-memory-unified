@@ -995,6 +995,27 @@ async def lifespan(app: FastAPI):
         from competition.store import CompetitionStore
         from competition.registry import CompetitorRegistry
 
+        # Auto-migrate competition tables
+        try:
+            migration_sql = (
+                Path(__file__).parent.parent.parent.parent
+                / "scripts"
+                / "competition-tables.sql"
+            )
+            if migration_sql.exists():
+                sql = migration_sql.read_text()
+                # Split and execute each statement
+                for statement in sql.split(";"):
+                    statement = statement.strip()
+                    if statement and not statement.startswith("--"):
+                        try:
+                            await db.execute(statement)
+                        except Exception:
+                            pass  # Table may already exist
+                _log.info("Competition tables migrated")
+        except Exception as e:
+            _log.warning(f"Competition migration skipped: {e}")
+
         competition_store = CompetitionStore(db)
         app.state.competition_store = competition_store
 

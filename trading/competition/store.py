@@ -270,7 +270,7 @@ class CompetitionStore:
         """Record a match result in the matches table."""
         sql = """
             INSERT INTO matches (
-                competitor_a_id, competitor_b_id, asset, window,
+                competitor_a_id, competitor_b_id, asset, time_window,
                 winner_id, score_a, score_b, elo_delta_a, elo_delta_b, match_type
             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         """
