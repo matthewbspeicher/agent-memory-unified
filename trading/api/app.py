@@ -996,34 +996,95 @@ async def lifespan(app: FastAPI):
         from competition.store import CompetitionStore
         from competition.registry import CompetitorRegistry
 
-        # Auto-migrate competition tables
+        # Auto-migrate competition tables (SQLite + PostgreSQL compatible)
         try:
-            migration_sql = (
-                Path(__file__).parent.parent.parent.parent
-                / "scripts"
-                / "competition-tables.sql"
-            )
-            if migration_sql.exists():
-                sql = migration_sql.read_text()
-                _log.info(f"Running competition migration from {migration_sql}")
-                # Split and execute each statement
-                for statement in sql.split(";"):
-                    statement = statement.strip()
-                    if (
-                        statement
-                        and not statement.startswith("--")
-                        and len(statement) > 10
-                    ):
-                        try:
-                            if hasattr(db, "execute"):
-                                # PostgresDB or aiosqlite
-                                async with db.execute(statement) as cur:
-                                    pass
-                        except Exception as e:
-                            # Table may already exist, skip
-                            if "already exists" not in str(e):
-                                _log.debug(f"Migration statement skipped: {e}")
-                _log.info("Competition tables migration complete")
+            _log.info("Running competition table migration...")
+
+            # Create tables using aiosqlite-compatible syntax
+            migration_statements = [
+                """CREATE TABLE IF NOT EXISTS competitors (
+                    id TEXT PRIMARY KEY,
+                    type TEXT NOT NULL CHECK (type IN ('agent', 'miner', 'provider')),
+                    name TEXT NOT NULL,
+                    ref_id TEXT NOT NULL,
+                    status TEXT DEFAULT 'active',
+                    metadata TEXT DEFAULT '{}',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(type, ref_id)
+                )""",
+                """CREATE TABLE IF NOT EXISTS elo_ratings (
+                    id TEXT PRIMARY KEY,
+                    competitor_id TEXT NOT NULL REFERENCES competitors(id) ON DELETE CASCADE,
+                    asset TEXT NOT NULL,
+                    elo INTEGER DEFAULT 1000,
+                    tier TEXT DEFAULT 'silver' CHECK (tier IN ('bronze', 'silver', 'gold', 'diamond')),
+                    matches_count INTEGER DEFAULT 0,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(competitor_id, asset)
+                )""",
+                """CREATE TABLE IF NOT EXISTS elo_history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    competitor_id TEXT NOT NULL REFERENCES competitors(id) ON DELETE CASCADE,
+                    asset TEXT NOT NULL,
+                    elo INTEGER NOT NULL,
+                    tier TEXT NOT NULL,
+                    elo_delta INTEGER DEFAULT 0,
+                    recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )""",
+                """CREATE TABLE IF NOT EXISTS matches (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    competitor_a_id TEXT NOT NULL REFERENCES competitors(id) ON DELETE CASCADE,
+                    competitor_b_id TEXT REFERENCES competitors(id) ON DELETE CASCADE,
+                    asset TEXT NOT NULL,
+                    time_window TEXT NOT NULL,
+                    winner_id TEXT,
+                    score_a REAL,
+                    score_b REAL,
+                    elo_delta_a INTEGER,
+                    elo_delta_b INTEGER,
+                    match_type TEXT CHECK (match_type IN ('baseline', 'pairwise')),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )""",
+                """CREATE TABLE IF NOT EXISTS achievements (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    competitor_id TEXT NOT NULL REFERENCES competitors(id) ON DELETE CASCADE,
+                    achievement_type TEXT NOT NULL,
+                    earned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    metadata TEXT DEFAULT '{}'
+                )""",
+                """CREATE TABLE IF NOT EXISTS streaks (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    competitor_id TEXT NOT NULL REFERENCES competitors(id) ON DELETE CASCADE,
+                    asset TEXT NOT NULL,
+                    streak_type TEXT NOT NULL,
+                    current_count INTEGER DEFAULT 0,
+                    best_count INTEGER DEFAULT 0,
+                    last_event_at TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(competitor_id, asset, streak_type)
+                )""",
+                """CREATE TABLE IF NOT EXISTS competition_runs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    started_at TIMESTAMP NOT NULL,
+                    completed_at TIMESTAMP,
+                    matches_created INTEGER DEFAULT 0,
+                    achievements_awarded INTEGER DEFAULT 0,
+                    status TEXT DEFAULT 'running',
+                    error_message TEXT,
+                    metadata TEXT DEFAULT '{}'
+                )""",
+            ]
+
+            for stmt in migration_statements:
+                try:
+                    async with db.execute(stmt) as cur:
+                        pass
+                except Exception as e:
+                    if "already exists" not in str(e).lower():
+                        _log.debug(f"Migration warning: {e}")
+
+            _log.info("Competition tables migration complete")
         except Exception as e:
             _log.warning(f"Competition migration error: {e}")
 
