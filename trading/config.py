@@ -230,4 +230,10 @@ def load_config(env_file: str = ".env") -> Any:
         else:
             processed_data[k] = v
 
+    # Special handling for Railway PORT and standard HOST env vars
+    if "PORT" in os.environ:
+        processed_data["api_port"] = int(os.environ["PORT"])
+    if "HOST" in os.environ:
+        processed_data["api_host"] = os.environ["HOST"]
+
     return Config.model_validate(processed_data)
