@@ -37,7 +37,7 @@ async def validate_configs(
     from pydantic import ValidationError
     from risk.config import RiskConfigSchema
     from agents.config import AgentsFileSchema, _ensure_strategies_registered
-    from learning.config import LearningConfig
+    from learning.config import LearningConfig, MemoryConfig, StrategyHealthConfig
 
     try:
         # 1. Resolve and load Risk Config
@@ -81,7 +81,8 @@ async def validate_configs(
                 "Config validation: learning.yaml not found, using empty config"
             )
             learning_cfg = LearningConfig(
-                memory={"enabled": False}, strategy_health={"enabled": False}
+                memory=MemoryConfig(enabled=False),
+                strategy_health=StrategyHealthConfig(enabled=False)
             )
     except ValidationError as exc:
         logger.critical("Config validation failed: %s", exc.errors())

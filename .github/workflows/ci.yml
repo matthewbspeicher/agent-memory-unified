@@ -64,7 +64,7 @@ jobs:
           cd trading
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install mypy types-PyYAML types-redis
+          pip install mypy types-PyYAML types-redis types-croniter
       - name: Run mypy
         run: cd trading && mypy .
       - name: Run Pytest

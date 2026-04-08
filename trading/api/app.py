@@ -175,7 +175,7 @@ def _setup_agent_runtime(
     )
     app.state.health_engine = health_engine
 
-    router = OpportunityRouter(
+    router: OpportunityRouter | ConsensusRouter = OpportunityRouter(
         store=opp_store,
         notifier=notifier,
         risk_engine=risk_engine,
@@ -639,7 +639,7 @@ async def _setup_meta_agent(
 ):
     try:
         from agents.meta import MetaAgent
-        from agents.signal_adapter import SignalAdapterRunner
+        from agents.signal_adapter import SignalAdapterRunner, SignalAdapter
         from agents.adapters.prediction_market import PredictionMarketAdapter
         from agents.models import AgentConfig as AgentConfig, ActionLevel as ActionLevel
 
@@ -660,7 +660,7 @@ async def _setup_meta_agent(
         app.state.meta_agent = meta_agent
         router._meta_agent = meta_agent
 
-        adapters = []
+        adapters: list[SignalAdapter] = []
         if data_bus:
             adapters.append(PredictionMarketAdapter(data_bus=data_bus))
         if adapters:
@@ -716,37 +716,6 @@ async def _setup_stream_manager(
         "StreamManager started with %d streams, %d symbols",
         len(streams),
         len(all_symbols),
-    )
-
-
-def _setup_tournament_cron(task_mgr, tournament_engine):
-    """Set up the tournament cron job to evaluate all tournaments periodically."""
-    from croniter import croniter
-    import asyncio
-    from datetime import datetime, timezone
-    import logging
-    import json
-
-    _log = logging.getLogger(__name__)
-
-    async def _run_tournament_cron():
-        cron = croniter(
-            _learning_cfg.tournament.evaluate_cron, datetime.now(timezone.utc)
-        )
-        while True:
-            next_run = cron.get_next(datetime)
-            delay = (next_run - datetime.now(timezone.utc)).total_seconds()
-            if delay > 0:
-                await asyncio.sleep(delay)
-            try:
-                await tournament_engine.evaluate_all()
-            except Exception as _te:
-                _log.warning("TournamentEngine.evaluate_all failed: %s", _te)
-
-    task_mgr.create_task(_run_tournament_cron(), name="tournament_cron")
-    _log.info(
-        "Tournament cron job started with schedule: %s",
-        _learning_cfg.tournament.evaluate_cron,
     )
 
 
@@ -957,6 +926,7 @@ async def lifespan(app: FastAPI):
         import pathlib
         from utils.config_loader import ConfigLoader
 
+        risk_analytics = None
         _log = logging.getLogger(__name__)
         _app_root = pathlib.Path(__file__).resolve().parent.parent
 
@@ -1051,6 +1021,7 @@ async def lifespan(app: FastAPI):
 
         from data.sources.yahoo import YahooFinanceSource
         from data.sources.broker_source import BrokerSource
+        from data.interfaces import DataSource
 
         yahoo = YahooFinanceSource()
         broker_source = (
@@ -1058,7 +1029,7 @@ async def lifespan(app: FastAPI):
         )
 
         # Massive.com market data (optional — only if configured)
-        _sources = [yahoo]
+        _sources: list[DataSource] = [yahoo]
         if broker_source is not None:
             _sources.append(broker_source)
         if config.massive_key:
