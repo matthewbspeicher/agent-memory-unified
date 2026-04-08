@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+.venv/
+venv/
+
+# Environment / secrets
+**/.env
+
+# Data / logs
+*.db
+*.log
+
+# Version control
+.git/
+
+# Tests
+**/tests/
+
+# Frontend (not needed for api/trading builds)
+frontend/node_modules/
+frontend/.next/
+
+# Monitoring configs
+monitoring/
+
+# Docker meta (not needed inside containers)
+Dockerfile.*
+docker-compose.yml

@@ -224,7 +224,7 @@ class ShadowOutcomeResolver:
         limit: int = 100,
     ) -> list[dict[str, Any]]:
         now = now or _utcnow()
-        records = await self._store.list_due_for_resolution(_isoformat(now), limit)
+        records = await self._store.list_due_for_resolution(now, limit)
         resolved: list[dict[str, Any]] = []
         for record in records:
             updated = await self.resolve_record(record["id"], now=now)

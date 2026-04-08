@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, List
 
 import aiosqlite
@@ -123,7 +124,7 @@ class ShadowExecutionStore:
         return [self._decode_row(row) for row in rows]
 
     async def list_due_for_resolution(
-        self, now: str, limit: int
+        self, now: str | datetime, limit: int
     ) -> List[dict[str, Any]]:
         cursor = await self._db.execute(
             """

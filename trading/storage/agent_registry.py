@@ -81,7 +81,7 @@ class AgentStore:
                 entry.get("status", "active"),
                 entry.get("trust_level", "monitored"),
                 json.dumps(entry.get("runtime_overrides", {})),
-                int(entry.get("shadow_mode", False)),
+                bool(entry.get("shadow_mode", False)),
                 json.dumps(entry.get("promotion_criteria", {})),
                 entry.get("created_by", "human"),
                 entry.get("parent_name"),

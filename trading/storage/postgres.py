@@ -138,6 +138,7 @@ class PostgresDB:
         """Translate SQLite SQL to PostgreSQL."""
         sql = cls._convert_insert_or_replace(sql)
         sql = cls._convert_insert_or_ignore(sql)
+        sql = cls._convert_autoincrement(sql)
         sql = cls._convert_datetime_now(sql)
         sql = cls._convert_placeholders(sql)
         return sql
@@ -213,6 +214,16 @@ class PostgresDB:
         new_sql = new_sql.rstrip().rstrip(";")
         new_sql += " ON CONFLICT DO NOTHING"
         return new_sql
+
+    @staticmethod
+    def _convert_autoincrement(sql: str) -> str:
+        """Convert INTEGER PRIMARY KEY AUTOINCREMENT → SERIAL PRIMARY KEY."""
+        return re.sub(
+            r"INTEGER\s+PRIMARY\s+KEY\s+AUTOINCREMENT",
+            "SERIAL PRIMARY KEY",
+            sql,
+            flags=re.IGNORECASE,
+        )
 
     @staticmethod
     def _convert_datetime_now(sql: str) -> str:
