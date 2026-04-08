@@ -127,7 +127,7 @@ class Config(BaseModel):
     polymarket_private_key: str | None = None
     polymarket_funder: str | None = None
     polymarket_api_key: str | None = None
-    polymarket_signature_type: str | None = None
+    polymarket_signature_type: int | None = None
     polymarket_creds_path: str | None = None
     polymarket_rpc_url: str | None = None
     polymarket_dry_run: bool | None = None

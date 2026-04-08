@@ -204,10 +204,11 @@ def _setup_agent_runtime(
 
     if config.consensus_threshold > 1:
         from storage.consensus import ConsensusStore
+        from typing import cast, Any
 
         consensus_store = ConsensusStore(db)
         router = ConsensusRouter(
-            target_router=router,
+            target_router=cast(OpportunityRouter, router),
             threshold=config.consensus_threshold,
             window_minutes=config.consensus_window_minutes,
             consensus_store=consensus_store,
@@ -215,7 +216,7 @@ def _setup_agent_runtime(
 
     runner = AgentRunner(
         data_bus,
-        router,
+        cast(Any, router),
         event_bus,
         emitter=emitter,
         signal_bus=signal_bus,

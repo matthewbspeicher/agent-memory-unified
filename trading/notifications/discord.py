@@ -5,15 +5,41 @@ import httpx
 from datetime import datetime, timezone
 from typing import Any
 
-from agents.models import ActionLevel
+from notifications.base import Notifier
+from agents.models import ActionLevel, Opportunity
 
 logger = logging.getLogger(__name__)
 
-class DiscordNotifier:
+class DiscordNotifier(Notifier):
     """Sends real-time trading events and system logs to a Discord webhook."""
 
     def __init__(self, webhook_url: str | None = None):
         self.webhook_url = webhook_url
+
+    async def send(self, opportunity: Opportunity) -> None:
+        """Send a notification for a specific trading opportunity."""
+        title = f"🚀 Trading Opportunity: {opportunity.symbol}"
+        message = (
+            f"Strategy: {opportunity.strategy}\n"
+            f"Side: {opportunity.side.value}\n"
+            f"Price: ${opportunity.entry_price:.2f}\n"
+            f"Confidence: {opportunity.confidence:.2%}"
+        )
+        await self.notify(
+            title=title,
+            message=message,
+            level=opportunity.action_level,
+            metadata={
+                "Symbol": opportunity.symbol,
+                "Entry": str(opportunity.entry_price),
+                "Stop": str(opportunity.stop_loss),
+                "Target": str(opportunity.take_profit),
+            }
+        )
+
+    async def send_text(self, message: str) -> None:
+        """Send a plain text alert."""
+        await self.notify(title="System Alert", message=message)
 
     async def notify(
         self, 
