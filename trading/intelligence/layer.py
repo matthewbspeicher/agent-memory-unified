@@ -188,11 +188,21 @@ class IntelligenceLayer:
             return []
 
         reports = []
+        vetoes = []
         for result in results:
             if isinstance(result, IntelReport):
                 if result.veto:
-                    return [result]  # early exit on veto
-                reports.append(result)
+                    vetoes.append(result)
+                else:
+                    reports.append(result)
+
+        if vetoes:
+            if len(vetoes) > 1:
+                logger.warning(
+                    "Multiple vetoes fired: %s",
+                    ", ".join(f"{v.source}: {v.veto_reason}" for v in vetoes),
+                )
+            return vetoes
 
         return reports
 

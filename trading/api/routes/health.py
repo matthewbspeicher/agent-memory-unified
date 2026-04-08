@@ -78,6 +78,8 @@ def _check_taoshi_bridge(request: Request) -> dict:
     if last_scan:
         try:
             last_dt = datetime.fromisoformat(last_scan)
+            if last_dt.tzinfo is None:
+                last_dt = last_dt.replace(tzinfo=timezone.utc)
             age = (datetime.now(timezone.utc) - last_dt).total_seconds()
             stale = age > _BRIDGE_STALE_SECONDS
         except (ValueError, TypeError):

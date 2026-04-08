@@ -437,14 +437,11 @@ class EnsembleOptimizer:
         bearish_weighted = 0.0
         contributing: list[dict[str, Any]] = []
 
+        meta_learner = None
         if self._cfg.method == EnsembleMethod.XGBOOST:
             # Import here to avoid circular dependencies
             from learning.meta_learner import MetaLearner
-            
-            # For this integration, we'll assume a global meta_learner instance or 
-            # instantiate one if not available. In a full system, this would be 
-            # injected or managed by the learning pipeline.
-            # Here we provide a stub for integration:
+
             meta_learner = getattr(self._runner, "meta_learner", None)
             
             if meta_learner and meta_learner.is_ready:

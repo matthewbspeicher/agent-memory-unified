@@ -383,20 +383,6 @@ class RLPositionSizer:
                 progress_bar=False,
             )
 
-            # Train
-            self._model.learn(
-                total_timesteps=self.train_steps,
-                callback=callback,
-                progress_bar=False,
-            )
-
-            # Train
-            self._model.learn(
-                total_timesteps=self.train_steps,
-                callback=callback,
-                progress_bar=False,
-            )
-
             self._is_trained = True
             logger.info("RL training complete: %d steps", callback.iteration)
 

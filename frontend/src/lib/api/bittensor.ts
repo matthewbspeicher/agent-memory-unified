@@ -9,7 +9,7 @@ import { api } from './client';
 const tradingApi = axios.create({
   baseURL: '/api',
   headers: {
-    'X-API-Key': import.meta.env.VITE_TRADING_API_KEY || 'local-validator-dev',
+    'X-API-Key': import.meta.env.VITE_TRADING_API_KEY || (import.meta.env.DEV ? 'local-validator-dev' : ''),
   },
 });
 

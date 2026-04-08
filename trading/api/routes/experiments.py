@@ -1,5 +1,6 @@
 import logging
 from fastapi import APIRouter, HTTPException, Depends
+from api.auth import verify_api_key
 from experiments.ab_test import (
     ExperimentConfig,
     ExperimentManager,
@@ -7,7 +8,7 @@ from experiments.ab_test import (
 )
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/experiments", tags=["experiments"])
+router = APIRouter(prefix="/experiments", tags=["experiments"], dependencies=[Depends(verify_api_key)])
 
 
 @router.get("")

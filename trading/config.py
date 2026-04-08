@@ -133,6 +133,7 @@ class Config(BaseModel):
     polymarket_dry_run: bool | None = None
     polymarket_relayer_api_key: str | None = None
     polymarket_relayer_address: str | None = None
+    bittensor_mock: bool | None = None
     bittensor_enabled: bool | None = None
     bittensor_network: str | None = None
     bittensor_endpoint: str | None = None
@@ -216,19 +217,58 @@ def load_config(env_file: str = ".env") -> Any:
             field_name = key[4:].lower()
             env_data[field_name] = value
 
+    # Fields that should remain flat (not split into nested config)
+    _flat_fields = set(Config.model_fields.keys())
+
+    # Parse JSON strings for list/dict fields
+    _list_fields = {"news_feeds", "bittensor_streams"}
+    _dict_fields = {"broker_routing"}
+    for k in list(env_data.keys()):
+        if k in _list_fields and isinstance(env_data[k], str):
+            try:
+                env_data[k] = json.loads(env_data[k])
+            except (json.JSONDecodeError, ValueError):
+                env_data[k] = [s.strip() for s in env_data[k].split(",") if s.strip()]
+        elif k in _dict_fields and isinstance(env_data[k], str):
+            try:
+                env_data[k] = json.loads(env_data[k])
+            except (json.JSONDecodeError, ValueError):
+                pass
+
     # Special handling for nested configs if provided in ENV
     # (e.g. STA_BROKER_MODE -> config.broker.mode)
+    # But only split into nested if the flat field doesn't exist on Config
     processed_data: dict[str, Any] = {}
     for k, v in env_data.items():
+        # Always populate flat fields first
+        if k in _flat_fields:
+            processed_data[k] = v
         if "_" in k:
             prefix, rest = k.split("_", 1)
             if prefix in ["broker", "bittensor", "llm", "intel"]:
-                if prefix not in processed_data: processed_data[prefix] = {}
-                processed_data[prefix][rest] = v
-            else:
+                if prefix not in processed_data or not isinstance(processed_data.get(prefix), dict):
+                    processed_data.setdefault(prefix, {})
+                if isinstance(processed_data.get(prefix), dict):
+                    processed_data[prefix][rest] = v
+            elif k not in _flat_fields:
                 processed_data[k] = v
-        else:
+        elif k not in _flat_fields:
             processed_data[k] = v
+
+    # Mirror bittensor.mock to flat bittensor_mock for app.py compatibility
+    bt_nested = processed_data.get("bittensor", {})
+    if isinstance(bt_nested, dict) and bt_nested.get("mock"):
+        processed_data["bittensor_mock"] = bt_nested["mock"]
+
+    # LLM fallback chain: parse from nested or flat
+    llm_nested = processed_data.get("llm", {})
+    if isinstance(llm_nested, dict) and "fallback_chain" in llm_nested:
+        val = llm_nested["fallback_chain"]
+        if isinstance(val, str):
+            try:
+                llm_nested["fallback_chain"] = json.loads(val)
+            except (json.JSONDecodeError, ValueError):
+                llm_nested["fallback_chain"] = [s.strip() for s in val.split(",") if s.strip()]
 
     # Special handling for Railway PORT and standard HOST env vars
     if "PORT" in os.environ:

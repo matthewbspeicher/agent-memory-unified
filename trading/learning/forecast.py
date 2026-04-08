@@ -149,14 +149,15 @@ class TimeSeriesForecaster:
         if external_features is None:
             external_features = [{"signal": 0, "cvd": 0, "funding": 0}] * n
 
-        # Normalize close prices for stability
-        close_mean = np.mean(close_prices[: self.sequence_length])
-        close_std = max(np.std(close_prices[: self.sequence_length]), 1e-8)
-
         sequences = []
         targets = []
 
         for i in range(n - self.sequence_length):
+            # Per-window normalization to avoid data leakage
+            window_prices = close_prices[i : i + self.sequence_length]
+            close_mean = np.mean(window_prices)
+            close_std = max(np.std(window_prices), 1e-8)
+
             # Build sequence
             seq = []
             for j in range(self.sequence_length):

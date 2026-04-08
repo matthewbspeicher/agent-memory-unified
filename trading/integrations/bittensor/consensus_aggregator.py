@@ -62,6 +62,9 @@ class MinerConsensusAggregator:
 
         open_time = datetime.fromtimestamp(open_ms / 1000.0, tz=timezone.utc)
 
+        # Refresh weights outside the lock to avoid holding it across DB calls
+        await self._refresh_weights()
+
         async with self._lock:
             self.positions[symbol][hotkey] = (open_time, payload)
             await self._evaluate_consensus(symbol)
@@ -90,8 +93,6 @@ class MinerConsensusAggregator:
     async def _evaluate_consensus(self, symbol: str):
         now = self._reference_time or datetime.now(timezone.utc)
         cutoff_time = now - timedelta(minutes=self.window_minutes)
-
-        await self._refresh_weights()
 
         symbol_positions = self.positions[symbol]
         active_positions = {}

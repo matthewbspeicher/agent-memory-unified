@@ -6,6 +6,7 @@ import logging
 import math
 from dataclasses import asdict
 from datetime import datetime, timezone
+from typing import Any
 
 from integrations.bittensor.models import PredictionRequest, RawMinerForecast
 

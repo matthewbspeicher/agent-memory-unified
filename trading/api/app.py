@@ -435,6 +435,7 @@ async def _setup_bittensor_integration(
     signal_bus,
     task_mgr,
     logger,
+    llm_client=None,
 ):
     """Set up Bittensor integration (real or mock) and wire components into app.state."""
     from api.startup.integrations import setup_bittensor
@@ -460,16 +461,12 @@ async def _setup_bittensor_integration(
         task_mgr.create_task(
             bittensor_components["evaluator"].run(), name="bittensor_evaluator"
         )
-    elif config.bittensor_mock and not bittensor_enabled_runtime:
+    elif config.bittensor_mock:
         from integrations.bittensor.mock_source import MockBittensorSource
 
         _bt_mock = MockBittensorSource(signal_bus=signal_bus)
         task_mgr.create_task(_bt_mock.start(), name="bittensor_mock")
         logger.info("MockBittensorSource started (real integration not active)")
-    elif config.bittensor_mock and bittensor_enabled_runtime:
-        logger.warning(
-            "bittensor_mock=True ignored — real Bittensor integration is active"
-        )
 
     app.state.bittensor_enabled_runtime = bittensor_enabled_runtime
 
@@ -551,37 +548,6 @@ async def _setup_bittensor_integration(
         logger.info("IntelligenceLayer started (enabled=%s)", config.intel.enabled)
     else:
         logger.debug("TaoshiBridge disabled — STA_TAOSHI_VALIDATOR_ROOT not set")
-
-
-def _setup_tournament_cron(task_mgr, tournament_engine):
-    """Set up the tournament cron job to evaluate all tournaments periodically."""
-    from croniter import croniter
-    import asyncio
-    from datetime import datetime, timezone
-    import logging
-    import json
-
-    _log = logging.getLogger(__name__)
-
-    async def _run_tournament_cron():
-        cron = croniter(
-            _learning_cfg.tournament.evaluate_cron, datetime.now(timezone.utc)
-        )
-        while True:
-            next_run = cron.get_next(datetime)
-            delay = (next_run - datetime.now(timezone.utc)).total_seconds()
-            if delay > 0:
-                await asyncio.sleep(delay)
-            try:
-                await tournament_engine.evaluate_all()
-            except Exception as _te:
-                _log.warning("TournamentEngine.evaluate_all failed: %s", _te)
-
-    task_mgr.create_task(_run_tournament_cron(), name="tournament_cron")
-    _log.info(
-        "Tournament cron job started with schedule: %s",
-        _learning_cfg.tournament.evaluate_cron,
-    )
 
 
 async def _load_and_start_agent_configs(
@@ -922,6 +888,8 @@ async def lifespan(app: FastAPI):
     setup_telemetry()
 
     runner = None
+    _log = logging.getLogger(__name__)
+    llm_client = None
     if enabled:
         import logging
         import pathlib
@@ -1770,6 +1738,7 @@ async def lifespan(app: FastAPI):
             signal_bus=signal_bus,
             task_mgr=task_mgr,
             logger=_log,
+            llm_client=llm_client,
         )
 
     await _start_redis_streams_consumer(
@@ -1794,11 +1763,15 @@ def create_app(
     app = FastAPI(title="Stock Trading API", version="0.1.0", lifespan=lifespan)
 
     # Observability middleware
+    from fastapi import Depends
+    from api.auth import verify_api_key
     from prometheus_fastapi_instrumentator import Instrumentator
     from asgi_correlation_id import CorrelationIdMiddleware
 
     app.add_middleware(CorrelationIdMiddleware)
-    Instrumentator().instrument(app).expose(app, endpoint="/metrics")
+    Instrumentator().instrument(app).expose(
+        app, endpoint="/metrics", dependencies=[Depends(verify_api_key)]
+    )
 
     # Sentry error tracking (if DSN configured)
     import os

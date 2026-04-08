@@ -58,9 +58,10 @@ class TaoshiBridge:
         self._running = False
         self._initialized_from_store: set[str] = set()
 
-        # Track what we've already seen — maps {uuid: content_hash}
+        # Track what we've already seen — maps {uuid: content_hash | None}
+        # None means loaded from store but not yet seen on disk (warm-start sentinel)
         # Change detection: emit signal when UUID is new OR hash changed
-        self._seen_positions: dict[str, str] = {}
+        self._seen_positions: dict[str, str | None] = {}
         self._last_scan_at: datetime | None = None
 
         # Stats
@@ -84,8 +85,8 @@ class TaoshiBridge:
                 self._initialized_from_store = set(existing)
                 # Load existing UUIDs into hash-based tracking (mark all as "seen" with empty hash)
                 for uuid in existing:
-                    # Empty hash means loaded from store; hash will be refreshed on first poll.
-                    self._seen_positions[uuid] = ""
+                    # None sentinel means loaded from store; hash will be set on first poll.
+                    self._seen_positions[uuid] = None
                 logger.info(
                     "TaoshiBridge: loaded %d seen positions from store", len(existing)
                 )

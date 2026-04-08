@@ -11,12 +11,6 @@ from integrations.bittensor.derivation import derive_consensus_view
 from integrations.bittensor.models import BittensorMetrics
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-if not logger.handlers:
-    _h = logging.StreamHandler()
-    _h.setLevel(logging.DEBUG)
-    _h.setFormatter(logging.Formatter("%(levelname)s:%(name)s:%(message)s"))
-    logger.addHandler(_h)
 
 
 def next_hash_window(now: datetime) -> datetime:

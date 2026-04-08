@@ -1,4 +1,5 @@
 import asyncio
+import hmac
 import json
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from api.auth import _get_settings
@@ -17,15 +18,32 @@ class CustomJSONEncoder(json.JSONEncoder):
             return str(obj)
 
 
+async def _authenticate_ws(websocket: WebSocket) -> bool:
+    """Shared WebSocket authentication: expects {"type": "auth", "api_key": "..."}."""
+    try:
+        raw = await asyncio.wait_for(websocket.receive_text(), timeout=5.0)
+        msg = json.loads(raw)
+        settings = _get_settings()
+        if msg.get("type") != "auth" or not hmac.compare_digest(
+            msg.get("api_key", ""), settings.api_key
+        ):
+            await websocket.close(code=4001, reason="Invalid API key")
+            return False
+        return True
+    except (asyncio.TimeoutError, json.JSONDecodeError):
+        await websocket.close(code=4001, reason="Auth timeout")
+        return False
+
+
 @router.websocket("/public")
 async def public_websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
+    if not await _authenticate_ws(websocket):
+        return
 
-    # We can just start sending events
     event_bus = get_event_bus()
     try:
         async for event in event_bus.subscribe():
-            # Only broadcast public events if needed, or all for now
             payload = json.dumps(event, cls=CustomJSONEncoder)
             await websocket.send_text(payload)
     except WebSocketDisconnect:
@@ -35,16 +53,7 @@ async def public_websocket_endpoint(websocket: WebSocket):
 @router.websocket("")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
-
-    try:
-        raw = await asyncio.wait_for(websocket.receive_text(), timeout=5.0)
-        msg = json.loads(raw)
-        settings = _get_settings()
-        if msg.get("type") != "auth" or msg.get("api_key") != settings.api_key:
-            await websocket.close(code=4001, reason="Invalid API key")
-            return
-    except (asyncio.TimeoutError, json.JSONDecodeError):
-        await websocket.close(code=4001, reason="Auth timeout")
+    if not await _authenticate_ws(websocket):
         return
 
     event_bus = get_event_bus()

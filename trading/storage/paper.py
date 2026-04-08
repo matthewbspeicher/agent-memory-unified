@@ -233,8 +233,6 @@ class PaperStore:
                 (float(new_cash), float(new_cash), float(new_net_liq), account_id),
             )
 
-        await db.commit()
-
     async def save_order(
         self,
         order_id: str,
@@ -264,7 +262,6 @@ class PaperStore:
                 float(avg_price) if avg_price is not None else None,
             ),
         )
-        await db.commit()
 
     async def get_order_history(self, account_id: str) -> list[OrderResult]:
         db = await self._get_db()

@@ -202,6 +202,9 @@ class PortfolioOptimizer:
             if below.any():
                 w[below] = self.min_weight
 
+        # Re-apply cap after floor to avoid floor pushing weights above cap
+        w = np.clip(w, self.min_weight, self.max_weight)
+
         # Final renormalize
         total = w.sum()
         if total > 0:

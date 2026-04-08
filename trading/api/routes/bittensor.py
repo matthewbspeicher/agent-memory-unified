@@ -214,7 +214,7 @@ async def bittensor_signals(
 ):
     store = getattr(request.app.state, "bittensor_store", None)
     if not store:
-        return {"symbol": symbol, "timeframe": timeframe, "views": []}
+        return {"signals": []}
     views = await store.get_recent_views(symbol, timeframe, limit=limit)
     for v in views:
         if "is_low_confidence" in v:

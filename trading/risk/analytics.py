@@ -148,13 +148,14 @@ class RiskAnalytics:
         self,
         limits: RiskLimit | None = None,
         lookback_days: int = 30,
+        initial_equity: Decimal | None = None,
     ) -> None:
         self._limits = limits or RiskLimit()
         self._lookback_days = lookback_days
 
         # Equity history for drawdown
         self._equity_history: list[tuple[datetime, Decimal]] = []
-        self._peak_equity: Decimal = Decimal("0")
+        self._peak_equity: Decimal = initial_equity or Decimal("100000")
 
         # Daily P&L for VaR
         self._daily_pnl_history: list[float] = []
@@ -180,7 +181,10 @@ class RiskAnalytics:
         # For 95% VaR, we want the 5th percentile
         # For 99% VaR, we want the 1st percentile
         percentile = (1 - confidence) * 100
-        return float(abs(np.percentile(returns, percentile)))
+        raw_var = float(np.percentile(returns, percentile))
+        # VaR represents potential loss — if the quantile is negative, the loss is its magnitude
+        # If the quantile is positive (all-positive returns), VaR is effectively zero
+        return max(0.0, -raw_var)
 
     def calculate_cvar(
         self,

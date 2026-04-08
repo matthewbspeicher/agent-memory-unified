@@ -279,9 +279,10 @@ class WalkForwardEngine:
         if len(returns) < 2:
             return 0.0
         r = np.array(returns)
-        if r.std() == 0:
+        std = r.std(ddof=1)
+        if std == 0:
             return 0.0
-        return float(r.mean() / r.std() * np.sqrt(annualize))
+        return float(r.mean() / std * np.sqrt(annualize))
 
     @staticmethod
     def max_drawdown(returns: list[float]) -> float:

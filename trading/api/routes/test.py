@@ -1,8 +1,9 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+from api.auth import verify_api_key
 
 
 def create_test_router(wa_client=None, allowed_numbers: str | None = None) -> APIRouter:
-    router = APIRouter(prefix="/test", tags=["test"])
+    router = APIRouter(prefix="/test", tags=["test"], dependencies=[Depends(verify_api_key)])
 
     @router.post("/whatsapp")
     async def test_whatsapp():

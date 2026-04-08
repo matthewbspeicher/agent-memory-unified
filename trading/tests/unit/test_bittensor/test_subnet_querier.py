@@ -106,6 +106,9 @@ class TestCreateQuerier:
 
             hotkey = ""
 
-        monkeypatch.setattr(module.bt, "Wallet", MockWallet)
-
-        assert module.create_querier() is None
+        # bt is lazily imported inside create_querier, so mock it via sys.modules
+        import unittest.mock as um
+        mock_bt = um.MagicMock()
+        mock_bt.Wallet = MockWallet
+        with um.patch.dict("sys.modules", {"bittensor": mock_bt}):
+            assert module.create_querier() is None

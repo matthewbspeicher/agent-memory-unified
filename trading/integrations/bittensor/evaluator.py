@@ -132,12 +132,14 @@ class MinerEvaluator:
 
         if accuracy_records:
             await self.store.save_accuracy_records(accuracy_records)
-            await self.store.mark_window_evaluated(window.window_id)
             logger.info(
                 "Evaluated %d forecasts for window %s",
                 len(accuracy_records),
                 window.window_id,
             )
+        else:
+            logger.debug("Window %s has no forecasts, marking evaluated anyway", window.window_id)
+        await self.store.mark_window_evaluated(window.window_id)
 
     def _score_forecast(
         self, forecast: RawMinerForecast, actual_path: list[float], actual_return: float
@@ -146,7 +148,7 @@ class MinerEvaluator:
         predicted_path = forecast.predictions
         predicted_return = (
             (predicted_path[-1] - predicted_path[0]) / predicted_path[0]
-            if predicted_path
+            if predicted_path and predicted_path[0] != 0.0
             else 0.0
         )
 
@@ -215,6 +217,7 @@ class MinerEvaluator:
         rollups = await self.store.get_accuracy_rollup(hotkeys, config.lookback_windows)
 
         inputs = []
+        incentive_map: dict[str, float] = {}
 
         # Batch fetch all incentive scores in a single query
         if hotkeys:
@@ -235,16 +238,22 @@ class MinerEvaluator:
 
         for hotkey, r in rollups.items():
             incentive = incentive_map.get(hotkey, 0.0)
-            inputs.append(
-                MinerRankingInput(
-                    miner_hotkey=hotkey,
-                    windows_evaluated=r["windows_evaluated"],
-                    direction_accuracy=r["direction_accuracy"],
-                    mean_magnitude_error=r["mean_magnitude_error"],
-                    mean_path_correlation=r["mean_path_correlation"],
-                    raw_incentive_score=incentive,
-                )
+            inp = MinerRankingInput(
+                miner_hotkey=hotkey,
+                windows_evaluated=r["windows_evaluated"],
+                direction_accuracy=r["direction_accuracy"],
+                mean_magnitude_error=r["mean_magnitude_error"],
+                mean_path_correlation=r["mean_path_correlation"],
+                raw_incentive_score=incentive,
             )
+            lifecycle = self._determine_lifecycle_status(inp)
+            if lifecycle != "active":
+                logger.warning(
+                    "Miner %s lifecycle: %s (drawdown=%.2f, accuracy=%.2f, windows=%d)",
+                    hotkey[:12], lifecycle, inp.max_drawdown,
+                    inp.direction_accuracy, inp.windows_evaluated,
+                )
+            inputs.append(inp)
 
         rankings = compute_rankings(
             inputs=inputs,

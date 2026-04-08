@@ -82,9 +82,10 @@ class SentimentProvider(BaseIntelProvider):
                     data = await resp.json()
                     feed = data.get("feed", [])
                     if not feed: return 0.0
-                    
-                    # Return overall sentiment score from the first relevant item
-                    return float(feed[0].get("overall_sentiment_score", 0.0))
+
+                    # Use aggregated sentiment across all articles
+                    scores = [float(a.get("overall_sentiment_score", 0.0)) for a in feed if "overall_sentiment_score" in a]
+                    return sum(scores) / len(scores) if scores else 0.0
             except Exception:
                 return 0.0
 

@@ -106,7 +106,7 @@ class PaperAccountProvider(AccountProvider):
         """Deduct holding costs for open positions overnight."""
         total_fee = Decimal("0")
         for pos in positions:
-            position_value = abs(pos.market_value)
+            position_value = abs(pos.market_value) if pos.market_value else abs(pos.avg_cost * pos.quantity)
             fee = position_value * daily_rate
             total_fee += fee
             

@@ -59,6 +59,9 @@ class MockMarketData(MarketDataProvider):
     async def get_contract_details(self, symbol):
         pass
 
+    async def get_order_book(self, symbol, depth=5):
+        return {"bids": [], "asks": []}
+
 
 class MockBroker(Broker):
     @property

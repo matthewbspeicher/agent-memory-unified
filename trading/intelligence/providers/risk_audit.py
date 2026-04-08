@@ -18,9 +18,10 @@ class RiskAuditProvider(BaseIntelProvider):
     max loss exceeds the configured threshold, the trade is vetoed.
     """
 
-    def __init__(self, var_threshold_pct: float = 5.0, horizon_days: int = 5):
+    def __init__(self, var_threshold_pct: float = 5.0, horizon_days: int = 5, exchange_client=None):
         self.var_threshold_pct = var_threshold_pct
         self.horizon_days = horizon_days
+        self._exchange_client = exchange_client
 
     @property
     def name(self) -> str:
@@ -67,12 +68,31 @@ class RiskAuditProvider(BaseIntelProvider):
         )
 
     async def _fetch_current_price(self, symbol: str) -> float:
-        """Fetch current price. Override in tests."""
-        raise NotImplementedError("Requires exchange API integration")
+        """Fetch current price from exchange client."""
+        if not self._exchange_client:
+            raise RuntimeError("No exchange client configured for RiskAuditProvider")
+        ticker = await self._exchange_client.fetch_ticker(symbol)
+        price = ticker.get("last", 0.0)
+        if not price:
+            raise ValueError(f"No price available for {symbol}")
+        return float(price)
 
     async def _fetch_volatility(self, symbol: str) -> float:
-        """Fetch annualized volatility. Override in tests."""
-        raise NotImplementedError("Requires exchange API integration")
+        """Estimate annualized volatility from recent OHLCV data."""
+        if not self._exchange_client:
+            raise RuntimeError("No exchange client configured for RiskAuditProvider")
+        formatted = symbol.replace("USD", "/USDT")
+        ohlcv = await self._exchange_client.exchange.fetch_ohlcv(formatted, "1d", limit=30)
+        if len(ohlcv) < 2:
+            raise ValueError(f"Insufficient OHLCV data for volatility: {symbol}")
+        closes = [c[4] for c in ohlcv]
+        returns = [(closes[i] - closes[i - 1]) / closes[i - 1] for i in range(1, len(closes)) if closes[i - 1] != 0]
+        if not returns:
+            raise ValueError(f"No valid returns for volatility: {symbol}")
+        mean_r = sum(returns) / len(returns)
+        var = sum((r - mean_r) ** 2 for r in returns) / (len(returns) - 1)
+        daily_vol = var ** 0.5
+        return daily_vol * (252 ** 0.5)
 
     @staticmethod
     def _run_monte_carlo(

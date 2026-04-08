@@ -150,7 +150,11 @@ class _SimPortfolio:
                 pos.avg_cost = total_cost / new_qty if new_qty else Decimal("0")
                 pos.quantity = new_qty
             else:
-                pos.quantity -= quantity
+                # Adding to short position — update avg_cost
+                total_val = abs(pos.quantity) * pos.avg_cost + quantity * price
+                new_qty = pos.quantity - quantity
+                pos.avg_cost = total_val / abs(new_qty) if new_qty else Decimal("0")
+                pos.quantity = new_qty
 
         self.trades.append(
             TradeRecord(
@@ -240,10 +244,12 @@ class _MockDataBus:
         current_bars: dict[str, Bar],
         all_bars: dict[str, list[Bar]],
         real_bus: Any | None = None,
+        current_idx: int | None = None,
     ):
         self._bars = current_bars
         self._all_bars = all_bars
         self._real_bus = real_bus
+        self._current_idx = current_idx
 
     async def get_quote(self, symbol: Symbol) -> Quote:
         bar = self._bars.get(symbol.ticker)
@@ -263,6 +269,8 @@ class _MockDataBus:
     ) -> list[Bar]:
         bars = self._all_bars.get(symbol.ticker, [])
         if bars:
+            if self._current_idx is not None:
+                return bars[: self._current_idx + 1]
             return bars
         raise ValueError(f"No historical data for {symbol.ticker}")
 
@@ -456,7 +464,7 @@ class ConsensusSimulator:
 
                 portfolio.record_equity(current_ts, current_prices)
 
-                mock_bus = _MockDataBus(bars, historical_data, data_bus)
+                mock_bus = _MockDataBus(bars, historical_data, data_bus, current_idx=start_idx + bar_count - 1)
 
                 # Collect opportunities from all agents
                 all_opportunities: list[Any] = []

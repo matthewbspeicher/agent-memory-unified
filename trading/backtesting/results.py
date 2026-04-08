@@ -135,7 +135,7 @@ def _compute_sharpe(returns: list[float], risk_free_rate: float) -> float:
         return 0.0
 
     avg_return = sum(returns) / len(returns)
-    variance = sum((r - avg_return) ** 2 for r in returns) / len(returns)
+    variance = sum((r - avg_return) ** 2 for r in returns) / (len(returns) - 1)
     std_dev = math.sqrt(variance) if variance > 0 else 0.0
 
     if std_dev == 0:

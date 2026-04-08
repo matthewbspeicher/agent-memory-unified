@@ -11,9 +11,10 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
-import bittensor as bt
+if TYPE_CHECKING:
+    import bittensor as bt
 
 logger = logging.getLogger(__name__)
 
@@ -40,9 +41,11 @@ class SubnetQuerier:
 
     def __init__(
         self,
-        wallet: bt.Wallet,
+        wallet: Any,
         network: str = "finney",
     ):
+        import bittensor as bt
+
         self.wallet = wallet
         self.network = network
         self._subtensor = bt.Subtensor(network=network)
@@ -63,6 +66,8 @@ class SubnetQuerier:
             List of SubnetSignal objects
         """
         try:
+            import bittensor as bt
+
             # Get metagraph for this subnet
             metagraph = self._subtensor.metagraph(subnet_uid)
 
@@ -149,6 +154,8 @@ class SubnetQuerier:
 def create_querier() -> SubnetQuerier | None:
     """Create a SubnetQuerier if wallet is available."""
     try:
+        import bittensor as bt
+
         wallet = bt.Wallet()
         if not wallet.hotkey:
             logger.warning("No hotkey configured, multi-subnet disabled")

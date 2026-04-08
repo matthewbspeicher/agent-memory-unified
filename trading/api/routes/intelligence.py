@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, Depends, Request, HTTPException
+from api.auth import verify_api_key
 
-router = APIRouter(prefix="/intelligence", tags=["intelligence"])
+router = APIRouter(prefix="/intelligence", tags=["intelligence"], dependencies=[Depends(verify_api_key)])
 
 @router.get("/status")
 async def get_intel_status(request: Request):
