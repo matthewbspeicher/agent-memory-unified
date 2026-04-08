@@ -61,7 +61,7 @@ async def _setup_trade_reflectors(
         from remembr.client import AsyncRemembrClient
         from learning.memory_client import TradingMemoryClient
         from learning.trade_reflector import TradeReflector
-        from api.routes.memory import register_shared_client
+        from api.services.memory_registry import memory_registry
 
         regime_mem = None
         _vector_service = None
@@ -98,6 +98,7 @@ async def _setup_trade_reflectors(
                 shared_client=shared_remembr,
                 ttl_days=mem_cfg.ttl_days,
             )
+            memory_registry.register_client(agent_name, memory_client)
 
             return TradeReflector(
                 memory_client=memory_client,
