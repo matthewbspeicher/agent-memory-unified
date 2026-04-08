@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/competition/tracker.py
+# hypothesis_version: 6.151.11
+
+[0.5, 'bittensor_consensus', 'confidence', 'direction', 'opportunity', 'signal', 'symbol']

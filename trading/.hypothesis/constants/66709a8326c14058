@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/intelligence/providers/sentiment.py
+# hypothesis_version: 6.151.11
+
+[-1.0, 0.0, 0.2, 0.3, 0.5, 0.7, 0.8, 1.0, 50.0, 100.0, 1000.0, 100, 'Authorization', 'USD', 'USDT', 'alt_rank', 'av_sentiment_score', 'data', 'fear_greed_value', 'feed', 'galaxy_score', 'lunarcrush_alt_rank', 'sentiment', 'value']

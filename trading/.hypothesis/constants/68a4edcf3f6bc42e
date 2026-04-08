@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/competition/store.py
+# hypothesis_version: 6.151.11
+
+[1000, '5m', 'BTC', 'active', 'asset', 'baseline', 'competitor_a_id', 'competitor_b_id', 'created_at', 'elo', 'elo_delta_a', 'elo_delta_b', 'id', 'leaderboard', 'match_type', 'metadata', 'name', 'ref_id', 'score_a', 'score_b', 'status', 'total_competitors', 'type', 'updated_at', 'window', 'winner_id']

@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/learning/sentiment.py
+# hypothesis_version: 6.151.11
+
+[-1.0, -0.5, -0.4, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.9, 0.95, 1.0, 512, ' ATH ', 'ADA', 'ALGO', 'ATOM', 'AVAX', 'BCH', 'BNB', 'BTC', 'Bitcoin', 'DOGE', 'DOT', 'ETH', 'Ethereum', 'LINK', 'LTC', 'MATIC', 'SOL', 'Solana', 'UNI', 'XLM', 'XRP', 'adoption', 'all-time', 'ban', 'bearish', 'bullish', 'buy', 'confidence', 'crash', 'down', 'drop', 'dump', 'entity_count', 'fall', 'fear', 'fud', 'gain', 'growth', 'hack', 'high', 'last_update', 'long', 'loss', 'low', 'moon', 'pt', 'pump', 'rally', 'regulation', 'rise', 'scam', 'sell', 'sentiment', 'short', 'surge', 'up', 'upgrade']

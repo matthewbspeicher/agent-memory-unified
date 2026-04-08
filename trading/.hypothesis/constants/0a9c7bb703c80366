@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/config.py
+# hypothesis_version: 6.151.11
+
+[0.003, 0.1, 1.0, 1.2, 100000.0, 500, 1000, 8000, ',', '.env', '127.0.0.1', 'BTCUSD-5m', 'HOST', 'INFO', 'PORT', 'STA_', '_', 'all', 'allow', 'alpaca_api_key', 'alpaca_data_feed', 'alpaca_paper', 'alpaca_secret_key', 'alpaca_streaming', 'anthropic', 'api_host', 'api_port', 'bedrock', 'bittensor', 'bittensor_mock', 'bittensor_streams', 'broker', 'broker_routing', 'competition', 'data.db', 'data/imports', 'extra', 'fallback_chain', 'finney', 'groq', 'ib_client_id', 'ib_host', 'ib_port', 'ib_readonly', 'iex', 'incentive', 'intel', 'json', 'llm', 'mock', 'mode', 'news_feeds', 'ollama', 'paper', 'primary_broker', 'routing', 'rule-based', 'sta_hotkey', 'sta_wallet', 'tradier_account_id', 'tradier_sandbox', 'tradier_streaming', 'tradier_token', 'v1', 'ws://localhost:9944']

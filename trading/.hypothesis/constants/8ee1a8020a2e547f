@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/intelligence/layer.py
+# hypothesis_version: 6.151.11
+
+[-1.0, 0.0, 1.0, 1000.0, ', ', 'BTCUSD', 'adjustment', 'anomaly', 'base', 'base_confidence', 'bearish', 'bittensor_consensus', 'bullish', 'circuit', 'close', 'confidence', 'contributions', 'derivatives', 'direction', 'enabled', 'enriched', 'enriched_confidence', 'enrichments_applied', 'failures', 'flat', 'intel', 'intel.enrichment', 'intel.veto', 'intelligence_layer', 'on_chain', 'order_flow', 'provider_failures', 'providers', 'reason', 'regime', 'risk_audit', 'sentiment', 'symbol', 'total_calls', 'veto_reason', 'vetoed', 'vetos_issued']

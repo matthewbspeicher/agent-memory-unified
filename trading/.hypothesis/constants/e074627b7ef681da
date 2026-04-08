@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/strategy/alpha_token.py
+# hypothesis_version: 6.151.11
+
+[0.0, 0.001, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1.0, 100, 365, 10000, 'estimated_apr', 'factors', 'few_validators', 'good_validator_count', 'healthy_stake_ratio', 'high_demand', 'high_stake_ratio', 'hold', 'last_update', 'low_demand', 'low_stake_ratio', 'moderate_demand', 'moderate_validators', 'network_demand', 'no_data', 'price_established', 'stake', 'status', 'unstake', 'utility_score', 'validator_count']

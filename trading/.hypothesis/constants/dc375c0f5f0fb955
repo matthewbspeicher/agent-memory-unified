@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/data/exchange_client.py
+# hypothesis_version: 6.151.11
+
+[0.0, 100, 365, '/USDT', '/USDT:USDT', '1m', 'USD', 'annualized', 'asks', 'bids', 'binance', 'close', 'enableRateLimit', 'funding', 'fundingRate', 'high', 'low', 'ohlcv', 'oi', 'open', 'openInterestAmount', 'orderbook', 'rate', 'timestamp', 'volume']

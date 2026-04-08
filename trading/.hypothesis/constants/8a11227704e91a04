@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/learning/ensemble_optimizer.py
+# hypothesis_version: 6.151.11
+
+[-1.0, 0.0, 0.01, 0.05, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 252, 3600, '; ', 'EnsembleConfig', 'PerformanceStore', 'Unknown method', 'adjusted_weight', 'agent', 'all', 'base_weight', 'bear', 'bearish', 'bull', 'bullish', 'confidence', 'confidence_weighted', 'direction', 'high_volatility', 'is_correlated', 'low_volatility', 'majority_vote', 'meta_learner', 'method', 'parameters', 'sharpe', 'sharpe_ratio', 'sharpe_weighted', 'sideways', 'trade_count', 'unknown', 'weight', 'weighted_average', 'xgboost']

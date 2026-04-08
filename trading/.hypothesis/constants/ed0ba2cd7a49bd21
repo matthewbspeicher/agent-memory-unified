@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/intelligence/providers/risk_audit.py
+# hypothesis_version: 6.151.11
+
+[-0.5, 0.0, 0.01, 0.05, 0.5, 0.8, 1.0, 5.0, 100, 252, 10000, '/USDT', '1d', 'USD', 'current_price', 'horizon_days', 'last', 'mean_end_price', 'risk_audit', 'simulations', 'var_95', 'var_95_pct', 'var_99', 'var_99_pct']

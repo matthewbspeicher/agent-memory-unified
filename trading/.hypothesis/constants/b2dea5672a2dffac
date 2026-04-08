@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/data/bus.py
+# hypothesis_version: 6.151.11
+
+[2.0, 100, 300, 86400, '1d', '3mo', '6mo', 'No broker configured', '_data_bus', 'get_historical', 'get_options_chain', 'get_order_book', 'get_quote', 'market_data', 'supports_historical', 'supports_options', 'supports_order_book', 'supports_quotes']

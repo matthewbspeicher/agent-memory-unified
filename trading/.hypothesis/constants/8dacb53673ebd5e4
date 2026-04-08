@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/data/sources/derivatives.py
+# hypothesis_version: 6.151.11
+
+[0.0, 365, 'annualized', 'rate']

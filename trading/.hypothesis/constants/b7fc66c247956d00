@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/storage/shadow.py
+# hypothesis_version: 6.151.11
+
+[0.0, 100, ' AND agent_name = ?', ' AND symbol = ?', ', ', '?', 'action_level', 'agent_name', 'decision_status', 'entry_price_source', 'expected_entry_price', 'expected_notional', 'expected_quantity', 'health_snapshot', 'id', 'max_adverse_bps', 'max_favorable_bps', 'opened_at', 'opportunity_id', 'opportunity_snapshot', 'pnl', 'regime_snapshot', 'resolution_notes', 'resolution_price', 'resolution_status', 'resolve_after', 'resolved_at', 'resolved_count', 'return_bps', 'risk_snapshot', 'sharpe_ratio', 'side', 'sizing_snapshot', 'symbol', 'win_rate']

@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/backtesting/engine.py
+# hypothesis_version: 6.151.11
+
+[0.0, 0.001, 0.005, 0.65, 100, 10000, '0', '1', '1d', '3mo', 'BUY', 'Backtest failed: %s', 'SELL', 'avg_cost', 'backtest', 'per_contract', 'per_share', 'percent', 'quantity', 'symbol']

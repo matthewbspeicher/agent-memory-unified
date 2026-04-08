@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/storage/memory.py
+# hypothesis_version: 6.151.11
+
+[0.5, ' AND agent_id = ?', ' AND category = ?', ' AND visibility = ?', 'SELECT 1', 'access_count', 'agent_id', 'category', 'confidence', 'created_at', 'data/memory.db', 'embedding', 'expires_at', 'healthy', 'id', 'importance', 'key', 'memory_type', 'metadata', 'not_connected', 'private', 'reason', 'summary', 'tags', 'type', 'updated_at', 'useful_count', 'value', 'visibility']

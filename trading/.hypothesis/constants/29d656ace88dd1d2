@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/agents/consensus.py
+# hypothesis_version: 6.151.11
+
+[0.0, 0.01, 0.15, 0.2, 0.3, 0.35, 0.5, 0.8, 1.0, 1.5, 100, 500, 800, 1000, 1200, 1400, 1440, 1600, '?', ']', '_event_bus', 'agent_count', 'agent_name', 'agents', 'composite', 'confidence', 'consensus', 'elo', 'equal', 'high', 'high_volatility', 'low', 'low_volatility', 'no_votes', 'opportunity_id', 'regime', 'sharpe', 'sharpe_ratio', 'side', 'symbol', 'timestamp', 'total_trades', 'total_weight', 'trend', 'unanimous_reached', 'unanimous_required', 'volatility', 'weight', 'win_rate']

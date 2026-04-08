@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/exits/rules.py
+# hypothesis_version: 6.151.11
+
+[0.0, 0.05, 1.0, 4.0, 60.0, 100.0, 100, 3600, 86400, '0', '1', 'BUY', 'SELL', 'agent_name', 'conviction_exit', 'divergence_threshold', 'entry_price', 'entry_time', 'expires_at', 'fraction', 'hours_before_expiry', 'max_days_to_expiry', 'min_profit_pct', 'original_confidence', 'partial_exit', 'peak', 'pre_expiry_exit', 'prediction_time_exit', 'quiet_zone', 'side', 'stagnation_exit', 'stop_loss', 'stop_price', 'take_profit', 'target_price', 'time_exit', 'trail_pct', 'trail_pp', 'trailing_stop', 'triggered', 'type']

@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/integrations/bittensor/taoshi_bridge.py
+# hypothesis_version: 6.151.11
+
+[0.0, 30.0, '...', 'FLAT', 'LONG', 'SHORT', 'TaoshiBridge stopped', 'bridge.poll', 'bridge.signal', 'closed', 'closed_positions', 'direction', 'flat', 'hotkey', 'hotkey_short', 'last_scan_at', 'leverage', 'long', 'miner_hotkey', 'miners', 'miners_tracked', 'new_position', 'new_signals', 'open', 'open_ms', 'open_positions', 'order_count', 'order_type', 'orders', 'position_updated', 'position_uuid', 'positions', 'price', 'price_sources_ts', 'processed_ms', 'r', 'running', 'seen_positions', 'short', 'signal_reason', 'signals_emitted', 'symbol', 'symbols', 'taoshi_bridge', 'taoshi_root', 'updates_detected', 'validation']

@@ -1,0 +1,4 @@
+# file: /opt/agent-memory-unified/trading/intelligence/providers/derivatives.py
+# hypothesis_version: 6.151.11
+
+[-1.0, -0.3, -0.1, 0.0, 0.0001, 0.0005, 0.001, 0.1, 0.15, 0.3, 0.4, 0.5, 0.9, 1.0, 100, '1h', 'ADA/USDT:USDT', 'ADAUSD', 'AVAX/USDT:USDT', 'AVAXUSD', 'BNB/USDT:USDT', 'BNBUSD', 'BTC/USDT:USDT', 'BTCUSD', 'DOGE/USDT:USDT', 'DOGEUSD', 'ETH/USDT:USDT', 'ETHUSD', 'SOL/USDT:USDT', 'SOLUSD', 'XRP/USDT:USDT', 'XRPUSD', 'binance', 'derivatives', 'fundingRate', 'funding_rate', 'oi_change_pct', 'openInterestValue', 'percentage', 'price_change_pct']
