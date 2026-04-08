@@ -181,14 +181,14 @@ class AgentStore:
         """Upsert agent (insert or replace if exists)."""
         existing = await self.get(name)
         if existing is None:
-            result: dict[str, Any] = await self.create({"name": name, **entry})
+            result = await self.create({"name": name, **entry})
             if result is None:
                 raise RuntimeError(
                     f"Failed to upsert agent {name}: create returned None"
                 )
             return result
         else:
-            result: dict[str, Any] = await self.update(name, entry)
+            result = await self.update(name, entry)
             if result is None:
                 raise RuntimeError(
                     f"Failed to upsert agent {name}: update returned None"

@@ -195,8 +195,7 @@ class LocalMemoryStore:
             raise RuntimeError("Not connected - call connect() first")
 
         query = "SELECT * FROM memories WHERE 1=1"
-        params = []
-
+        params: list[Any] = []
         if agent_id:
             query += " AND agent_id = ?"
             params.append(agent_id)

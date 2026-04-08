@@ -321,25 +321,25 @@ def _get_commission_fn(model: CommissionModel, params: dict) -> Any:
     elif model == CommissionModel.FIDELITY:
         from broker.models import FidelityFeeModel, OrderBase, OrderSide as S
 
-        fm = FidelityFeeModel()
+        fm_fid = FidelityFeeModel()
 
         def _fidelity(qty, price, symbol):
             order = OrderBase(
                 symbol=symbol, side=S.BUY, quantity=qty, account_id="backtest"
             )
-            return fm.calculate(order, price)
+            return fm_fid.calculate(order, price)
 
         return _fidelity
     elif model == CommissionModel.IBKR:
         from broker.models import IBKRFeeModel, OrderBase, OrderSide as S
 
-        fm = IBKRFeeModel()
+        fm_ib = IBKRFeeModel()
 
         def _ibkr(qty, price, symbol):
             order = OrderBase(
                 symbol=symbol, side=S.BUY, quantity=qty, account_id="backtest"
             )
-            return fm.calculate(order, price)
+            return fm_ib.calculate(order, price)
 
         return _ibkr
     else:

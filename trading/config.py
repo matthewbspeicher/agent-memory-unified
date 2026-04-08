@@ -127,7 +127,7 @@ class Config(BaseModel):
     kalshi_private_key_path: str | None = None
 
 
-def load_config(env_file: str = ".env") -> Config:
+def load_config(env_file: str = ".env") -> Any:
     """
     Load configuration from environment variables and .env file.
     Uses Pydantic for validation and type conversion.
