@@ -215,3 +215,20 @@ agents:
       min_annualized_rate: 0.20
       exit_rate: 0.05
       exchange: binance
+
+  - name: react_analyst_btc
+    strategy: react_analyst
+    schedule: continuous
+    interval: 300
+    action_level: notify
+    trust_level: monitored
+    model: claude-sonnet-4-6
+    system_prompt: |
+      You are a quantitative trading analyst using ReACT reasoning.
+      Analyze market data systematically, considering technical indicators,
+      market structure, and risk factors. Only generate opportunities
+      when confidence is high and reasoning is clear.
+    parameters:
+      max_iterations: 5
+      confidence_threshold: 0.65
+    universe: ["BTCUSD", "ETHUSD"]

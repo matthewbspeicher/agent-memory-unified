@@ -129,6 +129,7 @@ def _ensure_strategies_registered() -> None:
     from strategies.kalshi_time_decay import KalshiTimeDecayAgent
     from strategies.kalshi_calibration import KalshiCalibrationAgent
     from strategies.exit_monitor import ExitMonitorAgent
+    from strategies.react_analyst import ReactAnalystAgent
 
     register_strategy("rsi", RSIAgent)
     register_strategy("volume_spike", VolumeSpikeAgent)
@@ -139,6 +140,7 @@ def _ensure_strategies_registered() -> None:
     register_strategy("kalshi_time_decay", KalshiTimeDecayAgent)
     register_strategy("kalshi_calibration", KalshiCalibrationAgent)
     register_strategy("exit_monitor", ExitMonitorAgent)
+    register_strategy("react_analyst", ReactAnalystAgent)
     try:
         from strategies.polymarket_news_arb import PolymarketNewsArbAgent
         from strategies.polymarket_calibration import PolymarketCalibrationAgent
