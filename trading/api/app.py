@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 from fastapi import FastAPI
 
 from api.deps import (
@@ -1004,17 +1005,27 @@ async def lifespan(app: FastAPI):
             )
             if migration_sql.exists():
                 sql = migration_sql.read_text()
+                _log.info(f"Running competition migration from {migration_sql}")
                 # Split and execute each statement
                 for statement in sql.split(";"):
                     statement = statement.strip()
-                    if statement and not statement.startswith("--"):
+                    if (
+                        statement
+                        and not statement.startswith("--")
+                        and len(statement) > 10
+                    ):
                         try:
-                            await db.execute(statement)
-                        except Exception:
-                            pass  # Table may already exist
-                _log.info("Competition tables migrated")
+                            if hasattr(db, "execute"):
+                                # PostgresDB or aiosqlite
+                                async with db.execute(statement) as cur:
+                                    pass
+                        except Exception as e:
+                            # Table may already exist, skip
+                            if "already exists" not in str(e):
+                                _log.debug(f"Migration statement skipped: {e}")
+                _log.info("Competition tables migration complete")
         except Exception as e:
-            _log.warning(f"Competition migration skipped: {e}")
+            _log.warning(f"Competition migration error: {e}")
 
         competition_store = CompetitionStore(db)
         app.state.competition_store = competition_store
