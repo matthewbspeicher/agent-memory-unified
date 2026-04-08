@@ -279,7 +279,10 @@ def load_config(env_file: str = ".env") -> Any:
 
     # Also accept standard env vars for Railway/cloud compatibility
     if "DATABASE_URL" in os.environ and "database_url" not in env_data:
-        env_data["database_url"] = os.environ["DATABASE_URL"]
+        db_url = os.environ["DATABASE_URL"]
+        # Only use DATABASE_URL if it's not pointing to localhost (not reachable on Railway)
+        if "localhost" not in db_url and "127.0.0.1" not in db_url:
+            env_data["database_url"] = db_url
     if "REDIS_URL" in os.environ and "redis_url" not in env_data:
         env_data["redis_url"] = os.environ["REDIS_URL"]
 
