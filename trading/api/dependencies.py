@@ -8,14 +8,7 @@ Supports both JWT tokens and legacy amc_* tokens.
 from fastapi import Depends, HTTPException, Header, Request
 import os
 
-# Import here to avoid circular dependency
-import sys
-from pathlib import Path
-
-# Resolve project root relative to this file (trading/api/dependencies.py -> project root)
-_project_root = str(Path(__file__).resolve().parent.parent.parent)
-if _project_root not in sys.path:
-    sys.path.insert(0, _project_root)
+# Import shared auth module - path setup happens at app startup (main.py)
 from shared.auth.validate import validate_token, TokenValidationError
 
 

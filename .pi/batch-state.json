@@ -1,22 +1,25 @@
 {
   "schemaVersion": 4,
-  "phase": "completed",
-  "batchId": "20260407T121549",
+  "phase": "paused",
+  "batchId": "20260407T140334",
   "baseBranch": "main",
-  "orchBranch": "orch/mspeicher-20260407T121549",
+  "orchBranch": "orch/mspeicher-20260407T140334",
   "mode": "repo",
-  "startedAt": 1775578549589,
-  "updatedAt": 1775583172523,
-  "endedAt": 1775583172523,
+  "startedAt": 1775585014040,
+  "updatedAt": 1775585283433,
+  "endedAt": 1775585283433,
   "currentWaveIndex": 0,
   "totalWaves": 1,
   "wavePlan": [
     [
-      "TP-001",
-      "TP-010",
-      "TP-012",
-      "TP-005",
-      "TP-013"
+      "TP-003",
+      "TP-014",
+      "TP-007",
+      "TP-004",
+      "TP-008",
+      "TP-009",
+      "TP-006",
+      "TP-011"
     ]
   ],
   "lanes": [
@@ -24,124 +27,165 @@
       "laneNumber": 1,
       "laneId": "lane-1",
       "laneSessionId": "orch-mspeicher-lane-1",
-      "worktreePath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-1",
-      "branch": "task/mspeicher-lane-1-20260407T121549",
+      "worktreePath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T140334/lane-1",
+      "branch": "task/mspeicher-lane-1-20260407T140334",
       "taskIds": [
-        "TP-001",
-        "TP-010",
-        "TP-012"
+        "TP-003",
+        "TP-014"
       ]
     },
     {
       "laneNumber": 2,
       "laneId": "lane-2",
       "laneSessionId": "orch-mspeicher-lane-2",
-      "worktreePath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-2",
-      "branch": "task/mspeicher-lane-2-20260407T121549",
+      "worktreePath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T140334/lane-2",
+      "branch": "task/mspeicher-lane-2-20260407T140334",
       "taskIds": [
-        "TP-005"
+        "TP-007",
+        "TP-004",
+        "TP-008"
       ]
     },
     {
       "laneNumber": 3,
       "laneId": "lane-3",
       "laneSessionId": "orch-mspeicher-lane-3",
-      "worktreePath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-3",
-      "branch": "task/mspeicher-lane-3-20260407T121549",
+      "worktreePath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T140334/lane-3",
+      "branch": "task/mspeicher-lane-3-20260407T140334",
       "taskIds": [
-        "TP-013"
+        "TP-009",
+        "TP-006",
+        "TP-011"
       ]
     }
   ],
   "tasks": [
     {
-      "taskId": "TP-001",
+      "taskId": "TP-003",
       "laneNumber": 1,
       "sessionName": "orch-mspeicher-lane-1-worker",
-      "status": "succeeded",
-      "taskFolder": "/opt/agent-memory-unified/taskplane-tasks/TP-001-fix-taoshi-bridge-dedup",
-      "startedAt": 1775578551673,
-      "endedAt": 1775578831843,
-      "doneFileFound": true,
-      "exitReason": ".DONE file created by lane-runner",
+      "status": "failed",
+      "taskFolder": "/opt/agent-memory-unified/taskplane-tasks/TP-003-paper-trading-mode",
+      "startedAt": 1775585016228,
+      "endedAt": 1775585072770,
+      "doneFileFound": false,
+      "exitReason": "No progress after 3 iterations",
       "segmentIds": [
-        "TP-001::default"
+        "TP-003::default"
       ],
       "activeSegmentId": null
     },
     {
-      "taskId": "TP-005",
+      "taskId": "TP-004",
       "laneNumber": 2,
       "sessionName": "orch-mspeicher-lane-2-worker",
-      "status": "succeeded",
-      "taskFolder": "/opt/agent-memory-unified/taskplane-tasks/TP-005-structured-logging",
-      "startedAt": 1775578551885,
-      "endedAt": 1775578849749,
-      "doneFileFound": true,
-      "exitReason": ".DONE file created by lane-runner",
+      "status": "skipped",
+      "taskFolder": "/opt/agent-memory-unified/taskplane-tasks/TP-004-trading-activity-dashboard",
+      "startedAt": null,
+      "endedAt": null,
+      "doneFileFound": false,
+      "exitReason": "Skipped due to prior task failure in lane",
       "segmentIds": [
-        "TP-005::default"
+        "TP-004::default"
       ],
       "activeSegmentId": null
     },
     {
-      "taskId": "TP-010",
-      "laneNumber": 1,
-      "sessionName": "orch-mspeicher-lane-1-worker",
-      "status": "succeeded",
-      "taskFolder": "/opt/agent-memory-unified/taskplane-tasks/TP-010-health-check-endpoints",
-      "startedAt": 1775578831911,
-      "endedAt": 1775582287748,
-      "doneFileFound": true,
-      "exitReason": ".DONE file created by lane-runner",
-      "segmentIds": [
-        "TP-010::default"
-      ],
-      "activeSegmentId": null
-    },
-    {
-      "taskId": "TP-012",
-      "laneNumber": 1,
-      "sessionName": "orch-mspeicher-lane-1-worker",
-      "status": "succeeded",
-      "taskFolder": "/opt/agent-memory-unified/taskplane-tasks/TP-012-fix-test-suite",
-      "startedAt": 1775582287815,
-      "endedAt": 1775583073507,
-      "doneFileFound": true,
-      "exitReason": ".DONE file created by lane-runner",
-      "segmentIds": [
-        "TP-012::default"
-      ],
-      "activeSegmentId": null
-    },
-    {
-      "taskId": "TP-013",
+      "taskId": "TP-006",
       "laneNumber": 3,
       "sessionName": "orch-mspeicher-lane-3-worker",
-      "status": "succeeded",
-      "taskFolder": "/opt/agent-memory-unified/taskplane-tasks/TP-013-laravel-api-decision",
-      "startedAt": 1775578552106,
-      "endedAt": 1775578766829,
-      "doneFileFound": true,
-      "exitReason": ".DONE file created by lane-runner",
+      "status": "skipped",
+      "taskFolder": "/opt/agent-memory-unified/taskplane-tasks/TP-006-alerting-webhooks",
+      "startedAt": null,
+      "endedAt": null,
+      "doneFileFound": false,
+      "exitReason": "Skipped due to prior task failure in lane",
       "segmentIds": [
-        "TP-013::default"
+        "TP-006::default"
+      ],
+      "activeSegmentId": null
+    },
+    {
+      "taskId": "TP-007",
+      "laneNumber": 2,
+      "sessionName": "orch-mspeicher-lane-2-worker",
+      "status": "failed",
+      "taskFolder": "/opt/agent-memory-unified/taskplane-tasks/TP-007-miner-ranking-filtering",
+      "startedAt": 1775585016438,
+      "endedAt": 1775585160190,
+      "doneFileFound": false,
+      "exitReason": "No progress after 3 iterations",
+      "segmentIds": [
+        "TP-007::default"
+      ],
+      "activeSegmentId": null
+    },
+    {
+      "taskId": "TP-008",
+      "laneNumber": 2,
+      "sessionName": "orch-mspeicher-lane-2-worker",
+      "status": "skipped",
+      "taskFolder": "/opt/agent-memory-unified/taskplane-tasks/TP-008-ensemble-strategy-activation",
+      "startedAt": null,
+      "endedAt": null,
+      "doneFileFound": false,
+      "exitReason": "Skipped due to prior task failure in lane",
+      "segmentIds": [
+        "TP-008::default"
+      ],
+      "activeSegmentId": null
+    },
+    {
+      "taskId": "TP-009",
+      "laneNumber": 3,
+      "sessionName": "orch-mspeicher-lane-3-worker",
+      "status": "failed",
+      "taskFolder": "/opt/agent-memory-unified/taskplane-tasks/TP-009-backtest-framework",
+      "startedAt": 1775585016651,
+      "endedAt": 1775585122578,
+      "doneFileFound": false,
+      "exitReason": "No progress after 3 iterations",
+      "segmentIds": [
+        "TP-009::default"
+      ],
+      "activeSegmentId": null
+    },
+    {
+      "taskId": "TP-011",
+      "laneNumber": 3,
+      "sessionName": "orch-mspeicher-lane-3-worker",
+      "status": "skipped",
+      "taskFolder": "/opt/agent-memory-unified/taskplane-tasks/TP-011-ci-cd-pipeline",
+      "startedAt": null,
+      "endedAt": null,
+      "doneFileFound": false,
+      "exitReason": "Skipped due to prior task failure in lane",
+      "segmentIds": [
+        "TP-011::default"
+      ],
+      "activeSegmentId": null
+    },
+    {
+      "taskId": "TP-014",
+      "laneNumber": 1,
+      "sessionName": "orch-mspeicher-lane-1-worker",
+      "status": "skipped",
+      "taskFolder": "/opt/agent-memory-unified/taskplane-tasks/TP-014-agent-memory-trading-loop",
+      "startedAt": null,
+      "endedAt": null,
+      "doneFileFound": false,
+      "exitReason": "Skipped due to prior task failure in lane",
+      "segmentIds": [
+        "TP-014::default"
       ],
       "activeSegmentId": null
     }
   ],
-  "mergeResults": [
-    {
-      "waveIndex": 0,
-      "status": "succeeded",
-      "failedLane": null,
-      "failureReason": null
-    }
-  ],
-  "totalTasks": 5,
-  "succeededTasks": 5,
-  "failedTasks": 0,
-  "skippedTasks": 0,
+  "mergeResults": [],
+  "totalTasks": 8,
+  "succeededTasks": 0,
+  "failedTasks": 3,
+  "skippedTasks": 5,
   "blockedTasks": 0,
   "blockedTaskIds": [],
   "lastError": null,
@@ -158,78 +202,123 @@
   },
   "segments": [
     {
-      "segmentId": "TP-001::default",
-      "taskId": "TP-001",
+      "segmentId": "TP-003::default",
+      "taskId": "TP-003",
       "repoId": "default",
-      "status": "succeeded",
+      "status": "failed",
       "laneId": "lane-1",
       "sessionName": "orch-mspeicher-lane-1",
-      "worktreePath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-1",
-      "branch": "task/mspeicher-lane-1-20260407T121549",
-      "startedAt": 1775578551573,
-      "endedAt": 1775578831843,
+      "worktreePath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T140334/lane-1",
+      "branch": "task/mspeicher-lane-1-20260407T140334",
+      "startedAt": 1775585016128,
+      "endedAt": 1775585072770,
       "retries": 0,
-      "exitReason": ".DONE file created by lane-runner",
+      "exitReason": "No progress after 3 iterations",
       "dependsOnSegmentIds": []
     },
     {
-      "segmentId": "TP-010::default",
-      "taskId": "TP-010",
+      "segmentId": "TP-014::default",
+      "taskId": "TP-014",
       "repoId": "default",
-      "status": "succeeded",
+      "status": "skipped",
       "laneId": "lane-1",
       "sessionName": "orch-mspeicher-lane-1",
-      "worktreePath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-1",
-      "branch": "task/mspeicher-lane-1-20260407T121549",
-      "startedAt": 1775578551573,
-      "endedAt": 1775582287748,
+      "worktreePath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T140334/lane-1",
+      "branch": "task/mspeicher-lane-1-20260407T140334",
+      "startedAt": 1775585016128,
+      "endedAt": 1775585283430,
       "retries": 0,
-      "exitReason": ".DONE file created by lane-runner",
+      "exitReason": "Skipped due to prior task failure in lane",
       "dependsOnSegmentIds": []
     },
     {
-      "segmentId": "TP-012::default",
-      "taskId": "TP-012",
+      "segmentId": "TP-007::default",
+      "taskId": "TP-007",
       "repoId": "default",
-      "status": "succeeded",
-      "laneId": "lane-1",
-      "sessionName": "orch-mspeicher-lane-1",
-      "worktreePath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-1",
-      "branch": "task/mspeicher-lane-1-20260407T121549",
-      "startedAt": 1775578551573,
-      "endedAt": 1775583073507,
-      "retries": 0,
-      "exitReason": ".DONE file created by lane-runner",
-      "dependsOnSegmentIds": []
-    },
-    {
-      "segmentId": "TP-005::default",
-      "taskId": "TP-005",
-      "repoId": "default",
-      "status": "succeeded",
+      "status": "failed",
       "laneId": "lane-2",
       "sessionName": "orch-mspeicher-lane-2",
-      "worktreePath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-2",
-      "branch": "task/mspeicher-lane-2-20260407T121549",
-      "startedAt": 1775578551573,
-      "endedAt": 1775578849749,
+      "worktreePath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T140334/lane-2",
+      "branch": "task/mspeicher-lane-2-20260407T140334",
+      "startedAt": 1775585016128,
+      "endedAt": 1775585160190,
       "retries": 0,
-      "exitReason": ".DONE file created by lane-runner",
+      "exitReason": "No progress after 3 iterations",
       "dependsOnSegmentIds": []
     },
     {
-      "segmentId": "TP-013::default",
-      "taskId": "TP-013",
+      "segmentId": "TP-004::default",
+      "taskId": "TP-004",
       "repoId": "default",
-      "status": "succeeded",
+      "status": "skipped",
+      "laneId": "lane-2",
+      "sessionName": "orch-mspeicher-lane-2",
+      "worktreePath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T140334/lane-2",
+      "branch": "task/mspeicher-lane-2-20260407T140334",
+      "startedAt": 1775585016128,
+      "endedAt": 1775585283430,
+      "retries": 0,
+      "exitReason": "Skipped due to prior task failure in lane",
+      "dependsOnSegmentIds": []
+    },
+    {
+      "segmentId": "TP-008::default",
+      "taskId": "TP-008",
+      "repoId": "default",
+      "status": "skipped",
+      "laneId": "lane-2",
+      "sessionName": "orch-mspeicher-lane-2",
+      "worktreePath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T140334/lane-2",
+      "branch": "task/mspeicher-lane-2-20260407T140334",
+      "startedAt": 1775585016128,
+      "endedAt": 1775585283430,
+      "retries": 0,
+      "exitReason": "Skipped due to prior task failure in lane",
+      "dependsOnSegmentIds": []
+    },
+    {
+      "segmentId": "TP-009::default",
+      "taskId": "TP-009",
+      "repoId": "default",
+      "status": "failed",
       "laneId": "lane-3",
       "sessionName": "orch-mspeicher-lane-3",
-      "worktreePath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T121549/lane-3",
-      "branch": "task/mspeicher-lane-3-20260407T121549",
-      "startedAt": 1775578551573,
-      "endedAt": 1775578766829,
+      "worktreePath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T140334/lane-3",
+      "branch": "task/mspeicher-lane-3-20260407T140334",
+      "startedAt": 1775585016128,
+      "endedAt": 1775585122578,
       "retries": 0,
-      "exitReason": ".DONE file created by lane-runner",
+      "exitReason": "No progress after 3 iterations",
+      "dependsOnSegmentIds": []
+    },
+    {
+      "segmentId": "TP-006::default",
+      "taskId": "TP-006",
+      "repoId": "default",
+      "status": "skipped",
+      "laneId": "lane-3",
+      "sessionName": "orch-mspeicher-lane-3",
+      "worktreePath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T140334/lane-3",
+      "branch": "task/mspeicher-lane-3-20260407T140334",
+      "startedAt": 1775585016128,
+      "endedAt": 1775585283430,
+      "retries": 0,
+      "exitReason": "Skipped due to prior task failure in lane",
+      "dependsOnSegmentIds": []
+    },
+    {
+      "segmentId": "TP-011::default",
+      "taskId": "TP-011",
+      "repoId": "default",
+      "status": "skipped",
+      "laneId": "lane-3",
+      "sessionName": "orch-mspeicher-lane-3",
+      "worktreePath": "/opt/agent-memory-unified/.worktrees/mspeicher-20260407T140334/lane-3",
+      "branch": "task/mspeicher-lane-3-20260407T140334",
+      "startedAt": 1775585016128,
+      "endedAt": 1775585283430,
+      "retries": 0,
+      "exitReason": "Skipped due to prior task failure in lane",
       "dependsOnSegmentIds": []
     }
   ]

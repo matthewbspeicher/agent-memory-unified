@@ -1,16 +1,16 @@
 import axios from 'axios';
-import { api } from './client';
 
 /**
  * Trading API client for Bittensor endpoints.
- * In prod, use VITE_TRADING_API_URL directly.
- * In dev, Vite proxies /api/bittensor → trading service (port 8080).
+ * Uses /engine/v1 prefix for FastAPI trading engine.
  */
 const getBaseUrl = () => {
   if (import.meta.env.DEV) {
-    return '/api';
+    return '/engine/v1';
   }
-  return import.meta.env.VITE_TRADING_API_URL || 'http://localhost:8080';
+  return import.meta.env.VITE_TRADING_API_URL 
+    ? `${import.meta.env.VITE_TRADING_API_URL}/engine/v1`
+    : 'http://localhost:8080/engine/v1';
 };
 
 const tradingApi = axios.create({
@@ -57,11 +57,11 @@ export interface BittensorRankingsResponse {
 
 export const bittensorApi = {
   getStatus: () =>
-    tradingApi.get<BittensorStatus>('/bittensor/status').then(res => res.data),
+    tradingApi.get<BittensorStatus>('/status').then(res => res.data),
 
   getRankings: (limit = 50) =>
-    tradingApi.get<BittensorRankingsResponse>('/bittensor/rankings', { params: { limit } }).then(res => res.data),
+    tradingApi.get<BittensorRankingsResponse>('/rankings', { params: { limit } }).then(res => res.data),
 
   getMetrics: () =>
-    tradingApi.get<any>('/bittensor/metrics').then(res => res.data),
+    tradingApi.get<any>('/metrics').then(res => res.data),
 };

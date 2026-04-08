@@ -1,5 +1,41 @@
 {
   "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd /c/Users/matth && uv run --project //wsl.localhost/Ubuntu/opt/agent-memory-unified/.claude/knowledge python //wsl.localhost/Ubuntu/opt/agent-memory-unified/.claude/knowledge/hooks/session-start.py",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd /c/Users/matth && uv run --project //wsl.localhost/Ubuntu/opt/agent-memory-unified/.claude/knowledge python //wsl.localhost/Ubuntu/opt/agent-memory-unified/.claude/knowledge/hooks/session-end.py",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd /c/Users/matth && uv run --project //wsl.localhost/Ubuntu/opt/agent-memory-unified/.claude/knowledge python //wsl.localhost/Ubuntu/opt/agent-memory-unified/.claude/knowledge/hooks/pre-compact.py",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Edit|Write",
@@ -40,6 +76,7 @@
     "whale-alert-monitor@claude-code-plugins-plus-skills": true,
     "market-movers-scanner@claude-code-plugins-plus-skills": true,
     "crypto-portfolio-tracker@claude-code-plugins-plus-skills": true,
-    "options-flow-analyzer@claude-code-plugins-plus-skills": true
+    "options-flow-analyzer@claude-code-plugins-plus-skills": true,
+    "oac@oac-marketplace": true
   }
 }

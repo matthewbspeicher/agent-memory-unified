@@ -44,6 +44,7 @@ async def _setup_trade_reflectors(
     learning_data,
     llm_client,
     remembr_sync,
+    signal_bus,
     logger: logging.Logger,
 ):
     trade_reflector_factory = None
@@ -115,6 +116,20 @@ async def _setup_trade_reflectors(
             ttl_days=mem_cfg.ttl_days,
         )
         register_shared_client(shared_memory_client)
+        
+        # Start Daily Trade Compiler
+        from learning.trade_compiler import DailyTradeCompiler
+        trade_compiler = DailyTradeCompiler(
+            memory_client=shared_memory_client,
+            llm=llm_client,
+            compile_hour=18,
+            compile_minute=0,
+        )
+        task_mgr.create_task(trade_compiler.start_loop(), name="trade_compiler")
+        if signal_bus and hasattr(signal_bus, "subscribe"):
+            signal_bus.subscribe(trade_compiler.handle_knowledge_capture)
+        app.state.trade_compiler = trade_compiler
+        
         logger.info("Agent memory system enabled (remembr.dev)")
     except Exception as exc:
         logger.warning("Memory system setup failed (continuing without it): %s", exc)
@@ -1749,6 +1764,7 @@ async def lifespan(app: FastAPI):
             learning_data=_learning_data,
             llm_client=llm_client,
             remembr_sync=remembr_sync,
+            signal_bus=signal_bus,
             logger=_log,
         )
 

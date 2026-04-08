@@ -10,7 +10,7 @@ from api.schemas import (
 )
 from broker.interfaces import Broker
 
-router = APIRouter(prefix="/accounts", tags=["accounts"])
+router = APIRouter(prefix="/engine/v1/trading/accounts", tags=["accounts"])
 
 
 @router.get("", response_model=list[AccountSchema])

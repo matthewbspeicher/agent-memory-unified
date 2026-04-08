@@ -13,11 +13,11 @@ from api.routes.bittensor_schemas import (
 )
 from integrations.bittensor.scheduler import next_hash_window
 
-router = APIRouter()
+router = APIRouter(prefix="/engine/v1/bittensor", tags=["bittensor"])
 
 
 @router.get(
-    "/api/bittensor/status",
+    "/status",
     response_model=BittensorStatusResponse,
     response_model_exclude_none=True,
 )
@@ -134,7 +134,7 @@ async def bittensor_status(
 
 
 @router.get(
-    "/api/bittensor/rankings",
+    "/rankings",
     response_model=BittensorRankingsResponse,
     response_model_exclude_none=True,
 )
@@ -168,7 +168,7 @@ async def bittensor_rankings(
 
 
 @router.get(
-    "/api/bittensor/metrics",
+    "/metrics",
     response_model=BittensorMetricsResponse,
     response_model_exclude_none=True,
 )
@@ -201,7 +201,7 @@ async def bittensor_metrics(
 
 
 @router.get(
-    "/api/bittensor/signals",
+    "/signals",
     response_model=BittensorSignalsResponse,
     response_model_exclude_none=True,
 )

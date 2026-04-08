@@ -1,3 +1,12 @@
+import sys
+from pathlib import Path
+
+# Ensure project root is in sys.path for shared module imports
+# This enables: from shared.auth.validate import ...
+_project_root = str(Path(__file__).resolve().parent.parent)
+if _project_root not in sys.path:
+    sys.path.insert(0, _project_root)
+
 import uvicorn
 from config import load_config
 from api.app import create_app

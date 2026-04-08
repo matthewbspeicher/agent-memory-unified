@@ -19,7 +19,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/api/trading-direct/ws/public`;
+    const wsUrl = `${protocol}//${window.location.host}/engine/v1/ws/public`;
     let ws: WebSocket | null = null;
     let reconnectTimeout: ReturnType<typeof setTimeout>;
 

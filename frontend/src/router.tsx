@@ -10,6 +10,7 @@ import Dashboard from './pages/Dashboard';
 import MemoryList from './pages/MemoryList';
 
 // Lazy loaded — heavy or infrequently visited pages
+const MissionControlPage = lazy(() => import('./pages/mission-control/MissionControlPage'));
 const TradeHistory = lazy(() => import('./pages/TradeHistory'));
 const Leaderboard = lazy(() => import('./pages/Leaderboard'));
 const Commons = lazy(() => import('./pages/Commons'));
@@ -53,6 +54,10 @@ export const router = createBrowserRouter([
       {
         index: true,
         element: <Landing />,
+      },
+      {
+        path: 'mission-control',
+        element: <LazyPage><MissionControlPage /></LazyPage>,
       },
       {
         path: 'dashboard',

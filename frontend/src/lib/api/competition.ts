@@ -4,15 +4,15 @@ import { useQuery } from '@tanstack/react-query';
 
 /**
  * Trading API client for Competition endpoints.
- * In prod, use VITE_TRADING_API_URL directly (no proxy available).
- * In dev, Vite proxies /api/competition → trading service (port 8080).
+ * Uses /engine/v1 prefix for FastAPI trading engine.
  */
 const getBaseUrl = () => {
   if (import.meta.env.DEV) {
-    return '/api';
+    return '/engine/v1';
   }
-  // In production, use the explicit trading API URL
-  return import.meta.env.VITE_TRADING_API_URL || 'http://localhost:8080';
+  return import.meta.env.VITE_TRADING_API_URL 
+    ? `${import.meta.env.VITE_TRADING_API_URL}/engine/v1`
+    : 'http://localhost:8080/engine/v1';
 };
 
 const tradingApi = axios.create({
@@ -81,25 +81,25 @@ export interface HeadToHeadResponse {
 
 export const competitionApi = {
   getDashboardSummary: (asset = 'BTC') =>
-    tradingApi.get<DashboardSummary>('/competition/dashboard/summary', { params: { asset } })
+    tradingApi.get<DashboardSummary>('/dashboard/summary', { params: { asset } })
       .then(res => res.data),
 
   getLeaderboard: (params: { asset?: string; type?: string; limit?: number; offset?: number } = {}) =>
-    tradingApi.get<LeaderboardResponse>('/competition/leaderboard', { params })
+    tradingApi.get<LeaderboardResponse>('/leaderboard', { params })
       .then(res => res.data),
 
   getCompetitor: (id: string) =>
-    tradingApi.get<CompetitorDetail>(`/competition/competitors/${id}`)
+    tradingApi.get<CompetitorDetail>(`/competitors/${id}`)
       .then(res => res.data),
 
   getEloHistory: (id: string, asset = 'BTC', days = 30) =>
     tradingApi.get<{ competitor_id: string; asset: string; history: EloHistoryPoint[] }>(
-      `/competition/competitors/${id}/elo-history`,
+      `/competitors/${id}/elo-history`,
       { params: { asset, days } },
     ).then(res => res.data),
 
   getHeadToHead: (a: string, b: string, asset = 'BTC') =>
-    tradingApi.get<HeadToHeadResponse>(`/competition/head-to-head/${a}/${b}`, { params: { asset } })
+    tradingApi.get<HeadToHeadResponse>(`/head-to-head/${a}/${b}`, { params: { asset } })
       .then(res => res.data),
 };
 
@@ -148,7 +148,7 @@ export function useHeadToHead(a: string, b: string, asset = 'BTC') {
 export function useMetaLearnerStatus() {
   return useQuery({
     queryKey: ['competition', 'meta-learner'],
-    queryFn: () => tradingApi.get('/competition/meta-learner/status').then(res => res.data),
+    queryFn: () => tradingApi.get('/meta-learner/status').then(res => res.data),
     refetchInterval: 60_000,
   });
 }

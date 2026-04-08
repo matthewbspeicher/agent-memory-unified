@@ -7,3 +7,11 @@
 {"timestamp":"2026-04-07T17:31:13.652Z","type":"merge_start","batchId":"20260407T121549","waveIndex":0,"phase":"merging","laneCount":3}
 {"timestamp":"2026-04-07T17:32:52.088Z","type":"merge_success","batchId":"20260407T121549","waveIndex":0,"phase":"merging","laneCount":3,"durationMs":98433,"totalWaves":1}
 {"timestamp":"2026-04-07T17:32:52.524Z","type":"batch_complete","batchId":"20260407T121549","waveIndex":0,"phase":"completed","succeededTasks":5,"failedTasks":0,"skippedTasks":0,"blockedTasks":0,"batchDurationMs":4622934}
+{"timestamp":"2026-04-07T17:42:12.233Z","type":"batch_complete","batchId":"20260407T134211","waveIndex":-1,"phase":"failed","succeededTasks":0,"failedTasks":0,"skippedTasks":0,"blockedTasks":0,"batchDurationMs":960}
+{"timestamp":"2026-04-07T17:44:06.705Z","type":"batch_complete","batchId":"20260407T134405","waveIndex":-1,"phase":"failed","succeededTasks":0,"failedTasks":0,"skippedTasks":0,"blockedTasks":0,"batchDurationMs":1054}
+{"timestamp":"2026-04-07T17:45:22.654Z","type":"wave_start","batchId":"20260407T134521","waveIndex":0,"phase":"executing","taskIds":["TP-002"],"laneCount":1}
+{"timestamp":"2026-04-07T18:03:36.128Z","type":"wave_start","batchId":"20260407T140334","waveIndex":0,"phase":"executing","taskIds":["TP-003","TP-014","TP-007","TP-004","TP-008","TP-009","TP-006","TP-011"],"laneCount":3}
+{"timestamp":"2026-04-07T18:08:03.430Z","type":"task_failed","batchId":"20260407T140334","waveIndex":0,"phase":"executing","taskId":"TP-003","durationMs":56542,"reason":"No progress after 3 iterations","partialProgress":false}
+{"timestamp":"2026-04-07T18:08:03.430Z","type":"task_failed","batchId":"20260407T140334","waveIndex":0,"phase":"executing","taskId":"TP-007","durationMs":143752,"reason":"No progress after 3 iterations","partialProgress":false}
+{"timestamp":"2026-04-07T18:08:03.431Z","type":"task_failed","batchId":"20260407T140334","waveIndex":0,"phase":"executing","taskId":"TP-009","durationMs":105927,"reason":"No progress after 3 iterations","partialProgress":false}
+{"timestamp":"2026-04-07T18:08:03.433Z","type":"batch_paused","batchId":"20260407T140334","waveIndex":0,"phase":"paused","reason":"paused","failedTasks":3}

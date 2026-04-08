@@ -18,6 +18,15 @@ agent-memory-unified/
 └── docker-compose.yml
 ```
 
+## Knowledge Base
+
+**Developer Knowledge Compiler:** We use an auto-capturing knowledge base in `.claude/knowledge/`.
+- Hooks (`SessionStart`, `SessionEnd`, `PreCompact`) automatically extract decisions and lessons from Claude Code sessions.
+- Daily logs are compiled into structured articles under `.claude/knowledge/articles/`.
+- The `index.md` serves as the master catalog for index-guided retrieval.
+- Use `uv run python .claude/knowledge/scripts/compile.py` to manually compile logs.
+- Use `uv run python .claude/knowledge/scripts/lint.py` to run health checks.
+
 ### Running Services (local development)
 
 ```bash

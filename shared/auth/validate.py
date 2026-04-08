@@ -1,19 +1,23 @@
 # shared/auth/validate.py
+from __future__ import annotations
+
 import jwt
 import hashlib
 import json
-from redis.asyncio import Redis
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from redis.asyncio import Redis
+
 
 class TokenValidationError(Exception):
     """Token validation failed."""
+
     pass
 
+
 async def validate_token(
-    token: str,
-    redis: Redis,
-    db,
-    jwt_secret: str = None,
-    jwt_algorithm: str = "HS256"
+    token: str, redis: Redis, db, jwt_secret: str = None, jwt_algorithm: str = "HS256"
 ) -> dict:
     """
     Hybrid token validator: JWT first, then legacy token hash.
@@ -32,10 +36,12 @@ async def validate_token(
         TokenValidationError: if token invalid or revoked
     """
     if jwt_secret and (len(jwt_secret) < 32 or "CHANGE_ME" in jwt_secret):
-        raise TokenValidationError("JWT_SECRET must be at least 32 characters long and not contain CHANGE_ME")
+        raise TokenValidationError(
+            "JWT_SECRET must be at least 32 characters long and not contain CHANGE_ME"
+        )
 
     # Try JWT validation (new tokens)
-    if not token.startswith('amc_'):
+    if not token.startswith("amc_"):
         try:
             # Decode JWT
             payload = jwt.decode(token, jwt_secret, algorithms=[jwt_algorithm])
@@ -44,7 +50,9 @@ async def validate_token(
             user_id = payload["sub"]
 
             # Check wildcard revocation
-            is_wildcard_revoked = await redis.sismember(f"revoked_tokens:{user_id}", "*")
+            is_wildcard_revoked = await redis.sismember(
+                f"revoked_tokens:{user_id}", "*"
+            )
             if is_wildcard_revoked:
                 raise TokenValidationError("Token revoked (wildcard)")
 
@@ -72,17 +80,17 @@ async def validate_token(
     # Query database
     agent = await db.fetchrow(
         "SELECT id, name, scopes, is_active FROM agents WHERE token_hash = $1",
-        token_hash
+        token_hash,
     )
 
-    if not agent or not agent['is_active']:
+    if not agent or not agent["is_active"]:
         raise TokenValidationError("Invalid or inactive agent")
 
     # Build payload
     payload = {
-        "sub": agent['id'],
+        "sub": agent["id"],
         "type": "agent",
-        "scopes": agent['scopes'] if agent['scopes'] else [],
+        "scopes": agent["scopes"] if agent["scopes"] else [],
     }
 
     # Cache for 5 minutes

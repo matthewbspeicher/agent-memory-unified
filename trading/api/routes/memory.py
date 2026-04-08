@@ -12,7 +12,7 @@ from api.auth import verify_api_key
 logger = logging.getLogger(__name__)
 
 router = APIRouter(
-    prefix="/api/memory", tags=["memory"], dependencies=[Depends(verify_api_key)]
+    prefix="/engine/v1/memory", tags=["memory"], dependencies=[Depends(verify_api_key)]
 )
 
 # Injected at startup by app.py
@@ -27,6 +27,21 @@ def register_memory_client(agent_name: str, client: Any) -> None:
 def register_shared_client(client: Any) -> None:
     global _shared_memory_client
     _shared_memory_client = client
+
+
+@router.get("/index")
+async def get_memory_index() -> dict:
+    """Return the compressed memory index catalog."""
+    if not _shared_memory_client:
+        raise HTTPException(
+            status_code=503, detail="Shared memory system not configured"
+        )
+    try:
+        index_data = await _shared_memory_client.get_index()
+        return {"index": index_data}
+    except Exception as e:
+        logger.warning("Failed to fetch memory index: %s", e)
+        raise HTTPException(status_code=502, detail="Memory backend error")
 
 
 @router.get("/search")

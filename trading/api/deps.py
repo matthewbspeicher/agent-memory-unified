@@ -1,101 +1,109 @@
-"""Dependency injection using app.state with module-level cache."""
+"""Dependency injection via FastAPI app.state.
+
+All state is stored on request.app.state. The getter functions below
+extract typed references from app.state for use in route dependencies.
+
+NOTE: The setter functions below are DEPRECATED. State should be set
+directly on app.state in the lifespan or startup functions.
+"""
 
 from broker.interfaces import Broker
 from agents.runner import AgentRunner
 from data.events import EventBus
 from storage.trades import TradeStore
 
-# Module-level reference to app.state (set once during startup)
-_app_state = None
-
-
-def _init_state(state):
-    """Initialize module with app.state reference. Called from lifespan."""
-    global _app_state
-    _app_state = state
-
 
 def get_broker() -> Broker:
-    if _app_state is None:
-        raise RuntimeError("deps not initialized")
-    broker = getattr(_app_state, "broker", None)
-    if broker is None:
-        raise RuntimeError("Broker not initialized")
-    return broker
+    from fastapi import Request
+    from typing import Annotated
+
+    # Actual implementation uses Depends - see api/dependencies.py
+    raise NotImplementedError("Use get_broker from api.dependencies instead")
 
 
 def get_agent_runner() -> AgentRunner:
-    if _app_state is None:
-        raise RuntimeError("deps not initialized")
-    runner = getattr(_app_state, "agent_runner", None)
-    if runner is None:
-        raise RuntimeError("AgentRunner not initialized")
-    return runner
+    from fastapi import Request
+    from typing import Annotated
+
+    raise NotImplementedError("Use get_agent_runner from api.dependencies instead")
 
 
 def get_opportunity_store():
-    if _app_state is None:
-        raise RuntimeError("deps not initialized")
-    store = getattr(_app_state, "opportunity_store", None)
-    if store is None:
-        raise RuntimeError("Opportunity store not initialized")
-    return store
+    raise NotImplementedError("Use get_opportunity_store from api.dependencies instead")
 
 
 def get_risk_engine():
-    if _app_state is None:
-        raise RuntimeError("deps not initialized")
-    engine = getattr(_app_state, "risk_engine", None)
-    if engine is None:
-        raise RuntimeError("Risk engine not initialized")
-    return engine
+    raise NotImplementedError("Use get_risk_engine from api.dependencies instead")
 
 
 def get_risk_analytics():
-    """Get RiskAnalytics instance for real-time risk calculations."""
-    if _app_state is None:
-        raise RuntimeError("deps not initialized")
-    return getattr(_app_state, "risk_analytics", None)
+    raise NotImplementedError("Use get_risk_analytics from api.dependencies instead")
 
 
 def get_event_bus() -> EventBus:
-    if _app_state is None:
-        raise RuntimeError("deps not initialized")
-    bus = getattr(_app_state, "event_bus", None)
-    if bus is None:
-        raise RuntimeError("EventBus not initialized")
-    return bus
+    raise NotImplementedError("Use get_event_bus from api.dependencies instead")
 
 
 def get_trade_store() -> TradeStore:
-    if _app_state is None:
-        raise RuntimeError("deps not initialized")
-    store = getattr(_app_state, "trade_store", None)
-    if store is None:
-        raise RuntimeError("TradeStore not initialized")
-    return store
+    raise NotImplementedError("Use get_trade_store from api.dependencies instead")
 
 
-# Backward compatibility setters (no-ops now - everything uses app.state)
+# Backward compatibility setters - DEPRECATED
 def set_broker(broker: Broker) -> None:
-    pass
+    import warnings
+
+    warnings.warn(
+        "set_broker is deprecated. Set broker directly on app.state in startup.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
 
 
 def set_agent_runner(runner: AgentRunner) -> None:
-    pass
+    import warnings
+
+    warnings.warn(
+        "set_agent_runner is deprecated. Set runner directly on app.state in startup.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
 
 
 def set_opportunity_store(store) -> None:
-    pass
+    import warnings
+
+    warnings.warn(
+        "set_opportunity_store is deprecated. Set store directly on app.state in startup.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
 
 
 def set_risk_engine(engine) -> None:
-    pass
+    import warnings
+
+    warnings.warn(
+        "set_risk_engine is deprecated. Set engine directly on app.state in startup.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
 
 
 def set_event_bus(bus: EventBus) -> None:
-    pass
+    import warnings
+
+    warnings.warn(
+        "set_event_bus is deprecated. Set bus directly on app.state in startup.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
 
 
 def set_trade_store(store: TradeStore) -> None:
-    pass
+    import warnings
+
+    warnings.warn(
+        "set_trade_store is deprecated. Set store directly on app.state in startup.",
+        DeprecationWarning,
+        stacklevel=2,
+    )

@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Activity, BrainCircuit, Terminal, Search, Settings, LogOut, Compass, FolderOpen, Swords, Globe, Trophy, Server } from 'lucide-react';
+import { Activity, BrainCircuit, Terminal, Search, Settings, LogOut, Compass, FolderOpen, Swords, Globe, Trophy, Server, Rocket } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useAuth } from '../lib/auth';
 
@@ -71,13 +71,11 @@ export function Sidebar() {
         {!isLoading && user ? (
           <>
             <div>
-              <h3 className="px-4 text-[10px] uppercase font-mono tracking-[0.2em] text-slate-500 mb-2">Systems</h3>
+              <h3 className="px-4 text-[10px] uppercase font-mono tracking-[0.2em] text-slate-500 mb-2">Ops</h3>
               <div className="space-y-1">
+                <NavItem to="/mission-control" icon={Rocket} label="Mission Control" isActive={isActive('/mission-control')} accent="cyan" />
                 <NavItem to="/dashboard" icon={Activity} label="Dashboard" isActive={isActive('/dashboard')} accent="cyan" />
-                <NavItem to="/explorer" icon={Compass} label="Explorer" isActive={isActive('/explorer')} accent="cyan" />
                 <NavItem to="/bittensor" icon={Server} label="Bittensor Node" isActive={isActive('/bittensor')} accent="cyan" />
-                <NavItem to="/webhooks" icon={Terminal} label="Webhooks" isActive={isActive('/webhooks')} accent="cyan" />
-                <NavItem to="/workspaces" icon={FolderOpen} label="Workspaces" isActive={isActive('/workspaces')} accent="violet" />
               </div>
             </div>
             <div>
@@ -86,6 +84,14 @@ export function Sidebar() {
                 <NavItem to="/arena" icon={Swords} label="Arena" isActive={isActive('/arena')} accent="green" />
                 <NavItem to="/commons" icon={Globe} label="Commons" isActive={isActive('/commons')} accent="green" />
                 <NavItem to="/leaderboard" icon={Trophy} label="Leaderboard" isActive={isActive('/leaderboard')} accent="green" />
+              </div>
+            </div>
+            <div>
+              <h3 className="px-4 text-[10px] uppercase font-mono tracking-[0.2em] text-slate-500 mb-2">System</h3>
+              <div className="space-y-1">
+                <NavItem to="/explorer" icon={Compass} label="Explorer" isActive={isActive('/explorer')} accent="violet" />
+                <NavItem to="/webhooks" icon={Terminal} label="Webhooks" isActive={isActive('/webhooks')} accent="violet" />
+                <NavItem to="/workspaces" icon={FolderOpen} label="Workspaces" isActive={isActive('/workspaces')} accent="violet" />
               </div>
             </div>
           </>

@@ -5,7 +5,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from api.auth import _get_settings
 from api.deps import get_event_bus
 
-router = APIRouter(prefix="/ws", tags=["websockets"])
+router = APIRouter(prefix="/engine/v1/ws", tags=["websockets"])
 
 
 class CustomJSONEncoder(json.JSONEncoder):

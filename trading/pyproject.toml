@@ -8,59 +8,91 @@ version = "0.1.0"
 description = "Broker-agnostic trading API with IBKR adapter"
 requires-python = ">=3.12"
 dependencies = [
-    "gymnasium>=0.29.0",
-    "sse-starlette>=2.0.0",
-    "xgboost>=2.0.0",
-    "hmmlearn>=0.3.0",
-    "ib_async>=1.0.0",
+    # Core web framework
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.30.0",
     "python-multipart>=0.0.9",
     "pydantic>=2.0.0",
     "python-dotenv>=1.0.0",
-    "yfinance>=0.2.0",
+    # Streaming / SSE
+    "sse-starlette>=2.0.0",
+    "websockets>=12.0",
+    "httpx-sse>=0.4.0",
+    # Database
     "aiosqlite>=0.20.0",
     "asyncpg>=0.29.0",
-    "anthropic>=0.40.0",
-    "pyyaml>=6.0.0",
-    "croniter>=3.0.0",
+    # Redis
     "redis[hiredis]>=5.0.0",
+    # LLM providers
+    "anthropic>=0.40.0",
+    "openai>=1.0.0",
+    "groq>=0.4.0",
+    # Trading / market data
+    "ib_async>=1.0.0",
+    "yfinance>=0.2.0",
+    "ccxt>=4.0.0",
+    # Prediction markets
+    "py-clob-client>=0.34.0",
+    "web3>=7.0.0",
+    # ML / statistics
+    "xgboost>=2.0.0",
+    "hmmlearn>=0.3.0",
+    # Scheduling
+    "croniter>=3.0.0",
+    # Utilities
+    "pyyaml>=6.0.0",
     "httpx>=0.27.0",
     "matplotlib>=3.8.0",
     "feedparser>=6.0.0",
-    "openai>=1.0.0",
-    "groq>=0.4.0",
+    "PyJWT>=2.8.0",
+    # Observability
     "opentelemetry-api>=1.20.0",
     "opentelemetry-sdk>=1.20.0",
     "opentelemetry-exporter-otlp-proto-http>=1.20.0",
-    "py-clob-client>=0.34.0",
-    "web3>=7.0.0",
+    "prometheus-fastapi-instrumentator>=6.1.0",
+    "sentry-sdk[fastapi,opentelemetry]>=2.0.0",
+    "structlog>=24.0.0",
+    "asgi-correlation-id>=4.0.0",
+    # Bittensor
+    "bittensor>=10.2.0",
+    # Supabase
     "supabase>=2.0.0",
+]
+
+[project.optional-dependencies]
+torch = [
     "torch>=2.5.0",
     "torchvision>=0.20.0",
+]
+ml = [
+    "gymnasium>=0.29.0",
+    "stable-baselines3>=2.1.0",
+    "shimmy>=1.1.0",
     "sentence-transformers>=3.0.0",
     "hnswlib==0.8.0",
-    "websockets>=12.0",
-    "httpx-sse>=0.4.0",
-    "bittensor>=8.0.0",
-    "PyJWT>=2.8.0",
 ]
+test = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-timeout>=2.4.0",
+    "pytest-xdist>=3.5.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/example/stock-trading-api"
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["*"]
 exclude = ["tests*", "venv*", "_vendor*", "*.egg-info"]
 
+[tool.setuptools.package-data]
+"*" = ["*.yaml", "*.yml"]
+
 [tool.ruff]
 exclude = ["venv", ".venv", "_vendor", "vendor"]
 
 [tool.ruff.lint]
-# E402: module-level imports not at top (deferred imports are intentional throughout)
-# E741: ambiguous variable names like I, l (bittensor uses metagraph.I for incentive)
-# F821: undefined name - used in _setup_tournament_cron where _learning_cfg is expected in module scope
-# F401: unused imports - common in test files with broad imports
-# F811: redefinition of unused - some files redefine imports
-# F841: local unused - temporary variables in test assertions
 ignore = ["E402", "E741", "E721", "F821", "F401", "F811", "F841"]
 
 [tool.pytest.ini_options]
@@ -75,4 +107,5 @@ dev = [
     "pytest>=9.0.0",
     "pytest-asyncio>=1.0.0",
     "pytest-timeout>=2.4.0",
+    "ruff>=0.8.0",
 ]

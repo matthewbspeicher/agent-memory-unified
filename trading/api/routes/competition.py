@@ -18,7 +18,7 @@ from api.routes.competition_schemas import (
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/competition", tags=["competition"])
+router = APIRouter(prefix="/engine/v1/competition", tags=["competition"])
 
 
 def _get_store(request: Request):

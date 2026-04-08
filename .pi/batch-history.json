@@ -1,5 +1,179 @@
 [
   {
+    "batchId": "20260407T140334",
+    "status": "failed",
+    "startedAt": 1775585014040,
+    "endedAt": 1775585283432,
+    "durationMs": 269392,
+    "totalWaves": 1,
+    "totalTasks": 8,
+    "succeededTasks": 0,
+    "failedTasks": 3,
+    "skippedTasks": 5,
+    "blockedTasks": 0,
+    "tokens": {
+      "input": 67309,
+      "output": 2041,
+      "cacheRead": 262481,
+      "cacheWrite": 0,
+      "costUsd": 0.2116062
+    },
+    "tasks": [
+      {
+        "taskId": "TP-003",
+        "taskName": "TP-003",
+        "status": "failed",
+        "wave": 1,
+        "lane": 1,
+        "durationMs": 56542,
+        "tokens": {
+          "input": 3700,
+          "output": 218,
+          "cacheRead": 8823,
+          "cacheWrite": 0,
+          "costUsd": 0.0117806
+        },
+        "exitReason": "No progress after 3 iterations"
+      },
+      {
+        "taskId": "TP-014",
+        "taskName": "TP-014",
+        "status": "skipped",
+        "wave": 1,
+        "lane": 1,
+        "durationMs": 0,
+        "tokens": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "costUsd": 0
+        },
+        "exitReason": "Skipped due to prior task failure in lane"
+      },
+      {
+        "taskId": "TP-007",
+        "taskName": "TP-007",
+        "status": "failed",
+        "wave": 1,
+        "lane": 2,
+        "durationMs": 143752,
+        "tokens": {
+          "input": 41148,
+          "output": 884,
+          "cacheRead": 157649,
+          "cacheWrite": 0,
+          "costUsd": 0.12443379999999998
+        },
+        "exitReason": "No progress after 3 iterations"
+      },
+      {
+        "taskId": "TP-004",
+        "taskName": "TP-004",
+        "status": "skipped",
+        "wave": 1,
+        "lane": 2,
+        "durationMs": 0,
+        "tokens": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "costUsd": 0
+        },
+        "exitReason": "Skipped due to prior task failure in lane"
+      },
+      {
+        "taskId": "TP-008",
+        "taskName": "TP-008",
+        "status": "skipped",
+        "wave": 1,
+        "lane": 2,
+        "durationMs": 0,
+        "tokens": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "costUsd": 0
+        },
+        "exitReason": "Skipped due to prior task failure in lane"
+      },
+      {
+        "taskId": "TP-009",
+        "taskName": "TP-009",
+        "status": "failed",
+        "wave": 1,
+        "lane": 3,
+        "durationMs": 105927,
+        "tokens": {
+          "input": 22461,
+          "output": 939,
+          "cacheRead": 96009,
+          "cacheWrite": 0,
+          "costUsd": 0.07539180000000001
+        },
+        "exitReason": "No progress after 3 iterations"
+      },
+      {
+        "taskId": "TP-006",
+        "taskName": "TP-006",
+        "status": "skipped",
+        "wave": 1,
+        "lane": 3,
+        "durationMs": 0,
+        "tokens": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "costUsd": 0
+        },
+        "exitReason": "Skipped due to prior task failure in lane"
+      },
+      {
+        "taskId": "TP-011",
+        "taskName": "TP-011",
+        "status": "skipped",
+        "wave": 1,
+        "lane": 3,
+        "durationMs": 0,
+        "tokens": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "costUsd": 0
+        },
+        "exitReason": "Skipped due to prior task failure in lane"
+      }
+    ],
+    "waves": [
+      {
+        "wave": 1,
+        "tasks": [
+          "TP-003",
+          "TP-014",
+          "TP-007",
+          "TP-004",
+          "TP-008",
+          "TP-009",
+          "TP-006",
+          "TP-011"
+        ],
+        "mergeStatus": "skipped",
+        "durationMs": 143752,
+        "tokens": {
+          "input": 67309,
+          "output": 2041,
+          "cacheRead": 262481,
+          "cacheWrite": 0,
+          "costUsd": 0.2116062
+        }
+      }
+    ]
+  },
+  {
     "batchId": "20260407T121549",
     "status": "completed",
     "startedAt": 1775578549589,

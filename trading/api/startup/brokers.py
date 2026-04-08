@@ -29,10 +29,10 @@ async def setup_brokers(
     if isinstance(broker, PaperBroker):
         await broker._store.init_tables()
 
-    # --- Paper trading mode: replace broker with SimulatedBroker ---
+    # --- Paper trading mode: replace broker with PaperBroker ---
     _paper_store = None
     if config.paper_trading:
-        from adapters.paper.broker import SimulatedBroker
+        from broker.paper import PaperBroker
         from storage.paper import PaperStore
 
         _paper_store = PaperStore(db)
@@ -48,9 +48,17 @@ async def setup_brokers(
             (_initial, _initial, _initial),
         )
         await db.commit()
-        broker = SimulatedBroker(
+
+        # market_data is required for PaperBroker; we'll use a placeholder or 
+        # ensure it's wired correctly. Since real_broker might be None,
+        # we need a source for market data.
+        # DataBus will be wired into it after DataBus is created in app.py.
+        # For now, we create it with a placeholder MarketDataProvider if needed,
+        # but SimulatedBroker was also created with None data_bus initially.
+        
+        broker = PaperBroker(
             store=_paper_store,
-            data_bus=None,  # injected after DataBus is built
+            market_data=None,  # injected after DataBus is built in app.py
             initial_balance=_initial,
         )
         await broker.connection.connect()

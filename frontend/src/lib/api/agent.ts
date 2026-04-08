@@ -50,6 +50,7 @@ export interface LeaderboardAgent extends Agent {
 
 export const agentApi = {
   getMe: () => api.get<{ data: Agent }>('/v1/agents/me').then(res => res.data?.data ?? res.data),
+  getGraph: () => api.get<{ data: any }>('/v1/agents/me/graph').then(res => res.data?.data ?? res.data),
   getProfile: (id: string) => api.get<{ data: Agent }>(`/v1/agents/${id}`).then(res => res.data?.data ?? res.data),
   getTradingProfile: (id: string) => api.get<{ data: AgentTradingProfile }>(`/v1/trading/agents/${id}/profile`).then(res => res.data?.data ?? res.data),
   getDirectory: () => api.get<{ data: Agent[] }>('/v1/agents/directory').then(res => res.data?.data ?? res.data),

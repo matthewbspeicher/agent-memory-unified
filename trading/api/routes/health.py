@@ -107,6 +107,17 @@ def _check_signal_bus(request: Request) -> dict:
     }
 
 
+async def _check_memory_linter(request: Request) -> dict:
+    """Run memory linter health check."""
+    from api.routes.memory import _shared_memory_client
+    if not _shared_memory_client:
+        return {"ok": None, "detail": "Memory client not configured"}
+        
+    from learning.memory_linter import MemoryLinter
+    linter = MemoryLinter(_shared_memory_client)
+    return await linter.lint()
+
+
 @router.get("/health-internal")
 async def health_internal(request: Request):
     db = getattr(request.app.state, "db", None)
@@ -170,6 +181,9 @@ async def health_internal(request: Request):
 
     # SignalBus check
     signal_bus_status = _check_signal_bus(request)
+    
+    # Memory Linter check
+    memory_linter_status = await _check_memory_linter(request)
 
     return JSONResponse(
         status_code=200 if healthy else 503,
@@ -182,6 +196,7 @@ async def health_internal(request: Request):
             "redis": redis_status,
             "taoshi_bridge": bridge_status,
             "signal_bus": signal_bus_status,
+            "memory_linter": memory_linter_status,
         },
     )
 

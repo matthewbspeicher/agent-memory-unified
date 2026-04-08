@@ -1,76 +1,82 @@
-ib_async>=1.0.0
+# Canonical source: pyproject.toml
+# Auto-generated from pyproject.toml - DO NOT EDIT DIRECTLY
+# Run `uv pip compile pyproject.toml -o requirements.txt` to regenerate
+
+# Core web framework
 fastapi>=0.115.0
 uvicorn[standard]>=0.30.0
 python-multipart>=0.0.9
 pydantic>=2.0.0
 python-dotenv>=1.0.0
 
-# agent framework
-yfinance>=0.2.0
-aiosqlite>=0.20.0
-asyncpg>=0.29.0
-anthropic>=0.40.0
-pyyaml>=6.0.0
-croniter>=3.0.0
-redis[hiredis]>=5.0.0
-
-# notifications & whatsapp
-httpx>=0.27.0
-matplotlib>=3.8.0
-feedparser>=6.0.0
-
-# LLM fallback chain (Groq + Ollama use OpenAI-compatible client)
-openai>=1.0.0
-groq>=0.4.0
-
-# telemetry (optional)
-opentelemetry-api>=1.20.0
-opentelemetry-sdk>=1.20.0
-opentelemetry-exporter-otlp-proto-http>=1.20.0
-
-# prediction markets — Polymarket
-py-clob-client>=0.34.0
-web3>=7.0.0
-
-supabase>=2.0.0
-
-# remembr.dev SDK — vendored in vendor/remembr-sdk/)
-remembr @ file:./vendor/remembr-sdk
-
-# journal vector index (optional — gated by STA_JOURNAL_INDEX_ENABLED)
---extra-index-url https://download.pytorch.org/whl/cpu
-torch>=2.0.0
-torchvision>=0.15.0
-sentence-transformers>=3.0.0
-hnswlib==0.8.0
-
-# exchange data (ccxt — used by IntelligenceLayer/AnomalyProvider)
-ccxt>=4.0.0
-
-# streaming
+# Streaming / SSE
+sse-starlette>=2.0.0
 websockets>=12.0
 httpx-sse>=0.4.0
 
-# bittensor subnet integration
-bittensor>=10.2.0
+# Database
+aiosqlite>=0.20.0
+asyncpg>=0.29.0
 
-# reinforcement learning
-gymnasium>=0.29.0
-stable-baselines3>=2.1.0
-shimmy>=1.1.0
+# Redis
+redis[hiredis]>=5.0.0
 
-# competition system
-sse-starlette>=2.0.0
+# LLM providers
+anthropic>=0.40.0
+openai>=1.0.0
+groq>=0.4.0
+
+# Trading / market data
+ib_async>=1.0.0
+yfinance>=0.2.0
+ccxt>=4.0.0
+
+# Prediction markets
+py-clob-client>=0.34.0
+web3>=7.0.0
+
+# ML / statistics
 xgboost>=2.0.0
 hmmlearn>=0.3.0
 
-# testing
-pytest>=8.0.0
-pytest-asyncio>=0.24.0
+# Scheduling
+croniter>=3.0.0
 
-# observability
+# Utilities
+pyyaml>=6.0.0
+httpx>=0.27.0
+matplotlib>=3.8.0
+feedparser>=6.0.0
+PyJWT>=2.8.0
+
+# Observability
+opentelemetry-api>=1.20.0
+opentelemetry-sdk>=1.20.0
+opentelemetry-exporter-otlp-proto-http>=1.20.0
 prometheus-fastapi-instrumentator>=6.1.0
 sentry-sdk[fastapi,opentelemetry]>=2.0.0
 structlog>=24.0.0
 asgi-correlation-id>=4.0.0
+
+# Bittensor
+bittensor>=10.2.0
+
+# Supabase
+supabase>=2.0.0
+
+# Testing
+pytest>=8.0.0
+pytest-asyncio>=0.24.0
+pytest-timeout>=2.4.0
 pytest-xdist>=3.5.0
+
+# Optional: PyTorch ecosystem (install with: pip install -e ".[torch]")
+# torch>=2.5.0
+# torchvision>=0.20.0
+
+# Optional: ML/RL stack (install with: pip install -e ".[ml]")
+# gymnasium>=0.29.0
+# stable-baselines3>=2.1.0
+# shimmy>=1.1.0
+# sentence-transformers>=3.0.0
+# hnswlib==0.8.0

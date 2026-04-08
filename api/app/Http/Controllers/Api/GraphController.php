@@ -76,11 +76,17 @@ class GraphController extends Controller
                 $q->whereIn('source_id', $memoryIds)
                     ->whereIn('target_id', $memoryIds);
             })
-            ->select('source_id as source', 'target_id as target', 'type as relation')
+            ->select('source_id as source', 'target_id as target', 'type as relation', 'metadata')
             ->distinct()
             ->get()
+            ->map(function ($edge) {
+                if (is_string($edge->metadata)) {
+                    $edge->metadata = json_decode($edge->metadata, true);
+                }
+                return $edge;
+            })
             ->values();
 
-        return ['nodes' => $nodes, 'edges' => $edges];
+        return ['nodes' => $nodes, 'links' => $edges];
     }
 }

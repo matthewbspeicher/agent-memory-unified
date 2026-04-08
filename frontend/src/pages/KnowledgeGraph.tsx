@@ -23,9 +23,15 @@ export default function KnowledgeGraph() {
   const { data: graphData, isLoading } = useQuery({
     queryKey: ['knowledge-graph'],
     queryFn: async () => {
-      await agentApi.getMe();
-      // In a real app, we'd have a specific graph endpoint
-      // Mocking some data for visualization if real data is missing
+      try {
+        const data = await agentApi.getGraph();
+        if (data && data.nodes && data.nodes.length > 0) {
+          return data;
+        }
+      } catch (e) {
+        console.warn('Failed to load real graph data, falling back to mock.', e);
+      }
+      // Fallback to mock data if empty or error
       return {
         nodes: [
           { id: 'me', summary: 'Primary Agent', type: 'agent' },
@@ -35,10 +41,10 @@ export default function KnowledgeGraph() {
           { id: 't1', summary: 'Database task', type: 'task' },
         ],
         links: [
-          { source: 'me', target: 'm1' },
-          { source: 'me', target: 'm2' },
-          { source: 'me', target: 'm3' },
-          { source: 'm1', target: 't1' },
+          { source: 'me', target: 'm1', relation: 'created', metadata: null },
+          { source: 'me', target: 'm2', relation: 'created', metadata: null },
+          { source: 'me', target: 'm3', relation: 'created', metadata: null },
+          { source: 'm1', target: 't1', relation: 'related', metadata: { rationale: 'Optimized for speed' } },
         ]
       };
     },
@@ -58,6 +64,13 @@ export default function KnowledgeGraph() {
       graphInstance.current = new ForceGraph3D(graphRef.current)
         .nodeLabel('summary')
         .nodeColor((node: any) => colorMap[node.type] || '#ffffff')
+        .linkLabel((link: any) => {
+          let label = link.relation || 'related';
+          if (link.metadata?.rationale) {
+            label += `: ${link.metadata.rationale}`;
+          }
+          return `<div style="background: rgba(2, 6, 23, 0.8); padding: 4px 8px; border-radius: 4px; border: 1px solid rgba(168, 85, 247, 0.4); font-family: monospace; font-size: 10px; color: #e2e8f0;">${label}</div>`;
+        })
         .linkDirectionalParticles(2)
         .linkDirectionalParticleSpeed(() => 0.01)
         .linkDirectionalParticleColor((link: any) => colorMap[link.target.type] || '#ffffff')
