@@ -157,13 +157,13 @@ class HybridTradingMemoryClient:
 
     async def health_check(self) -> dict:
         """Check health of both backends."""
-        remote_health = {"healthy": False}
-        local_health = {"healthy": False}
+        remote_health: dict[str, Any] = {"healthy": False}
+        local_health: dict[str, Any] = {"healthy": False}
 
         # Check remote
         try:
             # Simple check - try a search
-            await self._remote.search_both("health", limit=1)
+            await self._remote.search_both("health", top_k=1)
             remote_health = {"healthy": True, "backend": "remembr.dev"}
         except Exception as e:
             remote_health = {

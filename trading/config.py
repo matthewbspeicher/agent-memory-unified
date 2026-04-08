@@ -79,6 +79,8 @@ class LLMConfig(BaseModel):
 class Config(BaseModel):
     """Application configuration with strict Pydantic validation."""
 
+    model_config = {"extra": "allow"}
+
     broker: BrokerConfig = Field(default_factory=BrokerConfig)
     bittensor: BittensorConfig = Field(default_factory=BittensorConfig)
     llm: LLMConfig = Field(default_factory=LLMConfig)

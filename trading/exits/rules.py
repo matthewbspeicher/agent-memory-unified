@@ -439,11 +439,11 @@ def parse_rule(d: dict[str, Any]) -> ExitRule | None:
             target_price=Decimal(d["target_price"]), side=d.get("side", "BUY")
         )
     elif t == "trailing_stop":
-        r = TrailingStop(
+        r_stop = TrailingStop(
             trail_pct=Decimal(d["trail_pct"]), side=d.get("side", "BUY")
         )
-        r._peak = Decimal(d.get("peak", "0"))
-        return r
+        r_stop._peak = Decimal(d.get("peak", "0"))
+        return r_stop
     elif t == "time_exit":
         return TimeExit(expires_at=datetime.fromisoformat(d["expires_at"]))
     elif t == "prediction_time_exit":
@@ -473,13 +473,13 @@ def parse_rule(d: dict[str, Any]) -> ExitRule | None:
             hours_before_expiry=d.get("hours_before_expiry", 4.0),
         )
     elif t == "probability_trailing_stop":
-        r = ProbabilityTrailingStop(
+        r_prob = ProbabilityTrailingStop(
             trail_pp=d["trail_pp"],
             side=d.get("side", "BUY"),
             quiet_zone=d.get("quiet_zone", 0.05),
         )
-        r._peak = d.get("peak", 0.0)
-        return r
+        r_prob._peak = d.get("peak", 0.0)
+        return r_prob
     elif t == "partial_exit":
         r2 = PartialExitRule(
             target_price=Decimal(d["target_price"]),

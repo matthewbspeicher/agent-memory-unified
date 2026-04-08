@@ -63,8 +63,8 @@ def compute_metrics(result: BacktestResult) -> dict[str, Any]:
     win_rate = len(winning) / total_trades * 100 if total_trades else 0.0
 
     # Profit factor
-    gross_profit = sum(t.pnl for t in winning) if winning else Decimal("0")
-    gross_loss = abs(sum(t.pnl for t in losing)) if losing else Decimal("1")
+    gross_profit = sum((t.pnl for t in winning), Decimal("0")) if winning else Decimal("0")
+    gross_loss = abs(sum((t.pnl for t in losing), Decimal("0"))) if losing else Decimal("1")
     profit_factor = float(gross_profit / gross_loss) if gross_loss > 0 else float("inf")
 
     # Trade averages
