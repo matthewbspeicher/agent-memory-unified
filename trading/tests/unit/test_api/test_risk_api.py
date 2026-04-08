@@ -14,7 +14,6 @@ def risk_client(mock_broker):
     os.environ["STA_API_KEY"] = "test-key"
     from api.app import create_app
     from api.routes.risk import router as risk_router
-    from api.deps import _init_state
 
     app = create_app(mock_broker)
     app.include_router(risk_router)
@@ -23,7 +22,6 @@ def risk_client(mock_broker):
     engine.kill_switch = ks
     engine.rules = [MaxPositionSize(max_dollars=5000, max_shares=500)]
     app.state.risk_engine = engine
-    _init_state(app.state)
     return TestClient(app)
 
 

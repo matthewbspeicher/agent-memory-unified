@@ -14,7 +14,6 @@ def agent_client(mock_broker):
     os.environ["STA_API_KEY"] = "test-key"
     from api.app import create_app
     from api.routes.agents import router as agents_router
-    from api.deps import _init_state
 
     app = create_app(mock_broker)
     app.include_router(agents_router)
@@ -49,7 +48,6 @@ def agent_client(mock_broker):
     runner.run_once = AsyncMock(return_value=[])
     runner._agents = {"test-agent": MagicMock()}
     app.state.agent_runner = runner
-    _init_state(app.state)
     return TestClient(app)
 
 

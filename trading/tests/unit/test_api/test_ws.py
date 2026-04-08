@@ -10,10 +10,12 @@ def ws_app():
     app = FastAPI()
     bus = EventBus()
 
-    from api.deps import _init_state
-
     app.state.event_bus = bus
-    _init_state(app.state)
+    app.state.broker = None
+    app.state.enable_agent_framework = True
+    
+    from config import load_config
+    app.state.config = load_config()
 
     app.include_router(router)
     yield app, bus

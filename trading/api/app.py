@@ -116,7 +116,7 @@ async def _setup_trade_reflectors(
             shared_client=shared_remembr,
             ttl_days=mem_cfg.ttl_days,
         )
-        register_shared_client(shared_memory_client)
+        memory_registry.register_shared(shared_memory_client)
         
         # Start Daily Trade Compiler
         from learning.trade_compiler import DailyTradeCompiler
@@ -911,18 +911,13 @@ async def lifespan(app: FastAPI):
     setup_logging(level=config.log_level, fmt=config.log_format)
 
     enabled = getattr(app.state, "enable_agent_framework", False)
+# Initialize background tasks manager
+from utils.background_tasks import BackgroundTaskManager
 
-    from utils.background_tasks import BackgroundTaskManager
+task_mgr = BackgroundTaskManager()
+app.state.task_manager = task_mgr
 
-    task_mgr = BackgroundTaskManager()
-    app.state.task_manager = task_mgr
-
-    # Initialize deps module with app.state reference
-    from api.deps import _init_state
-
-    _init_state(app.state)
-
-    # Telemetry setup - conditional, deferred from import time
+# Telemetry setup - conditional, deferred from import time
     from utils.telemetry import setup_telemetry
 
     setup_telemetry()

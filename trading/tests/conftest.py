@@ -107,8 +107,6 @@ def client(mock_broker):
 
     _get_settings.cache_clear()
     from api.app import create_app
-    from api.deps import _init_state
 
     app = create_app(mock_broker)
-    _init_state(app.state)
     return TestClient(app)
