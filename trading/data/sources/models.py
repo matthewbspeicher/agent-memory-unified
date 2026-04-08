@@ -19,3 +19,4 @@ class NewsSignal:
     sentiment: str  # "bullish_yes" | "bearish_yes" | "neutral"
     mispricing_score: float  # -1.0 to +1.0, positive = YES underpriced
     scored_at: datetime
+    entities: list[str] | None = None  # Extracted entity names
