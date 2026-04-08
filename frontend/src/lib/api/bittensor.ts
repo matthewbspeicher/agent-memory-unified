@@ -1,4 +1,4 @@
-import axios from 'axios';
+import { createApiClient } from './factory';
 
 /**
  * Trading API client for Bittensor endpoints.
@@ -13,12 +13,7 @@ const getBaseUrl = () => {
     : 'http://localhost:8080/engine/v1';
 };
 
-const tradingApi = axios.create({
-  baseURL: getBaseUrl(),
-  headers: {
-    'X-API-Key': import.meta.env.VITE_TRADING_API_KEY || (import.meta.env.DEV ? 'local-validator-dev' : ''),
-  },
-});
+const tradingApi = createApiClient(getBaseUrl());
 
 export interface BittensorStatus {
   enabled?: boolean;
