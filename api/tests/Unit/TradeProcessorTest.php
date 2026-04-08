@@ -3,16 +3,16 @@
 namespace Tests\Unit;
 
 use App\Models\Trade;
-use App\Services\TradingService;
+use App\Services\TradeProcessor;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 
-class TradingServiceTest extends TestCase
+class TradeProcessorTest extends TestCase
 {
     #[DataProvider('provideMathVectors')]
     public function test_compute_child_pnl_matches_shared_vectors(array $vector)
     {
-        $service = new TradingService();
+        $service = new TradeProcessor();
 
         // Create mock/dummy parent trade
         $parent = new Trade();
