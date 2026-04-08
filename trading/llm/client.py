@@ -22,21 +22,18 @@ import json
 import logging
 import re
 from dataclasses import dataclass
-from typing import Literal
+
+from .providers import (
+    AnthropicProvider,
+    BedrockProvider,
+    GroqProvider,
+    LLMResult,
+    OllamaProvider,
+    ProviderName,
+    ProviderRegistry,
+)
 
 logger = logging.getLogger(__name__)
-
-ProviderName = Literal["anthropic", "bedrock", "groq", "ollama", "rule-based"]
-
-
-@dataclass
-class LLMResult:
-    """Structured result from any LLM provider."""
-
-    text: str
-    provider: ProviderName
-    model: str
-    latency_ms: float = 0.0
 
 
 @dataclass
@@ -177,335 +174,6 @@ def _rule_based_probability(question: str, headlines: list[str]) -> ProbabilityE
 
 
 # ---------------------------------------------------------------------------
-# Provider implementations
-# ---------------------------------------------------------------------------
-
-
-async def _try_anthropic(
-    prompt: str,
-    *,
-    api_key: str,
-    model: str = "claude-haiku-4-5-20251001",
-    max_tokens: int = 200,
-) -> LLMResult | None:
-    """Call Anthropic Claude API."""
-    try:
-        import anthropic
-        import time
-
-        start = time.monotonic()
-        client = anthropic.AsyncAnthropic(api_key=api_key)
-        msg = await client.messages.create(
-            model=model,
-            max_tokens=max_tokens,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        latency = (time.monotonic() - start) * 1000
-        return LLMResult(
-            text=msg.content[0].text.strip(),
-            provider="anthropic",
-            model=model,
-            latency_ms=round(latency),
-        )
-    except Exception as exc:
-        logger.warning("Anthropic failed: %s", exc)
-        return None
-
-
-async def _try_bedrock(
-    prompt: str,
-    *,
-    region: str,
-    model: str = "anthropic.claude-3-haiku-20240307-v1:0",
-    access_key_id: str | None = None,
-    secret_access_key: str | None = None,
-    max_tokens: int = 200,
-) -> LLMResult | None:
-    """Call AWS Bedrock API."""
-    try:
-        import boto3
-        import json
-        import time
-
-        start = time.monotonic()
-
-        # Create boto3 client with explicit credentials if provided, else use IAM role
-        if access_key_id and secret_access_key:
-            client = boto3.client(
-                "bedrock-runtime",
-                region_name=region,
-                aws_access_key_id=access_key_id,
-                aws_secret_access_key=secret_access_key,
-            )
-        else:
-            client = boto3.client("bedrock-runtime", region_name=region)
-
-        # Bedrock request format for Claude models
-        body = json.dumps(
-            {
-                "anthropic_version": "bedrock-2023-05-31",
-                "max_tokens": max_tokens,
-                "messages": [{"role": "user", "content": prompt}],
-            }
-        )
-
-        response = client.invoke_model(
-            modelId=model,
-            body=body,
-        )
-
-        response_body = json.loads(response["body"].read())
-        latency = (time.monotonic() - start) * 1000
-
-        return LLMResult(
-            text=response_body["content"][0]["text"].strip(),
-            provider="bedrock",
-            model=model,
-            latency_ms=round(latency),
-        )
-    except Exception as exc:
-        logger.warning("Bedrock failed: %s", exc)
-        return None
-
-
-async def _try_groq(
-    prompt: str,
-    *,
-    api_key: str,
-    model: str = "llama-3.3-70b-versatile",
-    max_tokens: int = 200,
-) -> LLMResult | None:
-    """Call Groq API (OpenAI-compatible)."""
-    try:
-        import openai
-        import time
-
-        start = time.monotonic()
-        client = openai.AsyncOpenAI(
-            base_url="https://api.groq.com/openai/v1",
-            api_key=api_key,
-        )
-        resp = await client.chat.completions.create(
-            model=model,
-            max_tokens=max_tokens,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        latency = (time.monotonic() - start) * 1000
-        return LLMResult(
-            text=resp.choices[0].message.content.strip(),
-            provider="groq",
-            model=model,
-            latency_ms=round(latency),
-        )
-    except Exception as exc:
-        logger.warning("Groq failed: %s", exc)
-        return None
-
-
-async def _try_ollama(
-    prompt: str,
-    *,
-    base_url: str = "http://localhost:11434",
-    model: str = "llama3.2:3b",
-    max_tokens: int = 200,
-) -> LLMResult | None:
-    """Call local Ollama server (OpenAI-compatible endpoint)."""
-    try:
-        import openai
-        import time
-
-        start = time.monotonic()
-        client = openai.AsyncOpenAI(
-            base_url=f"{base_url}/v1",
-            api_key="ollama",
-            timeout=30.0,
-        )
-        resp = await client.chat.completions.create(
-            model=model,
-            max_tokens=max_tokens,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        latency = (time.monotonic() - start) * 1000
-        return LLMResult(
-            text=resp.choices[0].message.content.strip(),
-            provider="ollama",
-            model=model,
-            latency_ms=round(latency),
-        )
-    except Exception as exc:
-        logger.warning("Ollama failed: %s", exc)
-        return None
-
-
-# ---------------------------------------------------------------------------
-# Chat provider helpers (multi-turn with system prompt)
-# ---------------------------------------------------------------------------
-
-
-async def _try_anthropic_chat(
-    system: str,
-    messages: list[dict[str, str]],
-    *,
-    api_key: str,
-    model: str = "claude-haiku-4-5-20251001",
-    max_tokens: int = 500,
-) -> LLMResult | None:
-    """Call Anthropic Claude API with system prompt + messages."""
-    try:
-        import anthropic
-        import time
-
-        start = time.monotonic()
-        client = anthropic.AsyncAnthropic(api_key=api_key)
-        msg = await client.messages.create(
-            model=model,
-            max_tokens=max_tokens,
-            system=system,
-            messages=messages,
-        )
-        latency = (time.monotonic() - start) * 1000
-        return LLMResult(
-            text=msg.content[0].text.strip(),
-            provider="anthropic",
-            model=model,
-            latency_ms=round(latency),
-        )
-    except Exception as exc:
-        logger.warning("Anthropic chat failed: %s", exc)
-        return None
-
-
-async def _try_bedrock_chat(
-    system: str,
-    messages: list[dict[str, str]],
-    *,
-    region: str,
-    model: str = "anthropic.claude-3-haiku-20240307-v1:0",
-    access_key_id: str | None = None,
-    secret_access_key: str | None = None,
-    max_tokens: int = 500,
-) -> LLMResult | None:
-    """Call AWS Bedrock API with system prompt + messages."""
-    try:
-        import boto3
-        import json
-        import time
-
-        start = time.monotonic()
-
-        # Create boto3 client
-        if access_key_id and secret_access_key:
-            client = boto3.client(
-                "bedrock-runtime",
-                region_name=region,
-                aws_access_key_id=access_key_id,
-                aws_secret_access_key=secret_access_key,
-            )
-        else:
-            client = boto3.client("bedrock-runtime", region_name=region)
-
-        # Bedrock request format for Claude models with system prompt
-        body = json.dumps(
-            {
-                "anthropic_version": "bedrock-2023-05-31",
-                "max_tokens": max_tokens,
-                "system": system,
-                "messages": messages,
-            }
-        )
-
-        response = client.invoke_model(
-            modelId=model,
-            body=body,
-        )
-
-        response_body = json.loads(response["body"].read())
-        latency = (time.monotonic() - start) * 1000
-
-        return LLMResult(
-            text=response_body["content"][0]["text"].strip(),
-            provider="bedrock",
-            model=model,
-            latency_ms=round(latency),
-        )
-    except Exception as exc:
-        logger.warning("Bedrock chat failed: %s", exc)
-        return None
-
-
-async def _try_groq_chat(
-    system: str,
-    messages: list[dict[str, str]],
-    *,
-    api_key: str,
-    model: str = "llama-3.3-70b-versatile",
-    max_tokens: int = 500,
-) -> LLMResult | None:
-    """Call Groq API with system prompt + messages."""
-    try:
-        import openai
-        import time
-
-        start = time.monotonic()
-        client = openai.AsyncOpenAI(
-            base_url="https://api.groq.com/openai/v1",
-            api_key=api_key,
-        )
-        full_messages = [{"role": "system", "content": system}] + messages
-        resp = await client.chat.completions.create(
-            model=model,
-            max_tokens=max_tokens,
-            messages=full_messages,
-        )
-        latency = (time.monotonic() - start) * 1000
-        return LLMResult(
-            text=resp.choices[0].message.content.strip(),
-            provider="groq",
-            model=model,
-            latency_ms=round(latency),
-        )
-    except Exception as exc:
-        logger.warning("Groq chat failed: %s", exc)
-        return None
-
-
-async def _try_ollama_chat(
-    system: str,
-    messages: list[dict[str, str]],
-    *,
-    base_url: str = "http://localhost:11434",
-    model: str = "llama3.2:3b",
-    max_tokens: int = 500,
-) -> LLMResult | None:
-    """Call local Ollama server with system prompt + messages."""
-    try:
-        import openai
-        import time
-
-        start = time.monotonic()
-        client = openai.AsyncOpenAI(
-            base_url=f"{base_url}/v1",
-            api_key="ollama",
-        )
-        full_messages = [{"role": "system", "content": system}] + messages
-        resp = await client.chat.completions.create(
-            model=model,
-            max_tokens=max_tokens,
-            messages=full_messages,
-        )
-        latency = (time.monotonic() - start) * 1000
-        return LLMResult(
-            text=resp.choices[0].message.content.strip(),
-            provider="ollama",
-            model=model,
-            latency_ms=round(latency),
-        )
-    except Exception as exc:
-        logger.warning("Ollama chat failed: %s", exc)
-        return None
-
-
-# ---------------------------------------------------------------------------
 # Unified client
 # ---------------------------------------------------------------------------
 
@@ -532,12 +200,6 @@ class LLMClient:
         ollama_model: str = "llama3.2:3b",
         bedrock_model: str = "anthropic.claude-3-haiku-20240307-v1:0",
     ) -> None:
-        self._anthropic_key = anthropic_key
-        self._groq_key = groq_key
-        self._ollama_url = ollama_url
-        self._bedrock_region = bedrock_region
-        self._bedrock_access_key_id = bedrock_access_key_id
-        self._bedrock_secret_access_key = bedrock_secret_access_key
         self._chain: list[ProviderName] = chain or [
             "anthropic",
             "bedrock",
@@ -545,10 +207,24 @@ class LLMClient:
             "ollama",
             "rule-based",
         ]
-        self._anthropic_model = anthropic_model
-        self._groq_model = groq_model
-        self._ollama_model = ollama_model
-        self._bedrock_model = bedrock_model
+        
+        self.registry = ProviderRegistry()
+        
+        if anthropic_key:
+            self.registry.register(AnthropicProvider(api_key=anthropic_key, model=anthropic_model))
+            
+        if bedrock_region:
+            self.registry.register(BedrockProvider(
+                region=bedrock_region,
+                model=bedrock_model,
+                access_key_id=bedrock_access_key_id,
+                secret_access_key=bedrock_secret_access_key,
+            ))
+            
+        if groq_key:
+            self.registry.register(GroqProvider(api_key=groq_key, model=groq_model))
+            
+        self.registry.register(OllamaProvider(base_url=ollama_url, model=ollama_model))
 
         # Per-provider circuit breaker (disabled after N consecutive failures)
         self._fail_counts: dict[str, int] = {}
@@ -585,47 +261,20 @@ class LLMClient:
 
         providers = self._resolve_chain()
 
-        for provider in providers:
-            if self._is_disabled(provider):
+        for provider_name in providers:
+            if provider_name == "rule-based":
+                continue
+            if self._is_disabled(provider_name):
                 continue
 
-            result = None
-            if provider == "anthropic" and self._anthropic_key:
-                result = await _try_anthropic(
-                    prompt,
-                    api_key=self._anthropic_key,
-                    model=self._anthropic_model,
-                    max_tokens=max_tokens,
-                )
-            elif provider == "bedrock" and self._bedrock_region:
-                result = await _try_bedrock(
-                    prompt,
-                    region=self._bedrock_region,
-                    model=self._bedrock_model,
-                    access_key_id=self._bedrock_access_key_id,
-                    secret_access_key=self._bedrock_secret_access_key,
-                    max_tokens=max_tokens,
-                )
-            elif provider == "groq" and self._groq_key:
-                result = await _try_groq(
-                    prompt,
-                    api_key=self._groq_key,
-                    model=self._groq_model,
-                    max_tokens=max_tokens,
-                )
-            elif provider == "ollama":
-                result = await _try_ollama(
-                    prompt,
-                    base_url=self._ollama_url,
-                    model=self._ollama_model,
-                    max_tokens=max_tokens,
-                )
-
-            if result:
-                self._record_success(provider)
-                return result
-            else:
-                self._record_failure(provider)
+            provider = self.registry.get(provider_name)
+            if provider:
+                result = await provider.complete(prompt, max_tokens=max_tokens)
+                if result:
+                    self._record_success(provider_name)
+                    return result
+                else:
+                    self._record_failure(provider_name)
 
         # All providers failed — this should not happen (rule-based always works)
         logger.error("LLMClient: all providers failed, returning empty result")
@@ -644,53 +293,20 @@ class LLMClient:
         """
         providers = self._resolve_chain()
 
-        for provider in providers:
-            if provider == "rule-based":
+        for provider_name in providers:
+            if provider_name == "rule-based":
                 continue  # no rule-based fallback for chat
-            if self._is_disabled(provider):
+            if self._is_disabled(provider_name):
                 continue
 
-            result = None
-            if provider == "anthropic" and self._anthropic_key:
-                result = await _try_anthropic_chat(
-                    system,
-                    messages,
-                    api_key=self._anthropic_key,
-                    model=self._anthropic_model,
-                    max_tokens=max_tokens,
-                )
-            elif provider == "bedrock" and self._bedrock_region:
-                result = await _try_bedrock_chat(
-                    system,
-                    messages,
-                    region=self._bedrock_region,
-                    model=self._bedrock_model,
-                    access_key_id=self._bedrock_access_key_id,
-                    secret_access_key=self._bedrock_secret_access_key,
-                    max_tokens=max_tokens,
-                )
-            elif provider == "groq" and self._groq_key:
-                result = await _try_groq_chat(
-                    system,
-                    messages,
-                    api_key=self._groq_key,
-                    model=self._groq_model,
-                    max_tokens=max_tokens,
-                )
-            elif provider == "ollama":
-                result = await _try_ollama_chat(
-                    system,
-                    messages,
-                    base_url=self._ollama_url,
-                    model=self._ollama_model,
-                    max_tokens=max_tokens,
-                )
-
-            if result:
-                self._record_success(provider)
-                return result
-            else:
-                self._record_failure(provider)
+            provider = self.registry.get(provider_name)
+            if provider:
+                result = await provider.chat(system, messages, max_tokens=max_tokens)
+                if result:
+                    self._record_success(provider_name)
+                    return result
+                else:
+                    self._record_failure(provider_name)
 
         # All providers failed
         logger.error("LLMClient.chat: all providers failed")
@@ -722,54 +338,35 @@ class LLMClient:
 
         # Try LLM providers
         providers = self._resolve_chain()
-        for provider in providers:
-            if provider == "rule-based":
+        for provider_name in providers:
+            if provider_name == "rule-based":
                 continue
-            if self._is_disabled(provider):
+            if self._is_disabled(provider_name):
                 continue
 
-            result = None
-            if provider == "anthropic" and self._anthropic_key:
-                result = await _try_anthropic(
-                    prompt, api_key=self._anthropic_key, model=self._anthropic_model
-                )
-            elif provider == "bedrock" and self._bedrock_region:
-                result = await _try_bedrock(
-                    prompt,
-                    region=self._bedrock_region,
-                    model=self._bedrock_model,
-                    access_key_id=self._bedrock_access_key_id,
-                    secret_access_key=self._bedrock_secret_access_key,
-                )
-            elif provider == "groq" and self._groq_key:
-                result = await _try_groq(
-                    prompt, api_key=self._groq_key, model=self._groq_model
-                )
-            elif provider == "ollama":
-                result = await _try_ollama(
-                    prompt, base_url=self._ollama_url, model=self._ollama_model
-                )
-
-            if result and result.text:
-                self._record_success(provider)
-                try:
-                    # Extract JSON from response
-                    match = re.search(r"\{.*\}", result.text, re.DOTALL)
-                    if match:
-                        data = json.loads(match.group(0))
-                        return ScoredHeadline(
-                            relevance=float(
-                                max(0.0, min(1.0, data.get("relevance", 0.0)))
-                            ),
-                            sentiment=str(data.get("sentiment", "neutral")),
-                            mispricing_score=float(
-                                max(-1.0, min(1.0, data.get("mispricing_score", 0.0)))
-                            ),
-                        )
-                except (json.JSONDecodeError, ValueError):
-                    pass
-            else:
-                self._record_failure(provider)
+            provider = self.registry.get(provider_name)
+            if provider:
+                result = await provider.complete(prompt)
+                if result and result.text:
+                    self._record_success(provider_name)
+                    try:
+                        # Extract JSON from response
+                        match = re.search(r"\{.*\}", result.text, re.DOTALL)
+                        if match:
+                            data = json.loads(match.group(0))
+                            return ScoredHeadline(
+                                relevance=float(
+                                    max(0.0, min(1.0, data.get("relevance", 0.0)))
+                                ),
+                                sentiment=str(data.get("sentiment", "neutral")),
+                                mispricing_score=float(
+                                    max(-1.0, min(1.0, data.get("mispricing_score", 0.0)))
+                                ),
+                            )
+                    except (json.JSONDecodeError, ValueError):
+                        pass
+                else:
+                    self._record_failure(provider_name)
 
         # Rule-based fallback — always available
         logger.debug("LLMClient: using rule-based fallback for headline scoring")
@@ -802,54 +399,35 @@ class LLMClient:
         )
 
         providers = self._resolve_chain()
-        for provider in providers:
-            if provider == "rule-based":
+        for provider_name in providers:
+            if provider_name == "rule-based":
                 continue
-            if self._is_disabled(provider):
+            if self._is_disabled(provider_name):
                 continue
 
-            result = None
-            if provider == "anthropic" and self._anthropic_key:
-                result = await _try_anthropic(
-                    prompt, api_key=self._anthropic_key, model=self._anthropic_model
-                )
-            elif provider == "bedrock" and self._bedrock_region:
-                result = await _try_bedrock(
-                    prompt,
-                    region=self._bedrock_region,
-                    model=self._bedrock_model,
-                    access_key_id=self._bedrock_access_key_id,
-                    secret_access_key=self._bedrock_secret_access_key,
-                )
-            elif provider == "groq" and self._groq_key:
-                result = await _try_groq(
-                    prompt, api_key=self._groq_key, model=self._groq_model
-                )
-            elif provider == "ollama":
-                result = await _try_ollama(
-                    prompt, base_url=self._ollama_url, model=self._ollama_model
-                )
-
-            if result and result.text:
-                self._record_success(provider)
-                try:
-                    match = re.search(r"\{.*\}", result.text, re.DOTALL)
-                    if match:
-                        data = json.loads(match.group(0))
-                        return ProbabilityEstimate(
-                            implied_probability=max(
-                                0.01,
-                                min(0.99, float(data.get("implied_probability", 0.5))),
-                            ),
-                            confidence=max(
-                                0, min(100, int(data.get("confidence", 50)))
-                            ),
-                            reasoning=str(data.get("reasoning", "")),
-                        )
-                except (json.JSONDecodeError, ValueError):
-                    pass
-            else:
-                self._record_failure(provider)
+            provider = self.registry.get(provider_name)
+            if provider:
+                result = await provider.complete(prompt)
+                if result and result.text:
+                    self._record_success(provider_name)
+                    try:
+                        match = re.search(r"\{.*\}", result.text, re.DOTALL)
+                        if match:
+                            data = json.loads(match.group(0))
+                            return ProbabilityEstimate(
+                                implied_probability=max(
+                                    0.01,
+                                    min(0.99, float(data.get("implied_probability", 0.5))),
+                                ),
+                                confidence=max(
+                                    0, min(100, int(data.get("confidence", 50)))
+                                ),
+                                reasoning=str(data.get("reasoning", "")),
+                            )
+                    except (json.JSONDecodeError, ValueError):
+                        pass
+                else:
+                    self._record_failure(provider_name)
 
         # Rule-based fallback
         logger.debug("LLMClient: using rule-based fallback for probability estimate")
@@ -864,35 +442,16 @@ class LLMClient:
         
         # Prefer Ollama for local embeddings if available, then Bedrock
         preferred = ["ollama", "bedrock"]
-        for provider in preferred:
-            if provider not in providers or self._is_disabled(provider):
+        for provider_name in preferred:
+            if provider_name not in providers or self._is_disabled(provider_name):
                 continue
                 
-            try:
-                if provider == "ollama":
-                    import openai
-                    client = openai.AsyncOpenAI(base_url=f"{self._ollama_url}/v1", api_key="ollama")
-                    # Use a standard embedding model name
-                    resp = await client.embeddings.create(
-                        input=[text],
-                        model="nomic-embed-text"
-                    )
-                    return resp.data[0].embedding
-                
-                if provider == "bedrock":
-                    import boto3
-                    import json
-                    client = boto3.client("bedrock-runtime", region_name=self._bedrock_region)
-                    body = json.dumps({"inputText": text})
-                    response = client.invoke_model(
-                        modelId="amazon.titan-embed-text-v1",
-                        body=body
-                    )
-                    response_body = json.loads(response["body"].read())
-                    return response_body["embedding"]
-            except Exception as e:
-                logger.warning(f"Embedding failed with {provider}: {e}")
-                self._record_failure(provider)
+            provider = self.registry.get(provider_name)
+            if provider:
+                try:
+                    return await provider.embed(text)
+                except Exception as e:
+                    self._record_failure(provider_name)
 
         logger.error("LLMClient: no embedding provider available")
         return []
@@ -900,12 +459,14 @@ class LLMClient:
     def _resolve_chain(self) -> list[str]:
         """Return chain filtered to available providers."""
         chain = list(self._chain)
-        # Remove providers that lack credentials
-        if "anthropic" in chain and not self._anthropic_key:
+        # Remove providers that lack credentials (not registered)
+        if "anthropic" in chain and not self.registry.get("anthropic"):
             chain.remove("anthropic")
-        if "bedrock" in chain and not self._bedrock_region:
+        if "bedrock" in chain and not self.registry.get("bedrock"):
             chain.remove("bedrock")
-        if "groq" in chain and not self._groq_key:
+        if "groq" in chain and not self.registry.get("groq"):
             chain.remove("groq")
+        if "ollama" in chain and not self.registry.get("ollama"):
+            chain.remove("ollama")
         # rule-based is always last
         return chain

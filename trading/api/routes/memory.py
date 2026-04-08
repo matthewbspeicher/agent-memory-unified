@@ -8,6 +8,8 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from api.auth import verify_api_key
+from api.dependencies import get_memory_registry
+from api.services.memory_registry import MemoryRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -15,29 +17,19 @@ router = APIRouter(
     prefix="/engine/v1/memory", tags=["memory"], dependencies=[Depends(verify_api_key)]
 )
 
-# Injected at startup by app.py
-_memory_client_registry: dict[str, Any] = {}  # agent_name -> TradingMemoryClient
-_shared_memory_client: Any = None  # TradingMemoryClient for market:observations
-
-
-def register_memory_client(agent_name: str, client: Any) -> None:
-    _memory_client_registry[agent_name] = client
-
-
-def register_shared_client(client: Any) -> None:
-    global _shared_memory_client
-    _shared_memory_client = client
-
 
 @router.get("/index")
-async def get_memory_index() -> dict:
+async def get_memory_index(
+    registry: MemoryRegistry = Depends(get_memory_registry)
+) -> dict:
     """Return the compressed memory index catalog."""
-    if not _shared_memory_client:
+    shared_client = registry.get_shared()
+    if not shared_client:
         raise HTTPException(
             status_code=503, detail="Shared memory system not configured"
         )
     try:
-        index_data = await _shared_memory_client.get_index()
+        index_data = await shared_client.get_index()
         return {"index": index_data}
     except Exception as e:
         logger.warning("Failed to fetch memory index: %s", e)
@@ -49,9 +41,10 @@ async def search_memories(
     agent: str = Query(..., description="Agent name to search"),
     q: str = Query(..., description="Semantic search query"),
     top_k: int = Query(default=5, le=20),
+    registry: MemoryRegistry = Depends(get_memory_registry)
 ) -> dict:
     """Semantic search across agent private + shared market observations."""
-    client = _memory_client_registry.get(agent)
+    client = registry.get_client(agent)
     if not client:
         raise HTTPException(
             status_code=503, detail="Memory system not available for this agent"
@@ -68,15 +61,17 @@ async def search_memories(
 async def list_market_observations(
     symbol: str | None = Query(default=None),
     limit: int = Query(default=50, le=200),
+    registry: MemoryRegistry = Depends(get_memory_registry)
 ) -> dict:
     """List shared market observations, optionally filtered by symbol."""
-    if not _shared_memory_client:
+    shared_client = registry.get_shared()
+    if not shared_client:
         raise HTTPException(
             status_code=503, detail="Shared memory system not configured"
         )
     try:
         tag_list = [symbol] if symbol else None
-        result = await _shared_memory_client._shared.list(tags=tag_list)
+        result = await shared_client._shared.list(tags=tag_list)
         data = result.get("data", result) if isinstance(result, dict) else result
         return {"observations": data[:limit]}
     except Exception as e:
@@ -89,9 +84,10 @@ async def list_agent_memories(
     agent_name: str,
     tags: str | None = Query(default=None, description="Comma-separated tag filter"),
     limit: int = Query(default=20, le=100),
+    registry: MemoryRegistry = Depends(get_memory_registry)
 ) -> dict:
     """List recent memories for a specific agent."""
-    client = _memory_client_registry.get(agent_name)
+    client = registry.get_client(agent_name)
     if not client:
         raise HTTPException(
             status_code=503, detail="Memory system not available for this agent"

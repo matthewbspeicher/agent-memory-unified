@@ -11,6 +11,12 @@ import os
 # Import shared auth module - path setup happens at app startup (main.py)
 from shared.auth.validate import validate_token, TokenValidationError
 
+from .services.memory_registry import memory_registry, MemoryRegistry
+
+
+def get_memory_registry() -> MemoryRegistry:
+    return memory_registry
+
 
 def get_redis(request: Request):
     """Get Redis connection from app state."""
