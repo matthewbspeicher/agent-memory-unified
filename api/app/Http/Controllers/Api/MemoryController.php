@@ -212,6 +212,8 @@ class MemoryController extends Controller
             return $this->notFound('Memory');
         }
 
+        $this->authorize('delete', $memory);
+
         if ($memory->workspace_id) {
             WorkspaceEvent::dispatch($memory->workspace_id, WorkspaceEvent::TYPE_MEMORY_DELETED, $agent->id, [
                 'memory_id' => $memory->id,
