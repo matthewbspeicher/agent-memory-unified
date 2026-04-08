@@ -1,9 +1,12 @@
 # trading/api/routes/competition.py
 from __future__ import annotations
 
+import asyncio
+import json
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from sse_starlette.sse import EventSourceResponse
 
 from api.auth import verify_api_key
 from api.routes.competition_schemas import (
@@ -130,3 +133,83 @@ async def get_elo_history(
             for h in history
         ],
     )
+
+
+@router.get("/achievements/feed")
+async def get_achievement_feed(
+    request: Request,
+    _: str = Depends(verify_api_key),
+    limit: int = Query(20, ge=1, le=100),
+):
+    """Recent achievements, promotions, and events."""
+    store = _get_store(request)
+    try:
+        async with store._db.execute(
+            """
+            SELECT a.id, a.competitor_id, a.achievement_type, a.earned_at, a.metadata,
+                   c.name, c.type
+            FROM achievements a
+            JOIN competitors c ON c.id = a.competitor_id
+            ORDER BY a.earned_at DESC
+            LIMIT $1
+            """,
+            [limit],
+        ) as cur:
+            rows = await cur.fetchall()
+        return [
+            {
+                "id": row["id"],
+                "competitor_name": row["name"],
+                "competitor_type": row["type"],
+                "achievement_type": row["achievement_type"],
+                "earned_at": str(row["earned_at"]),
+                "metadata": row.get("metadata", {}),
+            }
+            for row in rows
+        ]
+    except Exception:
+        return []
+
+
+@router.get("/achievements/feed/stream")
+async def achievement_feed_stream(request: Request):
+    """SSE stream for real-time achievement updates."""
+
+    async def event_generator():
+        last_id = 0
+        while True:
+            if await request.is_disconnected():
+                break
+            try:
+                store = getattr(request.app.state, "competition_store", None)
+                if store:
+                    async with store._db.execute(
+                        """
+                        SELECT a.id, a.competitor_id, a.achievement_type, a.earned_at,
+                               c.name, c.type
+                        FROM achievements a
+                        JOIN competitors c ON c.id = a.competitor_id
+                        WHERE a.id > $1
+                        ORDER BY a.earned_at ASC LIMIT 10
+                        """,
+                        [last_id],
+                    ) as cur:
+                        rows = await cur.fetchall()
+                    for row in rows:
+                        last_id = row["id"]
+                        yield {
+                            "event": "achievement_earned",
+                            "id": str(row["id"]),
+                            "data": json.dumps(
+                                {
+                                    "competitor": row["name"],
+                                    "type": row["achievement_type"],
+                                    "earned_at": str(row["earned_at"]),
+                                }
+                            ),
+                        }
+            except Exception as e:
+                logger.warning("SSE error: %s", e)
+            await asyncio.sleep(5)
+
+    return EventSourceResponse(event_generator())
