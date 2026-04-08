@@ -10,7 +10,7 @@ import logging
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, List
 
 import aiosqlite
 
@@ -28,12 +28,12 @@ class MemoryRecord:
     summary: str | None
     memory_type: str | None
     category: str | None
-    embedding: list[float] | None
+    embedding: List[float] | None
     visibility: str  # "private" or "public"
     importance: int
     confidence: float
     metadata: dict
-    tags: list[str]
+    tags: List[str]
     access_count: int
     useful_count: int
     created_at: datetime
@@ -112,9 +112,9 @@ class LocalMemoryStore:
         key: str | None = None,
         memory_type: str | None = None,
         category: str | None = None,
-        embedding: list[float] | None = None,
+        embedding: List[float] | None = None,
         summary: str | None = None,
-        tags: list[str] | None = None,
+        tags: List[str] | None = None,
         metadata: dict | None = None,
         importance: int = 5,
         confidence: float = 0.5,
@@ -187,15 +187,15 @@ class LocalMemoryStore:
         agent_id: str | None = None,
         visibility: str | None = None,
         category: str | None = None,
-        tags: list[str] | None = None,
+        tags: List[str] | None = None,
         limit: int = 20,
-    ) -> list[MemoryRecord]:
+    ) -> List[MemoryRecord]:
         """List memories with optional filters."""
         if not self._db:
             raise RuntimeError("Not connected - call connect() first")
 
         query = "SELECT * FROM memories WHERE 1=1"
-        params: list[Any] = []
+        params: List[Any] = []
         if agent_id:
             query += " AND agent_id = ?"
             params.append(agent_id)
@@ -218,7 +218,7 @@ class LocalMemoryStore:
         query: str,
         agent_id: str | None = None,
         limit: int = 5,
-    ) -> list[dict]:
+    ) -> List[dict]:
         """
         Search memories by text (keyword search).
 

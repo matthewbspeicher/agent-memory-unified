@@ -215,7 +215,7 @@ def _compute_agent_metrics(
             if agent_trades
             else 0.0,
             "total_pnl": str(total_pnl),
-            "avg_pnl": str(total_pnl / len(agent_trades)) if agent_trades else "0",
+            "avg_pnl": str(total_pnl / Decimal(len(agent_trades))) if agent_trades else "0",
             "profit_factor": round(float(gross_profit / gross_loss), 4)
             if gross_loss > 0
             else float("inf"),

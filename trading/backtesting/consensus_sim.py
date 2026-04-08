@@ -96,16 +96,18 @@ class _SimPortfolio:
 
     def current_equity(self, current_prices: dict[str, Decimal]) -> Decimal:
         positions_value = sum(
-            pos.quantity * current_prices.get(pos.symbol, pos.avg_cost)
-            for pos in self.positions.values()
+            (pos.quantity * current_prices.get(pos.symbol, pos.avg_cost)
+            for pos in self.positions.values()),
+            Decimal("0")
         )
         return self.cash + positions_value
 
     def record_equity(self, timestamp: datetime, prices: dict[str, Decimal]) -> None:
         equity = self.current_equity(prices)
         positions_value = sum(
-            pos.quantity * prices.get(pos.symbol, pos.avg_cost)
-            for pos in self.positions.values()
+            (pos.quantity * prices.get(pos.symbol, pos.avg_cost)
+            for pos in self.positions.values()),
+            Decimal("0")
         )
         self.equity_history.append(
             EquityPoint(
@@ -624,7 +626,7 @@ class ConsensusSimulator:
                     await asyncio.sleep(backtest_config.replay_speed)
 
             # Close remaining positions at last price
-            last_prices = {t: bar.close for t, bar in bars.items()} if bars else {}
+            last_prices: dict[str, Decimal] = {t: bar.close for t, bar in bars.items()} if bars else {}
             for key, trade in list(open_trades.items()):
                 ticker = trade.symbol
                 if ticker in portfolio.positions:

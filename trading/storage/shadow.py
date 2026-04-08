@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, List
 
 import aiosqlite
 
@@ -98,9 +98,9 @@ class ShadowExecutionStore:
         resolution_status: str | None = None,
         decision_status: str | None = None,
         limit: int = 100,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         query = "SELECT * FROM shadow_executions WHERE 1=1"
-        params: list[Any] = []
+        params: List[Any] = []
 
         if agent_name is not None:
             query += " AND agent_name = ?"
@@ -124,7 +124,7 @@ class ShadowExecutionStore:
 
     async def list_due_for_resolution(
         self, now: str, limit: int
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         cursor = await self._db.execute(
             """
             SELECT *
@@ -179,7 +179,7 @@ class ShadowExecutionStore:
         )
         await self._db.commit()
 
-    async def summary_by_agent(self) -> list[dict[str, Any]]:
+    async def summary_by_agent(self) -> List[dict[str, Any]]:
         cursor = await self._db.execute(
             """
             SELECT
