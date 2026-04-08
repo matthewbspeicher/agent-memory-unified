@@ -51,6 +51,11 @@ httpx-sse>=0.4.0
 # bittensor subnet integration
 bittensor>=10.2.0
 
+# reinforcement learning
+gymnasium>=0.29.0
+stable-baselines3>=2.1.0
+shimmy>=1.1.0
+
 # testing
 pytest>=8.0.0
 pytest-asyncio>=0.24.0
