@@ -2,8 +2,21 @@
   "$schema": "https://railway.app/railway.schema.json",
   "experimentalServices": [
     {
+      "name": "redis",
+      "rootDirectory": ".",
+      "build": {
+        "builder": "DOCKERFILE",
+        "dockerfilePath": "Dockerfile.redis"
+      },
+      "deploy": {
+        "region": "us-east4",
+        "restartPolicyType": "ON_FAILURE",
+        "restartPolicyMaxRetries": 10
+      }
+    },
+    {
       "name": "api",
-      "rootDirectory": "/",
+      "rootDirectory": ".",
       "build": {
         "builder": "DOCKERFILE",
         "dockerfilePath": "Dockerfile.api"
@@ -19,7 +32,7 @@
     },
     {
       "name": "trading",
-      "rootDirectory": "/",
+      "rootDirectory": ".",
       "build": {
         "builder": "DOCKERFILE",
         "dockerfilePath": "Dockerfile.trading"
@@ -34,10 +47,10 @@
     },
     {
       "name": "frontend",
-      "rootDirectory": "/",
+      "rootDirectory": "./frontend",
       "build": {
-        "builder": "DOCKERFILE",
-        "dockerfilePath": "Dockerfile.frontend"
+        "builder": "NIXPACKS",
+        "nixpacksJson": "./frontend/nixpacks.json"
       },
       "deploy": {
         "region": "us-east4",

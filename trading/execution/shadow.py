@@ -49,6 +49,12 @@ def _isoformat(value: datetime) -> str:
     return value.isoformat()
 
 
+def _naive_utc(dt: datetime) -> datetime:
+    if dt.tzinfo is None:
+        return dt
+    return dt.replace(tzinfo=None)
+
+
 def _decimal_str(value: Decimal | None) -> str | None:
     if value is None:
         return None
@@ -259,8 +265,12 @@ class ShadowOutcomeResolver:
             timeframe="1m",
             period="1d",
         )
-        opened_at = datetime.fromisoformat(record["opened_at"])
-        resolve_after = datetime.fromisoformat(record["resolve_after"])
+        opened_at = datetime.fromisoformat(record["opened_at"]).replace(
+            tzinfo=timezone.utc
+        )
+        resolve_after = datetime.fromisoformat(record["resolve_after"]).replace(
+            tzinfo=timezone.utc
+        )
         resolution_bar = self._resolution_bar(bars, resolve_after=resolve_after)
         if resolution_bar is None:
             await self._mark_insufficient(record_id, now=now, reason="no_bars")
@@ -329,7 +339,9 @@ class ShadowOutcomeResolver:
         opened_at: datetime,
         resolved_at: datetime,
     ) -> list[Bar]:
-        eligible = [bar for bar in bars if opened_at <= bar.timestamp <= resolved_at]
+        eligible = [
+            bar for bar in bars if opened_at <= _naive_utc(bar.timestamp) <= resolved_at
+        ]
         eligible.sort(key=lambda bar: bar.timestamp)
         return eligible
 
@@ -341,7 +353,7 @@ class ShadowOutcomeResolver:
     ) -> Bar | None:
         ordered = sorted(bars, key=lambda bar: bar.timestamp)
         for bar in ordered:
-            if bar.timestamp >= resolve_after:
+            if _naive_utc(bar.timestamp) >= resolve_after:
                 return bar
         return None
 
