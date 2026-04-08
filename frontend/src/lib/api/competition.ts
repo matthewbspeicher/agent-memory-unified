@@ -4,10 +4,19 @@ import { useQuery } from '@tanstack/react-query';
 
 /**
  * Trading API client for Competition endpoints.
- * In dev mode, Vite proxies /api/competition → trading service (port 8080).
+ * In prod, use VITE_TRADING_API_URL directly (no proxy available).
+ * In dev, Vite proxies /api/competition → trading service (port 8080).
  */
+const getBaseUrl = () => {
+  if (import.meta.env.DEV) {
+    return '/api';
+  }
+  // In production, use the explicit trading API URL
+  return import.meta.env.VITE_TRADING_API_URL || 'http://localhost:8080';
+};
+
 const tradingApi = axios.create({
-  baseURL: '/api',
+  baseURL: getBaseUrl(),
   headers: {
     'X-API-Key': import.meta.env.VITE_TRADING_API_KEY || (import.meta.env.DEV ? 'local-validator-dev' : ''),
   },

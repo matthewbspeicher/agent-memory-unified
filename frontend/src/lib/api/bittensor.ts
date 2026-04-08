@@ -3,11 +3,18 @@ import { api } from './client';
 
 /**
  * Trading API client for Bittensor endpoints.
- * In dev mode, Vite proxies /api/bittensor → trading service (port 8080).
- * X-API-Key is read from VITE_TRADING_API_KEY env or defaults to local dev key.
+ * In prod, use VITE_TRADING_API_URL directly.
+ * In dev, Vite proxies /api/bittensor → trading service (port 8080).
  */
+const getBaseUrl = () => {
+  if (import.meta.env.DEV) {
+    return '/api';
+  }
+  return import.meta.env.VITE_TRADING_API_URL || 'http://localhost:8080';
+};
+
 const tradingApi = axios.create({
-  baseURL: '/api',
+  baseURL: getBaseUrl(),
   headers: {
     'X-API-Key': import.meta.env.VITE_TRADING_API_KEY || (import.meta.env.DEV ? 'local-validator-dev' : ''),
   },
