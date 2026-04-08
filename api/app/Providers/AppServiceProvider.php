@@ -43,6 +43,11 @@ class AppServiceProvider extends ServiceProvider
             EvaluateSemanticWebhooks::class,
         );
 
+        Event::listen(
+            MemoryCreated::class,
+            \App\Listeners\PublishMemoryToStream::class,
+        );
+
 
         // Trade alert listeners are auto-discovered via handleTradeClosed/handleTradeOpened
 
