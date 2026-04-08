@@ -36,9 +36,10 @@ RUN apt-get update && apt-get install -y \
     libzip-dev \
     unzip \
     libcap2-bin \
+    libonig-dev \
     && pecl install redis \
     && docker-php-ext-enable redis \
-    && docker-php-ext-install pdo_pgsql pgsql zip pcntl opcache bcmath \
+    && docker-php-ext-install pdo_pgsql pgsql zip pcntl opcache bcmath mbstring \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

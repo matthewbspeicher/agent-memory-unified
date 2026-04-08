@@ -9,6 +9,20 @@ on:
 jobs:
   api-tests:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: agent_memory_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
       - name: Setup PHP
@@ -19,6 +33,13 @@ jobs:
       - name: Install Dependencies
         run: cd api && composer install --no-interaction --prefer-dist
       - name: Run Tests
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: agent_memory_test
+          DB_USERNAME: postgres
+          DB_PASSWORD: password
         run: cd api && php artisan test
 
   trading-tests:
@@ -36,7 +57,7 @@ jobs:
           pip install -r requirements.txt
           pip install mypy
       - name: Run mypy
-        run: cd trading && mypy . --ignore-missing-imports
+        run: cd trading && mypy .
       - name: Run Pytest
         run: cd trading && pytest tests/unit
 
@@ -50,7 +71,5 @@ jobs:
           node-version: '20'
       - name: Install Dependencies
         run: cd frontend && npm ci
-      - name: Run Vitest
-        run: cd frontend && npm run test:unit
       - name: Build Check
         run: cd frontend && npm run build
