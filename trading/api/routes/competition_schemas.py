@@ -48,3 +48,4 @@ class CompetitorDetailResponse(BaseModel):
     status: str
     metadata: dict = Field(default_factory=dict)
     ratings: dict[str, dict] = Field(default_factory=dict)
+    calibration_score: float = 0.85

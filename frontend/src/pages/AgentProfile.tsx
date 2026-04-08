@@ -172,7 +172,7 @@ export default function AgentProfile() {
                   <span className="text-2xl font-black font-mono text-amber-400">{competitor.best_streak}</span>
                 </div>
               </div>
-              <CalibrationGauge score={0.85} sampleSize={competitor.matches_count} />
+              <CalibrationGauge score={competitor.calibration_score} sampleSize={competitor.matches_count} />
               <MetaLearnerPanel />
             </GlassCard>
           </div>

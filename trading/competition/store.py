@@ -205,6 +205,67 @@ class CompetitionStore:
             "leaderboard": [e.model_dump() for e in entries],
         }
 
+    async def get_recent_achievements(
+        self, since_id: int = 0, limit: int = 10
+    ) -> list[dict]:
+        """Get recent achievements for SSE feed."""
+        sql = """
+            SELECT a.id, a.competitor_id, a.achievement_type, a.earned_at,
+                   c.name, c.type
+            FROM achievements a
+            JOIN competitors c ON c.id = a.competitor_id
+            WHERE a.id > $1
+            ORDER BY a.earned_at ASC
+            LIMIT $2
+        """
+        async with self._db.execute(sql, [since_id, limit]) as cur:
+            rows = await cur.fetchall()
+        return [
+            {
+                "id": row["id"],
+                "competitor": row["name"],
+                "competitor_type": row["type"],
+                "type": row["achievement_type"],
+                "earned_at": str(row["earned_at"]),
+            }
+            for row in rows
+        ]
+
+    async def get_competitor_calibration(
+        self, competitor_id: str, asset: str = "BTC"
+    ) -> float:
+        """Get calibration score for a competitor (0.0-1.0)."""
+        sql = """
+            SELECT calibration_score
+            FROM elo_ratings
+            WHERE competitor_id = $1 AND asset = $2
+        """
+        async with self._db.execute(sql, [competitor_id, asset]) as cur:
+            row = await cur.fetchone()
+        if row:
+            return float(row.get("calibration_score", 0.85))
+        return 0.85  # Default
+
+    async def get_head_to_head(
+        self, competitor_a: str, competitor_b: str, asset: str = "BTC"
+    ) -> dict:
+        """Return head-to-head win/loss/draw stats between two competitors."""
+        sql = """
+            SELECT
+                COUNT(*) FILTER (WHERE winner_id = $1) AS wins_a,
+                COUNT(*) FILTER (WHERE winner_id = $2) AS wins_b,
+                COUNT(*) FILTER (WHERE winner_id IS NULL) AS draws,
+                COUNT(*) AS total
+            FROM matches
+            WHERE ((competitor_a_id = $1 AND competitor_b_id = $2)
+                OR (competitor_a_id = $2 AND competitor_b_id = $1))
+                AND asset = $3
+                AND match_type = 'pairwise'
+        """
+        async with self._db.execute(sql, [competitor_a, competitor_b, asset]) as cur:
+            row = await cur.fetchone()
+        return row or {"wins_a": 0, "wins_b": 0, "draws": 0, "total": 0}
+
     async def record_match(self, match_data: dict) -> None:
         """Record a match result in the matches table."""
         sql = """

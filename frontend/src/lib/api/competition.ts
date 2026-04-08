@@ -56,6 +56,16 @@ export interface CompetitorDetail {
   status: string;
   metadata: Record<string, unknown>;
   ratings: Record<string, { elo: number }>;
+  calibration_score: number;
+}
+
+export interface HeadToHeadResponse {
+  competitor_a: Record<string, unknown>;
+  competitor_b: Record<string, unknown>;
+  wins_a: number;
+  wins_b: number;
+  draws: number;
+  total_matches: number;
 }
 
 // ── API Functions ──
@@ -78,6 +88,10 @@ export const competitionApi = {
       `/competition/competitors/${id}/elo-history`,
       { params: { asset, days } },
     ).then(res => res.data),
+
+  getHeadToHead: (a: string, b: string, asset = 'BTC') =>
+    tradingApi.get<HeadToHeadResponse>(`/competition/head-to-head/${a}/${b}`, { params: { asset } })
+      .then(res => res.data),
 };
 
 // ── TanStack Query Hooks ──
@@ -111,5 +125,13 @@ export function useEloHistory(id: string, asset = 'BTC', days = 30) {
     queryKey: ['competition', 'elo-history', id, asset, days],
     queryFn: () => competitionApi.getEloHistory(id, asset, days),
     enabled: !!id,
+  });
+}
+
+export function useHeadToHead(a: string, b: string, asset = 'BTC') {
+  return useQuery({
+    queryKey: ['competition', 'h2h', a, b, asset],
+    queryFn: () => competitionApi.getHeadToHead(a, b, asset),
+    enabled: !!a && !!b,
   });
 }

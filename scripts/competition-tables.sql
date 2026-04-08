@@ -23,6 +23,8 @@ CREATE TABLE IF NOT EXISTS elo_ratings (
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(competitor_id, asset)
 );
+CREATE INDEX IF NOT EXISTS idx_elo_ratings_leaderboard
+    ON elo_ratings(asset, elo DESC);
 
 CREATE TABLE IF NOT EXISTS elo_history (
     id BIGSERIAL PRIMARY KEY,
