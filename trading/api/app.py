@@ -586,6 +586,8 @@ async def _load_and_start_agent_configs(
         )
 
     for agent in agent_configs:
+        if agent is None:
+            continue
         runner.register(agent)
         if agent.config.schedule in ("continuous", "cron"):
             await runner.start_agent(agent.name)
