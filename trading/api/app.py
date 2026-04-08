@@ -887,16 +887,16 @@ async def lifespan(app: FastAPI):
 
     setup_telemetry()
 
+    import logging
+    import pathlib
+
     runner = None
     _log = logging.getLogger(__name__)
     llm_client = None
     if enabled:
-        import logging
-        import pathlib
         from utils.config_loader import ConfigLoader
 
         risk_analytics = None
-        _log = logging.getLogger(__name__)
         _app_root = pathlib.Path(__file__).resolve().parent.parent
 
         config_loader = ConfigLoader(app_root=_app_root)
