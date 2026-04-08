@@ -38,6 +38,7 @@ class AgentRunner:
         health_engine: StrategyHealthEngine | None = None,
         trade_reflector_factory: Callable[[str], Any] | None = None,
         agent_store: AgentStore | None = None,
+        session_bias_generator: Any | None = None,
     ) -> None:
         self._data_bus = data_bus
         self._router = router
@@ -47,6 +48,7 @@ class AgentRunner:
         self._health_engine = health_engine
         self._trade_reflector_factory = trade_reflector_factory
         self._agent_store = agent_store
+        self._session_bias_generator = session_bias_generator
         self._reflectors: dict[str, TradeReflector] = {}
         if self._event_bus:
             self._signal_bus.subscribe(self._forward_signal_to_events)
@@ -257,6 +259,28 @@ class AgentRunner:
                             "Memory consultation failed for %s (continuing): %s",
                             agent.name,
                             mem_exc,
+                        )
+
+                # --- Session bias injection (daily market context from trading_rules.yaml) ---
+                if self._session_bias_generator:
+                    try:
+                        bias = await self._session_bias_generator.get_active_bias()
+                        if bias:
+                            agent._session_bias = bias
+                            if self._event_bus:
+                                await self._event_bus.publish(
+                                    "session_bias_injected",
+                                    {
+                                        "agent_name": agent.name,
+                                        "overall_bias": bias.overall_bias,
+                                        "symbol_count": len(bias.symbols),
+                                    },
+                                )
+                    except Exception as bias_exc:
+                        logger.warning(
+                            "Session bias injection failed for %s (continuing): %s",
+                            agent.name,
+                            bias_exc,
                         )
 
                 opportunities = await agent.scan(self._data_bus)

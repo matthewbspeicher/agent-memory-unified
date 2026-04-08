@@ -19,6 +19,7 @@ class Agent(ABC):
         self._config = config
         self.memory: TradeReflector | None = None  # injected by AgentRunner
         self.signal_bus: SignalBus | None = None  # injected by AgentRunner
+        self._session_bias: Any | None = None  # injected by AgentRunner (SessionBiasReport)
         self._draining = False
 
     @property
@@ -32,6 +33,11 @@ class Agent(ABC):
     @property
     def config(self) -> AgentConfig:
         return self._config
+
+    @property
+    def session_bias(self) -> Any | None:
+        """Today's session bias report (injected by AgentRunner before scan)."""
+        return self._session_bias
 
     @property
     @abstractmethod

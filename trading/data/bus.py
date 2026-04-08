@@ -16,6 +16,7 @@ from data.cache import TTLCache
 from data.indicators import (
     BollingerBands,
     MACD,
+    compute_atr,
     compute_bollinger,
     compute_ema,
     compute_macd,
@@ -158,6 +159,122 @@ class DataBus:
     ) -> BollingerBands:
         bars = await self.get_historical(symbol, "1d", "3mo")
         return compute_bollinger(bars, period, num_std)
+
+    # --- Summary Methods (context-window-friendly, inspired by tradingview-mcp) ---
+
+    async def get_market_summary(self, symbol: Symbol) -> dict:
+        """Single-call compact summary: quote + key indicators + volatility.
+        Returns a dict instead of raw bar arrays — saves ~95% of tokens."""
+        summary: dict = {"symbol": symbol.ticker}
+        try:
+            quote = await self.get_quote(symbol)
+            summary["price"] = float(quote.last) if quote.last else None
+            summary["bid"] = float(quote.bid) if quote.bid else None
+            summary["ask"] = float(quote.ask) if quote.ask else None
+        except Exception:
+            summary["price"] = None
+
+        try:
+            summary["rsi_14"] = round(await self.get_rsi(symbol, 14), 2)
+        except Exception:
+            pass
+        try:
+            summary["ema_20"] = round(await self.get_ema(symbol, 20), 2)
+            summary["ema_200"] = round(await self.get_ema(symbol, 200), 2)
+        except Exception:
+            pass
+        try:
+            macd = await self.get_macd(symbol)
+            summary["macd_histogram"] = round(macd.histogram, 4)
+        except Exception:
+            pass
+        try:
+            bb = await self.get_bollinger(symbol)
+            summary["bb_upper"] = round(bb.upper, 2)
+            summary["bb_lower"] = round(bb.lower, 2)
+            summary["bb_width"] = round(bb.upper - bb.lower, 2)
+        except Exception:
+            pass
+        try:
+            bars = await self.get_historical(symbol, "1d", "3mo")
+            summary["atr_14"] = round(compute_atr(bars, 14), 4)
+        except Exception:
+            pass
+
+        return summary
+
+    async def get_key_levels(self, symbol: Symbol, timeframe: str = "1d") -> dict:
+        """Support/resistance via recent high/low and pivot points."""
+        bars = await self.get_historical(symbol, timeframe, "3mo")
+        if not bars:
+            return {}
+        recent = bars[-20:] if len(bars) >= 20 else bars
+        highs = [float(b.high) for b in recent]
+        lows = [float(b.low) for b in recent]
+        last = bars[-1]
+        h, l, c = float(last.high), float(last.low), float(last.close)
+        pivot = (h + l + c) / 3
+        return {
+            "symbol": symbol.ticker,
+            "recent_high": max(highs),
+            "recent_low": min(lows),
+            "pivot": round(pivot, 4),
+            "r1": round(2 * pivot - l, 4),
+            "s1": round(2 * pivot - h, 4),
+            "r2": round(pivot + (h - l), 4),
+            "s2": round(pivot - (h - l), 4),
+        }
+
+    async def get_volatility_summary(self, symbol: Symbol) -> dict:
+        """ATR, Bollinger width, and recent range vs average."""
+        bars = await self.get_historical(symbol, "1d", "3mo")
+        if not bars:
+            return {}
+        atr = compute_atr(bars, 14)
+        bb = await self.get_bollinger(symbol)
+        price = float(bars[-1].close)
+        recent_ranges = [float(b.high) - float(b.low) for b in bars[-20:]]
+        avg_range = sum(recent_ranges) / len(recent_ranges) if recent_ranges else 0
+
+        return {
+            "symbol": symbol.ticker,
+            "atr_14": round(atr, 4),
+            "atr_pct": round(atr / price * 100, 2) if price else 0,
+            "bb_width": round(bb.upper - bb.lower, 2),
+            "bb_width_pct": round((bb.upper - bb.lower) / bb.middle * 100, 2) if bb.middle else 0,
+            "avg_daily_range": round(avg_range, 4),
+            "last_range": round(recent_ranges[-1], 4) if recent_ranges else 0,
+        }
+
+    async def get_historical_summary(
+        self,
+        symbol: Symbol,
+        timeframe: str = "1d",
+        period: str = "3mo",
+    ) -> dict:
+        """Compact stats from historical bars instead of raw bar arrays.
+        Use when you need context but not every single OHLCV bar."""
+        bars = await self.get_historical(symbol, timeframe, period)
+        if not bars:
+            return {}
+        closes = [float(b.close) for b in bars]
+        highs = [float(b.high) for b in bars]
+        lows = [float(b.low) for b in bars]
+        volumes = [float(b.volume) for b in bars]
+        return {
+            "symbol": symbol.ticker,
+            "timeframe": timeframe,
+            "period": period,
+            "bar_count": len(bars),
+            "open_first": float(bars[0].open),
+            "close_last": float(bars[-1].close),
+            "high": max(highs),
+            "low": min(lows),
+            "avg_close": round(sum(closes) / len(closes), 4),
+            "avg_volume": round(sum(volumes) / len(volumes), 0),
+            "change_pct": round((closes[-1] - closes[0]) / closes[0] * 100, 2) if closes[0] else 0,
+            "trend": "up" if closes[-1] > closes[0] else "down" if closes[-1] < closes[0] else "flat",
+        }
 
     # --- Portfolio (always from broker) ---
 

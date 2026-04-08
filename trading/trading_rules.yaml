@@ -1,0 +1,45 @@
+# trading_rules.yaml — User-editable trading rules for session bias generation.
+# Inspired by tradingview-mcp-jackson's rules.json pattern.
+# Separates user risk tolerance and criteria from agent execution logic.
+
+watchlist:
+  crypto:
+    - BTCUSD
+    - ETHUSD
+    - SOLUSD
+    - XRPUSD
+    - AVAXUSD
+  indices:
+    - SPY
+    - QQQ
+
+session_bias:
+  timeframes:
+    - "1d"
+    - "4h"
+
+  indicators:
+    - rsi_14
+    - ema_20
+    - ema_200
+    - macd
+    - bollinger_20_2
+
+  bullish_criteria:
+    - "price above EMA 200"
+    - "RSI between 40-70 and rising"
+    - "MACD histogram positive and increasing"
+
+  bearish_criteria:
+    - "price below EMA 200"
+    - "RSI below 40 and falling"
+    - "MACD histogram negative and decreasing"
+
+  neutral_criteria:
+    - "RSI between 45-55 with no clear trend"
+    - "price within Bollinger Bands middle zone"
+
+risk_overlay:
+  max_new_positions_per_session: 3
+  avoid_first_30_min: true
+  require_bias_alignment: true

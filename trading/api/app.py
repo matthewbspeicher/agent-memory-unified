@@ -250,6 +250,7 @@ async def _setup_operator_services(
     opp_store,
     llm_client,
     journal_manager,
+    data_bus=None,
 ):
     from leaderboard.engine import LeaderboardEngine
     from journal.autopsy import AutopsyGenerator
@@ -305,6 +306,25 @@ async def _setup_operator_services(
         llm=llm_client,
     )
     app.state.brief_generator = brief_generator
+
+    # Session Bias Generator (pre-session bias from trading_rules.yaml)
+    if data_bus:
+        from brief.session_bias import SessionBiasGenerator
+        from brief.rules_loader import RulesLoader
+
+        rules_loader = RulesLoader()
+        session_bias_gen = SessionBiasGenerator(
+            db=db,
+            data_bus=data_bus,
+            llm=llm_client,
+            rules_loader=rules_loader,
+        )
+        app.state.session_bias_generator = session_bias_gen
+        app.state.rules_loader = rules_loader
+        # Inject into the runner so agents get bias context before each scan
+        if runner and hasattr(runner, "_session_bias_generator"):
+            runner._session_bias_generator = session_bias_gen
+        logger.info("Session Bias Generator initialized with trading_rules.yaml")
 
     warroom_engine = WarRoomEngine(
         db=db,
@@ -1782,6 +1802,7 @@ async def lifespan(app: FastAPI):
             opp_store=opp_store,
             llm_client=llm_client,
             journal_manager=journal_manager,
+            data_bus=data_bus,
         )
 
         # Tournament Engine (optional — only if learning config has tournament.enabled)
