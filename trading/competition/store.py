@@ -1,5 +1,6 @@
 # trading/competition/store.py
 """Competition store -- DB access layer using raw asyncpg SQL."""
+
 from __future__ import annotations
 
 import json
@@ -118,9 +119,7 @@ class CompetitionStore:
             SET elo = $1, tier = $2, matches_count = matches_count + 1, updated_at = NOW()
             WHERE competitor_id = $3 AND asset = $4
         """
-        await self._db.execute(
-            update_sql, [new_elo, tier.value, competitor_id, asset]
-        )
+        await self._db.execute(update_sql, [new_elo, tier.value, competitor_id, asset])
 
         history_sql = """
             INSERT INTO elo_history (competitor_id, asset, elo, tier, elo_delta)
@@ -205,6 +204,30 @@ class CompetitionStore:
             "total_competitors": len(entries),
             "leaderboard": [e.model_dump() for e in entries],
         }
+
+    async def record_match(self, match_data: dict) -> None:
+        """Record a match result in the matches table."""
+        sql = """
+            INSERT INTO matches (
+                competitor_a_id, competitor_b_id, asset, window,
+                winner_id, score_a, score_b, elo_delta_a, elo_delta_b, match_type
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        """
+        await self._db.execute(
+            sql,
+            [
+                match_data.get("competitor_a_id"),
+                match_data.get("competitor_b_id"),
+                match_data.get("asset", "BTC"),
+                match_data.get("window", "5m"),
+                match_data.get("winner_id"),
+                match_data.get("score_a", 0),
+                match_data.get("score_b", 0),
+                match_data.get("elo_delta_a", 0),
+                match_data.get("elo_delta_b", 0),
+                match_data.get("match_type", "baseline"),
+            ],
+        )
 
 
 # ------------------------------------------------------------------

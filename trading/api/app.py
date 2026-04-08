@@ -1080,6 +1080,52 @@ async def lifespan(app: FastAPI):
             _shadow_outcome_resolver_loop(), name="shadow_outcome_resolver"
         )
 
+        # --- Competition Tracker + Matcher ---
+        if config.competition.enabled:
+            from competition.tracker import SignalTracker
+            from competition.matcher import MatchProcessor
+            from competition.calibration import CalibrationTracker
+
+            competition_tracker = SignalTracker()
+            competition_calibration = CalibrationTracker()
+
+            # Subscribe tracker to signal bus
+            if hasattr(signal_bus, "subscribe"):
+                signal_bus.subscribe(competition_tracker.on_signal)
+
+            # Simple price fetcher using DataBus
+            class _PriceFetcher:
+                def __init__(self, data_bus):
+                    self._data_bus = data_bus
+
+                async def get_price(self, asset: str, at):
+                    try:
+                        quote = await self._data_bus.quote(f"{asset}USD")
+                        return quote.get("last") or quote.get("price")
+                    except Exception:
+                        return None
+
+            competition_matcher = MatchProcessor(
+                store=competition_store,
+                price_fetcher=_PriceFetcher(data_bus),
+                calibration=competition_calibration,
+            )
+            app.state.competition_tracker = competition_tracker
+            app.state.competition_matcher = competition_matcher
+
+            # Hourly match processing task
+            async def _competition_match_loop():
+                while True:
+                    await asyncio.sleep(3600)  # 1 hour
+                    try:
+                        signals = competition_tracker.drain()
+                        if signals:
+                            await competition_matcher.process_batch(signals)
+                    except Exception as exc:
+                        _log.error("competition.match_loop failed: %s", exc)
+
+            task_mgr.create_task(_competition_match_loop(), name="competition_matcher")
+
         from storage.signal_features import SignalFeatureStore as _SFStore
         from learning.signal_features import SignalFeatureCapture as _SFCapture
 
