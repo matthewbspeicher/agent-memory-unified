@@ -201,7 +201,7 @@ class CompetitionStore:
                 ORDER BY e.elo DESC
                 LIMIT ? OFFSET ?
             """
-            params = [asset, limit, offset]
+            params = [asset, asset, limit, offset]
 
         async with self._db.execute(sql, params) as cur:
             rows = await cur.fetchall()
