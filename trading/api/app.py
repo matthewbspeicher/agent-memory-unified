@@ -991,6 +991,23 @@ async def lifespan(app: FastAPI):
         set_trade_store(trade_store)
         app.state.trade_store = trade_store
 
+        # --- Competition System ---
+        from competition.store import CompetitionStore
+        from competition.registry import CompetitorRegistry
+
+        competition_store = CompetitionStore(db)
+        app.state.competition_store = competition_store
+
+        if config.competition.enabled:
+            registry = CompetitorRegistry(competition_store)
+            provider_names = ["on_chain", "sentiment", "anomaly", "regime"]
+            agents_yaml_path = config.agents_config or "agents.yaml"
+            await registry.register_all(
+                agents_yaml_path=agents_yaml_path,
+                provider_names=provider_names,
+            )
+            _log.info("Competition system initialized with registry")
+
         from data.sources.yahoo import YahooFinanceSource
         from data.sources.broker_source import BrokerSource
         from data.sources.base import DataSource
@@ -1833,6 +1850,9 @@ def create_app(
     from api.routes import bittensor as bittensor_route
 
     app.include_router(bittensor_route.router)
+    from api.routes import competition as competition_route
+
+    app.include_router(competition_route.router)
     from api.routes.memory import router as memory_router
 
     app.include_router(memory_router)

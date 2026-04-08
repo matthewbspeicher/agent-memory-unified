@@ -86,6 +86,10 @@ export const router = createBrowserRouter([
         element: <LazyPage><ArenaMatch /></LazyPage>,
       },
       {
+        path: 'arena/competitors/:id',
+        element: <LazyPage><AgentProfile /></LazyPage>,
+      },
+      {
         path: 'agents/:id',
         element: <LazyPage><AgentProfile /></LazyPage>,
       },
