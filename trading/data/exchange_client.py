@@ -8,7 +8,12 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
-import ccxt.async_support as ccxt
+try:
+    import ccxt.async_support as ccxt  # type: ignore[import-untyped]
+    _CCXT_AVAILABLE = True
+except ImportError:
+    ccxt = None  # type: ignore[assignment]
+    _CCXT_AVAILABLE = False
 
 from intelligence.circuit_breaker import ProviderCircuitBreaker
 
@@ -66,8 +71,18 @@ class ExchangeClient:
         fallbacks: list[str] | None = None,
         enable_rate_limit: bool = True,
     ):
+        if not _CCXT_AVAILABLE:
+            logger.warning(
+                "ccxt not installed — ExchangeClient is disabled. "
+                "Add 'ccxt' to requirements.txt and rebuild to enable."
+            )
+            self._exchange_ids: list[str] = []
+            self._exchanges: dict = {}
+            self._breakers: dict[str, ProviderCircuitBreaker] = {}
+            return
+
         self._exchange_ids = [primary] + (fallbacks or [])
-        self._exchanges: dict[str, ccxt.Exchange] = {}
+        self._exchanges: dict = {}
         self._breakers: dict[str, ProviderCircuitBreaker] = {}
 
         for eid in self._exchange_ids:

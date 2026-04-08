@@ -34,11 +34,11 @@ class CompetitionStore:
         """Insert or update a competitor.  Returns the competitor id."""
         sql = """
             INSERT INTO competitors (type, name, ref_id, metadata)
-            VALUES ($1, $2, $3, $4)
+            VALUES (?, ?, ?, ?)
             ON CONFLICT (type, ref_id) DO UPDATE
                 SET name = EXCLUDED.name,
                     metadata = EXCLUDED.metadata,
-                    updated_at = NOW()
+                    updated_at = CURRENT_TIMESTAMP
             RETURNING id
         """
         params = [
@@ -53,7 +53,7 @@ class CompetitionStore:
 
     async def get_competitor(self, competitor_id: str) -> CompetitorRecord | None:
         """Look up a competitor by primary key."""
-        sql = "SELECT * FROM competitors WHERE id = $1"
+        sql = "SELECT * FROM competitors WHERE id = ?"
         async with self._db.execute(sql, [competitor_id]) as cur:
             row = await cur.fetchone()
         if not row:
@@ -64,7 +64,7 @@ class CompetitionStore:
         self, comp_type: CompetitorType, ref_id: str
     ) -> CompetitorRecord | None:
         """Look up a competitor by (type, ref_id) unique key."""
-        sql = "SELECT * FROM competitors WHERE type = $1 AND ref_id = $2"
+        sql = "SELECT * FROM competitors WHERE type = ? AND ref_id = ?"
         async with self._db.execute(sql, [comp_type.value, ref_id]) as cur:
             row = await cur.fetchone()
         if not row:
@@ -76,7 +76,7 @@ class CompetitionStore:
     ) -> list[CompetitorRecord]:
         """List active competitors, optionally filtered by type."""
         if comp_type is not None:
-            sql = "SELECT * FROM competitors WHERE status = 'active' AND type = $1 ORDER BY name"
+            sql = "SELECT * FROM competitors WHERE status = 'active' AND type = ? ORDER BY name"
             params: list[Any] = [comp_type.value]
         else:
             sql = "SELECT * FROM competitors WHERE status = 'active' ORDER BY name"
@@ -93,14 +93,14 @@ class CompetitionStore:
         """Create an ELO rating row if it does not exist."""
         sql = """
             INSERT INTO elo_ratings (competitor_id, asset)
-            VALUES ($1, $2)
+            VALUES (?, ?)
             ON CONFLICT (competitor_id, asset) DO NOTHING
         """
         await self._db.execute(sql, [competitor_id, asset])
 
     async def get_elo(self, competitor_id: str, asset: str) -> int:
         """Return the current ELO for a competitor+asset (default 1000)."""
-        sql = "SELECT elo FROM elo_ratings WHERE competitor_id = $1 AND asset = $2"
+        sql = "SELECT elo FROM elo_ratings WHERE competitor_id = ? AND asset = ?"
         async with self._db.execute(sql, [competitor_id, asset]) as cur:
             row = await cur.fetchone()
         return row["elo"] if row else 1000
@@ -116,14 +116,14 @@ class CompetitionStore:
         tier = tier_for_elo(new_elo)
         update_sql = """
             UPDATE elo_ratings
-            SET elo = $1, tier = $2, matches_count = matches_count + 1, updated_at = NOW()
-            WHERE competitor_id = $3 AND asset = $4
+            SET elo = ?, tier = ?, matches_count = matches_count + 1, updated_at = CURRENT_TIMESTAMP
+            WHERE competitor_id = ? AND asset = ?
         """
         await self._db.execute(update_sql, [new_elo, tier.value, competitor_id, asset])
 
         history_sql = """
             INSERT INTO elo_history (competitor_id, asset, elo, tier, elo_delta)
-            VALUES ($1, $2, $3, $4, $5)
+            VALUES (?, ?, ?, ?, ?)
         """
         await self._db.execute(
             history_sql, [competitor_id, asset, new_elo, tier.value, elo_delta]
@@ -133,15 +133,19 @@ class CompetitionStore:
         self, competitor_id: str, asset: str, days: int = 30
     ) -> list[dict]:
         """Return recent ELO history entries."""
+        from datetime import datetime, timedelta, timezone
+
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+
         sql = """
             SELECT elo, tier, elo_delta, recorded_at
             FROM elo_history
-            WHERE competitor_id = $1
-              AND asset = $2
-              AND recorded_at >= NOW() - CAST($3 || ' days' AS INTERVAL)
+            WHERE competitor_id = ?
+              AND asset = ?
+              AND recorded_at >= ?
             ORDER BY recorded_at DESC
         """
-        async with self._db.execute(sql, [competitor_id, asset, str(days)]) as cur:
+        async with self._db.execute(sql, [competitor_id, asset, cutoff]) as cur:
             rows = await cur.fetchall()
         return rows
 
@@ -164,12 +168,12 @@ class CompetitionStore:
                        COALESCE(s.current_count, 0) AS current_streak,
                        COALESCE(s.best_count, 0) AS best_streak
                 FROM competitors c
-                JOIN elo_ratings e ON e.competitor_id = c.id AND e.asset = $1
+                JOIN elo_ratings e ON e.competitor_id = c.id AND e.asset = ?
                 LEFT JOIN streaks s ON s.competitor_id = c.id
-                    AND s.asset = $1 AND s.streak_type = 'win'
-                WHERE c.status = 'active' AND c.type = $2
+                    AND s.asset = ? AND s.streak_type = 'win'
+                WHERE c.status = 'active' AND c.type = ?
                 ORDER BY e.elo DESC
-                LIMIT $3 OFFSET $4
+                LIMIT ? OFFSET ?
             """
             params: list[Any] = [asset, comp_type.value, limit, offset]
         else:
@@ -179,12 +183,12 @@ class CompetitionStore:
                        COALESCE(s.current_count, 0) AS current_streak,
                        COALESCE(s.best_count, 0) AS best_streak
                 FROM competitors c
-                JOIN elo_ratings e ON e.competitor_id = c.id AND e.asset = $1
+                JOIN elo_ratings e ON e.competitor_id = c.id AND e.asset = ?
                 LEFT JOIN streaks s ON s.competitor_id = c.id
-                    AND s.asset = $1 AND s.streak_type = 'win'
+                    AND s.asset = ? AND s.streak_type = 'win'
                 WHERE c.status = 'active'
                 ORDER BY e.elo DESC
-                LIMIT $2 OFFSET $3
+                LIMIT ? OFFSET ?
             """
             params = [asset, limit, offset]
 
@@ -214,9 +218,9 @@ class CompetitionStore:
                    c.name, c.type
             FROM achievements a
             JOIN competitors c ON c.id = a.competitor_id
-            WHERE a.id > $1
+            WHERE a.id > ?
             ORDER BY a.earned_at ASC
-            LIMIT $2
+            LIMIT ?
         """
         async with self._db.execute(sql, [since_id, limit]) as cur:
             rows = await cur.fetchall()
@@ -238,7 +242,7 @@ class CompetitionStore:
         sql = """
             SELECT calibration_score
             FROM elo_ratings
-            WHERE competitor_id = $1 AND asset = $2
+            WHERE competitor_id = ? AND asset = ?
         """
         async with self._db.execute(sql, [competitor_id, asset]) as cur:
             row = await cur.fetchone()
@@ -252,14 +256,14 @@ class CompetitionStore:
         """Return head-to-head win/loss/draw stats between two competitors."""
         sql = """
             SELECT
-                COUNT(*) FILTER (WHERE winner_id = $1) AS wins_a,
-                COUNT(*) FILTER (WHERE winner_id = $2) AS wins_b,
+                COUNT(*) FILTER (WHERE winner_id = ?) AS wins_a,
+                COUNT(*) FILTER (WHERE winner_id = ?) AS wins_b,
                 COUNT(*) FILTER (WHERE winner_id IS NULL) AS draws,
                 COUNT(*) AS total
             FROM matches
-            WHERE ((competitor_a_id = $1 AND competitor_b_id = $2)
-                OR (competitor_a_id = $2 AND competitor_b_id = $1))
-                AND asset = $3
+            WHERE ((competitor_a_id = ? AND competitor_b_id = ?)
+                OR (competitor_a_id = ? AND competitor_b_id = ?))
+                AND asset = ?
                 AND match_type = 'pairwise'
         """
         async with self._db.execute(sql, [competitor_a, competitor_b, asset]) as cur:
@@ -272,7 +276,7 @@ class CompetitionStore:
             INSERT INTO matches (
                 competitor_a_id, competitor_b_id, asset, time_window,
                 winner_id, score_a, score_b, elo_delta_a, elo_delta_b, match_type
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?0)
         """
         await self._db.execute(
             sql,
