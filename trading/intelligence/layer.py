@@ -18,6 +18,7 @@ from intelligence.providers.regime import RegimeProvider
 from intelligence.providers.order_flow import OrderFlowProvider
 from intelligence.providers.derivatives import DerivativesProvider
 from intelligence.providers.risk_audit import RiskAuditProvider
+from intelligence.providers.knowledge_graph import KnowledgeGraphProvider
 from utils.logging import log_event
 
 logger = logging.getLogger(__name__)
@@ -35,7 +36,9 @@ class IntelligenceLayer:
 
         # Providers
         self._on_chain = OnChainProvider(coinglass_api_key=config.coinglass_api_key)
-        self._sentiment = SentimentProvider(lunarcrush_api_key=config.lunarcrush_api_key)
+        self._sentiment = SentimentProvider(
+            lunarcrush_api_key=config.lunarcrush_api_key
+        )
         self._anomaly = AnomalyProvider()
         self._regime = RegimeProvider(memory_manager=memory_manager)
         self._order_flow = OrderFlowProvider()
@@ -44,6 +47,7 @@ class IntelligenceLayer:
             horizon_days=config.risk_horizon_days,
         )
         self._derivatives = DerivativesProvider()
+        self._knowledge_graph = KnowledgeGraphProvider(query_service=None)
 
         # Circuit breakers (one per provider)
         def make_breaker() -> ProviderCircuitBreaker:
@@ -59,6 +63,7 @@ class IntelligenceLayer:
             "regime": make_breaker(),
             "risk_audit": make_breaker(),
             "derivatives": make_breaker(),
+            "knowledge_graph": make_breaker(),
         }
 
         # Metrics
@@ -158,6 +163,7 @@ class IntelligenceLayer:
             ("regime", self._regime),
             ("risk_audit", self._risk_audit),
             ("derivatives", self._derivatives),
+            ("knowledge_graph", self._knowledge_graph),
         ]
 
         async def _call_provider(name: str, provider) -> IntelReport | None:

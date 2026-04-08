@@ -18,6 +18,7 @@ class IntelligenceConfig(BaseModel):
             "regime": 0.10,
             "risk_audit": 0.05,
             "derivatives": 0.12,
+            "knowledge_graph": 0.15,
         }
     )
     risk_var_threshold_pct: float = 5.0
