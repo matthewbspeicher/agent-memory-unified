@@ -8,14 +8,14 @@ COPY package.json package-lock.json* ./
 # Install dependencies
 RUN npm ci
 
+# Create .env file for build (Railway passes these as build args)
+RUN echo "VITE_TRADING_API_URL=${VITE_TRADING_API_URL:-http://localhost:8080}" > .env.production && \
+    echo "VITE_TRADING_API_KEY=${VITE_TRADING_API_KEY:-local-validator-dev}" >> .env.production
+
 # Copy application code
 COPY . /app
 
-# Build the application with env vars for Vite
-ARG VITE_TRADING_API_URL
-ARG VITE_TRADING_API_KEY
-ENV VITE_TRADING_API_URL=$VITE_TRADING_API_URL
-ENV VITE_TRADING_API_KEY=$VITE_TRADING_API_KEY
+# Build the application (Vite reads .env.production)
 RUN npm run build
 
 # Production stage
