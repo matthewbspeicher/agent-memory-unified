@@ -23,6 +23,15 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
       - name: Setup PHP
@@ -55,7 +64,7 @@ jobs:
           cd trading
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install mypy
+          pip install mypy types-PyYAML types-redis
       - name: Run mypy
         run: cd trading && mypy .
       - name: Run Pytest

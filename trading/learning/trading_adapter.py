@@ -82,7 +82,7 @@ class TradingRemembrClient(AsyncRemembrClient):
         Update mutable trade metadata.
         PATCH /v1/trading/trades/{id}
         """
-        payload = {}
+        payload: dict[str, Any] = {}
         if decision_memory_id:
             payload["decision_memory_id"] = decision_memory_id
         if outcome_memory_id:

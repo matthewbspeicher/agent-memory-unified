@@ -138,7 +138,7 @@ def load_config(env_file: str = ".env") -> Config:
     # but we'll manually map common ones or use model_validate()
     
     # Minimal implementation for Task 1:
-    config_dict = {}
+    config_dict: dict[str, Any] = {}
     
     # Mapping logic... (simplified for brevity, usually we'd use BaseSettings)
     # Since we are in a task context, let's just use model_validate with env overrides
@@ -151,7 +151,7 @@ def load_config(env_file: str = ".env") -> Config:
 
     # Special handling for nested configs if provided in ENV
     # (e.g. STA_BROKER_MODE -> config.broker.mode)
-    processed_data = {}
+    processed_data: dict[str, Any] = {}
     for k, v in env_data.items():
         if "_" in k:
             prefix, rest = k.split("_", 1)

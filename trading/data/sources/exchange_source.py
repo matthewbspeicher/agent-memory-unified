@@ -28,7 +28,7 @@ class ExchangeDataSource(DataSource):
             bid=Decimal(str(ticker.get('bid'))) if ticker.get('bid') else None,
             ask=Decimal(str(ticker.get('ask'))) if ticker.get('ask') else None,
             last=Decimal(str(ticker.get('last'))) if ticker.get('last') else None,
-            volume=float(ticker.get('baseVolume', 0)),
+            volume=int(float(ticker.get('baseVolume', 0))),
             timestamp=None # CCXT has 'timestamp' but Quote models it differently
         )
 

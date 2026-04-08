@@ -439,7 +439,7 @@ def parse_rule(d: dict[str, Any]) -> ExitRule | None:
             target_price=Decimal(d["target_price"]), side=d.get("side", "BUY")
         )
     elif t == "trailing_stop":
-        r: TrailingStop = TrailingStop(
+        r = TrailingStop(
             trail_pct=Decimal(d["trail_pct"]), side=d.get("side", "BUY")
         )
         r._peak = Decimal(d.get("peak", "0"))

@@ -329,12 +329,12 @@ class BacktestEngine:
                     await asyncio.sleep(config.replay_speed)
 
             # Close any remaining positions at last price
-            last_prices = {t: bar.close for t, bar in bars.items()} if bars else {}
+            last_prices: dict[str, Decimal] = {t: bar.close for t, bar in bars.items()} if bars else {}
             for key, trade in list(open_trades.items()):
                 ticker = trade.symbol
                 if ticker in portfolio.positions:
                     last_price = last_prices.get(ticker, trade.entry_price)
-                    close_side = "SELL" if trade.side.value == "BUY" else "BUY"
+                    close_side = "SELL" if trade.side == "BUY" else "BUY"
                     portfolio.close_position(
                         ticker,
                         close_side,
@@ -415,7 +415,7 @@ def _get_commission_fn(model: CommissionModel, params: dict) -> Any:
     elif model == CommissionModel.IBKR:
         from broker.models import IBKRFeeModel, OrderBase, OrderSide
 
-        fm = IBKRFeeModel()
+        fm_ibkr = IBKRFeeModel()
 
         def _ibkr(qty, price, symbol):
             order = OrderBase(
@@ -424,7 +424,7 @@ def _get_commission_fn(model: CommissionModel, params: dict) -> Any:
                 quantity=qty,
                 account_id="backtest",
             )
-            return fm.calculate(order, price)
+            return fm_ibkr.calculate(order, price)
 
         return _ibkr
     else:

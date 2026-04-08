@@ -1,6 +1,7 @@
 # data/indicators.py
 from __future__ import annotations
 from dataclasses import dataclass
+from typing import Any
 
 from broker.models import Bar
 

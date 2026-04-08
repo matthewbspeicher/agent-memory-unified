@@ -69,12 +69,12 @@ def compute_metrics(result: BacktestResult) -> dict[str, Any]:
 
     # Trade averages
     avg_pnl = (
-        sum(t.pnl for t in closed_trades) / total_trades
+        sum((t.pnl for t in closed_trades), Decimal("0")) / Decimal(total_trades)
         if total_trades
         else Decimal("0")
     )
-    avg_win = sum(t.pnl for t in winning) / len(winning) if winning else Decimal("0")
-    avg_loss = sum(t.pnl for t in losing) / len(losing) if losing else Decimal("0")
+    avg_win = sum((t.pnl for t in winning), Decimal("0")) / Decimal(len(winning)) if winning else Decimal("0")
+    avg_loss = sum((t.pnl for t in losing), Decimal("0")) / Decimal(len(losing)) if losing else Decimal("0")
     largest_win = max((t.pnl for t in winning), default=Decimal("0"))
     largest_loss = min((t.pnl for t in losing), default=Decimal("0"))
     avg_holding = (
