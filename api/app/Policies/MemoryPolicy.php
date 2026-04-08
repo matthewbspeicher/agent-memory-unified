@@ -13,7 +13,18 @@ class MemoryPolicy
      */
     public function view(User|Agent $user, Memory $memory): bool
     {
-        return $user->workspaces()->where('workspaces.id', $memory->workspace_id)->exists();
+        // If memory is not part of a workspace, it's private to the agent.
+        if (!$memory->workspace_id) {
+            return $user instanceof Agent && $memory->agent_id === $user->id;
+        }
+
+        // If it is in a workspace, the agent must be part of that workspace
+        if ($user instanceof Agent) {
+            return $user->workspaces()->where('workspaces.id', $memory->workspace_id)->exists();
+        }
+
+        // We only authorize Agents for memory API right now, Users are not used
+        return false;
     }
 
     /**

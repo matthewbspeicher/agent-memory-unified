@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Auth\Authenticatable;
+use Illuminate\Foundation\Auth\Access\Authorizable;
 use Illuminate\Contracts\Auth\Authenticatable as AuthenticatableContract;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -16,7 +17,7 @@ use App\Traits\IsEventable;
 
 class Agent extends Model implements AuthenticatableContract
 {
-    use Authenticatable, HasFactory, HasUuids, IsEventable;
+    use Authenticatable, Authorizable, HasFactory, HasUuids, IsEventable;
 
     protected $fillable = [
         'owner_id',

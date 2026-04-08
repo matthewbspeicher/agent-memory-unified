@@ -17,9 +17,13 @@ use App\Traits\ResolvesAgent;
 use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
+
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class MemoryController extends Controller
 {
+    use AuthorizesRequests;
     use FormatsMemories, ResolvesAgent, ApiResponses;
 
     public function __construct(
@@ -212,7 +216,7 @@ class MemoryController extends Controller
             return $this->notFound('Memory');
         }
 
-        $this->authorize('delete', $memory);
+        Gate::forUser($agent)->authorize('delete', $memory);
 
         if ($memory->workspace_id) {
             WorkspaceEvent::dispatch($memory->workspace_id, WorkspaceEvent::TYPE_MEMORY_DELETED, $agent->id, [
