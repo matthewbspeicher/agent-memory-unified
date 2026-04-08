@@ -202,9 +202,10 @@ def _setup_agent_runtime(
         journal_manager=journal_manager,
     )
 
+    from typing import cast, Any
+
     if config.consensus_threshold > 1:
         from storage.consensus import ConsensusStore
-        from typing import cast, Any
 
         consensus_store = ConsensusStore(db)
         router = ConsensusRouter(
