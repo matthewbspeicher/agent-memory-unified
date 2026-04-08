@@ -1113,6 +1113,13 @@ async def lifespan(app: FastAPI):
             app.state.competition_tracker = competition_tracker
             app.state.competition_matcher = competition_matcher
 
+            # Meta-learner / Ensemble router
+            from competition.meta_learner import WalkForwardMetaLearner, EnsembleRouter
+
+            meta_learner = WalkForwardMetaLearner()
+            ensemble_router = EnsembleRouter(meta_learner=meta_learner)
+            app.state.competition_meta_learner = ensemble_router
+
             # Hourly match processing task
             async def _competition_match_loop():
                 while True:

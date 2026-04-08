@@ -164,6 +164,30 @@ async def head_to_head(
     }
 
 
+@router.get("/meta-learner/status")
+async def meta_learner_status(
+    request: Request,
+    _: str = Depends(verify_api_key),
+):
+    """Get meta-learner status and feature importance."""
+    meta = getattr(request.app.state, "competition_meta_learner", None)
+    if not meta:
+        return {"enabled": False, "mode": "baseline"}
+
+    return {
+        "enabled": True,
+        "mode": meta.active_mode,
+        "last_retrain": str(meta.meta_learner.last_retrain)
+        if meta.meta_learner and meta.meta_learner.last_retrain
+        else None,
+        "feature_importance": meta.meta_learner.feature_importance
+        if meta.meta_learner
+        else {},
+        "has_model": meta.meta_learner is not None
+        and meta.meta_learner.model is not None,
+    }
+
+
 @router.get("/achievements/feed")
 async def get_achievement_feed(
     request: Request,

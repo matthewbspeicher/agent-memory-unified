@@ -135,3 +135,11 @@ export function useHeadToHead(a: string, b: string, asset = 'BTC') {
     enabled: !!a && !!b,
   });
 }
+
+export function useMetaLearnerStatus() {
+  return useQuery({
+    queryKey: ['competition', 'meta-learner'],
+    queryFn: () => tradingApi.get('/competition/meta-learner/status').then(res => res.data),
+    refetchInterval: 60_000,
+  });
+}
