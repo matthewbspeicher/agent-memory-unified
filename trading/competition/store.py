@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import logging
+import uuid
 from typing import Any
 
 from competition.models import (
@@ -32,9 +33,11 @@ class CompetitionStore:
 
     async def upsert_competitor(self, competitor: CompetitorCreate) -> str:
         """Insert or update a competitor.  Returns the competitor id."""
+        raw_id = f"{competitor.type.value}:{competitor.ref_id}"
+        comp_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, raw_id))
         sql = """
-            INSERT INTO competitors (type, name, ref_id, metadata)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO competitors (id, type, name, ref_id, metadata)
+            VALUES (?, ?, ?, ?, ?)
             ON CONFLICT (type, ref_id) DO UPDATE
                 SET name = EXCLUDED.name,
                     metadata = EXCLUDED.metadata,
@@ -42,6 +45,7 @@ class CompetitionStore:
             RETURNING id
         """
         params = [
+            comp_id,
             competitor.type.value,
             competitor.name,
             competitor.ref_id,
