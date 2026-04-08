@@ -11,7 +11,11 @@ RUN npm ci
 # Copy application code
 COPY . /app
 
-# Build the application
+# Build the application with env vars for Vite
+ARG VITE_TRADING_API_URL
+ARG VITE_TRADING_API_KEY
+ENV VITE_TRADING_API_URL=$VITE_TRADING_API_URL
+ENV VITE_TRADING_API_KEY=$VITE_TRADING_API_KEY
 RUN npm run build
 
 # Production stage
