@@ -33,6 +33,8 @@ from learning.pnl import TradeTracker
 from learning.prompt_store import SqlPromptStore
 from api.routes.learning import create_learning_router
 
+_log = logging.getLogger(__name__)
+
 
 async def _setup_trade_reflectors(
     *,
@@ -58,6 +60,9 @@ async def _setup_trade_reflectors(
         from learning.memory_client import TradingMemoryClient
         from learning.trade_reflector import TradeReflector
         from api.routes.memory import register_shared_client
+
+        regime_mem = None
+        _vector_service = None
 
         mem_cfg = learning_cfg.memory
         shared_remembr = AsyncRemembrClient(
@@ -1497,8 +1502,9 @@ async def lifespan(app: FastAPI):
 
         from notifications.composite import CompositeNotifier
         from notifications.slack import SlackNotifier
+        from notifications.base import Notifier
 
-        active_notifiers = [LogNotifier()]
+        active_notifiers: list[Notifier] = [LogNotifier()]
         api_base = f"http://{config.api_host}:{config.api_port}"
 
         if config.slack_webhook_url:

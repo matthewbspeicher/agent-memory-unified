@@ -86,6 +86,71 @@ class Config(BaseModel):
     llm: LLMConfig = Field(default_factory=LLMConfig)
     intel: IntelligenceConfig = Field(default_factory=IntelligenceConfig)
 
+    # Missing flat fields for compatibility
+    anthropic_api_key: str | None = None
+    groq_api_key: str | None = None
+    ollama_base_url: str | None = None
+    bedrock_region: str | None = None
+    bedrock_model: str | None = None
+    bedrock_access_key_id: str | None = None
+    bedrock_secret_access_key: str | None = None
+    remembr_owner_token: str | None = None
+    remembr_agent_token: str | None = None
+    remembr_base_url: str | None = None
+    remembr_timeout: int | None = None
+    remembr_api_key: str | None = None
+    remembr_shared_api_key: str | None = None
+    paper_trading: bool | None = None
+    massive_key: str | None = None
+    news_feeds: list[str] | None = None
+    news_poll_interval: int | None = None
+    alpaca_streaming: bool | None = None
+    alpaca_api_key: str | None = None
+    alpaca_secret_key: str | None = None
+    alpaca_data_feed: str | None = None
+    tradier_streaming: bool | None = None
+    tradier_token: str | None = None
+    tradier_sandbox: bool | None = None
+    journal_index_enabled: bool | None = None
+    journal_index_persist_interval: int | None = None
+    journal_index_model: str | None = None
+    journal_index_path: str | None = None
+    journal_index_space: str | None = None
+    journal_index_ef_construction: int | None = None
+    journal_index_m: int | None = None
+    journal_index_ef_search: int | None = None
+    journal_index_max_elements: int | None = None
+    gpu_enabled: bool | None = None
+    supabase_url: str | None = None
+    supabase_service_key: str | None = None
+    kalshi_demo: bool | None = None
+    polymarket_private_key: str | None = None
+    polymarket_funder: str | None = None
+    polymarket_api_key: str | None = None
+    polymarket_signature_type: str | None = None
+    polymarket_creds_path: str | None = None
+    polymarket_rpc_url: str | None = None
+    polymarket_dry_run: bool | None = None
+    polymarket_relayer_api_key: str | None = None
+    polymarket_relayer_address: str | None = None
+    bittensor_enabled: bool | None = None
+    bittensor_network: str | None = None
+    bittensor_endpoint: str | None = None
+    bittensor_wallet_name: str | None = None
+    bittensor_hotkey_path: str | None = None
+    bittensor_hotkey: str | None = None
+    bittensor_subnet_uid: int | None = None
+    bittensor_selection_policy: str | None = None
+    bittensor_selection_metric: str | None = None
+    bittensor_top_miners: int | None = None
+    bittensor_derivation_version: str | None = None
+    bittensor_streams: list[str] | None = None
+    agents_config: str | None = None
+    redis_url: str | None = None
+    broker_routing: dict[str, str] | None = None
+    arb_toxicity_threshold: float | None = None
+    order_timeout: int | None = None
+
     # Logging
     log_level: str = "INFO"
     log_format: str = "json"
