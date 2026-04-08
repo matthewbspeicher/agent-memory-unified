@@ -98,6 +98,7 @@ async def _setup_trade_reflectors(
                 shared_client=shared_remembr,
                 ttl_days=mem_cfg.ttl_days,
             )
+            memory_registry.register_client(agent_name, memory_client)
 
             return TradeReflector(
                 memory_client=memory_client,

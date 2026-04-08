@@ -70,7 +70,7 @@ class ProviderRegistry:
         return self.providers.get(name)
 ```
 
-- [ ] **Step 4: Refactor `LLMClient` in `client.py` to use the registry**
+- [x] **Step 4: Refactor `LLMClient` in `client.py` to use the registry**
 
 Modify `trading/llm/client.py` to extract `_try_anthropic_chat`, `_try_groq_chat`, etc. into subclasses of `BaseProvider` and use `ProviderRegistry` inside `LLMClient`. Move the imports to the top or inside the methods as before. 
 
@@ -79,7 +79,7 @@ Modify `trading/llm/client.py` to extract `_try_anthropic_chat`, `_try_groq_chat
 Run: `pytest trading/tests/test_llm_client.py -v`
 Expected: PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add trading/tests/test_llm_client.py trading/llm/providers.py trading/llm/client.py
@@ -176,7 +176,7 @@ async def get_memory_index(registry: MemoryRegistry = Depends(get_memory_registr
 Run: `pytest trading/tests/api/test_memory_registry.py -v`
 Expected: PASS
 
-- [ ] **Step 7: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add trading/tests/api/test_memory_registry.py trading/api/services/memory_registry.py trading/api/routes/memory.py trading/api/dependencies.py
@@ -267,7 +267,7 @@ public function show(Memory $memory)
 Run: `cd api && php artisan test --filter MemoryPolicyTest`
 Expected: PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add api/tests/Feature/MemoryPolicyTest.php api/app/Policies/MemoryPolicy.php api/app/Http/Controllers/Api/MemoryController.php
@@ -318,7 +318,7 @@ Update `MemoryController.php` and others to inject `MemoryWriter` or `MemoryRead
 Run: `cd api && php artisan test --filter Memory`
 Expected: PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add api/app/Services/Memory* api/app/Http/Controllers/Api/MemoryController.php
@@ -362,7 +362,7 @@ Rename and split the tests to `TradeProcessorTest.php` and `PositionManagerTest.
 Run: `cd api && php artisan test --filter Trading`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add api/app/Services/TradeProcessor.php api/app/Services/PositionManager.php api/app/Services/TradingService.php api/tests/Unit/
@@ -446,7 +446,7 @@ const tradingApi = createApiClient(getBaseUrl());
 Run: `cd frontend && npm run tsc` (or equivalent)
 Expected: No type errors.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add frontend/src/lib/api/factory.ts frontend/src/lib/api/client.ts frontend/src/lib/api/competition.ts

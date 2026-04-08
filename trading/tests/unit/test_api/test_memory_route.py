@@ -18,10 +18,10 @@ def set_api_key():
 
 @pytest.fixture(autouse=True)
 def clear_memory_registry():
-    from api.routes.memory import _memory_client_registry, register_shared_client
+    from api.services.memory_registry import memory_registry
 
-    _memory_client_registry.clear()
-    register_shared_client(None)
+    memory_registry._clients.clear()
+    memory_registry.register_shared(None)
 
 
 def test_memory_list_returns_503_when_not_configured():
