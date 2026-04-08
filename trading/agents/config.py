@@ -179,6 +179,12 @@ def _ensure_strategies_registered() -> None:
     register_strategy("correlation_monitor", StrategyCorrelationMonitor)
     register_strategy("ensemble_optimizer", EnsembleOptimizer)
 
+    # Placeholders for dynamically registered strategies (see api/app.py)
+    # These allow Pydantic validation to pass during startup.
+    register_strategy("cross_platform_arb", lambda cfg: None)  # type: ignore
+    register_strategy("meta_agent", lambda cfg: None)  # type: ignore
+    register_strategy("meta", lambda cfg: None)  # type: ignore
+
 
 def load_agents_config(
     path: str,
