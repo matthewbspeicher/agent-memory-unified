@@ -911,13 +911,14 @@ async def lifespan(app: FastAPI):
     setup_logging(level=config.log_level, fmt=config.log_format)
 
     enabled = getattr(app.state, "enable_agent_framework", False)
-# Initialize background tasks manager
-from utils.background_tasks import BackgroundTaskManager
 
-task_mgr = BackgroundTaskManager()
-app.state.task_manager = task_mgr
+    # Initialize background tasks manager
+    from utils.background_tasks import BackgroundTaskManager
 
-# Telemetry setup - conditional, deferred from import time
+    task_mgr = BackgroundTaskManager()
+    app.state.task_manager = task_mgr
+
+    # Telemetry setup - conditional, deferred from import time
     from utils.telemetry import setup_telemetry
 
     setup_telemetry()
