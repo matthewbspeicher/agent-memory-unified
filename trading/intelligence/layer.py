@@ -28,7 +28,11 @@ class IntelligenceLayer:
     """Orchestrates intel providers, enriches consensus signals, publishes results."""
 
     def __init__(
-        self, signal_bus: SignalBus, config: IntelligenceConfig, memory_manager=None
+        self,
+        signal_bus: SignalBus,
+        config: IntelligenceConfig,
+        memory_manager=None,
+        knowledge_graph=None,
     ):
         self.signal_bus = signal_bus
         self.config = config
@@ -40,7 +44,10 @@ class IntelligenceLayer:
             lunarcrush_api_key=config.lunarcrush_api_key
         )
         self._anomaly = AnomalyProvider()
-        self._regime = RegimeProvider(memory_manager=memory_manager)
+        self._regime = RegimeProvider(
+            memory_manager=memory_manager,
+            knowledge_graph=knowledge_graph,
+        )
         self._order_flow = OrderFlowProvider()
         self._risk_audit = RiskAuditProvider(
             var_threshold_pct=config.risk_var_threshold_pct,

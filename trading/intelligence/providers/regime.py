@@ -14,6 +14,7 @@ from intelligence.providers.base import BaseIntelProvider
 
 if TYPE_CHECKING:
     from memory.market_regime import RegimeMemoryManager
+    from storage.knowledge_graph import TradingKnowledgeGraph
 
 logger = logging.getLogger(__name__)
 
@@ -100,8 +101,14 @@ class RegimeProvider(BaseIntelProvider):
     This acts as a conviction multiplier — familiar regimes get higher trust.
     """
 
-    def __init__(self, memory_manager: "RegimeMemoryManager | None" = None):
+    def __init__(
+        self,
+        memory_manager: "RegimeMemoryManager | None" = None,
+        knowledge_graph: "TradingKnowledgeGraph | None" = None,
+    ):
         self.memory_manager = memory_manager
+        self._knowledge_graph = knowledge_graph
+        self._last_regime: dict[str, str] = {}  # symbol -> last detected regime
 
     @property
     def name(self) -> str:
@@ -117,6 +124,9 @@ class RegimeProvider(BaseIntelProvider):
                 return None
 
             regime = self.memory_manager.detect_regime(bars)
+
+            # KG writes on regime transition (best-effort, never break detection)
+            await self._record_regime_transition(symbol, regime)
 
             from broker.models import Symbol as SymbolModel
 
@@ -153,6 +163,52 @@ class RegimeProvider(BaseIntelProvider):
         except Exception as e:
             logger.warning("RegimeProvider failed for %s: %s", symbol, e)
             return None
+
+    async def _record_regime_transition(self, symbol: str, new_regime: str) -> None:
+        """Write KG triples when the regime changes for a symbol.
+
+        Invalidates the old regime triple and records the new one.
+        Entirely best-effort — exceptions are caught and logged.
+        """
+        old_regime = self._last_regime.get(symbol)
+        self._last_regime[symbol] = new_regime
+
+        if not self._knowledge_graph or old_regime is None or old_regime == new_regime:
+            return
+
+        # Derive a KG subject from the symbol (e.g. "btcusd_regime")
+        subject = f"{symbol.lower()}_regime"
+        now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+        try:
+            await self._knowledge_graph.invalidate(
+                subject,
+                "in_state",
+                old_regime,
+                ended=now_str,
+                reason=f"transition_to_{new_regime}",
+            )
+            await self._knowledge_graph.add_triple(
+                subject,
+                "in_state",
+                new_regime,
+                valid_from=now_str,
+                source="regime_provider",
+            )
+            logger.info(
+                "KG regime transition for %s: %s -> %s",
+                symbol,
+                old_regime,
+                new_regime,
+            )
+        except Exception:
+            logger.debug(
+                "KG write failed for regime transition %s: %s -> %s",
+                symbol,
+                old_regime,
+                new_regime,
+                exc_info=True,
+            )
 
     async def _fetch_bars(self, symbol: str) -> list:
         """Fetch recent price bars. Override in tests."""
