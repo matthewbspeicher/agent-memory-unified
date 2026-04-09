@@ -1,0 +1,89 @@
+# docker-compose.minipc.yml
+# Stripped-down compose for the always-on mini PC validator.
+# - No postgres (uses Railway managed PostgreSQL)
+# - No api/frontend (stay on Railway)
+# - Taoshi validator runs natively via pm2 (not in Docker)
+
+services:
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes ${REDIS_PASSWORD:+--requirepass $REDIS_PASSWORD}
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  trading:
+    build:
+      context: .
+      dockerfile: Dockerfile.trading
+    command: ["python3", "scripts/run_dev.py"]
+    ports:
+      - "8080:8080"
+    env_file:
+      - ./trading/.env
+      - ./trading/.env.wallet
+    environment:
+      # Override Redis to use local container (not Railway)
+      STA_REDIS_URL: redis://redis:6379
+      # Do NOT set STA_DATABASE_URL here — let trading/.env provide
+      # the Railway Postgres URL. Do NOT set STA_DATABASE_SSL here
+      # either — let .env set it to true for Railway.
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./trading:/app/trading
+      - ./shared:/app/shared
+      - ./taoshi-vanta:/app/taoshi-vanta:ro
+    networks:
+      - default
+      - monitoring
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.minipc.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - monitoring
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - monitoring
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  default:
+  monitoring:
+    driver: bridge

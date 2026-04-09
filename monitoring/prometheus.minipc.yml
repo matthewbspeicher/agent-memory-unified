@@ -1,0 +1,12 @@
+# Prometheus configuration for mini PC deployment.
+# Only scrapes the trading engine (api/frontend are on Railway).
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'trading-engine'
+    static_configs:
+      - targets: ['trading:8080']
+    metrics_path: '/metrics'

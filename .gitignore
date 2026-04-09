@@ -12,6 +12,7 @@ venv/
 # Environment
 .env
 .env.local
+*.env.wallet
 *.local
 
 # Build outputs
