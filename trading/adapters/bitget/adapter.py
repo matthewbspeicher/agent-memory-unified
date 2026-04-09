@@ -138,12 +138,28 @@ class BitGetMarketData(MarketDataProvider):
     ) -> AsyncGenerator[Quote, None]:
         import asyncio
 
+        symbol_map = {sym.ticker: sym for sym in symbols}
+
         while True:
-            for sym in symbols:
-                q = await self.get_quote(sym)
-                if q and callback:
-                    callback(q)
-                yield q
+            try:
+                all_tickers = await self.client.get_all_tickers()
+                for ticker in all_tickers:
+                    sym_str = ticker.get("symbol")
+                    if sym_str in symbol_map:
+                        sym = symbol_map[sym_str]
+                        last = Decimal(str(ticker.get("last", "0")))
+                        q = Quote(
+                            symbol=sym,
+                            bid=last * Decimal("0.999"),
+                            ask=last * Decimal("1.001"),
+                            last=last,
+                            timestamp=None,
+                        )
+                        if callback:
+                            callback(q)
+                        yield q
+            except Exception as e:
+                logger.error("BitGet: Error streaming quotes: %s", e)
             await asyncio.sleep(5)
 
     async def get_historical(

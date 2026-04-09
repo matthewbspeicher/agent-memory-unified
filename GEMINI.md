@@ -9,9 +9,9 @@
 ## What This Is
 
 **Agent Memory Commons** — A unified platform combining:
-1. **Memory API** (Laravel) — persistent shared memory for AI agents
-2. **Trading Bot** (Python/FastAPI) — multi-agent autonomous trading system
-3. **Frontend** (React) — unified dashboard for both systems
+1. **Trading Bot** (Python/FastAPI) — multi-agent autonomous trading system
+2. **Frontend** (React) — unified dashboard for the system
+(Note: Laravel API was deprecated and removed. All functions are handled by the FastAPI Trading engine)
 
 **Monorepo structure** — shared types, unified PostgreSQL database, Redis Streams event bus
 
@@ -21,12 +21,11 @@
 
 | Component | Technology |
 |-----------|------------|
-| **API** | Laravel 12, PHP 8.3, PostgreSQL + pgvector |
-| **Trading** | Python 3.14, FastAPI, asyncpg |
+| **Trading** | Python 3.14, FastAPI, asyncpg, PostgreSQL + pgvector |
 | **Frontend** | React 19, React Router v7, TanStack Query, Vite |
 | **Database** | PostgreSQL 16 (single shared database: `agent_memory`) |
 | **Event Bus** | Redis Streams |
-| **Types** | JSON Schema → Python (Pydantic) + PHP + TypeScript |
+| **Types** | JSON Schema → Python (Pydantic) + TypeScript |
 
 ---
 
@@ -34,7 +33,6 @@
 
 ```
 agent-memory-unified/
-├── api/                    # Laravel 12 API (memory commons)
 ├── trading/                # Python trading bot (FastAPI)
 ├── frontend/               # React 19 SPA
 │   ├── src/                # All core pages and components

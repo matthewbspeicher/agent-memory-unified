@@ -277,28 +277,46 @@ class TournamentEngine:
         ELO_FLOOR = 100
         MAX_DELTA = 50
 
+        if not rankings:
+            return
+
+        total_agents = len(rankings)
+        raw_deltas = []
+
+        for i, entry in enumerate(rankings):
+            agent_rank = entry.get("rank", i + 1)
+            agent_sharpe = entry.get("sharpe_ratio", 0.0)
+
+            beat_median_rank = (total_agents / 2) - agent_rank
+
+            positive_sharpe_bonus = (
+                (agent_sharpe - 1.5) * 10 if agent_sharpe > 1.5 else 0
+            )
+            negative_sharpe_penalty = agent_sharpe * 15 if agent_sharpe < 0 else 0
+
+            base_elo_change = beat_median_rank * (K_FACTOR / total_agents)
+            
+            raw_delta = base_elo_change + positive_sharpe_bonus + negative_sharpe_penalty
+            raw_deltas.append(raw_delta)
+
+        # Center deltas to enforce zero-sum ELO
+        mean_delta = sum(raw_deltas) / total_agents
+        centered_deltas = [int(round(d - mean_delta)) for d in raw_deltas]
+
+        # Adjust for rounding to ensure exact zero-sum before bounding
+        diff = sum(centered_deltas)
+        if diff != 0 and centered_deltas:
+            centered_deltas[0] -= diff
+
         for i, entry in enumerate(rankings):
             agent_name = entry["agent_name"]
             agent_rank = entry.get("rank", i + 1)
             agent_sharpe = entry.get("sharpe_ratio", 0.0)
 
             old_elo = await self._store.get_elo(agent_name)
+            delta = centered_deltas[i]
 
-            total_agents = len(rankings)
-            beat_median_rank = (total_agents / 2) - agent_rank
-
-            positive_sharpe_bonus = (
-                int((agent_sharpe - 1.5) * 10) if agent_sharpe > 1.5 else 0
-            )
-            negative_sharpe_penalty = int(agent_sharpe * 15) if agent_sharpe < 0 else 0
-
-            base_elo_change = int(beat_median_rank * (K_FACTOR / total_agents))
-            new_elo = (
-                old_elo
-                + base_elo_change
-                + positive_sharpe_bonus
-                + negative_sharpe_penalty
-            )
+            new_elo = old_elo + delta
             new_elo = max(
                 ELO_FLOOR, min(old_elo + MAX_DELTA, max(old_elo - MAX_DELTA, new_elo))
             )

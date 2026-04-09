@@ -144,7 +144,15 @@ def parse_frontmatter(content: str) -> dict:
     if end == -1:
         return {}
     raw = content[3:end].strip()
-    # Simple YAML parser — handles key: value, key: [list], key: null
+    
+    try:
+        import yaml
+        parsed = yaml.safe_load(raw)
+        return parsed if isinstance(parsed, dict) else {}
+    except (ImportError, Exception):
+        pass
+
+    # Simple YAML parser fallback — handles key: value, key: [list], key: null
     result = {}
     for line in raw.split("\n"):
         line = line.strip()

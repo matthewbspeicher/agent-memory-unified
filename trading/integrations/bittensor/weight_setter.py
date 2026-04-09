@@ -113,7 +113,8 @@ class WeightSetter:
                 len(uids),
                 self._netuid,
             )
-            success = self._subtensor.set_weights(
+            success = await asyncio.to_thread(
+                self._subtensor.set_weights,
                 wallet=self._wallet,
                 netuid=self._netuid,
                 uids=uids,

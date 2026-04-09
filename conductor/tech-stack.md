@@ -1,18 +1,14 @@
 # Technology Stack
 
 ## Core Architecture
-- **Polyglot Monorepo:** A unified repository containing the API (PHP), Trading Engine (Python), and Frontend (TypeScript/React).
+- **Monorepo:** A unified repository containing the Trading Engine (Python) and Frontend (TypeScript/React).
 - **Shared Types:** Cross-service type consistency achieved via JSON Schemas and auto-generation.
 
 ## Languages & Frameworks
-- **Backend (Memory API):**
-  - **Language:** PHP 8.3+
-  - **Framework:** Laravel 12
-  - **Key Libraries:** pgvector-php, Laravel Reverb (optional), Redis client.
-- **Backend (Trading Engine):**
+- **Backend (Trading Engine & API):**
   - **Language:** Python 3.14
   - **Framework:** FastAPI
-  - **Key Libraries:** asyncpg, pydantic, redis-py.
+  - **Key Libraries:** asyncpg, pydantic, redis-py, pgvector.
 - **Frontend (Dashboard):**
   - **Language:** TypeScript
   - **Framework:** React 19
@@ -22,9 +18,9 @@
 ## Data & Communication
 - **Primary Database:** PostgreSQL 16
   - **Extensions:** pgvector (for vector similarity search).
-  - **Model:** Shared database schema accessed by both API and Trading services.
+  - **Model:** Shared database schema accessed by all modules.
 - **Event Bus:** Redis Streams
-  - **Purpose:** High-throughput, low-latency event-driven communication (Laravel -> Redis -> Python).
+  - **Purpose:** High-throughput, low-latency event-driven communication.
 - **Cache:** Redis
 
 ## Infrastructure & DevOps
@@ -34,5 +30,5 @@
 - **Deployment:** Multi-container staging and production workflows.
 
 ## Testing
-- **Backend:** PHPUnit (Laravel), pytest (Python).
+- **Backend:** pytest (Python).
 - **Frontend:** Playwright (E2E), Vitest (Unit).
