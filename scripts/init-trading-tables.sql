@@ -715,39 +715,36 @@ CREATE TABLE IF NOT EXISTS arb_legs (
 );
 
 -- Paper trading tables (needed for paper mode)
+-- Paper trading tables — schema must match trading/storage/paper.py
 CREATE TABLE IF NOT EXISTS paper_accounts (
-    account_id VARCHAR(255) PRIMARY KEY,
-    net_liquidation DECIMAL(20,8) NOT NULL DEFAULT 10000,
-    buying_power DECIMAL(20,8) NOT NULL DEFAULT 10000,
-    cash DECIMAL(20,8) NOT NULL DEFAULT 10000,
-    maintenance_margin DECIMAL(20,8) NOT NULL DEFAULT 0
+    account_id TEXT PRIMARY KEY,
+    net_liquidation REAL NOT NULL,
+    buying_power REAL NOT NULL,
+    cash REAL NOT NULL,
+    maintenance_margin REAL NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS paper_positions (
-    id BIGSERIAL PRIMARY KEY,
-    account_id VARCHAR(255) NOT NULL DEFAULT 'PAPER',
-    symbol VARCHAR(255) NOT NULL,
-    quantity DECIMAL(20,8) NOT NULL,
-    avg_cost DECIMAL(20,8) NOT NULL,
-    current_value DECIMAL(20,8) NOT NULL DEFAULT 0,
-    unrealized_pnl DECIMAL(20,8) NOT NULL DEFAULT 0,
-    created_at TIMESTAMP NULL,
-    updated_at TIMESTAMP NULL
+    account_id TEXT,
+    symbol TEXT,
+    asset_type TEXT,
+    quantity REAL NOT NULL,
+    avg_cost REAL NOT NULL,
+    realized_pnl REAL NOT NULL DEFAULT 0.0,
+    resolved_at TEXT,
+    PRIMARY KEY (account_id, symbol, asset_type)
 );
 
 CREATE TABLE IF NOT EXISTS paper_orders (
-    id BIGSERIAL PRIMARY KEY,
-    account_id VARCHAR(255) NOT NULL DEFAULT 'PAPER',
-    symbol VARCHAR(255) NOT NULL,
-    side VARCHAR(255) NOT NULL,
-    quantity DECIMAL(20,8) NOT NULL,
-    order_type VARCHAR(255) NOT NULL DEFAULT 'MKT',
-    limit_price DECIMAL(20,8) NULL,
-    status VARCHAR(255) NOT NULL DEFAULT 'filled',
-    fill_price DECIMAL(20,8) NULL,
-    filled_at TIMESTAMP NULL,
-    created_at TIMESTAMP NULL,
-    updated_at TIMESTAMP NULL
+    order_id TEXT PRIMARY KEY,
+    account_id TEXT NOT NULL,
+    symbol TEXT NOT NULL,
+    side TEXT NOT NULL,
+    quantity REAL NOT NULL,
+    status TEXT NOT NULL,
+    filled_quantity REAL NOT NULL,
+    avg_fill_price REAL,
+    created_at TEXT NOT NULL DEFAULT (NOW()::TEXT)
 );
 
 CREATE TABLE IF NOT EXISTS correlation_matrix (

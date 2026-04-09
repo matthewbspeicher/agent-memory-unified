@@ -1,12 +1,12 @@
 """
 DEPRECATED: This file is no longer used.
 
-Laravel now owns all DDL via api/database/migrations/*.php
-
-Original migrations.py preserved as migrations.py.deprecated for reference.
+DDL is managed by init_db / init_db_postgres in storage/db.py.
+The init-trading-tables.sql script serves as the reference schema.
+Laravel is deprecated (TP-013).
 """
 
 
 async def run_migrations(db):
-    """No-op: Laravel manages schema."""
+    """No-op: DDL managed by init_db/init_db_postgres in db.py."""
     pass

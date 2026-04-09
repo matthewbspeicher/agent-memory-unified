@@ -44,9 +44,10 @@ class DatabaseConnection:
                 statement_cache_size=0,
             )
             self.connection = PostgresDB(pool)
-            # DISABLED: Laravel now owns all DDL via migrations
-            # await run_migrations(self.connection)
-            logger.info("Connected to PostgreSQL (DDL managed by Laravel)")
+            # Run idempotent table creation (CREATE TABLE IF NOT EXISTS)
+            # Laravel is deprecated (TP-013); init_db is the source of truth
+            await init_db_postgres(self.connection)
+            logger.info("Connected to PostgreSQL (tables ensured)")
             return self.connection
 
         # SQLite mode
@@ -78,8 +79,7 @@ class DatabaseConnection:
         await self.close()
 
 
-async def init_db(db: aiosqlite.Connection) -> None:
-    await db.executescript("""
+_INIT_DDL = """
         CREATE TABLE IF NOT EXISTS opportunities (
             id TEXT PRIMARY KEY,
             agent_name TEXT NOT NULL,
@@ -93,14 +93,6 @@ async def init_db(db: aiosqlite.Connection) -> None:
             data TEXT,
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
             updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-        );
-
-        CREATE TABLE IF NOT EXISTS trades (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            opportunity_id TEXT REFERENCES opportunities(id),
-            order_result TEXT NOT NULL,
-            risk_evaluation TEXT,
-            created_at TEXT NOT NULL DEFAULT (datetime('now'))
         );
 
         CREATE TABLE IF NOT EXISTS risk_events (
@@ -766,7 +758,30 @@ async def init_db(db: aiosqlite.Connection) -> None:
             ON signal_features(symbol, opportunity_timestamp);
         CREATE INDEX IF NOT EXISTS idx_sf_signal_agent
             ON signal_features(signal, agent_name);
-    """)
+
+        CREATE TABLE IF NOT EXISTS agent_elo_ratings (
+            agent_name TEXT PRIMARY KEY,
+            elo_rating INTEGER NOT NULL DEFAULT 1000,
+            created_at TEXT,
+            updated_at TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS elo_rating_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            agent_name TEXT NOT NULL,
+            old_rating INTEGER NOT NULL,
+            new_rating INTEGER NOT NULL,
+            reason TEXT,
+            delta INTEGER NOT NULL,
+            timestamp TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_elo_history_agent ON elo_rating_history(agent_name);
+        CREATE INDEX IF NOT EXISTS idx_elo_history_timestamp ON elo_rating_history(timestamp);
+"""
+
+
+async def init_db(db: aiosqlite.Connection) -> None:
+    await db.executescript(_INIT_DDL)
 
     for col, col_def in [
         ("agent_name", "TEXT"),
@@ -815,6 +830,42 @@ async def init_db(db: aiosqlite.Connection) -> None:
         )
     except Exception:
         pass  # Column already exists
+
+
+async def init_db_postgres(db) -> None:
+    """Run idempotent table creation on PostgreSQL.
+
+    Uses the same DDL as SQLite init_db, translated via PostgresDB._translate().
+    CREATE TABLE IF NOT EXISTS is safe to run on every startup.
+    """
+    try:
+        await db.executescript(_INIT_DDL)
+    except Exception as e:
+        logger.warning("Postgres DDL init (non-fatal): %s", e)
+
+    # Column migrations — safe to retry (postgres raises "already exists")
+    _migrations = [
+        ("trades", "agent_name", "TEXT"),
+        ("tracked_positions", "expires_at", "TEXT"),
+        ("tracked_positions", "broker_id", "TEXT"),
+        ("tracked_positions", "account_id", "TEXT"),
+        ("performance_snapshots", "total_pnl", "TEXT"),
+        ("performance_snapshots", "daily_pnl", "TEXT"),
+        ("performance_snapshots", "daily_pnl_pct", "REAL"),
+        ("performance_snapshots", "sharpe_ratio", "REAL"),
+        ("performance_snapshots", "max_drawdown", "REAL"),
+        ("performance_snapshots", "avg_win", "TEXT"),
+        ("performance_snapshots", "avg_loss", "TEXT"),
+        ("performance_snapshots", "profit_factor", "REAL"),
+        ("performance_snapshots", "total_trades", "INTEGER"),
+        ("performance_snapshots", "open_positions", "INTEGER"),
+        ("bittensor_derived_views", "evaluation_status", "TEXT DEFAULT 'pending'"),
+    ]
+    for table, col, col_def in _migrations:
+        try:
+            await db.execute(f"ALTER TABLE {table} ADD COLUMN {col} {col_def}")
+        except Exception:
+            pass  # Column already exists
 
 
 async def get_db(path: str = "data.db") -> aiosqlite.Connection:
