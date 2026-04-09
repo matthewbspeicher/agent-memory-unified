@@ -234,6 +234,12 @@ def _setup_agent_runtime(
             consensus_store=consensus_store,
         )
 
+    from data.tradingview import TradingViewContextFetcher
+    
+    # Extract raw redis client from event bus if available
+    redis_client = getattr(event_bus, "_redis", None)
+    tv_fetcher = TradingViewContextFetcher(redis_client) if redis_client else None
+
     runner = AgentRunner(
         data_bus,
         cast(Any, router),
@@ -244,6 +250,7 @@ def _setup_agent_runtime(
         trade_reflector_factory=trade_reflector_factory,
         agent_store=agent_store,
         db=db,
+        tradingview_fetcher=tv_fetcher,
     )
     set_agent_runner(runner)
     app.state.agent_runner = runner

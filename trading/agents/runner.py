@@ -80,6 +80,7 @@ class AgentRunner:
         agent_store: AgentStore | None = None,
         session_bias_generator: Any | None = None,
         db: Any | None = None,
+        tradingview_fetcher: Any | None = None,
     ) -> None:
         self._data_bus = data_bus
         self._router = router
@@ -91,6 +92,7 @@ class AgentRunner:
         self._agent_store = agent_store
         self._session_bias_generator = session_bias_generator
         self._db = db
+        self._tv_fetcher = tradingview_fetcher
         self._reflectors: dict[str, TradeReflector] = {}
         if self._event_bus:
             self._signal_bus.subscribe(self._forward_signal_to_events)
@@ -330,6 +332,22 @@ class AgentRunner:
                             agent.name,
                             bias_exc,
                         )
+
+                # --- TradingView Chart Context ---
+                if hasattr(self, "_tv_fetcher") and self._tv_fetcher:
+                    try:
+                        universe = agent.config.universe
+                        ticker = universe[0] if isinstance(universe, list) and universe else "UNKNOWN"
+                        tv_context = await self._tv_fetcher.get_latest_chart_context(ticker)
+                        if tv_context:
+                            agent._tv_context = tv_context
+                            if self._event_bus:
+                                await self._event_bus.publish(
+                                    "tradingview_context_injected",
+                                    {"agent_name": agent.name, "symbol": ticker, "drawings": tv_context.get("drawings", [])}
+                                )
+                    except Exception as tv_exc:
+                        logger.warning(f"TradingView context injection failed for {agent.name}: {tv_exc}")
 
                 opportunities = await agent.scan(self._data_bus)
                 span.set_attribute("opportunities.found", len(opportunities))
