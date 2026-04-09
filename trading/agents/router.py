@@ -1384,6 +1384,30 @@ class OpportunityRouter:
                 )
 
 
+
+    def _apply_bias_alignment(self, opportunity: Opportunity, session_bias: str) -> float:
+        # session_bias: "bullish", "bearish", "neutral", "mixed"
+        if session_bias == "mixed" or not session_bias:
+            return 1.0
+        
+        direction = "LONG" if opportunity.suggested_trade and opportunity.suggested_trade.side.value == "BUY" else "SHORT"
+        
+        alignment = {
+            ("LONG", "bullish"): 1.0,
+            ("SHORT", "bearish"): 1.0,
+            ("LONG", "bearish"): 0.8, # Penalty
+            ("SHORT", "bullish"): 0.8, # Penalty
+        }
+        
+        multiplier = alignment.get((direction, session_bias), 1.0)
+        
+        # In a full implementation, self.config would be accessed here to check risk_overlay
+        # For the plan scope, we implement the core multiplier logic.
+        # if multiplier < 1.0 and getattr(self, "_rules_engine", None) and ...:
+        #    return 0.0 # Block
+            
+        return multiplier
+
 class ConsensusRouter:
     """
     Wraps an OpportunityRouter to require N-of-M agent agreement before auto-executing.
