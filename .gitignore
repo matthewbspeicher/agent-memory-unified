@@ -31,7 +31,6 @@ Thumbs.db
 railway.schema.json
 
 # Worktrees
-.worktrees/
 
 # Developer Knowledge Compiler
 .claude/knowledge/daily/
