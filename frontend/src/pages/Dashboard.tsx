@@ -72,7 +72,8 @@ export default function Dashboard() {
   const activeTrades = 128;
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <div className="flex h-full gap-6">
+      <div className="flex-1 space-y-8 animate-in fade-in duration-500 overflow-y-auto pr-2">
       <header className="flex items-center justify-between border-b border-white/5 pb-6">
         <div>
           <h2 className="text-3xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-violet-500 uppercase">
@@ -172,6 +173,8 @@ export default function Dashboard() {
           ))}
         </div>
       </div>
+      </div>
+      <CopilotSidebar agentName="System" />
     </div>
   );
 }
