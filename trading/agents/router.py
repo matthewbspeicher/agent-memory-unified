@@ -38,6 +38,7 @@ if TYPE_CHECKING:
     from agents.meta import MetaAgent
     from execution.shadow import ShadowExecutor
     from rules.engine import RulesEngine
+    from achievements.tracker import AchievementTracker
 
 from execution.shadow import ShadowDecisionStatus
 
@@ -80,6 +81,7 @@ class OpportunityRouter:
         shadow_executor: ShadowExecutor | None = None,
         journal_manager=None,
         rules_engine: "RulesEngine" | None = None,
+        achievement_tracker: "AchievementTracker" | None = None,
     ) -> None:
         self._store = store
         self._notifier = notifier
@@ -108,6 +110,7 @@ class OpportunityRouter:
         self._shadow_executor = shadow_executor
         self._journal_manager = journal_manager
         self._rules_engine = rules_engine
+        self._achievement_tracker = achievement_tracker
 
     def _is_shadow_mode(self, opportunity: Opportunity) -> bool:
         if not self._runner:
@@ -1085,6 +1088,20 @@ class OpportunityRouter:
                         },
                         {"passed": True},
                     )
+                # Check achievements after trade execution
+                if self._achievement_tracker:
+                    try:
+                        context = {
+                            "total_trades": 1,  # This trade just executed
+                            "agent_name": opportunity.agent_name,
+                            "symbol": opportunity.symbol.ticker,
+                            "side": opportunity.suggested_trade.side.value,
+                            "quantity": float(opportunity.suggested_trade.quantity),
+                            "confidence": opportunity.confidence,
+                        }
+                        self._achievement_tracker.check_and_update(context)
+                    except Exception as exc:
+                        logger.warning("Achievement check failed: %s", exc)
                 tracked_position_id = None
                 if self._trade_tracker:
                     if opportunity.is_exit:
@@ -1383,30 +1400,36 @@ class OpportunityRouter:
                     opportunity.id, OpportunityStatus.REJECTED
                 )
 
-
-
-    def _apply_bias_alignment(self, opportunity: Opportunity, session_bias: str) -> float:
+    def _apply_bias_alignment(
+        self, opportunity: Opportunity, session_bias: str
+    ) -> float:
         # session_bias: "bullish", "bearish", "neutral", "mixed"
         if session_bias == "mixed" or not session_bias:
             return 1.0
-        
-        direction = "LONG" if opportunity.suggested_trade and opportunity.suggested_trade.side.value == "BUY" else "SHORT"
-        
+
+        direction = (
+            "LONG"
+            if opportunity.suggested_trade
+            and opportunity.suggested_trade.side.value == "BUY"
+            else "SHORT"
+        )
+
         alignment = {
             ("LONG", "bullish"): 1.0,
             ("SHORT", "bearish"): 1.0,
-            ("LONG", "bearish"): 0.8, # Penalty
-            ("SHORT", "bullish"): 0.8, # Penalty
+            ("LONG", "bearish"): 0.8,  # Penalty
+            ("SHORT", "bullish"): 0.8,  # Penalty
         }
-        
+
         multiplier = alignment.get((direction, session_bias), 1.0)
-        
+
         # In a full implementation, self.config would be accessed here to check risk_overlay
         # For the plan scope, we implement the core multiplier logic.
         # if multiplier < 1.0 and getattr(self, "_rules_engine", None) and ...:
         #    return 0.0 # Block
-            
+
         return multiplier
+
 
 class ConsensusRouter:
     """

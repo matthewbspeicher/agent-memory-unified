@@ -218,6 +218,7 @@ def _setup_agent_runtime(
         confidence_calibration_config=confidence_calibration_config,
         shadow_executor=shadow_executor,
         journal_manager=journal_manager,
+        achievement_tracker=None,
     )
 
     from typing import cast, Any
@@ -2090,6 +2091,10 @@ def create_app(
     from api.routes import copilot as copilot_route
 
     app.include_router(copilot_route.router, prefix="/api/v1", tags=["copilot"])
+
+    from api.routes import achievements as achievements_route
+
+    app.include_router(achievements_route.router)
 
     from api.startup.error_handlers import register_error_handlers
 
