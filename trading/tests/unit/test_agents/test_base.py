@@ -74,7 +74,7 @@ class ConcreteLLMAgent(LLMAgent):
 
 class TestLLMAgentClass:
     def test_llm_agent_system_prompt_with_prompt_store(self):
-        """Test that system_prompt includes base and learned rules."""
+        """Test that system_prompt includes base, L0+L1 context, and learned rules."""
         cfg = AgentConfig(
             name="analyst",
             strategy="test",
@@ -83,6 +83,9 @@ class TestLLMAgentClass:
             system_prompt="You are an analyst.",
         )
         mock_prompt_store = MagicMock()
+        mock_prompt_store.get_agent_context.return_value = (
+            "## L0+L1 Context\n- Identity and performance story"
+        )
         mock_prompt_store.get_runtime_prompt.return_value = (
             "## Learned Rules\n- Always check earnings"
         )
@@ -91,8 +94,9 @@ class TestLLMAgentClass:
 
         assert (
             agent.system_prompt
-            == "You are an analyst.\n\n## Learned Rules\n- Always check earnings"
+            == "You are an analyst.\n\n## L0+L1 Context\n- Identity and performance story\n\n## Learned Rules\n- Always check earnings"
         )
+        mock_prompt_store.get_agent_context.assert_called_once_with("analyst")
         mock_prompt_store.get_runtime_prompt.assert_called_once_with("analyst")
 
     def test_llm_agent_system_prompt_without_prompt_store(self):

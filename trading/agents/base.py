@@ -75,11 +75,17 @@ class LLMAgent(Agent):
     @property
     def system_prompt(self) -> str:
         base = self._config.system_prompt or ""
+        context = ""
         if self._prompt_store:
+            # L0 + L1 context (identity + performance story)
+            agent_ctx = self._prompt_store.get_agent_context(self.name)
+            if agent_ctx:
+                context = agent_ctx
+            # Learned rules from prompt versioning
             learned = self._prompt_store.get_runtime_prompt(self.name)
             if learned:
-                return f"{base}\n\n{learned}"
-        return base
+                context = f"{context}\n\n{learned}" if context else learned
+        return f"{base}\n\n{context}" if context else base
 
     @property
     def tools(self) -> list[str]:
