@@ -2,14 +2,25 @@ FROM node:20-alpine AS build
 
 WORKDIR /app
 
-# Copy package files
-COPY frontend/package.json frontend/package-lock.json* ./
+# Copy root-level shared directory required by the frontend's @agent-memory/types dependency
+COPY shared /app/shared
 
-# Install dependencies
+# Copy package files from frontend directory
+COPY frontend/package.json frontend/package-lock.json* ./frontend/
+
+# Install dependencies from frontend directory
+WORKDIR /app/frontend
 RUN npm ci
 
-# Copy application code
-COPY frontend /app
+# Create .env file for build (Vite requires these to be baked in at build time)
+# These will be overridden by Railway's build-time environment variables if they exist
+ARG VITE_TRADING_API_URL
+ARG VITE_TRADING_API_KEY
+RUN echo "VITE_TRADING_API_URL=${VITE_TRADING_API_URL:-http://localhost:8080}" > .env.production && \
+    echo "VITE_TRADING_API_KEY=${VITE_TRADING_API_KEY:-local-validator-dev}" >> .env.production
+
+# Copy frontend application code
+COPY frontend /app/frontend
 
 # Build the application
 RUN npm run build
@@ -23,7 +34,7 @@ WORKDIR /app
 RUN npm install -g serve
 
 # Copy built assets from build stage
-COPY --from=build /app/dist ./dist
+COPY --from=build /app/frontend/dist ./dist
 
 # Start command (use shell form to allow $PORT expansion)
 CMD serve -s dist -l $PORT
