@@ -7,6 +7,7 @@ import logging
 import math
 from datetime import datetime, timezone
 from decimal import Decimal
+from typing import Any
 
 from broker.models import Bar, Symbol, AssetType
 from data.bus import DataBus
@@ -28,9 +29,10 @@ logger = logging.getLogger(__name__)
 class MinerEvaluator:
     """Orchestrates the evaluation of pending miner forecasts."""
 
-    def __init__(self, store: BittensorStore, data_bus: DataBus):
+    def __init__(self, store: BittensorStore, data_bus: DataBus, knowledge_graph: Any | None = None):
         self.store = store
         self.data_bus = data_bus
+        self._knowledge_graph = knowledge_graph
 
     async def evaluate_pending_windows(self, now: datetime | None = None) -> int:
         """Fetch unevaluated windows and realize their outcomes."""
@@ -127,7 +129,7 @@ class MinerEvaluator:
         accuracy_records = []
 
         for f in forecasts:
-            record = self._score_forecast(f, realized_prices, actual_return)
+            record = await self._score_forecast(f, realized_prices, actual_return)
             accuracy_records.append(record)
 
         if accuracy_records:
@@ -141,7 +143,7 @@ class MinerEvaluator:
             logger.debug("Window %s has no forecasts, marking evaluated anyway", window.window_id)
         await self.store.mark_window_evaluated(window.window_id)
 
-    def _score_forecast(
+    async def _score_forecast(
         self, forecast: RawMinerForecast, actual_path: list[float], actual_return: float
     ) -> MinerAccuracyRecord:
         """Compute accuracy metrics for a single miner's predictions."""
@@ -169,6 +171,19 @@ class MinerEvaluator:
                     path_corr = max(-1.0, min(1.0, value))
             except Exception:
                 pass
+
+        # Write accuracy triple to knowledge graph (best-effort)
+        if self._knowledge_graph:
+            try:
+                accuracy_score = path_corr if path_corr is not None else (1.0 if direction_correct else 0.0)
+                await self._knowledge_graph.add_triple(
+                    f"miner_{forecast.miner_hotkey[:8]}", "accuracy_on", forecast.symbol,
+                    valid_from=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+                    confidence=round(accuracy_score, 3),
+                    source="evaluator",
+                )
+            except Exception:
+                pass  # Best-effort — never break evaluation flow
 
         return MinerAccuracyRecord(
             window_id=forecast.window_id,

@@ -484,6 +484,7 @@ async def _setup_bittensor_integration(
         data_bus=data_bus,
         event_bus=event_bus,
         signal_bus=signal_bus,
+        knowledge_graph=getattr(app.state, "knowledge_graph", None),
     )
 
     if bittensor_enabled_runtime:
@@ -581,6 +582,7 @@ async def _setup_bittensor_integration(
             signal_bus=signal_bus,
             config=config.intel,
             memory_manager=regime_mem,
+            knowledge_graph=getattr(app.state, "knowledge_graph", None),
         )
         app.state.intelligence_layer = intel_layer
         task_mgr.create_task(intel_layer.start(), name="intelligence_layer")

@@ -112,6 +112,7 @@ async def setup_bittensor(
     data_bus: DataBus,
     event_bus: Any,
     signal_bus: Any,
+    knowledge_graph: Any | None = None,
 ) -> tuple[bool, dict[str, Any]]:
     """
     Initialize Bittensor Subnet 8 (Taoshi PTN) integration.
@@ -166,7 +167,7 @@ async def setup_bittensor(
             direct_query_enabled=config.bittensor.direct_query_enabled,
         )
 
-        _bt_evaluator = MinerEvaluator(store=_bt_store, data_bus=data_bus)
+        _bt_evaluator = MinerEvaluator(store=_bt_store, data_bus=data_bus, knowledge_graph=knowledge_graph)
 
         logger.info(
             "Bittensor integration enabled (network=%s, subnet=%d)",
