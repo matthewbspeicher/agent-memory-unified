@@ -49,6 +49,7 @@ class TaoshiScheduler:
         metrics: BittensorMetrics | None = None,
         streams: list[str] | None = None,
         direct_query_enabled: bool = False,
+        knowledge_graph: Any | None = None,
     ) -> None:
         import os
 
@@ -75,6 +76,7 @@ class TaoshiScheduler:
         self.last_window_responder_count: int = 0
         self.last_window_miner_count: int = 0
         self.metrics = metrics or BittensorMetrics()
+        self._knowledge_graph = knowledge_graph
         self._collection_durations: list[float] = []
 
     def select_miners(self, metagraph: Any) -> list[tuple[int, Any]]:
@@ -203,6 +205,27 @@ class TaoshiScheduler:
 
             # Step 10: persist derived view
             await self._store.save_derived_view(view)
+
+            # Step 10b: record miner contributions to knowledge graph
+            if self._knowledge_graph and verified_forecasts:
+                try:
+                    for forecast in verified_forecasts[:10]:  # Top 10 only
+                        hotkey_short = (
+                            forecast.miner_hotkey[:8]
+                            if hasattr(forecast, "miner_hotkey")
+                            else "unknown"
+                        )
+                        await self._knowledge_graph.add_triple(
+                            f"miner_{hotkey_short}",
+                            "contributed_to",
+                            f"window_{symbol}_{timeframe}",
+                            valid_from=datetime.now(timezone.utc).strftime(
+                                "%Y-%m-%d"
+                            ),
+                            source="scheduler",
+                        )
+                except Exception:
+                    pass  # Best-effort — never block the collection loop
 
             # Step 11: publish event and update counters
             self.last_window_responder_count = len(forward_forecasts)
