@@ -40,6 +40,7 @@ class MemoryRecord:
     created_at: datetime
     updated_at: datetime
     expires_at: datetime | None
+    content_hash: str | None = None
 
 
 class LocalMemoryStore:
@@ -382,4 +383,5 @@ class LocalMemoryStore:
             expires_at=(
                 datetime.fromisoformat(row["expires_at"]) if row["expires_at"] else None
             ),
+            content_hash=row["content_hash"] if "content_hash" in row.keys() else None,
         )
