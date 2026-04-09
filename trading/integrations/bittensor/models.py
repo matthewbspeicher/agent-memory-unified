@@ -139,7 +139,7 @@ class MinerRankingInput:
     raw_incentive_score: (
         float  # raw value from metagraph; normalized inside compute_rankings()
     )
-    max_drawdown: float = 0.0  # Added for Vanta elimination rules
+    max_drawdown: float = 0.0  # Max magnitude_error across windows (proxy for drawdown)
 
 
 @dataclass

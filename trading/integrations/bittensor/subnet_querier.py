@@ -68,14 +68,15 @@ class SubnetQuerier:
         try:
             import bittensor as bt
 
-            # Get metagraph for this subnet
-            metagraph = self._subtensor.metagraph(subnet_uid)
+            # Get metagraph for this subnet (Bittensor v10 API)
+            metagraph = self._subtensor.metagraph(netuid=subnet_uid)
 
-            # Get axons for active miners
+            # Get axons for active miners (stake > 0)
+            # metagraph.S is stake vector indexed by uid order
             axons = [
                 axon
-                for axon in metagraph.axons
-                if metagraph.neurons[axon.uid].stake > 0
+                for uid, axon in zip(metagraph.uids, metagraph.axons)
+                if metagraph.S[uid] > 0
             ]
 
             if not axons:

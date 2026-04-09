@@ -68,9 +68,15 @@ class TaoshiProtocolAdapter:
                 _Wallet = getattr(bt, "Wallet", None) or getattr(bt, "wallet")
                 _Dendrite = getattr(bt, "Dendrite", None) or getattr(bt, "dendrite")
 
-                self._subtensor = _Subtensor(
-                    network=self._network,
-                )
+                # Use chain_endpoint if provided, otherwise network
+                if self._endpoint:
+                    self._subtensor = _Subtensor(
+                        chain_endpoint=self._endpoint,
+                    )
+                else:
+                    self._subtensor = _Subtensor(
+                        network=self._network,
+                    )
                 self._wallet = _Wallet(
                     name=self._wallet_name,
                     path=self._hotkey_path or None,
@@ -184,10 +190,45 @@ class TaoshiProtocolAdapter:
             return None
 
     def _build_query_payload(self, request: PredictionRequest) -> Any:
-        """Build an object suitable for dendrite query dispatch."""
+        """Build an object suitable for dendrite query dispatch.
+
+        Attempts to use Taoshi's custom SendSignal synapse class for compatibility
+        with the official Taoshi validator/miner protocol. Falls back to generic
+        bt.Synapse with PredictionRequest fields set as attributes.
+        """
         try:
             import bittensor as bt  # type: ignore[import-not-found]
 
+            # Try to import Taoshi's custom SendSignal synapse class
+            try:
+                import sys
+                from pathlib import Path
+
+                # Add taoshi-vanta directory to sys.path (hyphen replaced with underscore)
+                taoshi_path = (
+                    Path(__file__).parent.parent.parent.parent / "taoshi-vanta"
+                )
+                if taoshi_path.exists():
+                    sys.path.insert(0, str(taoshi_path))
+                    from template.protocol import SendSignal
+
+                    # Create SendSignal instance with signal dict containing request fields
+                    synapse = SendSignal()
+                    synapse.signal = asdict(request)
+                    # Set repo_version if available
+                    try:
+                        import json
+
+                        with open(taoshi_path / "meta" / "meta.json", "r") as f:
+                            meta = json.load(f)
+                            synapse.repo_version = meta.get("subnet_version", "N/A")
+                    except Exception:
+                        pass
+                    return synapse
+            except (ImportError, ModuleNotFoundError, Exception):
+                pass  # Fall back to generic synapse
+
+            # Fallback: generic bt.Synapse with fields set as attributes
             synapse = bt.Synapse()
             for key, value in asdict(request).items():
                 setattr(synapse, key, value)

@@ -77,7 +77,7 @@ def derive_consensus_view(
     timeframe: str,
     derivation_version: str,
 ) -> DerivedBittensorView:
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    now = datetime.now(timezone.utc)
 
     verified = [f for f in forecasts if f.hash_verified]
 

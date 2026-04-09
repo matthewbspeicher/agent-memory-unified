@@ -164,7 +164,9 @@ class TaoshiBridge:
                                             f"miner_{hotkey[:8]}",
                                             "signal_on",
                                             symbol,
-                                            valid_from=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+                                            valid_from=datetime.now(
+                                                timezone.utc
+                                            ).strftime("%Y-%m-%d"),
                                             source="bridge",
                                         )
                                     except Exception:
@@ -242,13 +244,36 @@ class TaoshiBridge:
             )
 
     def _read_position(self, path: Path) -> dict | None:
-        """Read a Taoshi position JSON file."""
-        try:
-            with open(path, "r") as f:
-                return json.load(f)
-        except Exception as exc:
-            logger.warning("Failed to read position %s: %s", path, exc)
-            return None
+        """Read a Taoshi position JSON file.
+
+        Implements retry logic to handle transient partial writes from the validator.
+        """
+        import time
+
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                with open(path, "r") as f:
+                    return json.load(f)
+            except json.JSONDecodeError as exc:
+                if attempt == max_retries - 1:
+                    logger.warning(
+                        "Failed to parse position %s after %d attempts: %s",
+                        path,
+                        max_retries,
+                        exc,
+                    )
+                    return None
+                logger.debug(
+                    "JSON decode error on %s, retrying (attempt %d): %s",
+                    path,
+                    attempt + 1,
+                    exc,
+                )
+                time.sleep(0.1)
+            except Exception as exc:
+                logger.warning("Failed to read position %s: %s", path, exc)
+                return None
 
     @staticmethod
     def _hash_position(position: dict) -> str:

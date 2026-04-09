@@ -55,7 +55,9 @@ class TestSubnetQuerier:
         active_axon = SimpleNamespace(uid=0)
         inactive_axon = SimpleNamespace(uid=1)
         metagraph = SimpleNamespace(
+            uids=[0, 1],
             axons=[active_axon, inactive_axon],
+            S=[1.0, 0.0],
             neurons=[
                 SimpleNamespace(stake=1.0),
                 SimpleNamespace(stake=0.0),
@@ -108,6 +110,7 @@ class TestCreateQuerier:
 
         # bt is lazily imported inside create_querier, so mock it via sys.modules
         import unittest.mock as um
+
         mock_bt = um.MagicMock()
         mock_bt.Wallet = MockWallet
         with um.patch.dict("sys.modules", {"bittensor": mock_bt}):

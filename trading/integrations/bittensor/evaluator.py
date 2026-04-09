@@ -29,7 +29,12 @@ logger = logging.getLogger(__name__)
 class MinerEvaluator:
     """Orchestrates the evaluation of pending miner forecasts."""
 
-    def __init__(self, store: BittensorStore, data_bus: DataBus, knowledge_graph: Any | None = None):
+    def __init__(
+        self,
+        store: BittensorStore,
+        data_bus: DataBus,
+        knowledge_graph: Any | None = None,
+    ):
         self.store = store
         self.data_bus = data_bus
         self._knowledge_graph = knowledge_graph
@@ -140,7 +145,9 @@ class MinerEvaluator:
                 window.window_id,
             )
         else:
-            logger.debug("Window %s has no forecasts, marking evaluated anyway", window.window_id)
+            logger.debug(
+                "Window %s has no forecasts, marking evaluated anyway", window.window_id
+            )
         await self.store.mark_window_evaluated(window.window_id)
 
     async def _score_forecast(
@@ -175,9 +182,15 @@ class MinerEvaluator:
         # Write accuracy triple to knowledge graph (best-effort)
         if self._knowledge_graph:
             try:
-                accuracy_score = path_corr if path_corr is not None else (1.0 if direction_correct else 0.0)
+                accuracy_score = (
+                    path_corr
+                    if path_corr is not None
+                    else (1.0 if direction_correct else 0.0)
+                )
                 await self._knowledge_graph.add_triple(
-                    f"miner_{forecast.miner_hotkey[:8]}", "accuracy_on", forecast.symbol,
+                    f"miner_{forecast.miner_hotkey[:8]}",
+                    "accuracy_on",
+                    forecast.symbol,
                     valid_from=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
                     confidence=round(accuracy_score, 3),
                     source="evaluator",
@@ -221,35 +234,13 @@ class MinerEvaluator:
             lookback_windows=50,
         )
 
-        async with self.store._db.execute(
-            "SELECT DISTINCT miner_hotkey FROM bittensor_accuracy_records"
-        ) as cursor:
-            hotkeys = [row[0] for row in await cursor.fetchall()]
-
+        hotkeys = await self.store.get_distinct_miner_hotkeys()
         if not hotkeys:
             return
 
         rollups = await self.store.get_accuracy_rollup(hotkeys, config.lookback_windows)
-
-        inputs = []
-        incentive_map: dict[str, float] = {}
-
-        # Batch fetch all incentive scores in a single query
-        if hotkeys:
-            placeholders = ",".join("?" * len(hotkeys))
-            async with self.store._db.execute(
-                f"SELECT miner_hotkey, incentive_score FROM bittensor_raw_forecasts "
-                f"WHERE miner_hotkey IN ({placeholders}) "
-                f"ORDER BY collected_at DESC",
-                tuple(hotkeys),
-            ) as cursor:
-                rows = await cursor.fetchall()
-
-            # Create a dict of hotkey -> incentive (most recent per hotkey)
-            incentive_map = {}
-            for hotkey, incentive in rows:
-                if hotkey not in incentive_map:
-                    incentive_map[hotkey] = incentive if incentive is not None else 0.0
+        incentive_map = await self.store.get_latest_incentive_scores(hotkeys)
+        drawdown_map = await self.store.get_miner_max_drawdowns(hotkeys)
 
         for hotkey, r in rollups.items():
             incentive = incentive_map.get(hotkey, 0.0)
@@ -260,13 +251,17 @@ class MinerEvaluator:
                 mean_magnitude_error=r["mean_magnitude_error"],
                 mean_path_correlation=r["mean_path_correlation"],
                 raw_incentive_score=incentive,
+                max_drawdown=drawdown_map.get(hotkey, 0.0),
             )
             lifecycle = self._determine_lifecycle_status(inp)
             if lifecycle != "active":
                 logger.warning(
                     "Miner %s lifecycle: %s (drawdown=%.2f, accuracy=%.2f, windows=%d)",
-                    hotkey[:12], lifecycle, inp.max_drawdown,
-                    inp.direction_accuracy, inp.windows_evaluated,
+                    hotkey[:12],
+                    lifecycle,
+                    inp.max_drawdown,
+                    inp.direction_accuracy,
+                    inp.windows_evaluated,
                 )
             inputs.append(inp)
 

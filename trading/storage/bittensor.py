@@ -406,6 +406,35 @@ class BittensorStore:
         rows = await cursor.fetchall()
         return [self._row_to_accuracy_record(row) for row in rows]
 
+    async def get_miner_max_drawdown(self, hotkey: str, limit: int = 50) -> float:
+        """Return the maximum magnitude_error (proxy for drawdown) for a miner."""
+        cursor = await self._db.execute(
+            """SELECT MAX(magnitude_error) AS max_drawdown
+               FROM (
+                   SELECT magnitude_error
+                   FROM bittensor_accuracy_records
+                   WHERE miner_hotkey = ?
+                   ORDER BY evaluated_at DESC
+                   LIMIT ?
+               )""",
+            (hotkey, limit),
+        )
+        row = await cursor.fetchone()
+        if row is None or row[0] is None:
+            return 0.0
+        return float(row[0])
+
+    async def get_miner_max_drawdowns(
+        self, hotkeys: list[str], limit: int = 50
+    ) -> dict[str, float]:
+        """Return max magnitude_error for each hotkey."""
+        if not hotkeys:
+            return {}
+        result = {}
+        for hotkey in hotkeys:
+            result[hotkey] = await self.get_miner_max_drawdown(hotkey, limit)
+        return result
+
     async def get_recent_views(
         self, symbol: str, timeframe: str, limit: int = 100
     ) -> list[dict]:
@@ -437,6 +466,40 @@ class BittensorStore:
             scoring_version=r["scoring_version"],
             evaluated_at=datetime.fromisoformat(r["evaluated_at"]),
         )
+
+    # ------------------------------------------------------------------
+    # Miner hotkeys and incentive scores
+    # ------------------------------------------------------------------
+
+    async def get_distinct_miner_hotkeys(self) -> list[str]:
+        """Return distinct miner hotkeys from accuracy records."""
+        cursor = await self._db.execute(
+            "SELECT DISTINCT miner_hotkey FROM bittensor_accuracy_records"
+        )
+        rows = await cursor.fetchall()
+        return [row[0] for row in rows]
+
+    async def get_latest_incentive_scores(self, hotkeys: list[str]) -> dict[str, float]:
+        """Return the most recent incentive_score for each hotkey.
+
+        Returns dict mapping hotkey -> incentive_score (0.0 if not found).
+        """
+        if not hotkeys:
+            return {}
+        placeholders = ",".join("?" * len(hotkeys))
+        cursor = await self._db.execute(
+            f"""SELECT miner_hotkey, incentive_score
+                FROM bittensor_raw_forecasts
+                WHERE miner_hotkey IN ({placeholders})
+                ORDER BY collected_at DESC""",
+            tuple(hotkeys),
+        )
+        rows = await cursor.fetchall()
+        result: dict[str, float] = {}
+        for hotkey, incentive in rows:
+            if hotkey not in result:
+                result[hotkey] = incentive if incentive is not None else 0.0
+        return result
 
     # ------------------------------------------------------------------
     # Miner rankings

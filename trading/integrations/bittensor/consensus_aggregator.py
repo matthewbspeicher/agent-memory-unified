@@ -133,11 +133,10 @@ class MinerConsensusAggregator:
         # Weighted confidence
         confidence = weighted_count / total_weight
 
-        # Leveraged expected return proxy (unweighted average for now)
-        avg_leverage = (
-            sum(p.get("leverage", 0.0) for p in active_positions.values())
-            / total_miners
-        )
+        # Position signals do not carry price targets, so expected_return is set to 0.
+        # The BittensorAlphaAgent uses expected_return as a price return percentage,
+        # which cannot be derived from leverage alone.
+        expected_return = 0.0
 
         # Map to expected consensus directions
         mapped_direction = "flat"
@@ -153,7 +152,7 @@ class MinerConsensusAggregator:
             timeframe="5m",
             direction=mapped_direction,
             confidence=confidence,
-            expected_return=avg_leverage,
+            expected_return=expected_return,
             window_id=window_id,
             miner_count=total_miners,
         )
