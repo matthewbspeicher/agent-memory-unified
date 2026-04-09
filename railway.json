@@ -27,7 +27,7 @@
         "restartPolicyType": "ON_FAILURE",
         "restartPolicyMaxRetries": 10,
         "healthcheckPath": "/health",
-        "healthcheckTimeout": 100
+        "healthcheckTimeout": 300
       }
     },
     {
@@ -42,15 +42,15 @@
         "restartPolicyType": "ON_FAILURE",
         "restartPolicyMaxRetries": 10,
         "healthcheckPath": "/ready",
-        "healthcheckTimeout": 100
+        "healthcheckTimeout": 300
       }
     },
     {
       "name": "frontend",
-      "rootDirectory": "./frontend",
+      "rootDirectory": ".",
       "build": {
-        "builder": "NIXPACKS",
-        "nixpacksJson": "./frontend/nixpacks.json"
+        "builder": "DOCKERFILE",
+        "dockerfilePath": "Dockerfile.frontend"
       },
       "deploy": {
         "region": "us-east4",
@@ -58,7 +58,7 @@
         "restartPolicyType": "ON_FAILURE",
         "restartPolicyMaxRetries": 10,
         "healthcheckPath": "/",
-        "healthcheckTimeout": 100
+        "healthcheckTimeout": 300
       }
     }
   ]

@@ -56,6 +56,10 @@ services:
       - "8080:8080"
     env_file:
       - ./trading/.env
+    environment:
+      STA_DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-secret}@postgres:5432/agent_memory
+      STA_DATABASE_SSL: "false"
+      STA_REDIS_URL: redis://redis:6379
     depends_on:
       postgres:
         condition: service_healthy

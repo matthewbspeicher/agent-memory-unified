@@ -259,32 +259,38 @@ def load_config(env_file: str = ".env") -> Any:
     """
     from dotenv import load_dotenv
 
-    load_dotenv(env_file)
+    # Load from environment variables first to preserve them
+    actual_env = os.environ.copy()
+    
+    # Load .env file (but don't override existing environment variables)
+    load_dotenv(env_file, override=False)
 
-    # Load from environment variables
-    # Pydantic doesn't automatically load from env unless we use BaseSettings,
-    # but we'll manually map common ones or use model_validate()
-
-    # Minimal implementation for Task 1:
-    config_dict: dict[str, Any] = {}
-
-    # Mapping logic... (simplified for brevity, usually we'd use BaseSettings)
-    # Since we are in a task context, let's just use model_validate with env overrides
-
+    # Re-collect all relevant data, prioritizing actual environment variables
     env_data = {}
+    
+    # Start with .env values (already in os.environ now, but we want to be explicit)
     for key, value in os.environ.items():
         if key.startswith("STA_"):
             field_name = key[4:].lower()
             env_data[field_name] = value
 
+    # Explicitly override with original environment variables (Railway/Cloud)
+    for key, value in actual_env.items():
+        if key.startswith("STA_"):
+            field_name = key[4:].lower()
+            env_data[field_name] = value
+
     # Also accept standard env vars for Railway/cloud compatibility
-    if "DATABASE_URL" in os.environ and "database_url" not in env_data:
-        db_url = os.environ["DATABASE_URL"]
+    # Prioritize original environment variables
+    db_url = actual_env.get("DATABASE_URL") or os.environ.get("DATABASE_URL")
+    if db_url and "database_url" not in env_data:
         # Only use DATABASE_URL if it's not pointing to localhost (not reachable on Railway)
         if "localhost" not in db_url and "127.0.0.1" not in db_url:
             env_data["database_url"] = db_url
-    if "REDIS_URL" in os.environ and "redis_url" not in env_data:
-        env_data["redis_url"] = os.environ["REDIS_URL"]
+            
+    redis_url = actual_env.get("REDIS_URL") or os.environ.get("REDIS_URL")
+    if redis_url and "redis_url" not in env_data:
+        env_data["redis_url"] = redis_url
 
     # Fields that should remain flat (not split into nested config)
     _flat_fields = set(Config.model_fields.keys())
