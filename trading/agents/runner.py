@@ -141,6 +141,12 @@ class AgentRunner:
         if self._status[name] == AgentStatus.RUNNING:
             return
         agent.signal_bus = self._signal_bus
+        # Prime L0+L1 context (no cold starts)
+        if hasattr(agent, '_prompt_store') and agent._prompt_store:
+            await agent._prompt_store.generate_agent_context(
+                agent_name=name,
+                agent_config=agent._config,
+            )
         await agent.setup()
         self._status[name] = AgentStatus.RUNNING
         schedule = agent.config.schedule
