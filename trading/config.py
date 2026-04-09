@@ -154,7 +154,7 @@ class Config(BaseModel):
     bedrock_secret_access_key: str | None = None
     remembr_owner_token: str | None = None
     remembr_agent_token: str | None = None
-    remembr_base_url: str | None = None
+    remembr_base_url: str = "https://remembr.dev/api/v1"
     remembr_timeout: int | None = None
     remembr_api_key: str | None = None
     remembr_shared_api_key: str | None = None

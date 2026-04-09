@@ -1985,6 +1985,23 @@ def create_app(
     from prometheus_fastapi_instrumentator import Instrumentator
     from asgi_correlation_id import CorrelationIdMiddleware
 
+    # CORS middleware — allow remembr.dev frontend and local dev
+    from fastapi.middleware.cors import CORSMiddleware
+
+    cors_origins = [
+        "https://remembr.dev",
+        "https://www.remembr.dev",
+        "http://localhost:3000",
+        "http://localhost:5173",
+    ]
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=cors_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
     app.add_middleware(CorrelationIdMiddleware)
     Instrumentator().instrument(app).expose(
         app, endpoint="/metrics", dependencies=[Depends(verify_api_key)]

@@ -132,6 +132,11 @@ sources:
   - "daily/2026-04-03.md"
 created: 2026-04-01
 updated: 2026-04-03
+confidence: 0.9            # 0.0-1.0, initial confidence based on source count and specificity
+valid_from: 2026-04-01     # when this knowledge became true
+valid_until: null           # null = still valid, date = superseded
+superseded_by: null         # link to replacement article if superseded
+decay_rate: slow            # fast (days), medium (weeks), slow (months)
 ---
 
 # Concept Name
@@ -222,6 +227,57 @@ filed: 2026-04-05
 - What about edge case X?
 - How does this change if Y?
 ```
+
+---
+
+## Temporal Validity & Freshness
+
+Every article tracks temporal metadata to prevent stale knowledge from being treated as current fact.
+
+### Temporal Frontmatter Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `confidence` | float 0.0-1.0 | Initial confidence based on source count and claim specificity |
+| `valid_from` | date | When this knowledge became true (usually `created` date) |
+| `valid_until` | date or null | null = still valid; set to a date when superseded |
+| `superseded_by` | wikilink or null | Link to the article that replaces this one |
+| `decay_rate` | enum | `fast` (days), `medium` (weeks), `slow` (months) |
+
+### Setting Confidence
+
+- **0.9-1.0** — Multiple independent sources confirm the claim, or it's a direct observation
+- **0.7-0.8** — Single source, specific and detailed claim
+- **0.5-0.6** — Inference or generalization from limited evidence
+- **0.3-0.4** — Speculative or based on outdated information
+
+### Decay Rate by Domain
+
+| Domain | Decay Rate | Effective TTL |
+|--------|-----------|---------------|
+| Trading signals, market data | fast | ~1 day |
+| Market regime assessments | fast | ~1-3 days |
+| Tooling, library versions, configs | medium | ~30 days |
+| Architecture decisions, design patterns | slow | ~90 days |
+| Core concepts, fundamentals | slow | ~180 days |
+
+### Effective Confidence Calculation
+
+The lint system calculates effective confidence as:
+
+```
+decay_factor = {fast: 0.95, medium: 0.99, slow: 0.998} ^ age_in_days
+effective_confidence = confidence * decay_factor
+```
+
+Articles with `effective_confidence < 0.5` are flagged as stale.
+
+### Supersession
+
+When a new article replaces an old one:
+1. Set `valid_until` on the old article to today's date
+2. Set `superseded_by` on the old article to `[[path/to/new-article]]`
+3. The new article should reference the old one in its sources or details
 
 ---
 

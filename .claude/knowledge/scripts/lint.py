@@ -15,7 +15,9 @@ import argparse
 import asyncio
 from pathlib import Path
 
-from config import KNOWLEDGE_DIR, REPORTS_DIR, now_iso, today_iso
+from datetime import date, datetime
+
+from config import CONTRADICTIONS_DIR, KNOWLEDGE_DIR, REPORTS_DIR, now_iso, today_iso
 from utils import (
     count_inbound_links,
     extract_wikilinks,
@@ -24,6 +26,7 @@ from utils import (
     list_raw_files,
     list_wiki_articles,
     load_state,
+    parse_frontmatter,
     read_all_wiki_content,
     save_state,
     wiki_article_exists,
@@ -141,6 +144,77 @@ def check_sparse_articles() -> list[dict]:
                 "check": "sparse_article",
                 "file": str(rel),
                 "detail": f"Sparse article: {word_count} words (minimum recommended: 200)",
+            })
+    return issues
+
+
+def check_unresolved_contradictions() -> list[dict]:
+    """Check for unresolved contradiction entries."""
+    import json as _json
+
+    issues = []
+    if not CONTRADICTIONS_DIR.exists():
+        return issues
+    for f in sorted(CONTRADICTIONS_DIR.glob("*.json")):
+        try:
+            data = _json.loads(f.read_text(encoding="utf-8"))
+        except (ValueError, OSError):
+            issues.append({
+                "severity": "error",
+                "check": "contradiction_parse",
+                "file": f"contradictions/{f.name}",
+                "detail": f"Failed to parse contradiction file: {f.name}",
+            })
+            continue
+        if data.get("resolution", "pending") == "pending":
+            old = data.get("old_claim", "?")[:80]
+            new = data.get("new_claim", "?")[:80]
+            article = data.get("article", "?")
+            issues.append({
+                "severity": "warning",
+                "check": "unresolved_contradiction",
+                "file": f"contradictions/{f.name}",
+                "detail": (
+                    f"Unresolved contradiction in [[{article}]]: "
+                    f'"{old}" vs "{new}"'
+                ),
+            })
+    return issues
+
+
+def check_stale_confidence() -> list[dict]:
+    """Check for articles where effective confidence has decayed below 0.5."""
+    from utils import compute_effective_confidence, parse_frontmatter
+
+    issues = []
+    for article in list_wiki_articles():
+        content = article.read_text(encoding="utf-8")
+        fm = parse_frontmatter(content)
+        confidence = fm.get("confidence")
+        decay_rate = fm.get("decay_rate")
+        updated = fm.get("updated")
+
+        if confidence is None or decay_rate is None or updated is None:
+            # Skip articles without temporal metadata (pre-Phase 2)
+            continue
+
+        try:
+            conf_val = float(confidence)
+        except (ValueError, TypeError):
+            continue
+
+        eff = compute_effective_confidence(conf_val, str(decay_rate), str(updated))
+        if eff < 0.5:
+            rel = article.relative_to(KNOWLEDGE_DIR)
+            issues.append({
+                "severity": "warning",
+                "check": "stale_confidence",
+                "file": str(rel),
+                "detail": (
+                    f"Stale confidence: initial={conf_val:.2f}, "
+                    f"effective={eff:.2f} (decay_rate={decay_rate}, "
+                    f"updated={updated})"
+                ),
             })
     return issues
 
@@ -267,6 +341,8 @@ def main():
         ("Stale articles", check_stale_articles),
         ("Missing backlinks", check_missing_backlinks),
         ("Sparse articles", check_sparse_articles),
+        ("Stale confidence", check_stale_confidence),
+        ("Unresolved contradictions", check_unresolved_contradictions),
     ]
 
     for name, check_fn in checks:

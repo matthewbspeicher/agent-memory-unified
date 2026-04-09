@@ -23,9 +23,37 @@ from config import (
     QA_DIR,
     now_iso,
 )
-from utils import load_state, read_all_wiki_content, save_state
+from utils import list_wiki_articles, load_state, read_all_wiki_content, save_state
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
+
+
+MAX_WIKI_TOKENS_APPROX = 200_000  # ~200k chars before switching to FTS5
+
+
+def _fts5_context(question: str, top_k: int = 15) -> str:
+    """Use FTS5 search to select the most relevant articles instead of loading all."""
+    from search import DB_PATH, _connect, rebuild_index, search as fts_search
+
+    conn = _connect()
+    # Ensure index is current
+    rebuild_index(conn)
+    results = fts_search(conn, question, limit=top_k)
+    conn.close()
+
+    if not results:
+        return ""
+
+    from config import KNOWLEDGE_DIR
+    from utils import read_wiki_index
+
+    parts = [f"## INDEX\n\n{read_wiki_index()}"]
+    for r in results:
+        article_path = KNOWLEDGE_DIR / r["path"]
+        if article_path.exists():
+            content = article_path.read_text(encoding="utf-8")
+            parts.append(f"## {r['path']}\n\n{content}")
+    return "\n\n---\n\n".join(parts)
 
 
 async def run_query(question: str, file_back: bool = False) -> str:
@@ -38,7 +66,14 @@ async def run_query(question: str, file_back: bool = False) -> str:
         query,
     )
 
+    # Use full wiki content if small enough, otherwise fall back to FTS5
+    article_count = len(list_wiki_articles())
     wiki_content = read_all_wiki_content()
+    if len(wiki_content) > MAX_WIKI_TOKENS_APPROX:
+        print(f"Wiki content too large ({len(wiki_content)} chars, {article_count} articles). Using FTS5 search.")
+        wiki_content = _fts5_context(question)
+        if not wiki_content:
+            wiki_content = "(FTS5 search returned no results. Try a different query.)"
 
     tools = ["Read", "Glob", "Grep"]
     if file_back:

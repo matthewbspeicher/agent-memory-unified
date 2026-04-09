@@ -64,7 +64,6 @@
     "superpowers@claude-plugins-official": true,
     "commit-commands@claude-plugins-official": true,
     "scientific-skills@claude-scientific-skills": true,
-    "vercel@claude-plugins-official": true,
     "trading-ideas@claude-equity-research-marketplace": true,
     "trading-strategy-backtester@claude-code-plugins-plus-skills": true,
     "crypto-signal-generator@claude-code-plugins-plus-skills": true,

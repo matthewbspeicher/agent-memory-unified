@@ -3,6 +3,7 @@
 import hashlib
 import json
 import re
+from datetime import date, datetime
 from pathlib import Path
 
 from config import (
@@ -131,3 +132,55 @@ def build_index_entry(rel_path: str, summary: str, sources: str, updated: str) -
     """Build a single index table row."""
     link = rel_path.replace(".md", "")
     return f"| [[{link}]] | {summary} | {sources} | {updated} |"
+
+
+# ── Frontmatter parsing ─────────────────────────────────────────────
+
+def parse_frontmatter(content: str) -> dict:
+    """Parse YAML frontmatter from markdown content. Returns empty dict if none."""
+    if not content.startswith("---"):
+        return {}
+    end = content.find("---", 3)
+    if end == -1:
+        return {}
+    raw = content[3:end].strip()
+    # Simple YAML parser — handles key: value, key: [list], key: null
+    result = {}
+    for line in raw.split("\n"):
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if ":" not in line:
+            continue
+        key, _, val = line.partition(":")
+        key = key.strip()
+        val = val.strip()
+        if val == "null" or val == "":
+            result[key] = None
+        elif val.startswith("[") and val.endswith("]"):
+            items = [v.strip().strip('"').strip("'") for v in val[1:-1].split(",") if v.strip()]
+            result[key] = items
+        elif val.startswith('"') and val.endswith('"'):
+            result[key] = val[1:-1]
+        elif val.replace(".", "", 1).isdigit():
+            result[key] = float(val) if "." in val else int(val)
+        else:
+            result[key] = val
+    return result
+
+
+# Decay rates: per-day multiplier
+DECAY_RATES = {"fast": 0.95, "medium": 0.99, "slow": 0.998}
+
+
+def compute_effective_confidence(confidence: float, decay_rate: str, updated_str: str) -> float:
+    """Compute effective confidence after temporal decay."""
+    rate = DECAY_RATES.get(decay_rate, DECAY_RATES["slow"])
+    try:
+        updated_date = datetime.strptime(updated_str[:10], "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        return confidence
+    age_days = (date.today() - updated_date).days
+    if age_days < 0:
+        age_days = 0
+    return confidence * (rate ** age_days)

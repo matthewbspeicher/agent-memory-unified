@@ -22,6 +22,7 @@ from config import (
     AGENTS_FILE,
     CONCEPTS_DIR,
     CONNECTIONS_DIR,
+    CONTRADICTIONS_DIR,
     DAILY_DIR,
     KNOWLEDGE_DIR,
     INDEX_FILE,
@@ -123,11 +124,50 @@ Read the daily log above and compile it into wiki articles following the schema 
 ### File paths:
 - Write concept articles to: {CONCEPTS_DIR}
 - Write connection articles to: {CONNECTIONS_DIR}
+- Write contradiction logs to: {CONTRADICTIONS_DIR}
 - Update index at: {INDEX_FILE}
 - Append log at: {LOG_FILE}
 
+### Contradiction handling:
+When you find new information that CONTRADICTS an existing article:
+1. Do NOT overwrite the existing article
+2. Create a JSON file in the contradictions directory: `contradictions/YYYY-MM-DD-slug.json`
+3. Use this format:
+   ```json
+   {{
+     "detected": "{timestamp}",
+     "article": "concepts/existing-article",
+     "old_claim": "What the existing article says",
+     "new_claim": "What the new daily log says",
+     "source_old": "daily/older-log.md",
+     "source_new": "daily/{log_path.name}",
+     "resolution": "pending"
+   }}
+   ```
+4. Note the contradiction in the build log entry
+
+### Temporal metadata (REQUIRED on every article):
+- `confidence`: Set based on evidence strength:
+  - 0.9-1.0 = multiple sources confirm, or direct observation
+  - 0.7-0.8 = single source, specific claim
+  - 0.5-0.6 = inference or generalization
+- `valid_from`: The date the knowledge became true (usually today)
+- `valid_until`: null (unless superseding an older article)
+- `superseded_by`: null (unless this article is being replaced)
+- `decay_rate`: Based on topic domain:
+  - "fast" = trading signals, market data, prices
+  - "medium" = tooling, library versions, configs
+  - "slow" = architecture decisions, design patterns, core concepts
+
+### Supersession rules:
+- Before creating a new article, check if an existing article covers the same topic
+- If updating with CONTRADICTING information, do NOT overwrite — instead:
+  1. Create a file in the `contradictions/` directory (see contradiction handling below)
+  2. Leave the existing article unchanged
+- If updating with ADDITIONAL information, update the existing article and bump its `updated` date
+
 ### Quality standards:
-- Every article must have complete YAML frontmatter
+- Every article must have complete YAML frontmatter INCLUDING temporal fields
 - Every article must link to at least 2 other articles via [[wikilinks]]
 - Key Points section should have 3-5 bullet points
 - Details section should have 2+ paragraphs
