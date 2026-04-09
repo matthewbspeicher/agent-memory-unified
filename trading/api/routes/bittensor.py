@@ -220,3 +220,41 @@ async def bittensor_signals(
         if "is_low_confidence" in v:
             v["is_low_confidence"] = bool(v["is_low_confidence"])
     return {"signals": views}
+
+
+@router.get("/kg/entity/{name}")
+async def kg_entity(
+    name: str,
+    as_of: str | None = None,
+    direction: str = "both",
+    request: Request = None,
+):
+    """Query knowledge graph for entity facts."""
+    kg = getattr(request.app.state, "knowledge_graph", None)
+    if not kg:
+        return {"error": "Knowledge graph not initialized"}
+    facts = await kg.query_entity(name, as_of=as_of, direction=direction)
+    return {"entity": name, "facts": facts, "count": len(facts)}
+
+
+@router.get("/kg/timeline")
+async def kg_timeline(
+    entity: str | None = None,
+    limit: int = 50,
+    request: Request = None,
+):
+    """Get chronological timeline of KG facts."""
+    kg = getattr(request.app.state, "knowledge_graph", None)
+    if not kg:
+        return {"error": "Knowledge graph not initialized"}
+    tl = await kg.timeline(entity_name=entity, limit=limit)
+    return {"entity": entity, "timeline": tl, "count": len(tl)}
+
+
+@router.get("/kg/stats")
+async def kg_stats(request: Request):
+    """Get knowledge graph statistics."""
+    kg = getattr(request.app.state, "knowledge_graph", None)
+    if not kg:
+        return {"error": "Knowledge graph not initialized"}
+    return await kg.stats()
