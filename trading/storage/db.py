@@ -212,6 +212,14 @@ async def init_db(db: aiosqlite.Connection) -> None:
             processed_at TEXT NOT NULL DEFAULT (datetime('now'))
         );
 
+        CREATE TABLE IF NOT EXISTS agent_context_cache (
+            agent_name TEXT PRIMARY KEY,
+            l0_text TEXT NOT NULL,
+            l1_text TEXT NOT NULL,
+            generated_at TEXT NOT NULL,
+            trade_count INTEGER DEFAULT 0
+        );
+
         CREATE TABLE IF NOT EXISTS llm_lessons (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             agent_name TEXT NOT NULL,
