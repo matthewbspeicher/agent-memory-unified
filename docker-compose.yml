@@ -30,23 +30,6 @@ services:
       timeout: 5s
       retries: 5
 
-  api:
-    build:
-      context: .
-      dockerfile: api/Dockerfile
-    ports:
-      - "8000:8000"
-    environment:
-      DB_HOST: postgres
-      REDIS_HOST: redis
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    volumes:
-      - ./api:/var/www/html
-
   trading:
     build:
       context: .

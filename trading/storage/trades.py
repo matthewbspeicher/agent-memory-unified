@@ -25,7 +25,7 @@ class TradeStore:
         agent_name: str | None = None,
     ) -> None:
         await self._db.execute(
-            "INSERT INTO trades (opportunity_id, order_result, risk_evaluation, agent_name) VALUES (?, ?, ?, ?)",
+            "INSERT INTO trade_executions (opportunity_id, order_result, risk_evaluation, agent_name) VALUES (?, ?, ?, ?)",
             (
                 opportunity_id,
                 json.dumps(order_result, cls=_DecimalEncoder),
@@ -43,17 +43,17 @@ class TradeStore:
     ) -> list[dict[str, Any]]:
         if opportunity_id:
             cursor = await self._db.execute(
-                "SELECT * FROM trades WHERE opportunity_id = ? ORDER BY created_at DESC LIMIT ?",
+                "SELECT * FROM trade_executions WHERE opportunity_id = ? ORDER BY created_at DESC LIMIT ?",
                 (opportunity_id, limit),
             )
         elif agent_name:
             cursor = await self._db.execute(
-                "SELECT * FROM trades WHERE agent_name = ? ORDER BY created_at DESC LIMIT ?",
+                "SELECT * FROM trade_executions WHERE agent_name = ? ORDER BY created_at DESC LIMIT ?",
                 (agent_name, limit),
             )
         else:
             cursor = await self._db.execute(
-                "SELECT * FROM trades ORDER BY created_at DESC LIMIT ?",
+                "SELECT * FROM trade_executions ORDER BY created_at DESC LIMIT ?",
                 (limit,),
             )
         return [dict(row) for row in await cursor.fetchall()]

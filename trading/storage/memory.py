@@ -9,13 +9,44 @@ import hashlib
 import json
 import logging
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, List
 
 import aiosqlite
 
 logger = logging.getLogger(__name__)
+
+# MemClaw decay windows by memory type (days)
+MEMORY_DECAY_DAYS: dict[str, int] = {
+    "fact": 120,
+    "episode": 45,
+    "decision": 180,
+    "preference": 365,
+    "task": 30,
+    "semantic": 120,
+    "intention": 60,
+    "plan": 60,
+    "commitment": 120,
+    "action": 30,
+    "outcome": 90,
+    "cancellation": 14,
+    "rule": 365,
+}
+
+# MemClaw valid statuses
+VALID_STATUSES = frozenset(
+    [
+        "active",
+        "pending",
+        "confirmed",
+        "cancelled",
+        "outdated",
+        "conflicted",
+        "archived",
+        "deleted",
+    ]
+)
 
 
 @dataclass
@@ -30,8 +61,8 @@ class MemoryRecord:
     memory_type: str | None
     category: str | None
     embedding: List[float] | None
-    visibility: str  # "private" or "public"
-    importance: int
+    visibility: str  # Legacy: "private" or "public"
+    importance: int  # Legacy (use weight instead)
     confidence: float
     metadata: dict
     tags: List[str]
@@ -41,6 +72,20 @@ class MemoryRecord:
     updated_at: datetime
     expires_at: datetime | None
     content_hash: str | None = None
+    # MemClaw fields
+    status: str = "active"
+    weight: float = 0.5
+    visibility_scope: str = "scope_agent"
+    decay_days: int | None = None
+
+    @property
+    def computed_decay_days(self) -> int | None:
+        """Get decay days based on memory_type, or explicit decay_days if set."""
+        if self.decay_days is not None:
+            return self.decay_days
+        if self.memory_type and self.memory_type in MEMORY_DECAY_DAYS:
+            return MEMORY_DECAY_DAYS[self.memory_type]
+        return None
 
 
 class LocalMemoryStore:
@@ -99,15 +144,26 @@ class LocalMemoryStore:
         """)
 
         # Idempotent migration for existing databases
-        try:
-            await self._db.execute(
-                "ALTER TABLE memories ADD COLUMN content_hash TEXT"
-            )
-            await self._db.execute(
-                "CREATE UNIQUE INDEX IF NOT EXISTS idx_memories_content_hash ON memories(content_hash)"
-            )
-        except Exception:
-            pass
+        migrations = [
+            ("ALTER TABLE memories ADD COLUMN content_hash TEXT", None),
+            ("ALTER TABLE memories ADD COLUMN status TEXT DEFAULT 'active'", None),
+            ("ALTER TABLE memories ADD COLUMN weight REAL DEFAULT 0.5", None),
+            (
+                "ALTER TABLE memories ADD COLUMN visibility_scope TEXT DEFAULT 'scope_agent'",
+                None,
+            ),
+            ("ALTER TABLE memories ADD COLUMN decay_days INTEGER", None),
+        ]
+        for sql, index_sql in migrations:
+            try:
+                await self._db.execute(sql)
+                if index_sql:
+                    await self._db.execute(index_sql)
+            except Exception:
+                pass  # Column already exists
+        await self._db.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_memories_content_hash ON memories(content_hash)"
+        )
 
         # Note: For PostgreSQL with pgvector, we'd use:
         # CREATE INDEX ON memories USING ivfflat (embedding vector_cosine_ops)
@@ -136,6 +192,11 @@ class LocalMemoryStore:
         importance: int = 5,
         confidence: float = 0.5,
         ttl: str | None = None,
+        # MemClaw fields
+        status: str = "active",
+        weight: float = 0.5,
+        visibility_scope: str = "scope_agent",
+        decay_days: int | None = None,
     ) -> dict:
         """Store a memory and return the created record."""
         if not self._db:
@@ -171,14 +232,20 @@ class LocalMemoryStore:
             # Parse TTL like "90d" - just store without expiry for now
             pass
 
+        # Compute decay_days from memory_type if not explicitly set
+        computed_decay = decay_days
+        if computed_decay is None and memory_type and memory_type in MEMORY_DECAY_DAYS:
+            computed_decay = MEMORY_DECAY_DAYS[memory_type]
+
         try:
             await self._db.execute(
                 """
                 INSERT INTO memories (
                     id, agent_id, key, value, summary, memory_type, category,
                     embedding, visibility, importance, confidence, metadata, tags,
-                    created_at, updated_at, expires_at, content_hash
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    created_at, updated_at, expires_at, content_hash,
+                    status, weight, visibility_scope, decay_days
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     memory_id,
@@ -198,6 +265,10 @@ class LocalMemoryStore:
                     now.isoformat(),
                     expires_at.isoformat() if expires_at else None,
                     content_hash,
+                    status,
+                    weight,
+                    visibility_scope,
+                    computed_decay,
                 ),
             )
             await self._db.commit()
@@ -294,29 +365,68 @@ class LocalMemoryStore:
         query: str,
         agent_id: str | None = None,
         limit: int = 5,
+        # MemClaw filters
+        visibility_scope: str | None = None,
+        memory_type_filter: str | None = None,
+        status_filter: str | None = None,
+        # Tuning parameters (MemClaw-compatible)
+        min_weight: float = 0.0,
+        freshness_boost: bool = False,
     ) -> List[dict]:
-        """
-        Search memories by text (keyword search).
+        """Search memories with MemClaw-compatible filters and tuning.
 
-        Note: True semantic search requires embeddings and pgvector.
-        This implements basic keyword matching as fallback.
+        Args:
+            query: Search query string
+            agent_id: Filter by agent
+            limit: Max results
+            visibility_scope: Filter by scope (scope_agent, scope_team, scope_org)
+            memory_type_filter: Filter by memory type
+            status_filter: Filter by status
+            min_weight: Minimum importance weight (0-1)
+            freshness_boost: Boost recent memories by decay_days
         """
         if not self._db:
             raise RuntimeError("Not connected - call connect() first")
 
-        # Basic keyword search (for full semantic search, we'd need embeddings)
         search_pattern = f"%{query}%"
         sql = """
-            SELECT * FROM memories
+            SELECT *,
+                CASE
+                    WHEN decay_days IS NOT NULL AND decay_days > 0 THEN
+                        MAX(0.0, 1.0 - (julianday('now') - julianday(created_at)) / decay_days)
+                    ELSE 1.0
+                END AS freshness_score
+            FROM memories
             WHERE (value LIKE ? OR summary LIKE ? OR key LIKE ?)
         """
-        params = [search_pattern, search_pattern, search_pattern]
+        params: list[Any] = [search_pattern, search_pattern, search_pattern]
 
         if agent_id:
             sql += " AND agent_id = ?"
             params.append(agent_id)
 
-        sql += " ORDER BY importance DESC, created_at DESC LIMIT ?"
+        if visibility_scope:
+            sql += " AND visibility_scope = ?"
+            params.append(visibility_scope)
+
+        if memory_type_filter:
+            sql += " AND memory_type = ?"
+            params.append(memory_type_filter)
+
+        if status_filter:
+            sql += " AND status = ?"
+            params.append(status_filter)
+
+        if min_weight > 0:
+            sql += " AND weight >= ?"
+            params.append(min_weight)
+
+        if freshness_boost:
+            sql += " ORDER BY (weight * freshness_score) DESC, created_at DESC"
+        else:
+            sql += " ORDER BY weight DESC, created_at DESC"
+
+        sql += " LIMIT ?"
         params.append(limit)
 
         cursor = await self._db.execute(sql, params)
@@ -331,6 +441,11 @@ class LocalMemoryStore:
                 "type": row["memory_type"],
                 "category": row["category"],
                 "importance": row["importance"],
+                "weight": row["weight"],
+                "status": row["status"],
+                "visibility_scope": row["visibility_scope"],
+                "decay_days": row["decay_days"],
+                "freshness_score": row["freshness_score"],
                 "created_at": row["created_at"],
             }
             for row in rows
@@ -347,6 +462,71 @@ class LocalMemoryStore:
         await self._db.commit()
         return cursor.rowcount > 0
 
+    async def transition_status(
+        self, memory_id: str, new_status: str
+    ) -> MemoryRecord | None:
+        """Transition a memory to a new status with validation.
+
+        Valid transitions (MemClaw lifecycle):
+        - active → pending, confirmed, cancelled, outdated
+        - pending → confirmed, cancelled
+        - confirmed → outdated, archived
+        - cancelled → archived
+        - outdated → archived
+        - archived → deleted
+        """
+        if not self._db:
+            raise RuntimeError("Not connected - call connect() first")
+
+        if new_status not in VALID_STATUSES:
+            raise ValueError(
+                f"Invalid status: {new_status}. Must be one of {VALID_STATUSES}"
+            )
+
+        # Get current memory
+        cursor = await self._db.execute(
+            "SELECT * FROM memories WHERE id = ?", (memory_id,)
+        )
+        row = await cursor.fetchone()
+        if not row:
+            return None
+
+        current_status = row["status"]
+
+        # Validate transition
+        valid_transitions = {
+            "active": {"pending", "confirmed", "cancelled", "outdated"},
+            "pending": {"confirmed", "cancelled"},
+            "confirmed": {"outdated", "archived"},
+            "cancelled": {"archived"},
+            "outdated": {"archived"},
+            "archived": {"deleted"},
+            "conflicted": {"active", "archived"},
+            "deleted": set(),  # Terminal state
+        }
+
+        allowed = valid_transitions.get(current_status, set())
+        if new_status not in allowed:
+            raise ValueError(
+                f"Invalid transition: {current_status} → {new_status}. "
+                f"Allowed: {allowed}"
+            )
+
+        # Perform update
+        now = datetime.now(timezone.utc)
+        await self._db.execute(
+            "UPDATE memories SET status = ?, updated_at = ? WHERE id = ?",
+            (new_status, now.isoformat(), memory_id),
+        )
+        await self._db.commit()
+
+        # Return updated record
+        cursor = await self._db.execute(
+            "SELECT * FROM memories WHERE id = ?", (memory_id,)
+        )
+        updated_row = await cursor.fetchone()
+        return self._row_to_record(updated_row) if updated_row else None
+
     async def health_check(self) -> dict:
         """Check if the local store is healthy."""
         if not self._db:
@@ -362,26 +542,37 @@ class LocalMemoryStore:
     @staticmethod
     def _row_to_record(row: aiosqlite.Row) -> MemoryRecord:
         """Convert a database row to a MemoryRecord."""
+        # Safely get new columns with defaults for backward compatibility
+        row_dict = dict(row)
         return MemoryRecord(
-            id=row["id"],
-            agent_id=row["agent_id"],
-            key=row["key"],
-            value=row["value"],
-            summary=row["summary"],
-            memory_type=row["memory_type"],
-            category=row["category"],
-            embedding=json.loads(row["embedding"]) if row["embedding"] else None,
-            visibility=row["visibility"],
-            importance=row["importance"],
-            confidence=row["confidence"],
-            metadata=json.loads(row["metadata"]) if row["metadata"] else {},
-            tags=json.loads(row["tags"]) if row["tags"] else [],
-            access_count=row["access_count"],
-            useful_count=row["useful_count"],
-            created_at=datetime.fromisoformat(row["created_at"]),
-            updated_at=datetime.fromisoformat(row["updated_at"]),
+            id=row_dict["id"],
+            agent_id=row_dict["agent_id"],
+            key=row_dict["key"],
+            value=row_dict["value"],
+            summary=row_dict["summary"],
+            memory_type=row_dict["memory_type"],
+            category=row_dict["category"],
+            embedding=json.loads(row_dict["embedding"])
+            if row_dict["embedding"]
+            else None,
+            visibility=row_dict["visibility"],
+            importance=row_dict["importance"],
+            confidence=row_dict["confidence"],
+            metadata=json.loads(row_dict["metadata"]) if row_dict["metadata"] else {},
+            tags=json.loads(row_dict["tags"]) if row_dict["tags"] else [],
+            access_count=row_dict["access_count"],
+            useful_count=row_dict["useful_count"],
+            created_at=datetime.fromisoformat(row_dict["created_at"]),
+            updated_at=datetime.fromisoformat(row_dict["updated_at"]),
             expires_at=(
-                datetime.fromisoformat(row["expires_at"]) if row["expires_at"] else None
+                datetime.fromisoformat(row_dict["expires_at"])
+                if row_dict["expires_at"]
+                else None
             ),
-            content_hash=row["content_hash"] if "content_hash" in row.keys() else None,
+            content_hash=row_dict.get("content_hash"),
+            # MemClaw fields with defaults for backward compat
+            status=row_dict.get("status", "active"),
+            weight=row_dict.get("weight", 0.5),
+            visibility_scope=row_dict.get("visibility_scope", "scope_agent"),
+            decay_days=row_dict.get("decay_days"),
         )

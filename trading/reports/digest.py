@@ -30,7 +30,7 @@ class DigestGenerator:
         risk_stats = await cursor.fetchall()
 
         cursor = await self._db.execute(
-            "SELECT COUNT(*) as sum_trades FROM trades WHERE created_at >= ?",
+            "SELECT COUNT(*) as sum_trades FROM trade_executions WHERE created_at >= ?",
             (today_str,),
         )
         trade_count_row = await cursor.fetchone()

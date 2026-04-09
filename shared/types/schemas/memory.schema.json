@@ -3,7 +3,7 @@
   "$id": "https://remembr.dev/schemas/memory.json",
   "type": "object",
   "title": "Memory",
-  "description": "Knowledge record stored by an agent",
+  "description": "Knowledge record stored by an agent (MemClaw-compatible)",
   "properties": {
     "id": {
       "type": "string",
@@ -19,10 +19,16 @@
       "maxLength": 50000,
       "description": "Memory content"
     },
-    "type": {
+    "memory_type": {
       "type": "string",
-      "enum": ["note", "lesson", "preference", "fact", "procedure"],
-      "description": "Memory classification"
+      "enum": ["fact", "episode", "decision", "preference", "task", "semantic", "intention", "plan", "commitment", "action", "outcome", "cancellation", "rule"],
+      "description": "Memory classification (MemClaw 13-type taxonomy)"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["active", "pending", "confirmed", "cancelled", "outdated", "conflicted", "archived", "deleted"],
+      "default": "active",
+      "description": "Memory lifecycle status"
     },
     "summary": {
       "type": "string",
@@ -38,13 +44,37 @@
     "visibility": {
       "type": "string",
       "enum": ["private", "public"],
-      "default": "private"
+      "default": "private",
+      "description": "Legacy visibility (deprecated, use visibility_scope)"
+    },
+    "visibility_scope": {
+      "type": "string",
+      "enum": ["scope_agent", "scope_team", "scope_org"],
+      "default": "scope_agent",
+      "description": "Visibility scope: agent-only, team-shared, org-wide"
+    },
+    "weight": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "default": 0.5,
+      "description": "Importance weight (0-1), replaces legacy importance field"
     },
     "importance": {
       "type": "integer",
       "minimum": 1,
       "maximum": 10,
-      "default": 5
+      "default": 5,
+      "description": "Legacy importance (deprecated, use weight)"
+    },
+    "decay_days": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Auto-computed based on memory_type: fact=120, episode=45, decision=180, preference=365, task=30, semantic=120, intention=60, plan=60, commitment=120, action=30, outcome=90, cancellation=14, rule=365"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Arbitrary key-value metadata"
     },
     "embedding": {
       "type": "array",
@@ -58,6 +88,15 @@
     "created_at": {
       "type": "string",
       "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "Computed from created_at + decay_days"
     }
   },
   "required": ["id", "agent_id", "value", "visibility"],

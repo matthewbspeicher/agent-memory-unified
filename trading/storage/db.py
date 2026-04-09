@@ -95,6 +95,16 @@ _INIT_DDL = """
             updated_at TEXT NOT NULL DEFAULT (datetime('now'))
         );
 
+        CREATE TABLE IF NOT EXISTS trade_executions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            opportunity_id TEXT,
+            agent_name TEXT,
+            order_result TEXT NOT NULL,
+            risk_evaluation TEXT,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+
         CREATE TABLE IF NOT EXISTS risk_events (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             event_type TEXT NOT NULL,
@@ -255,7 +265,7 @@ _INIT_DDL = """
         CREATE INDEX IF NOT EXISTS idx_opp_agent ON opportunities(agent_name);
         CREATE INDEX IF NOT EXISTS idx_opp_symbol ON opportunities(symbol);
         CREATE INDEX IF NOT EXISTS idx_opp_status ON opportunities(status);
-        CREATE INDEX IF NOT EXISTS idx_trades_opp ON trades(opportunity_id);
+        CREATE INDEX IF NOT EXISTS idx_trade_exec_opp ON trade_executions(opportunity_id);
         CREATE INDEX IF NOT EXISTS idx_perf_agent ON performance_snapshots(agent_name);
         CREATE INDEX IF NOT EXISTS idx_tracked_agent_status ON tracked_positions(agent_name, status);
         CREATE INDEX IF NOT EXISTS idx_tracked_symbol ON tracked_positions(symbol, status);
@@ -782,14 +792,6 @@ _INIT_DDL = """
 
 async def init_db(db: aiosqlite.Connection) -> None:
     await db.executescript(_INIT_DDL)
-
-    for col, col_def in [
-        ("agent_name", "TEXT"),
-    ]:
-        try:
-            await db.execute(f"ALTER TABLE trades ADD COLUMN {col} {col_def}")
-        except Exception:
-            pass
 
     # Migrations for tracked_positions
     for col, col_def in [

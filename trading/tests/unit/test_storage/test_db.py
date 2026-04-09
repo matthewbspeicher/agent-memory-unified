@@ -11,7 +11,7 @@ class TestInitDb:
         cursor = await db.execute("SELECT name FROM sqlite_master WHERE type='table'")
         tables = {row[0] for row in await cursor.fetchall()}
         assert "opportunities" in tables
-        assert "trades" in tables
+        assert "trade_executions" in tables
         assert "risk_events" in tables
         await db.close()
 
