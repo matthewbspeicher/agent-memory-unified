@@ -530,6 +530,7 @@ async def _setup_bittensor_integration(
             signal_bus=signal_bus,
             event_bus=event_bus,
             poll_interval=30.0,
+            knowledge_graph=getattr(app.state, "knowledge_graph", None),
         )
         app.state.taoshi_bridge = bridge
         task_mgr.create_task(bridge.run(), name="taoshi_bridge")
@@ -891,6 +892,11 @@ async def _shutdown_app_state(*, app: FastAPI, runner, logger: logging.Logger):
         await redis_bridge.stop()
         logger.info("Redis bridge stopped.")
 
+    kg = getattr(app.state, "knowledge_graph", None)
+    if kg:
+        await kg.close()
+        logger.info("TradingKnowledgeGraph closed")
+
     redis = getattr(app.state, "redis", None)
     if redis:
         logger.info("Closing redis...")
@@ -988,6 +994,14 @@ async def lifespan(app: FastAPI):
         db = await create_db(config)
         app.state.db = db
         app.state.learning_config = _learning_cfg
+
+        # --- Knowledge Graph ---
+        from storage.knowledge_graph import TradingKnowledgeGraph
+
+        _kg = TradingKnowledgeGraph(db_path="data/knowledge_graph.sqlite3")
+        await _kg.connect()
+        app.state.knowledge_graph = _kg
+        _log.info("TradingKnowledgeGraph initialized")
 
         from llm.client import LLMClient
 

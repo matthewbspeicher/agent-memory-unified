@@ -48,6 +48,7 @@ class TaoshiBridge:
         signal_bus: Any | None = None,
         event_bus: Any | None = None,
         poll_interval: float = 30.0,
+        knowledge_graph: Any | None = None,
     ):
         self._root = Path(taoshi_root)
         self._miners_dir = self._root / "validation" / "miners"
@@ -55,6 +56,7 @@ class TaoshiBridge:
         self._signal_bus = signal_bus
         self._event_bus = event_bus
         self._poll_interval = poll_interval
+        self._knowledge_graph = knowledge_graph
         self._running = False
         self._initialized_from_store: set[str] = set()
 
