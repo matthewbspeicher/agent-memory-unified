@@ -5,6 +5,7 @@ Provides local fallback when remembr.dev is unavailable.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import uuid
@@ -57,6 +58,8 @@ class LocalMemoryStore:
         """Initialize the database connection and create tables."""
         self._db = await aiosqlite.connect(self._db_path)
         self._db.row_factory = aiosqlite.Row
+        await self._db.execute("PRAGMA journal_mode=WAL")
+        await self._db.execute("PRAGMA busy_timeout=5000")
         await self._init_tables()
         logger.info("LocalMemoryStore connected to %s", self._db_path)
 
@@ -84,13 +87,26 @@ class LocalMemoryStore:
                 useful_count INTEGER DEFAULT 0,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
-                expires_at TEXT
+                expires_at TEXT,
+                content_hash TEXT
             );
 
             CREATE INDEX IF NOT EXISTS idx_memories_agent ON memories(agent_id);
             CREATE INDEX IF NOT EXISTS idx_memories_visibility ON memories(visibility);
             CREATE INDEX IF NOT EXISTS idx_memories_category ON memories(category);
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_memories_content_hash ON memories(content_hash);
         """)
+
+        # Idempotent migration for existing databases
+        try:
+            await self._db.execute(
+                "ALTER TABLE memories ADD COLUMN content_hash TEXT"
+            )
+            await self._db.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_memories_content_hash ON memories(content_hash)"
+            )
+        except Exception:
+            pass
 
         # Note: For PostgreSQL with pgvector, we'd use:
         # CREATE INDEX ON memories USING ivfflat (embedding vector_cosine_ops)
@@ -124,41 +140,89 @@ class LocalMemoryStore:
         if not self._db:
             raise RuntimeError("Not connected - call connect() first")
 
-        memory_id = str(uuid.uuid4())
         now = datetime.now(timezone.utc)
+        content_hash = hashlib.md5(value.encode()).hexdigest()
+
+        # Check for existing row with same content hash
+        cursor = await self._db.execute(
+            "SELECT id, access_count FROM memories WHERE content_hash = ?",
+            (content_hash,),
+        )
+        existing = await cursor.fetchone()
+        if existing:
+            await self._db.execute(
+                "UPDATE memories SET access_count = access_count + 1, updated_at = ? WHERE id = ?",
+                (now.isoformat(), existing["id"]),
+            )
+            await self._db.commit()
+            return {
+                "id": existing["id"],
+                "key": key,
+                "value": value,
+                "visibility": visibility,
+                "created_at": now.isoformat(),
+                "deduplicated": True,
+            }
+
+        memory_id = str(uuid.uuid4())
         expires_at = None
         if ttl:
             # Parse TTL like "90d" - just store without expiry for now
             pass
 
-        await self._db.execute(
-            """
-            INSERT INTO memories (
-                id, agent_id, key, value, summary, memory_type, category,
-                embedding, visibility, importance, confidence, metadata, tags,
-                created_at, updated_at, expires_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                memory_id,
-                agent_id,
-                key,
-                value,
-                summary,
-                memory_type,
-                category,
-                json.dumps(embedding) if embedding else None,
-                visibility,
-                importance,
-                confidence,
-                json.dumps(metadata or {}),
-                json.dumps(tags or []),
-                now.isoformat(),
-                now.isoformat(),
-                expires_at.isoformat() if expires_at else None,
-            ),
-        )
-        await self._db.commit()
+        try:
+            await self._db.execute(
+                """
+                INSERT INTO memories (
+                    id, agent_id, key, value, summary, memory_type, category,
+                    embedding, visibility, importance, confidence, metadata, tags,
+                    created_at, updated_at, expires_at, content_hash
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    memory_id,
+                    agent_id,
+                    key,
+                    value,
+                    summary,
+                    memory_type,
+                    category,
+                    json.dumps(embedding) if embedding else None,
+                    visibility,
+                    importance,
+                    confidence,
+                    json.dumps(metadata or {}),
+                    json.dumps(tags or []),
+                    now.isoformat(),
+                    now.isoformat(),
+                    expires_at.isoformat() if expires_at else None,
+                    content_hash,
+                ),
+            )
+            await self._db.commit()
+        except Exception as exc:
+            if "UNIQUE constraint failed" in str(exc):
+                # Race condition: another concurrent store inserted first
+                cursor = await self._db.execute(
+                    "SELECT id FROM memories WHERE content_hash = ?",
+                    (content_hash,),
+                )
+                row = await cursor.fetchone()
+                if row:
+                    await self._db.execute(
+                        "UPDATE memories SET access_count = access_count + 1, updated_at = ? WHERE id = ?",
+                        (now.isoformat(), row["id"]),
+                    )
+                    await self._db.commit()
+                    return {
+                        "id": row["id"],
+                        "key": key,
+                        "value": value,
+                        "visibility": visibility,
+                        "created_at": now.isoformat(),
+                        "deduplicated": True,
+                    }
+            raise
 
         return {
             "id": memory_id,
@@ -167,6 +231,17 @@ class LocalMemoryStore:
             "visibility": visibility,
             "created_at": now.isoformat(),
         }
+
+    async def check_duplicate(self, value: str) -> MemoryRecord | None:
+        """Check if a memory with the same content already exists."""
+        if not self._db:
+            raise RuntimeError("Not connected - call connect() first")
+        content_hash = hashlib.md5(value.encode()).hexdigest()
+        cursor = await self._db.execute(
+            "SELECT * FROM memories WHERE content_hash = ?", (content_hash,)
+        )
+        row = await cursor.fetchone()
+        return self._row_to_record(row) if row else None
 
     async def get(self, memory_id: str) -> MemoryRecord | None:
         """Retrieve a memory by ID."""
