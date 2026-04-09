@@ -172,3 +172,15 @@ def add_technical_indicators(df: Any) -> Any:
     df.ta.ema(length=50, append=True)
     df.ta.ema(length=200, append=True)
     return df
+
+
+from decimal import Decimal
+
+def compute_vwap(bars: list[Bar]) -> Decimal:
+    if not bars:
+        return Decimal("0")
+    total_pv = sum(Decimal(str(b.close)) * Decimal(str(b.volume)) for b in bars)
+    total_volume = sum(Decimal(str(b.volume)) for b in bars)
+    if total_volume == 0:
+        return Decimal("0")
+    return total_pv / total_volume
