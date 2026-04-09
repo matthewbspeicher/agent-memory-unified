@@ -201,3 +201,135 @@ async def get_tuning_recommendations(
         "agent_name": agent_name,
         "recommendations": recommendations,
     }
+
+
+class GridSearchRequest(BaseModel):
+    param_space: dict[str, list]
+
+
+class GeneticOptimizeRequest(BaseModel):
+    param_bounds: dict[str, list[tuple[float, float]]]
+    population_size: int = 20
+    generations: int = 10
+    mutation_rate: float = 0.1
+
+
+@router.post("/{agent_name}/grid-search")
+async def run_grid_search(
+    agent_name: str,
+    body: GridSearchRequest,
+    request: Request,
+    runner: AgentRunner = Depends(get_agent_runner),
+    opp_store: OpportunityStore = Depends(get_opportunity_store),
+    trade_store: TradeStore = Depends(get_trade_store),
+):
+    """Run grid search over parameter combinations."""
+    from backtesting.sandbox import BacktestSandbox
+
+    agent_info = runner.get_agent_info(agent_name)
+    if not agent_info:
+        raise HTTPException(status_code=404, detail=f"Agent '{agent_name}' not found")
+
+    db = getattr(request.app.state, "db", None)
+    data_bus = getattr(request.app.state, "data_bus", None)
+    if not db or not data_bus:
+        raise HTTPException(status_code=500, detail="Required services not available")
+
+    settings = _get_settings()
+    tuner = AdaptiveTuner(
+        runner,
+        opp_store,
+        trade_store,
+        anthropic_key=settings.anthropic_api_key,
+        groq_key=settings.groq_api_key,
+        ollama_url=settings.ollama_base_url,
+    )
+    sandbox = BacktestSandbox(data_bus=data_bus)
+
+    config = agent_info.config
+    strategy = config.strategy
+    universe = (
+        config.universe if isinstance(config.universe, list) else [config.universe]
+    )
+
+    async def backtest_fn(params: dict) -> dict:
+        results = await sandbox.run_backtest(
+            strategy=strategy,
+            parameters=params,
+            symbols=universe[:10],
+            period="3mo",
+        )
+        return {
+            "sharpe_ratio": results.sharpe_ratio,
+            "win_rate": results.win_rate,
+            "max_drawdown": results.max_drawdown,
+            "total_trades": results.total_trades,
+        }
+
+    results = await tuner.grid_search(agent_name, body.param_space, backtest_fn)
+
+    return {
+        "agent_name": agent_name,
+        "results": results[:20],
+        "total_tested": len(results),
+    }
+
+
+@router.post("/{agent_name}/genetic-optimize")
+async def run_genetic_optimize(
+    agent_name: str,
+    body: GeneticOptimizeRequest,
+    request: Request,
+    runner: AgentRunner = Depends(get_agent_runner),
+    opp_store: OpportunityStore = Depends(get_opportunity_store),
+    trade_store: TradeStore = Depends(get_trade_store),
+):
+    """Run genetic algorithm for continuous parameter optimization."""
+    from backtesting.sandbox import BacktestSandbox
+
+    agent_info = runner.get_agent_info(agent_name)
+    if not agent_info:
+        raise HTTPException(status_code=404, detail=f"Agent '{agent_name}' not found")
+
+    db = getattr(request.app.state, "db", None)
+    data_bus = getattr(request.app.state, "data_bus", None)
+    if not db or not data_bus:
+        raise HTTPException(status_code=500, detail="Required services not available")
+
+    settings = _get_settings()
+    tuner = AdaptiveTuner(
+        runner,
+        opp_store,
+        trade_store,
+        anthropic_key=settings.anthropic_api_key,
+        groq_key=settings.groq_api_key,
+        ollama_url=settings.ollama_base_url,
+    )
+    sandbox = BacktestSandbox(data_bus=data_bus)
+
+    config = agent_info.config
+    strategy = config.strategy
+    universe = (
+        config.universe if isinstance(config.universe, list) else [config.universe]
+    )
+
+    async def backtest_fn(params: dict) -> dict:
+        results = await sandbox.run_backtest(
+            strategy=strategy,
+            parameters=params,
+            symbols=universe[:10],
+            period="3mo",
+        )
+        return {"sharpe_ratio": results.sharpe_ratio}
+
+    param_bounds = {k: tuple(v) for k, v in body.param_bounds.items()}
+    result = await tuner.genetic_optimize(
+        agent_name,
+        param_bounds,
+        backtest_fn,
+        population_size=body.population_size,
+        generations=body.generations,
+        mutation_rate=body.mutation_rate,
+    )
+
+    return result

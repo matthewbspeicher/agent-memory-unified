@@ -81,9 +81,9 @@ class WalkForwardEngine:
 
     def __init__(
         self,
-        train_days: int = 30,
-        test_days: int = 7,
-        step_days: int = 7,
+        train_days: int = 60,
+        test_days: int = 20,
+        step_days: int = 20,
         min_trades_per_window: int = 5,
         overfit_threshold: float = 2.0,
     ) -> None:
@@ -137,9 +137,13 @@ class WalkForwardEngine:
         """
         train_sharpe = self.sharpe_ratio(returns_train)
         test_sharpe = self.sharpe_ratio(returns_test)
-        test_return = float(np.prod(1 + np.array(returns_test)) - 1) if returns_test else 0.0
+        test_return = (
+            float(np.prod(1 + np.array(returns_test)) - 1) if returns_test else 0.0
+        )
         test_dd = self.max_drawdown(returns_test)
-        test_trades = len(returns_test)  # proxy: each day with a return counts as a trade
+        test_trades = len(
+            returns_test
+        )  # proxy: each day with a return counts as a trade
 
         # Overfit detection: train performance vastly exceeds test performance
         if test_sharpe > 0 and train_sharpe > self.overfit_threshold * test_sharpe:
@@ -305,3 +309,115 @@ class WalkForwardEngine:
         peak = np.maximum.accumulate(cum)
         dd = (cum - peak) / peak
         return float(dd.min()) if len(dd) > 0 else 0.0
+
+    def validate_parameters(
+        self,
+        base_returns: list[float],
+        optimized_returns: list[float],
+        timestamps: list[datetime],
+    ) -> dict:
+        """Validate optimized parameters using walk-forward analysis.
+
+        Compares base strategy performance vs optimized parameters to ensure
+        improvements are robust across time periods, not just overfit.
+
+        Args:
+            base_returns: Daily returns using original parameters.
+            optimized_returns: Daily returns using optimized parameters.
+            timestamps: Corresponding timestamps.
+
+        Returns:
+            Dict with comparison metrics and validation status.
+        """
+        base_result = self.run(base_returns, timestamps)
+        optimized_result = self.run(optimized_returns, timestamps)
+
+        # Walk-forward efficiency comparison
+        base_efficiency = base_result.walk_forward_efficiency
+        opt_efficiency = optimized_result.walk_forward_efficiency
+
+        # Improvement metrics
+        sharpe_improvement = (
+            optimized_result.avg_test_sharpe - base_result.avg_test_sharpe
+        )
+        efficiency_improvement = opt_efficiency - base_efficiency
+
+        # Validation: optimized should have better OOS performance AND reasonable efficiency
+        is_valid = (
+            optimized_result.avg_test_sharpe > base_result.avg_test_sharpe
+            and opt_efficiency > 0.5  # At least 50% of in-sample performance transfers
+            and optimized_result.overfit_ratio < 0.5  # Less than 50% windows overfit
+        )
+
+        return {
+            "is_valid": is_valid,
+            "base_metrics": {
+                "avg_test_sharpe": base_result.avg_test_sharpe,
+                "avg_test_return": base_result.avg_test_return,
+                "walk_forward_efficiency": base_efficiency,
+                "overfit_ratio": base_result.overfit_ratio,
+            },
+            "optimized_metrics": {
+                "avg_test_sharpe": optimized_result.avg_test_sharpe,
+                "avg_test_return": optimized_result.avg_test_return,
+                "walk_forward_efficiency": opt_efficiency,
+                "overfit_ratio": optimized_result.overfit_ratio,
+            },
+            "improvement": {
+                "sharpe_delta": sharpe_improvement,
+                "efficiency_delta": efficiency_improvement,
+                "relative_sharpe_pct": (
+                    (sharpe_improvement / abs(base_result.avg_test_sharpe) * 100)
+                    if base_result.avg_test_sharpe != 0
+                    else 0.0
+                ),
+            },
+            "windows_analyzed": len(optimized_result.windows),
+        }
+
+    def run_multi_split(
+        self,
+        returns: list[float],
+        timestamps: list[datetime],
+        splits: list[tuple[int, int]] | None = None,
+    ) -> dict[str, WalkForwardResult]:
+        """Run walk-forward analysis with multiple train/test split configurations.
+
+        Useful for sensitivity analysis - see how strategy performs under
+        different window sizes.
+
+        Args:
+            returns: Daily returns.
+            timestamps: Corresponding timestamps.
+            splits: List of (train_days, test_days) tuples. Defaults to
+                   [(30,7), (60,20), (90,30)].
+
+        Returns:
+            Dict mapping split config to WalkForwardResult.
+        """
+        if splits is None:
+            splits = [(30, 7), (60, 20), (90, 30)]
+
+        results = {}
+        for train_days, test_days in splits:
+            # Create temporary engine with different config
+            temp_engine = WalkForwardEngine(
+                train_days=train_days,
+                test_days=test_days,
+                step_days=test_days,
+                min_trades_per_window=self.min_trades_per_window,
+                overfit_threshold=self.overfit_threshold,
+            )
+            result = temp_engine.run(returns, timestamps)
+            key = f"train{train_days}_test{test_days}"
+            results[key] = result
+
+            logger.info(
+                "Multi-split %s: %d windows, avg_test_sharpe=%.3f, overfit=%.2f",
+                key,
+                len(result.windows),
+                result.avg_test_sharpe,
+                result.overfit_ratio,
+            )
+
+        return results

@@ -302,6 +302,26 @@ CREATE TABLE IF NOT EXISTS agent_stages (
     updated_at TIMESTAMP NULL
 );
 
+CREATE TABLE IF NOT EXISTS agent_elo_ratings (
+    agent_name VARCHAR(255) PRIMARY KEY,
+    elo_rating INTEGER NOT NULL DEFAULT 1000,
+    created_at TIMESTAMP NULL,
+    updated_at TIMESTAMP NULL
+);
+
+CREATE TABLE IF NOT EXISTS elo_rating_history (
+    id BIGSERIAL PRIMARY KEY,
+    agent_name VARCHAR(255) NOT NULL,
+    old_rating INTEGER NOT NULL,
+    new_rating INTEGER NOT NULL,
+    reason VARCHAR(500) NULL,
+    delta INTEGER NOT NULL,
+    timestamp TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_elo_history_agent ON elo_rating_history(agent_name);
+CREATE INDEX idx_elo_history_timestamp ON elo_rating_history(timestamp);
+
 CREATE TABLE IF NOT EXISTS backtest_results (
     id BIGSERIAL PRIMARY KEY,
     agent_name VARCHAR(255) NOT NULL,

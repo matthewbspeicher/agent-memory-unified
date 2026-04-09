@@ -265,3 +265,181 @@ class TournamentEngine:
             status=OpportunityStatus.PENDING,
         )
         await self._notifier.send(pseudo_opp)
+
+    async def update_elo_ratings(self, rankings: list[dict]) -> None:
+        """Update ELO ratings based on tournament rankings.
+
+        Args:
+            rankings: List of dicts with agent_name, sharpe_ratio, rank.
+                      Must be sorted by rank (1 = best).
+        """
+        K_FACTOR = 32
+        ELO_FLOOR = 100
+        MAX_DELTA = 50
+
+        for i, entry in enumerate(rankings):
+            agent_name = entry["agent_name"]
+            agent_rank = entry.get("rank", i + 1)
+            agent_sharpe = entry.get("sharpe_ratio", 0.0)
+
+            old_elo = await self._store.get_elo(agent_name)
+
+            total_agents = len(rankings)
+            beat_median_rank = (total_agents / 2) - agent_rank
+
+            positive_sharpe_bonus = (
+                int((agent_sharpe - 1.5) * 10) if agent_sharpe > 1.5 else 0
+            )
+            negative_sharpe_penalty = int(agent_sharpe * 15) if agent_sharpe < 0 else 0
+
+            base_elo_change = int(beat_median_rank * (K_FACTOR / total_agents))
+            new_elo = (
+                old_elo
+                + base_elo_change
+                + positive_sharpe_bonus
+                + negative_sharpe_penalty
+            )
+            new_elo = max(
+                ELO_FLOOR, min(old_elo + MAX_DELTA, max(old_elo - MAX_DELTA, new_elo))
+            )
+
+            await self._store.set_elo(agent_name, new_elo)
+            await self._store.record_elo_change(
+                agent_name=agent_name,
+                old_rating=old_elo,
+                new_rating=new_elo,
+                reason=f"rank_{agent_rank}_sharpe_{agent_sharpe:.2f}",
+            )
+
+            logger.info(
+                "ELO update: %s %d → %d (Δ%d, rank=%d, sharpe=%.2f)",
+                agent_name,
+                old_elo,
+                new_elo,
+                new_elo - old_elo,
+                agent_rank,
+                agent_sharpe,
+            )
+
+    async def get_elo_ratings(self) -> dict[str, int]:
+        """Get all ELO ratings for consensus.py AgentWeightProvider."""
+        return await self._store.get_all_elo()
+
+    async def compute_rankings(self) -> list[dict]:
+        """Compute tournament rankings from performance snapshots.
+
+        Returns list of dicts sorted by Sharpe ratio (descending).
+        Each dict: {agent_name, sharpe_ratio, rank, stage, ...}
+        """
+        agents = self._runner.list_agents()
+        rankings = []
+
+        for agent_info in agents:
+            snap = await self._perf_store.get_latest(agent_info.name)
+            if snap is None:
+                continue
+
+            stage = await self._store.get_stage(agent_info.name)
+            rankings.append(
+                {
+                    "agent_name": agent_info.name,
+                    "sharpe_ratio": snap.sharpe_ratio,
+                    "max_drawdown": snap.max_drawdown,
+                    "win_rate": snap.win_rate,
+                    "total_trades": snap.total_trades,
+                    "total_pnl": float(snap.total_pnl),
+                    "stage": stage,
+                }
+            )
+
+        rankings.sort(key=lambda x: x["sharpe_ratio"], reverse=True)
+
+        for i, r in enumerate(rankings):
+            r["rank"] = i + 1
+
+        return rankings
+
+    async def run_tournament(self) -> dict:
+        """Run complete tournament cycle: evaluate, rank, update ELO.
+
+        Returns tournament results summary.
+        """
+        await self.evaluate_all()
+        rankings = await self.compute_rankings()
+        await self.update_elo_ratings(rankings)
+        elo_ratings = await self.get_elo_ratings()
+
+        return {
+            "rankings": rankings,
+            "elo_ratings": elo_ratings,
+            "timestamp": __import__("datetime")
+            .datetime.now(__import__("datetime").timezone.utc)
+            .isoformat(),
+        }
+
+    async def run_arena_gym_cycle(self, tuner: Any = None) -> dict:
+        """Run complete Arena-Gym cycle: tournament + auto-tune underperformers.
+
+        1. Run tournament (evaluate, rank, update ELO)
+        2. Identify agents with Sharpe < 1.0 (underperformers)
+        3. Run AdaptiveTuner.generate_parameter_variants() for each
+        4. Return tuning recommendations
+
+        Args:
+            tuner: AdaptiveTuner instance (optional, will create if not provided)
+
+        Returns:
+            Dict with tournament results + tuning recommendations
+        """
+        tournament_results = await self.run_tournament()
+        rankings = tournament_results["rankings"]
+
+        if tuner is None:
+            from agents.runner import AgentRunner
+            from agents.tuning import AdaptiveTuner
+            from storage.opportunities import OpportunityStore
+            from storage.trades import TradeStore
+
+            db = getattr(self._runner, "_db", None)
+            if db is None:
+                return {**tournament_results, "tuning": "skipped - no db"}
+
+            opp_store = OpportunityStore(db)
+            trade_store = TradeStore(db)
+            tuner = AdaptiveTuner(self._runner, opp_store, trade_store)
+
+        tuning_recommendations = []
+        for entry in rankings:
+            if entry["sharpe_ratio"] >= 1.0:
+                continue
+
+            agent_name = entry["agent_name"]
+            snapshot = {
+                "sharpe_ratio": entry["sharpe_ratio"],
+                "win_rate": entry["win_rate"],
+                "total_trades": entry["total_trades"],
+                "max_drawdown": entry["max_drawdown"],
+            }
+
+            try:
+                recommendations = await tuner.generate_recommendations(
+                    agent_name, snapshot
+                )
+                tuning_recommendations.append(
+                    {
+                        "agent_name": agent_name,
+                        "current_sharpe": entry["sharpe_ratio"],
+                        "rank": entry["rank"],
+                        "recommendations": recommendations,
+                    }
+                )
+            except Exception as e:
+                logger.warning("Tuning recommendation failed for %s: %s", agent_name, e)
+
+        return {
+            **tournament_results,
+            "tuning": {
+                "underperformers": len(tuning_recommendations),
+                "recommendations": tuning_recommendations,
+            },
+        }

@@ -32,4 +32,33 @@ def create_tournament_router(engine: TournamentEngine) -> APIRouter:
         stages = await engine._store.get_all_stages()
         return stages
 
+    @router.get("/elo", dependencies=[Depends(verify_api_key)])
+    async def get_elo_ratings():
+        """Get ELO ratings for all agents. Used by consensus.py AgentWeightProvider."""
+        elo_ratings = await engine.get_elo_ratings()
+        return {"elo_ratings": elo_ratings, "count": len(elo_ratings)}
+
+    @router.get("/elo/{agent_name}", dependencies=[Depends(verify_api_key)])
+    async def get_agent_elo(agent_name: str):
+        """Get ELO rating and history for a specific agent."""
+        current_elo = await engine._store.get_elo(agent_name)
+        history = await engine._store.get_elo_history(agent_name, limit=10)
+        return {
+            "agent_name": agent_name,
+            "elo_rating": current_elo,
+            "history": history,
+        }
+
+    @router.get("/rankings", dependencies=[Depends(verify_api_key)])
+    async def get_rankings():
+        """Get current tournament rankings sorted by Sharpe ratio."""
+        rankings = await engine.compute_rankings()
+        return {"rankings": rankings, "count": len(rankings)}
+
+    @router.post("/run", dependencies=[Depends(verify_api_key)])
+    async def run_tournament():
+        """Run complete tournament cycle: evaluate, rank, update ELO."""
+        results = await engine.run_tournament()
+        return results
+
     return router

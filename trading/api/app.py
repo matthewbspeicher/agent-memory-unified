@@ -117,9 +117,10 @@ async def _setup_trade_reflectors(
             ttl_days=mem_cfg.ttl_days,
         )
         memory_registry.register_shared(shared_memory_client)
-        
+
         # Start Daily Trade Compiler
         from learning.trade_compiler import DailyTradeCompiler
+
         trade_compiler = DailyTradeCompiler(
             memory_client=shared_memory_client,
             llm=llm_client,
@@ -130,7 +131,7 @@ async def _setup_trade_reflectors(
         if signal_bus and hasattr(signal_bus, "subscribe"):
             signal_bus.subscribe(trade_compiler.handle_knowledge_capture)
         app.state.trade_compiler = trade_compiler
-        
+
         logger.info("Agent memory system enabled (remembr.dev)")
     except Exception as exc:
         logger.warning("Memory system setup failed (continuing without it): %s", exc)
