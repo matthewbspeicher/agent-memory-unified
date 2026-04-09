@@ -28,6 +28,46 @@ tracer = get_tracer(__name__)
 
 
 class AgentRunner:
+    async def _record_thought(self, agent_name: str, symbol: str, action: Any, score: float, rules: list, memories: list):
+        if not self._db:
+            return
+        from models.thought import ThoughtRecord
+        import uuid
+        import json
+        record = ThoughtRecord(
+            id=uuid.uuid4(),
+            timestamp=datetime.now(timezone.utc),
+            agent_name=agent_name,
+            symbol=symbol,
+            action=action,
+            conviction_score=score,
+            rule_evaluations=rules,
+            memory_context=memories
+        )
+        try:
+            if hasattr(self._db, "add"):
+                self._db.add(record)
+                await self._db.commit()
+            else:
+                query = """
+                    INSERT INTO thought_records 
+                    (id, timestamp, agent_name, symbol, action, conviction_score, rule_evaluations, memory_context)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                """
+                await self._db.execute(
+                    query,
+                    str(record.id),
+                    record.timestamp,
+                    record.agent_name,
+                    record.symbol,
+                    record.action.value,
+                    record.conviction_score,
+                    json.dumps(record.rule_evaluations),
+                    json.dumps(record.memory_context)
+                )
+        except Exception as e:
+            logger.error(f"Failed to record thought for {agent_name}: {e}")
+
     def __init__(
         self,
         data_bus: DataBus,
@@ -39,6 +79,7 @@ class AgentRunner:
         trade_reflector_factory: Callable[[str], Any] | None = None,
         agent_store: AgentStore | None = None,
         session_bias_generator: Any | None = None,
+        db: Any | None = None,
     ) -> None:
         self._data_bus = data_bus
         self._router = router
@@ -49,6 +90,7 @@ class AgentRunner:
         self._trade_reflector_factory = trade_reflector_factory
         self._agent_store = agent_store
         self._session_bias_generator = session_bias_generator
+        self._db = db
         self._reflectors: dict[str, TradeReflector] = {}
         if self._event_bus:
             self._signal_bus.subscribe(self._forward_signal_to_events)
@@ -291,6 +333,31 @@ class AgentRunner:
 
                 opportunities = await agent.scan(self._data_bus)
                 span.set_attribute("opportunities.found", len(opportunities))
+                
+                from models.thought import ActionType
+                if not opportunities:
+                    universe = getattr(agent, "universe", None) or agent.config.universe
+                    ticker = universe[0] if isinstance(universe, list) and universe else (universe if isinstance(universe, str) else "UNKNOWN")
+                    await self._record_thought(
+                        agent_name=agent.name,
+                        symbol=ticker,
+                        action=ActionType.HOLD,
+                        score=0.0,
+                        rules=[],
+                        memories=[]
+                    )
+                else:
+                    for opp in opportunities:
+                        action = ActionType.BUY if str(opp.signal).lower() in ("buy", "long") else ActionType.SELL
+                        await self._record_thought(
+                            agent_name=agent.name,
+                            symbol=opp.symbol,
+                            action=action,
+                            score=float(opp.confidence),
+                            rules=[],
+                            memories=[]
+                        )
+                
                 self._last_run[agent.name] = datetime.now(timezone.utc)
                 self._cycle_counts[agent.name] = (
                     self._cycle_counts.get(agent.name, 0) + 1

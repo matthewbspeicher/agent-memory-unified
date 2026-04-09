@@ -242,6 +242,7 @@ def _setup_agent_runtime(
         health_engine=health_engine,
         trade_reflector_factory=trade_reflector_factory,
         agent_store=agent_store,
+        db=db,
     )
     set_agent_runner(runner)
     app.state.agent_runner = runner
