@@ -123,7 +123,7 @@ All config uses `STA_` prefix env vars. `trading/config.py` has `load_config()` 
 - React 19 + Vite + TanStack Query
 - Bittensor dashboard at `/bittensor` (auto-refreshes every 30s)
 - API client in `frontend/src/lib/api/bittensor.ts` uses dedicated `tradingApi` axios instance with `X-API-Key` header
-- Vite proxy: `/api/bittensor/*` → port 8080 (trading), `/api/*` → port 8000 (Laravel)
+- Vite proxy: `/api/v1/*` and `/engine/v1/*` → port 8080 (FastAPI trading engine)
 
 ## Development Notes
 

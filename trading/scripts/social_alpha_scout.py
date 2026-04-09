@@ -7,7 +7,7 @@ import sys
 
 import requests
 
-API_BASE = os.getenv("STA_API_BASE", "http://localhost:8000")
+API_BASE = os.getenv("STA_API_BASE", "http://localhost:8080")
 API_KEY = os.getenv("STA_API_KEY")
 
 if not API_KEY:

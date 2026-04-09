@@ -24,7 +24,7 @@ def _opp():
 async def test_slack_notifier():
     notifier = SlackNotifier(
         webhook_url="http://dummy/slack",
-        api_base_url="http://localhost:8000",
+        api_base_url="http://localhost:8080",
         api_key="test-key",
     )
 
@@ -38,7 +38,7 @@ async def test_slack_notifier():
         # Ensure buttons are appended
         actions = [b for b in payload["blocks"] if b.get("type") == "actions"]
         assert len(actions) == 1
-        assert "http://localhost:8000/opportunities/opp-123/approve" in str(actions[0])
+        assert "http://localhost:8080/opportunities/opp-123/approve" in str(actions[0])
 
 
 @pytest.mark.asyncio

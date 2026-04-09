@@ -34,7 +34,7 @@ class RegimeAwareAgent(Agent):
         # Initialize Remembr client from config
         token = self.config.parameters.get("remembr_agent_token")
         base_url = self.config.parameters.get(
-            "remembr_base_url", "http://localhost:8000/api/v1"
+            "remembr_base_url", "https://remembr.dev/api/v1"
         )
 
         if token:
