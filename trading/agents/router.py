@@ -37,6 +37,7 @@ if TYPE_CHECKING:
     from storage.confidence_calibration import ConfidenceCalibrationStore
     from agents.meta import MetaAgent
     from execution.shadow import ShadowExecutor
+    from rules.engine import RulesEngine
 
 from execution.shadow import ShadowDecisionStatus
 
@@ -78,6 +79,7 @@ class OpportunityRouter:
         meta_agent: MetaAgent | None = None,
         shadow_executor: ShadowExecutor | None = None,
         journal_manager=None,
+        rules_engine: "RulesEngine" | None = None,
     ) -> None:
         self._store = store
         self._notifier = notifier
@@ -105,6 +107,7 @@ class OpportunityRouter:
         self._meta_agent = meta_agent
         self._shadow_executor = shadow_executor
         self._journal_manager = journal_manager
+        self._rules_engine = rules_engine
 
     def _is_shadow_mode(self, opportunity: Opportunity) -> bool:
         if not self._runner:
@@ -402,22 +405,30 @@ class OpportunityRouter:
                 try:
                     regime_ctx = opportunity.data.get("regime")
                     regime_name = regime_ctx.name if regime_ctx else "unknown"
-                    trend = regime_ctx.trend.value if regime_ctx and hasattr(regime_ctx, "trend") else "unknown"
-                    
+                    trend = (
+                        regime_ctx.trend.value
+                        if regime_ctx and hasattr(regime_ctx, "trend")
+                        else "unknown"
+                    )
+
                     context_summary = (
                         f"Symbol: {opportunity.symbol.ticker}\n"
                         f"Signal Direction: {opportunity.signal}\n"
                         f"Market Regime: {regime_name}, Trend: {trend}"
                     )
-                    
-                    strategies = await self._trade_reflector.query_strategies(context_summary)
+
+                    strategies = await self._trade_reflector.query_strategies(
+                        context_summary
+                    )
                     if strategies:
                         opportunity.data["strategies"] = [
                             s.get("value", "") for s in strategies
                         ]
                 except Exception as _strat_exc:
                     logger.warning(
-                        "Strategy retrieval failed for %s: %s", opportunity.id, _strat_exc
+                        "Strategy retrieval failed for %s: %s",
+                        opportunity.id,
+                        _strat_exc,
                     )
 
             # --- Deja Vu (Memory) annotation ---

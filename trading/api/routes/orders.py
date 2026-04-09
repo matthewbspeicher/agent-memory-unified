@@ -15,8 +15,11 @@ from broker.models import (
     StopLimitOrder,
     TrailingStopOrder,
 )
+from storage.trade_csv import TradeCSVLogger
 
 router = APIRouter(prefix="/orders", tags=["orders"])
+
+_csv_logger = TradeCSVLogger()
 
 
 def _build_order(req: OrderRequestSchema):
@@ -63,7 +66,23 @@ async def place_order(
     broker: Broker = Depends(get_broker),
 ):
     order = _build_order(req)
-    return await broker.orders.place_order(req.account_id, order)
+    result = await broker.orders.place_order(req.account_id, order)
+
+    # Log to tax CSV
+    if result.status.value in ("SUBMITTED", "FILLED"):
+        side = "BUY" if order.side == OrderSide.BUY else "SELL"
+        _csv_logger.log_trade(
+            symbol=order.symbol.ticker,
+            side=side,
+            quantity=order.quantity,
+            price=result.avg_fill_price,
+            exchange="broker",
+            order_id=result.order_id,
+            mode="LIVE",
+            notes=result.message or "",
+        )
+
+    return result
 
 
 @router.patch("/{order_id}", response_model=OrderResultSchema)

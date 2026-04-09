@@ -251,6 +251,11 @@ class Config(BaseModel):
     kalshi_key_id: str | None = None
     kalshi_private_key_path: str | None = None
 
+    # BitGet crypto exchange
+    bitget_api_key: str | None = None
+    bitget_secret_key: str | None = None
+    bitget_passphrase: str | None = None
+
 
 def load_config(env_file: str = ".env") -> Any:
     """
@@ -261,13 +266,13 @@ def load_config(env_file: str = ".env") -> Any:
 
     # Load from environment variables first to preserve them
     actual_env = os.environ.copy()
-    
+
     # Load .env file (but don't override existing environment variables)
     load_dotenv(env_file, override=False)
 
     # Re-collect all relevant data, prioritizing actual environment variables
     env_data = {}
-    
+
     # Start with .env values (already in os.environ now, but we want to be explicit)
     for key, value in os.environ.items():
         if key.startswith("STA_"):
@@ -287,7 +292,7 @@ def load_config(env_file: str = ".env") -> Any:
         # Only use DATABASE_URL if it's not pointing to localhost (not reachable on Railway)
         if "localhost" not in db_url and "127.0.0.1" not in db_url:
             env_data["database_url"] = db_url
-            
+
     redis_url = actual_env.get("REDIS_URL") or os.environ.get("REDIS_URL")
     if redis_url and "redis_url" not in env_data:
         env_data["redis_url"] = redis_url

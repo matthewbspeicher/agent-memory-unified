@@ -49,13 +49,13 @@ async def setup_brokers(
         )
         await db.commit()
 
-        # market_data is required for PaperBroker; we'll use a placeholder or 
+        # market_data is required for PaperBroker; we'll use a placeholder or
         # ensure it's wired correctly. Since real_broker might be None,
         # we need a source for market data.
         # DataBus will be wired into it after DataBus is created in app.py.
         # For now, we create it with a placeholder MarketDataProvider if needed,
         # but SimulatedBroker was also created with None data_bus initially.
-        
+
         broker = PaperBroker(
             store=_paper_store,
             market_data=None,  # injected after DataBus is built in app.py
@@ -168,6 +168,25 @@ async def setup_brokers(
                 "Tradier setup failed (continuing without it): %s", _tradier_exc
             )
 
+    # BitGet (optional — only if configured)
+    if config.bitget_api_key and config.bitget_secret_key and config.bitget_passphrase:
+        try:
+            from adapters.bitget.adapter import BitGetBroker
+
+            _bitget = BitGetBroker(
+                api_key=config.bitget_api_key,
+                secret_key=config.bitget_secret_key,
+                passphrase=config.bitget_passphrase,
+                dry_run=config.paper_trading,
+            )
+            if await _connect_with_retry(_bitget, "BitGet"):
+                _all_brokers["bitget"] = _bitget
+                logger.info("BitGet broker connected (crypto)")
+        except Exception as _bitget_exc:
+            logger.warning(
+                "BitGet setup failed (continuing without it): %s", _bitget_exc
+            )
+
     # Fail-fast: at least one broker must be connected
     if not _all_brokers:
         logger.warning(
@@ -180,8 +199,8 @@ async def setup_brokers(
             broker = _all_brokers[config.primary_broker]
             logger.info("Primary broker: %s (explicit config)", config.primary_broker)
         elif _all_brokers:
-            # Priority fallback: ibkr > alpaca > tradier
-            for _preferred in ("ibkr", "alpaca", "tradier"):
+            # Priority fallback: ibkr > alpaca > tradier > bitget
+            for _preferred in ("ibkr", "alpaca", "tradier", "bitget"):
                 if _preferred in _all_brokers:
                     broker = _all_brokers[_preferred]
                     logger.info("Primary broker: %s (priority fallback)", _preferred)
