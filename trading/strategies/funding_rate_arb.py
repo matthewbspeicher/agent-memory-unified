@@ -76,7 +76,7 @@ class FundingRateArbAgent(StructuredAgent):
         """Fetch current funding rate from exchange via CCXT."""
         from data.exchange_client import ExchangeClient
         exchange_id = self.parameters.get("exchange", "binance")
-        client = ExchangeClient(exchange_id=exchange_id)
+        client = ExchangeClient(primary=exchange_id)
         try:
             return await client.fetch_funding_rate(ccxt_symbol)
         finally:

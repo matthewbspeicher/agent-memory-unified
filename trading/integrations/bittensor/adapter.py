@@ -12,6 +12,20 @@ from integrations.bittensor.models import PredictionRequest, RawMinerForecast
 
 logger = logging.getLogger(__name__)
 
+
+def _restore_logging_after_bt_import() -> None:
+    """Undo bittensor v10's aggressive logger silencing.
+
+    bittensor v10 sets every pre-existing non-bittensor logger to CRITICAL (50)
+    during import. Reset any logger it clobbered back to NOTSET so they inherit
+    the root level normally.
+    """
+    for name, log_obj in logging.Logger.manager.loggerDict.items():
+        if isinstance(log_obj, logging.Logger) and not name.startswith("bittensor"):
+            if log_obj.level == logging.CRITICAL:
+                log_obj.setLevel(logging.NOTSET)
+
+
 # Protocol timing constants (UTC minute boundaries)
 HASH_WINDOWS = (0, 30)
 FORWARD_WINDOWS = (1, 2, 3, 31, 32, 33)
@@ -53,36 +67,50 @@ class TaoshiProtocolAdapter:
         self._dendrite = None
         self._metagraph = None
 
-    async def connect(self, max_retries: int = 5, retry_delay: float = 5.0) -> None:
+    async def connect(
+        self,
+        max_retries: int = 3,
+        retry_delay: float = 2.0,
+        connect_timeout: float = 15.0,
+    ) -> None:
         """Initialize subtensor connection, wallet, and dendrite with retry."""
         try:
             import bittensor as bt
         except ImportError:
             raise ImportError("bittensor SDK not installed. Run: pip install bittensor")
 
+        # bittensor v10 import sets all pre-existing loggers to CRITICAL —
+        # restore ours so the rest of the app can still log.
+        _restore_logging_after_bt_import()
+
+        logger.info("Bittensor SDK %s imported", getattr(bt, "__version__", "?"))
+
+        def _init_components():
+            _Subtensor = getattr(bt, "Subtensor", None) or getattr(bt, "subtensor")
+            _Wallet = getattr(bt, "Wallet", None) or getattr(bt, "wallet")
+            _Dendrite = getattr(bt, "Dendrite", None) or getattr(bt, "dendrite")
+
+            # v10: network= accepts both names ("finney") and wss:// URLs
+            endpoint = self._endpoint or self._network
+            subtensor = _Subtensor(network=endpoint)
+            wallet = _Wallet(
+                name=self._wallet_name,
+                path=self._hotkey_path or None,
+                hotkey=self._hotkey,
+            )
+            dendrite = _Dendrite(wallet=wallet)
+            return subtensor, wallet, dendrite
+
         last_exc: Exception | None = None
         for attempt in range(1, max_retries + 1):
             try:
-                # bt.Subtensor / bt.Wallet / bt.Dendrite (v10+ capitalized)
-                _Subtensor = getattr(bt, "Subtensor", None) or getattr(bt, "subtensor")
-                _Wallet = getattr(bt, "Wallet", None) or getattr(bt, "wallet")
-                _Dendrite = getattr(bt, "Dendrite", None) or getattr(bt, "dendrite")
-
-                # Use chain_endpoint if provided, otherwise network
-                if self._endpoint:
-                    self._subtensor = _Subtensor(
-                        chain_endpoint=self._endpoint,
-                    )
-                else:
-                    self._subtensor = _Subtensor(
-                        network=self._network,
-                    )
-                self._wallet = _Wallet(
-                    name=self._wallet_name,
-                    path=self._hotkey_path or None,
-                    hotkey=self._hotkey,
+                subtensor, wallet, dendrite = await asyncio.wait_for(
+                    asyncio.to_thread(_init_components),
+                    timeout=connect_timeout,
                 )
-                self._dendrite = _Dendrite(wallet=self._wallet)
+                self._subtensor = subtensor
+                self._wallet = wallet
+                self._dendrite = dendrite
                 logger.info(
                     "Bittensor adapter connected (network=%s, endpoint=%s, subnet=%d) on attempt %d",
                     self._network,
@@ -91,6 +119,19 @@ class TaoshiProtocolAdapter:
                     attempt,
                 )
                 return
+            except asyncio.TimeoutError:
+                last_exc = TimeoutError(
+                    f"Component initialization timed out after {connect_timeout}s"
+                )
+                if attempt < max_retries:
+                    delay = retry_delay * (2 ** (attempt - 1))
+                    logger.warning(
+                        "Bittensor connect attempt %d/%d timed out. Retrying in %.1fs",
+                        attempt,
+                        max_retries,
+                        delay,
+                    )
+                    await asyncio.sleep(delay)
             except Exception as exc:
                 last_exc = exc
                 if attempt < max_retries:
@@ -106,11 +147,18 @@ class TaoshiProtocolAdapter:
 
         raise last_exc or ConnectionError("Failed to connect after retries")
 
-    async def refresh_metagraph(self) -> None:
+    async def refresh_metagraph(self, timeout: float = 10.0) -> None:
         """Refresh the cached metagraph snapshot."""
         if self._subtensor is None:
             raise RuntimeError("Adapter not connected")
-        self._metagraph = self._subtensor.metagraph(netuid=self._subnet_uid)
+        try:
+            self._metagraph = await asyncio.wait_for(
+                asyncio.to_thread(self._subtensor.metagraph, netuid=self._subnet_uid),
+                timeout=timeout,
+            )
+        except asyncio.TimeoutError:
+            logger.warning("Metagraph refresh timed out after %.1fs", timeout)
+            raise TimeoutError("Metagraph refresh timed out")
         logger.debug(
             "Metagraph refreshed: %d neurons, block %s",
             len(self._metagraph.uids) if self._metagraph else 0,
@@ -138,7 +186,7 @@ class TaoshiProtocolAdapter:
         This intentionally does not perform a dendrite capability probe yet.
         """
         try:
-            await self.refresh_metagraph()
+            await self.refresh_metagraph(timeout=10.0)
             if not self.is_hotkey_registered():
                 logger.warning("Hotkey not registered on subnet %d", self._subnet_uid)
                 return False

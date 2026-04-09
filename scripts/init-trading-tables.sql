@@ -766,3 +766,12 @@ CREATE TABLE IF NOT EXISTS bittensor_processed_positions (
 );
 CREATE INDEX IF NOT EXISTS idx_bt_processed_hotkey ON bittensor_processed_positions(miner_hotkey);
 
+-- Agent context cache (used by prompt_store for LLM agent prompts)
+CREATE TABLE IF NOT EXISTS agent_context_cache (
+    agent_name TEXT PRIMARY KEY,
+    l0_text TEXT NOT NULL,
+    l1_text TEXT NOT NULL,
+    generated_at TEXT NOT NULL,
+    trade_count INTEGER DEFAULT 0
+);
+

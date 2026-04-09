@@ -15,7 +15,7 @@ class ExchangeDataSource(DataSource):
     supports_order_book = True
     
     def __init__(self, exchange_id: str = "binance"):
-        self._client = ExchangeClient(exchange_id=exchange_id)
+        self._client = ExchangeClient(primary=exchange_id)
         
     async def get_quote(self, symbol: Symbol) -> Quote:
         ticker = await self._client.fetch_ticker(symbol.ticker)

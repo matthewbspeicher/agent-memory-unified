@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -122,6 +123,7 @@ async def setup_bittensor(
         - store, source, adapter, scheduler, evaluator
     """
     if not config.bittensor_enabled:
+        logger.info("Bittensor integration disabled by config")
         return False, {}
 
     try:
@@ -145,10 +147,19 @@ async def setup_bittensor(
             hotkey=config.bittensor_hotkey,
             subnet_uid=config.bittensor_subnet_uid,
         )
-        await _bt_adapter.connect()
-
-        _bt_healthy = await _bt_adapter.smoke_test()
-
+        logger.info("Created TaoshiProtocolAdapter, attempting connect...")
+        try:
+            await asyncio.wait_for(_bt_adapter.connect(), timeout=45.0)
+        except asyncio.TimeoutError:
+            logger.warning("Bittensor connect timed out — integration disabled")
+            return False, {}
+        try:
+            _bt_healthy = await asyncio.wait_for(
+                _bt_adapter.smoke_test(), timeout=30.0
+            )
+        except asyncio.TimeoutError:
+            logger.warning("Bittensor smoke test timed out — integration disabled")
+            return False, {}
         if not _bt_healthy:
             logger.warning("Bittensor smoke test failed — integration disabled")
             return False, {}
@@ -167,7 +178,9 @@ async def setup_bittensor(
             direct_query_enabled=config.bittensor.direct_query_enabled,
         )
 
-        _bt_evaluator = MinerEvaluator(store=_bt_store, data_bus=data_bus, knowledge_graph=knowledge_graph)
+        _bt_evaluator = MinerEvaluator(
+            store=_bt_store, data_bus=data_bus, knowledge_graph=knowledge_graph
+        )
 
         logger.info(
             "Bittensor integration enabled (network=%s, subnet=%d)",

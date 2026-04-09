@@ -41,7 +41,7 @@ class DerivativesProvider(BaseIntelProvider):
     """Funding rates + open interest as contrarian/confirmation signals."""
 
     def __init__(self, exchange_id: str = "binance") -> None:
-        self._exchange = ExchangeClient(exchange_id=exchange_id)
+        self._exchange = ExchangeClient(primary=exchange_id)
 
     async def close(self):
         await self._exchange.close()

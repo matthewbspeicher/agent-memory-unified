@@ -44,7 +44,7 @@ class OrderFlowProvider(BaseIntelProvider):
     """
 
     def __init__(self, exchange_id: str = "binance", trade_limit: int = 200) -> None:
-        self._exchange = ExchangeClient(exchange_id=exchange_id)
+        self._exchange = ExchangeClient(primary=exchange_id)
         self._trade_limit = trade_limit
 
     async def close(self):
