@@ -18,10 +18,69 @@ os.environ["CLAUDE_INVOKED_BY"] = "memory_flush"
 import asyncio
 import json
 import logging
+import re
 import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+
+# Pattern pre-filter: skip LLM call if context has no knowledge-bearing signals.
+_DECISION_MARKERS = [
+    "decided", "let's use", "go with", "switched to", "trade-off",
+    "chose", "architecture", "we went with", "settled on", "approach",
+]
+_PROBLEM_MARKERS = [
+    "bug", "broke", "error", "root cause", "fix", "workaround",
+    "crashed", "doesn't work", "issue", "regression",
+]
+_MILESTONE_MARKERS = [
+    "it works", "shipped", "deployed", "figured out", "breakthrough",
+    "fixed", "solved", "nailed it", "released",
+]
+_LESSON_MARKERS = [
+    "learned", "gotcha", "turns out", "important to note", "the trick is",
+    "key insight", "remember that", "lesson",
+]
+_CONFIG_MARKERS = [
+    "env var", "config", "setting", "enabled", "disabled", "toggled",
+    "migration", "schema change",
+]
+_ALL_MARKERS = (
+    _DECISION_MARKERS + _PROBLEM_MARKERS + _MILESTONE_MARKERS
+    + _LESSON_MARKERS + _CONFIG_MARKERS
+)
+
+_NOISE_PATTERNS = [
+    re.compile(r"^\*\*(Read|Glob|Bash|Grep)\*\*"),
+    re.compile(r"^\[File contents?\]"),
+    re.compile(r"^\*\*(User|Assistant)\*\*:\s*(yes|no|y|n|ok|okay|continue|next|thanks?)\s*$", re.I),
+    re.compile(r"\x1b\[[0-9;]*m"),
+]
+
+
+def has_knowledge_signal(context: str) -> bool:
+    """Return True if context contains patterns worth an LLM extraction call."""
+    if not context.strip():
+        return False
+
+    lines = context.splitlines()
+    clean_lines = [l for l in lines if not any(p.search(l) for p in _NOISE_PATTERNS)]
+    clean_text = "\n".join(clean_lines).lower()
+
+    # Explicit user hints always trigger
+    if "user hint:" in clean_text or "remember this" in clean_text:
+        return True
+
+    # Silent refactor: any new file creation or heavy editing
+    write_count = sum(1 for l in lines if re.match(r"^\*\*Write\*\*", l))
+    edit_count = sum(1 for l in lines if re.match(r"^\*\*Edit\*\*", l))
+    if write_count >= 1 or edit_count > 3:
+        return True
+
+    # Check knowledge marker lists — require 2+ hits to avoid false positives
+    matches = sum(1 for m in _ALL_MARKERS if m in clean_text)
+    return matches >= 2
+
 
 ROOT = Path(__file__).resolve().parent.parent
 DAILY_DIR = ROOT / "daily"
@@ -218,6 +277,15 @@ def main():
     if not context:
         logging.info("Context file is empty, skipping")
         context_file.unlink(missing_ok=True)
+        return
+
+    # Pre-filter: skip LLM call if context has no knowledge signals
+    if not has_knowledge_signal(context):
+        logging.info(
+            "Skipping flush: no knowledge signals in %d-char context", len(context)
+        )
+        context_file.unlink(missing_ok=True)
+        save_flush_state({"session_id": session_id, "timestamp": time.time()})
         return
 
     logging.info("Flushing session %s: %d chars", session_id, len(context))
