@@ -103,6 +103,49 @@ async def list_strategies():
     return strategies
 
 
+@router.get("/me/graph")
+async def get_agent_graph(request: Request):
+    """Return the spatial knowledge graph for 3D visualization.
+    Converts TradingKnowledgeGraph triples into nodes and links.
+    """
+    kg = getattr(request.app.state, "knowledge_graph", None)
+    if not kg:
+        # Fallback to empty graph if no KG
+        return {"nodes": [], "links": []}
+    
+    try:
+        # Get up to 500 recent facts to build the graph
+        triples = await kg.timeline(limit=500)
+        
+        nodes_dict = {}
+        links = []
+        
+        for t in triples:
+            sub = t["subject"]
+            obj = t["object"]
+            rel = t["predicate"]
+            
+            if sub not in nodes_dict:
+                nodes_dict[sub] = {"id": sub, "summary": sub.replace("_", " ").title(), "type": "agent"}
+            if obj not in nodes_dict:
+                nodes_dict[obj] = {"id": obj, "summary": obj.replace("_", " ").title(), "type": "memory"}
+                
+            links.append({
+                "source": sub,
+                "target": obj,
+                "relation": rel,
+                "metadata": t.get("properties", {})
+            })
+            
+        return {
+            "nodes": list(nodes_dict.values()),
+            "links": links
+        }
+    except Exception as e:
+        logger.error(f"Failed to fetch 3D graph: {e}")
+        return {"nodes": [], "links": []}
+
+
 @router.get("/{name}", response_model=AgentInfo)
 def get_agent(name: str, runner: AgentRunner = Depends(get_agent_runner)) -> AgentInfo:
     info = runner.get_agent_info(name)

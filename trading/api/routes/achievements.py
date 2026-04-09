@@ -5,7 +5,7 @@ Achievements API routes.
 from fastapi import APIRouter, Depends, HTTPException
 from typing import List, Optional
 
-from api.deps import verify_api_key
+from api.auth import verify_api_key
 from achievements import create_tracker, get_all_achievements, ACHIEVEMENTS
 
 
