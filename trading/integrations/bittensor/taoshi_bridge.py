@@ -64,6 +64,8 @@ class TaoshiBridge:
         # None means loaded from store but not yet seen on disk (warm-start sentinel)
         # Change detection: emit signal when UUID is new OR hash changed
         self._seen_positions: dict[str, str | None] = {}
+        # Map uuid -> (hotkey, symbol) for KG invalidation on position close
+        self._position_context: dict[str, tuple[str, str]] = {}
         self._last_scan_at: datetime | None = None
 
         # Stats
@@ -148,6 +150,7 @@ class TaoshiBridge:
                             if prev_hash is None:
                                 # New position
                                 self._seen_positions[uuid] = content_hash
+                                self._position_context[uuid] = (hotkey, symbol)
                                 await self._emit_signal(
                                     pos,
                                     hotkey,
@@ -155,14 +158,27 @@ class TaoshiBridge:
                                     signal_reason="new_position",
                                 )
                                 new_signals += 1
+                                if self._knowledge_graph:
+                                    try:
+                                        await self._knowledge_graph.add_triple(
+                                            f"miner_{hotkey[:8]}",
+                                            "signal_on",
+                                            symbol,
+                                            valid_from=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+                                            source="bridge",
+                                        )
+                                    except Exception:
+                                        pass  # KG writes are best-effort, never block polling
                             elif uuid in self._initialized_from_store:
                                 # Position loaded from prior store state; initialize current
                                 # hash without re-emitting a duplicate signal.
                                 self._seen_positions[uuid] = content_hash
+                                self._position_context[uuid] = (hotkey, symbol)
                                 self._initialized_from_store.discard(uuid)
                             elif prev_hash != content_hash:
                                 # Position updated (new orders, leverage change, etc.)
                                 self._seen_positions[uuid] = content_hash
+                                self._position_context[uuid] = (hotkey, symbol)
                                 await self._emit_signal(
                                     pos,
                                     hotkey,
@@ -175,7 +191,21 @@ class TaoshiBridge:
         # Clean up positions no longer on disk (moved to closed/)
         stale_uuids = set(self._seen_positions.keys()) - current_uuids
         for uuid in stale_uuids:
+            # KG invalidation for closed positions
+            if self._knowledge_graph and uuid in self._position_context:
+                hotkey, symbol = self._position_context[uuid]
+                try:
+                    await self._knowledge_graph.invalidate(
+                        f"miner_{hotkey[:8]}",
+                        "signal_on",
+                        symbol,
+                        ended=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+                        reason="position_closed",
+                    )
+                except Exception:
+                    pass  # KG writes are best-effort, never block polling
             del self._seen_positions[uuid]
+            self._position_context.pop(uuid, None)
             self._initialized_from_store.discard(uuid)
         if stale_uuids:
             logger.debug(
