@@ -52,6 +52,8 @@ class DatabaseConnection:
         # SQLite mode
         self.connection = await aiosqlite.connect(self.config.db_path or "data.db")
         self.connection.row_factory = aiosqlite.Row
+        await self.connection.execute("PRAGMA journal_mode=WAL")
+        await self.connection.execute("PRAGMA busy_timeout=5000")
         await init_db(self.connection)
         return self.connection
 
