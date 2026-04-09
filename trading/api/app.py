@@ -2086,6 +2086,9 @@ def create_app(
     from api.routes import intelligence as intelligence_route
 
     app.include_router(intelligence_route.router)
+    from api.routes import copilot as copilot_route
+
+    app.include_router(copilot_route.router, prefix="/api/v1", tags=["copilot"])
 
     from api.startup.error_handlers import register_error_handlers
 
