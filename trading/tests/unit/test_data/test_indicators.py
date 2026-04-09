@@ -151,3 +151,15 @@ class TestBollinger:
         bars = _make_bars([1, 2, 3])
         with pytest.raises(ValueError):
             compute_bollinger(bars, 20)
+
+
+def test_compute_vwap():
+    from broker.models import Bar
+    from decimal import Decimal
+    from data.indicators import compute_vwap
+    bars = [
+        Bar(symbol='BTC', timestamp=0, open=100, high=105, low=95, close=100, volume=10),
+        Bar(symbol='BTC', timestamp=1, open=100, high=110, low=100, close=105, volume=20),
+    ]
+    result = compute_vwap(bars)
+    assert round(float(result), 4) == 103.3333

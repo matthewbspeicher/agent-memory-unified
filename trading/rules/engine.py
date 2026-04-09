@@ -21,6 +21,7 @@ class RulesEngine:
             "vwap_above": self._eval_vwap_above,
             "vwap_below": self._eval_vwap_below,
             "distance_within_pct": self._eval_distance_within_pct,
+            "volatility_above": self._eval_volatility_above,
             "bias_bullish": self._eval_bias_bullish,
             "bias_bearish": self._eval_bias_bearish,
         }
@@ -203,6 +204,18 @@ class RulesEngine:
             required="bearish",
         )
 
+
+
+    def _eval_volatility_above(self, rule: Rule, data: dict) -> RuleResult:
+        bb_width_pct = data.get("bb_width_pct", 0)
+        threshold = rule.threshold or 0.02
+        passed = bb_width_pct >= threshold
+        return RuleResult(
+            rule=rule,
+            passed=passed,
+            actual=f"{bb_width_pct}%",
+            required=f">= {threshold}%",
+        )
 
 def create_vwap_rsi_ema_ruleset() -> RuleSet:
     return RuleSet(
