@@ -27,7 +27,66 @@ test.describe('Production Environment Smoke Tests', () => {
     
     // Verify login form is present
     await expect(page.locator('input[type="password"]')).toBeVisible();
-    await expect(page.locator('button[type="submit"]')).toBeVisible();
+    await expect(page.locator('text=Execute_Login')).toBeVisible();
+  });
+
+  test('Live Login: Token submission navigates to dashboard', async ({ page }) => {
+    await page.goto('/login');
+    
+    // Enter a dummy token
+    const tokenInput = page.locator('input[type="password"]');
+    await tokenInput.fill('amc_smoke_test_token_123');
+    
+    // Click the execute login button
+    await page.click('text=Execute_Login');
+    
+    // The app should set localStorage and navigate away from /login
+    // It navigates to '/' which might redirect to '/dashboard' or stay on '/'
+    await expect(page).not.toHaveURL(/.*\/login/);
+    
+    // Verify localStorage was set
+    const storedToken = await page.evaluate(() => window.localStorage.getItem('auth_token'));
+    expect(storedToken).toBe('amc_smoke_test_token_123');
+  });
+
+  test('Live Login: Request Access form validation and submission', async ({ page }) => {
+    await page.goto('/login');
+    
+    // Switch to Request Access mode
+    await page.click('text=Request_Access');
+    
+    // Verify the form fields are present
+    const inviteInput = page.locator('input[placeholder="inv_..."]');
+    const nameInput = page.locator('input[placeholder="Operative Name"]');
+    const emailInput = page.locator('input[placeholder="you@grid.net"]');
+    const submitBtn = page.locator('text=Initialize_Uplink');
+    
+    await expect(inviteInput).toBeVisible();
+    await expect(nameInput).toBeVisible();
+    await expect(emailInput).toBeVisible();
+    
+    // Submit button should be disabled initially
+    await expect(submitBtn).toBeDisabled();
+    
+    // Fill the form with dummy data
+    await inviteInput.fill('inv_invalid_code_smoke_test');
+    await nameInput.fill('Smoke Test Operative');
+    await emailInput.fill('smoke@grid.net');
+    
+    // Button should now be enabled
+    await expect(submitBtn).toBeEnabled();
+    
+    // Submit the form
+    await submitBtn.click();
+    
+    // We expect a network error or an invalid parameters error depending on the live backend
+    // Wait for the error banner to appear
+    const errorBanner = page.locator('.bg-rose-500\\/10');
+    await expect(errorBanner).toBeVisible({ timeout: 10000 });
+    
+    // The banner should contain some error text
+    const errorText = await errorBanner.textContent();
+    expect(errorText).toMatch(/INVALID|ERROR|FAILED/i);
   });
 
   test('Public API Healthcheck', async ({ request }) => {
@@ -40,3 +99,4 @@ test.describe('Production Environment Smoke Tests', () => {
     expect([200, 401, 404]).toContain(response.status());
   });
 });
+
