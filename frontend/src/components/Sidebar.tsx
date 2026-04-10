@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Activity, BrainCircuit, Terminal, Search, Settings, LogOut, Compass, FolderOpen, Swords, Globe, Trophy, Server, Rocket } from 'lucide-react';
+import { Activity, BrainCircuit, Terminal, Search, Settings, LogOut, Compass, FolderOpen, Swords, Globe, Trophy, Server, Rocket, Users } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useAuth } from '../lib/auth';
 
@@ -75,6 +75,7 @@ export function Sidebar() {
               <div className="space-y-1">
                 <NavItem to="/mission-control" icon={Rocket} label="Mission Control" isActive={isActive('/mission-control')} accent="cyan" />
                 <NavItem to="/dashboard" icon={Activity} label="Dashboard" isActive={isActive('/dashboard')} accent="cyan" />
+                <NavItem to="/roster" icon={Users} label="Agent Roster" isActive={isActive('/roster')} accent="cyan" />
                 <NavItem to="/bittensor" icon={Server} label="Bittensor Node" isActive={isActive('/bittensor')} accent="cyan" />
               </div>
             </div>

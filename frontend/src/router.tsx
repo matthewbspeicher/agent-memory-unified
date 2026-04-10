@@ -10,6 +10,7 @@ import Dashboard from './pages/Dashboard';
 import MemoryList from './pages/MemoryList';
 
 // Lazy loaded — heavy or infrequently visited pages
+const Roster = lazy(() => import('./pages/Roster'));
 const MissionControlPage = lazy(() => import('./pages/mission-control/MissionControlPage'));
 const TradeHistory = lazy(() => import('./pages/TradeHistory'));
 const Leaderboard = lazy(() => import('./pages/Leaderboard'));
@@ -62,6 +63,10 @@ export const router = createBrowserRouter([
       {
         path: 'dashboard',
         element: <Dashboard />,
+      },
+      {
+        path: 'roster',
+        element: <LazyPage><Roster /></LazyPage>,
       },
       {
         path: 'memories',
