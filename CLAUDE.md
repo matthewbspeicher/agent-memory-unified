@@ -22,6 +22,11 @@ agent-memory-unified/
 
 - `docs/reference/laravel-api/` — Preserved vector memory patterns (EmbeddingService, MemorySearchService) for future migration to FastAPI
 - `taskplane-tasks/TP-013-laravel-api-decision/` — Original deprecation decision document
+- `docs/adr/0006-laravel-removal.md` — Formal ADR (supersedes ADR-0004 and ADR-0005)
+
+### Architecture Decision Records
+
+ADRs live in `docs/adr/` (singular) using a 4-digit numbering scheme. Template: `docs/adr/0000-template.md`. Current records: 0001-hybrid-memory, 0002-regime-aware-ensemble, 0003-risk-analytics, 0004-unified-api-surface (superseded), 0005-api-boundaries-and-domain-ownership (superseded), 0006-laravel-removal, 0007-two-process-bittensor-architecture, 0008-structured-logging-convention.
 
 ## Knowledge Base
 
@@ -31,6 +36,42 @@ agent-memory-unified/
 - The `index.md` serves as the master catalog for index-guided retrieval.
 - Use `uv run python .claude/knowledge/scripts/compile.py` to manually compile logs.
 - Use `uv run python .claude/knowledge/scripts/lint.py` to run health checks.
+
+## Working Boundaries
+
+Three-tier rules distilled from past incidents and project memory. Adapted from the *agent-skills* Boundaries pattern. **Always do** is non-negotiable; **Ask first** requires explicit user approval; **Never do** has no acceptable exception.
+
+### Always do
+
+- **Restore app loggers immediately after `import bittensor`** — bittensor v10 silently sets every existing logger to `CRITICAL`. Re-set levels for trading/* loggers right after the import or all app logs disappear.
+- **Use `network=` (not `chain_endpoint=`) when constructing `bt.Subtensor`** — v10 API change. Accepts WSS URLs directly.
+- **Use the `/engine/v1/bittensor/` route prefix** for FastAPI Bittensor endpoints. Not `/api/bittensor/`.
+- **Treat `STA_DATABASE_URL` as the production DB source of truth** — `init_db_postgres()` auto-creates tables against it. Schema changes that bypass it cause Railway drift.
+- **Use `ExchangeClient(primary=…)` not `exchange_id=…`** — the constructor takes `primary`. Four call sites already burned by this on 2026-04-09.
+- **Run `cd trading && python -m pytest tests/unit/ -v --tb=short --timeout=30`** before committing changes under `trading/`.
+- **Use `wsl.exe -d Ubuntu -- bash -c "..."` for WSL commands** when Git Bash mangles paths (`/app/foo` → `C:/Program Files/Git/app/foo`).
+- **Reconstruct stale recommendations against current code before recommending them** — memory entries naming a function/file/flag are claims about a point in time. Grep before suggesting.
+
+### Ask first
+
+- **Database schema changes** — `scripts/init-trading-tables.sql`, SQLAlchemy models, any DDL.
+- **Adding dependencies to `trading/pyproject.toml`** or pinning versions of `bittensor`, `pydantic`, `fastapi`.
+- **Touching wallet reconstruction** — `B64_COLDKEY_PUB`, `B64_HOTKEY`, `trading/docker-entrypoint.sh`, `scripts/reconstruct-wallet-wsl.sh`.
+- **Modifying `weight_setter.py` or anything that submits on-chain weights** — the action is irreversible and visible on Subnet 8.
+- **Force-pushing or rewriting history on `main`**.
+- **Editing files inside `taoshi-vanta/`** — mounted read-only, separate venv (`bittensor==9.12.1`), upstream-tracked. Patches go in our bridge code, not theirs.
+- **Marking tests with `@pytest.mark.skip` or removing failing tests** — surface the failure first.
+- **Changing `STA_*` env-var names** — config loader strips the prefix; renames cascade.
+
+### Never do
+
+- **Write to `.claude/` paths via the Write/Edit tool** — blocked by the harness. If a script needs to land there, write to `/tmp/foo.py`, then exec it (per `feedback_claude_sensitive_paths`).
+- **Reference Vercel as if it were part of this project** — Vercel plugin was removed 2026-04-09; there is no Vercel deployment here.
+- **Reference Laravel / port 8000 as if it were live** — fully deprecated 2026-04-09. All API runs through FastAPI on port 8080. Vector memory patterns are reference-only under `docs/reference/laravel-api/`.
+- **Skip the bittensor logger restoration after import** — silently kills all app logging.
+- **Commit `.env`, `B64_COLDKEY_PUB`/`B64_HOTKEY` values, IBKR credentials, `STA_API_KEY`, or wallet files**.
+- **`git add -A` / `git add .`** in this repo — too many ignored artifacts and test outputs. Stage explicit files.
+- **Run destructive git ops** (`reset --hard`, `branch -D`, `checkout .`, `clean -f`) without explicit user authorization in the same turn.
 
 ### Running Services (local development)
 

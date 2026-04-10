@@ -1,8 +1,11 @@
-# ADR-001: Unified API Surface and Service Boundaries
+# ADR-0004: Unified API Surface and Service Boundaries
 
-**Status:** Accepted  
-**Date:** 2026-04-08  
+**Status:** superseded by [ADR-0006](0006-laravel-removal.md)
+**Date:** 2026-04-08
 **Deciders:** Architecture review, 2026-04-08 session
+
+> ⚠️ **Superseded by ADR-0006 (Laravel removal, 2026-04-09).**
+> This ADR's central premise — a coexisting Laravel `/api/v1/*` Product API alongside a FastAPI `/engine/v1/*` Trading Engine — no longer holds. Laravel was removed entirely the day after this was written. The `/engine/v1/*` route prefix scheme and uv-as-single-source-of-truth dependency decisions remain in force; everything mentioning Laravel as a live system is historical context only. Preserved for the migration plan and the FastAPI route conventions.
 
 ---
 

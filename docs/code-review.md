@@ -177,7 +177,7 @@ Many adapters have Phase 2 features deferred:
 
 | File | Description |
 |------|-------------|
-| `docs/adr/003-risk-analytics.md` | ADR for RiskAnalytics module |
+| `docs/adr/0003-risk-analytics.md` | ADR for RiskAnalytics module |
 | `docs/risk-analytics.md` | User documentation for risk module |
 
 ---
