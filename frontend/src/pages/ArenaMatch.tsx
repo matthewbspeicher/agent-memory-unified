@@ -2,6 +2,7 @@ import React from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { arenaApi, ArenaSession, ArenaSessionTurn } from '../lib/api/arena';
+import { TerminalOutput } from '../components/competition/TerminalOutput';
 
 export default function ArenaMatch() {
   const { id } = useParams<{ id: string }>();
@@ -139,7 +140,18 @@ export default function ArenaMatch() {
                         </span>
                       </div>
                       <div className="text-gray-300 mb-6 whitespace-pre-wrap leading-relaxed">
-                        {turn.input}
+                        {turn.input.includes("tool_call") ? (
+                          (() => {
+                            try {
+                              const parsed = JSON.parse(turn.input);
+                              return <TerminalOutput toolName={parsed.tool_call} input={JSON.stringify(parsed.args, null, 2)} output={turn.output || ""} />;
+                            } catch {
+                              return turn.input;
+                            }
+                          })()
+                        ) : (
+                          turn.input
+                        )}
                       </div>
                       {turn.feedback && (
                         <div className="bg-gray-900/50 p-4 rounded-xl text-indigo-400 border border-indigo-500/10 italic">
