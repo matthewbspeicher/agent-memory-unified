@@ -6,6 +6,7 @@ import { competitionApi, type CompetitorType } from '../lib/api/competition';
 import { LeaderboardTable } from '../components/competition/LeaderboardTable';
 import { CompetitionErrorBoundary } from '../components/competition/CompetitionErrorBoundary';
 import { AchievementFeed } from '../components/competition/AchievementFeed';
+import { LiveBettingFeed } from '../components/competition/LiveBettingFeed';
 
 const ASSETS = ['BTC', 'ETH'] as const;
 const TYPE_FILTERS: { label: string; value: CompetitorType | undefined }[] = [
