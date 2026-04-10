@@ -1,3 +1,12 @@
+/*
+ * Game-side theme — intentionally NOT driven by DESIGN.md.
+ * Rarity tiers (legendary / epic / rare) are gameplay signals, not brand colors.
+ * Legendary should always feel gold, epic should always feel purple, regardless
+ * of which brand DESIGN.md is in effect.
+ *
+ * Imported by src/index.css after tokens.generated.css.
+ */
+
 @layer utilities {
     /* Legendary card glow animation */
     @keyframes legendary-glow {

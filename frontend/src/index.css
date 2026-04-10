@@ -39,7 +39,7 @@
 @layer components {
     /* Obsidian Neural — glass morphism cards (token-driven) */
     .glass-panel {
-        background: rgba(255, 255, 255, 0.05);
+        background: rgba(var(--color-bg-surface-rgb), 0.05);
         backdrop-filter: blur(24px);
         border: 1px solid rgba(var(--color-border-subtle-rgb), 0.1);
         border-radius: var(--radius-card);
@@ -47,7 +47,7 @@
     }
 
     .neural-card {
-        background: rgba(255, 255, 255, 0.05);
+        background: rgba(var(--color-bg-surface-rgb), 0.05);
         backdrop-filter: blur(24px);
         border: 1px solid rgba(var(--color-border-subtle-rgb), 0.1);
         border-radius: var(--radius-card);
@@ -60,7 +60,7 @@
     }
 
     .neural-card-indigo {
-        background: rgba(255, 255, 255, 0.05);
+        background: rgba(var(--color-bg-surface-rgb), 0.05);
         backdrop-filter: blur(24px);
         border: 1px solid rgba(var(--color-border-subtle-rgb), 0.1);
         border-radius: var(--radius-card);
@@ -74,7 +74,7 @@
     }
 
     .neural-card-rose {
-        background: rgba(255, 255, 255, 0.05);
+        background: rgba(var(--color-bg-surface-rgb), 0.05);
         backdrop-filter: blur(24px);
         border: 1px solid rgba(var(--color-border-subtle-rgb), 0.1);
         border-radius: var(--radius-card);
@@ -88,7 +88,7 @@
     }
 
     .neural-card-emerald {
-        background: rgba(255, 255, 255, 0.05);
+        background: rgba(var(--color-bg-surface-rgb), 0.05);
         backdrop-filter: blur(24px);
         border: 1px solid rgba(var(--color-border-subtle-rgb), 0.1);
         border-radius: var(--radius-card);
@@ -102,7 +102,7 @@
     }
 
     .neural-card-cyan {
-        @apply bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-card p-6 transition-all duration-500 hover:shadow-glow-primary hover:border-cyan-500/30;
+        @apply bg-bg-surface/5 backdrop-blur-xl border border-border-subtle/10 rounded-card shadow-card p-6 transition-all duration-500 hover:shadow-glow-primary hover:border-cyan-500/30;
     }
 
     .neural-text-gradient {
