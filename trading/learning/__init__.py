@@ -16,23 +16,6 @@ if TYPE_CHECKING:
         CorrelationPair,
         CorrelationSnapshot,
     )
-    from learning.ensemble_optimizer import (
-        AgentWeight,
-        EnsembleConfig,
-        EnsembleMethod,
-        EnsembleOptimizer,
-        EnsembleSignal,
-    )
-    from learning.forecast import (
-        DirectionalForecastModel,
-        ForecastOutput,
-        TimeSeriesForecaster,
-    )
-    from learning.rl_position_sizer import (
-        RLPositionSizer,
-        SizingState,
-        TradingSizingEnv,
-    )
 
 
 # Lazy import mapping - import only when accessed
@@ -41,17 +24,6 @@ _LAZY_IMPORTS = {
     "CorrelationMonitor": "learning.correlation_monitor",
     "CorrelationPair": "learning.correlation_monitor",
     "CorrelationSnapshot": "learning.correlation_monitor",
-    "AgentWeight": "learning.ensemble_optimizer",
-    "EnsembleConfig": "learning.ensemble_optimizer",
-    "EnsembleMethod": "learning.ensemble_optimizer",
-    "EnsembleOptimizer": "learning.ensemble_optimizer",
-    "EnsembleSignal": "learning.ensemble_optimizer",
-    "DirectionalForecastModel": "learning.forecast",
-    "ForecastOutput": "learning.forecast",
-    "TimeSeriesForecaster": "learning.forecast",
-    "RLPositionSizer": "learning.rl_position_sizer",
-    "SizingState": "learning.rl_position_sizer",
-    "TradingSizingEnv": "learning.rl_position_sizer",
 }
 
 __all__ = list(_LAZY_IMPORTS.keys())

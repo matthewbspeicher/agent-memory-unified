@@ -176,10 +176,8 @@ def _ensure_strategies_registered() -> None:
     register_strategy("funding_rate_arb", FundingRateArbAgent)
 
     from strategies.correlation_monitor import StrategyCorrelationMonitor
-    from strategies.ensemble_optimizer import EnsembleOptimizer
 
     register_strategy("correlation_monitor", StrategyCorrelationMonitor)
-    register_strategy("ensemble_optimizer", EnsembleOptimizer)
 
     # Placeholders for dynamically registered strategies (see api/app.py)
     # These allow Pydantic validation to pass during startup.

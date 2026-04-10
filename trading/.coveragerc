@@ -47,10 +47,7 @@ omit =
     data/sources/rss_news.py
     data/sources/exchange_source.py
     data/sources/binance.py
-    learning/ensemble_optimizer.py
-    learning/forecast.py
     learning/memory_client.py
-    learning/rl_position_sizer.py
     learning/correlation_monitor.py
     learning/trading_adapter.py
     learning/trade_reflector.py
@@ -60,7 +57,6 @@ omit =
     storage/trade_csv.py
     risk/config.py
     risk/deja_vu.py
-    risk/portfolio_optimizer.py
     utils/metrics.py
     whatsapp/assistant.py
     whatsapp/proactive.py
