@@ -1521,3 +1521,160 @@ def _row_to_competitor(row: dict) -> CompetitorRecord:
             mutation_rarity=mutation_rarity,
             generation=child_generation,
         )
+
+    async def get_arena_gyms(self) -> list[dict]:
+        """Get all arena gyms with challenge counts."""
+        rows = await self._db.fetch(
+            """
+            SELECT g.id, g.name, g.description, g.room_type, g.difficulty,
+                   g.xp_reward, g.max_turns, g.icon,
+                   COUNT(c.id) as challenge_count
+            FROM arena_gyms g
+            LEFT JOIN arena_challenges c ON c.gym_id = g.id
+            GROUP BY g.id
+            ORDER BY g.difficulty
+            """
+        )
+        return [dict(r) for r in rows]
+
+    async def get_arena_challenges(self, gym_id: str | None = None) -> list[dict]:
+        """Get challenges, optionally filtered by gym."""
+        if gym_id:
+            rows = await self._db.fetch(
+                "SELECT * FROM arena_challenges WHERE gym_id = $1 ORDER BY difficulty",
+                gym_id,
+            )
+        else:
+            rows = await self._db.fetch(
+                "SELECT * FROM arena_challenges ORDER BY difficulty"
+            )
+        return [dict(r) for r in rows]
+
+    async def start_arena_session(self, challenge_id: str, agent_id: str) -> dict:
+        """Start a new arena session for an agent."""
+        challenge = await self._db.fetchrow(
+            "SELECT * FROM arena_challenges WHERE id = $1", challenge_id
+        )
+        if not challenge:
+            raise ValueError("Challenge not found")
+
+        session_id = str(uuid.uuid4())
+        now = datetime.utcnow()
+
+        await self._db.execute(
+            """
+            INSERT INTO arena_sessions (id, challenge_id, agent_id, current_state, inventory, turn_count, score, status, created_at)
+            VALUES ($1, $2, $3, 'start', '[]', 0, 0.0, 'active', $4)
+            """,
+            session_id,
+            challenge_id,
+            agent_id,
+            now,
+        )
+
+        return {
+            "id": session_id,
+            "challenge_id": challenge_id,
+            "agent_id": agent_id,
+            "current_state": "start",
+            "inventory": [],
+            "turn_count": 0,
+            "score": 0.0,
+            "status": "active",
+        }
+
+    async def execute_arena_turn(
+        self, session_id: str, tool_name: str, kwargs: dict
+    ) -> dict:
+        """Execute a tool in an arena session."""
+        session = await self._db.fetchrow(
+            "SELECT * FROM arena_sessions WHERE id = $1", session_id
+        )
+        if not session:
+            raise ValueError("Session not found")
+        if session["status"] != "active":
+            raise ValueError("Session is not active")
+
+        challenge = await self._db.fetchrow(
+            "SELECT * FROM arena_challenges WHERE id = $1", session["challenge_id"]
+        )
+
+        if tool_name not in json.loads(challenge["tools"]):
+            output = f"Tool '{tool_name}' not available in this challenge"
+            score_delta = -0.1
+        else:
+            output = f"Executed {tool_name} with {kwargs}"
+            score_delta = 0.1
+
+        turn_count = session["turn_count"] + 1
+        new_score = session["score"] + score_delta
+        status = "active"
+
+        if turn_count >= challenge["max_turns"]:
+            status = "failed"
+        if tool_name == "submit_flag":
+            flag = kwargs.get("flag", "")
+            if flag == challenge["flag_hash"]:
+                status = "completed"
+                new_score += 10.0
+                output = "FLAG ACCEPTED! Challenge complete!"
+            else:
+                output = "Incorrect flag"
+                score_delta = -0.5
+
+        turn_id = str(uuid.uuid4())
+        await self._db.execute(
+            """
+            INSERT INTO arena_turns (id, session_id, turn_number, tool_name, tool_input, tool_output, score_delta, created_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            """,
+            turn_id,
+            session_id,
+            turn_count,
+            tool_name,
+            json.dumps(kwargs),
+            output,
+            score_delta,
+            datetime.utcnow(),
+        )
+
+        await self._db.execute(
+            """
+            UPDATE arena_sessions
+            SET turn_count = $1, score = $2, status = $3, completed_at = CASE WHEN $3 != 'active' THEN $4 ELSE NULL END
+            WHERE id = $5
+            """,
+            turn_count,
+            new_score,
+            status,
+            datetime.utcnow() if status != "active" else None,
+            session_id,
+        )
+
+        return {
+            "id": turn_id,
+            "turn_number": turn_count,
+            "tool_name": tool_name,
+            "tool_input": kwargs,
+            "tool_output": output,
+            "score_delta": score_delta,
+            "status": status,
+        }
+
+    async def get_arena_session(self, session_id: str) -> dict | None:
+        """Get session details with turns."""
+        session = await self._db.fetchrow(
+            "SELECT * FROM arena_sessions WHERE id = $1", session_id
+        )
+        if not session:
+            return None
+
+        turns = await self._db.fetch(
+            "SELECT * FROM arena_turns WHERE session_id = $1 ORDER BY turn_number",
+            session_id,
+        )
+
+        return {
+            **dict(session),
+            "turns": [dict(t) for t in turns],
+        }

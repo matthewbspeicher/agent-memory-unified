@@ -1,27 +1,28 @@
 # Agent Memory — Unified Monorepo
 
-AI agent memory system with trading capabilities. Polyglot architecture (PHP + Python + TypeScript) with shared types.
+AI agent memory system with trading capabilities. Python + TypeScript architecture with shared types.
 
 ## Structure
 
 ```
 agent-memory/
-├── api/         # Laravel 12 (Memory API)
-├── trading/     # FastAPI (Trading Engine)
-├── frontend/    # React 19 + Vite (Unified UI)
-└── shared/      # JSON Schema types + event bus
+├── trading/     # FastAPI (Trading Engine, port 8080)
+├── frontend/    # React 19 + Vite (Unified UI, port 3000)
+├── shared/      # JSON Schema types
+└── docs/        # Documentation and references
 ```
 
 ## Quick Start
 
 ```bash
-# One-command setup
-./scripts/dev-setup.sh
+# Infrastructure
+docker compose up -d postgres redis
 
-# Start services
-cd api && php artisan serve           # http://localhost:8000
-cd trading && uvicorn api.main:app    # http://localhost:8080
-cd frontend && npm run dev            # http://localhost:3000
+# Trading engine
+docker compose up -d trading
+
+# Frontend
+cd frontend && npx vite --host 0.0.0.0 --port 3000
 ```
 
 ## Development Workflow
@@ -76,13 +77,9 @@ git config core.hooksPath .githooks
 ./shared/types/scripts/generate-types.sh
 ```
 
-**Auto-generation:**
-Pre-commit hook automatically regenerates types when schemas change.
-
 **Usage:**
 - Python: `from shared_types import Agent, Memory`
 - TypeScript: `import { Agent, Memory } from '@/types'`
-- PHP: `use AgentMemory\SharedTypes\Agent;`
 
 ## Architecture
 
@@ -101,15 +98,9 @@ See `docs/architecture/monorepo.md` for design decisions.
 ## Testing
 
 ```bash
-# PHP API tests
-cd api && php artisan test
-
 # Python trading tests
-cd trading && pytest
+cd trading && make test
 
 # Frontend tests
 cd frontend && npm test
-
-# Type check CI
-./scripts/sync-types.sh && git diff --exit-code shared/types/generated/
 ```

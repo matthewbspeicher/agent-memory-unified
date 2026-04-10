@@ -10,13 +10,18 @@ Guidance for Claude Code when working in this repository.
 
 ```
 agent-memory-unified/
-├── api/            # Laravel 12 — Memory API (DEPRECATED, see TP-013)
 ├── trading/        # FastAPI — Trading Engine (Python 3.13, port 8080)
 ├── frontend/       # React 19 + Vite — Unified UI (port 3000)
 ├── shared/         # JSON Schema types + cross-service auth
-├── taoshi-vanta/     # Official Taoshi PTN validator (separate venv, port 8091)
+├── taoshi-vanta/   # Official Taoshi PTN validator (separate venv, port 8091)
+├── docs/           # Documentation and references
 └── docker-compose.yml
 ```
+
+### Legacy Code
+
+- `docs/reference/laravel-api/` — Preserved vector memory patterns (EmbeddingService, MemorySearchService) for future migration to FastAPI
+- `taskplane-tasks/TP-013-laravel-api-decision/` — Original deprecation decision document
 
 ## Knowledge Base
 
@@ -58,7 +63,7 @@ python neurons/validator.py --netuid 8 --wallet.name sta_wallet --wallet.hotkey 
 
 ## Laravel API Status (TP-013 Decision)
 
-The Laravel API (`api/`) is **deprecated**. All active functionality runs through the FastAPI trading engine (`trading/`). The Laravel codebase is preserved as reference for potential vector memory migration. Key unique features (vector memory CRUD with pgvector embeddings) should be migrated to FastAPI if/when needed. See `taskplane-tasks/TP-013-laravel-api-decision/DECISION.md` for full rationale.
+The Laravel API (`api/`) has been **removed** (2026-04-09). All active functionality runs through the FastAPI trading engine (`trading/`). Vector memory reference patterns are preserved in `docs/reference/laravel-api/`. See `taskplane-tasks/TP-013-laravel-api-decision/DECISION.md` for full rationale.
 
 ## Bittensor Validator Architecture
 
@@ -115,8 +120,8 @@ All config uses `STA_` prefix env vars. `trading/config.py` has `load_config()` 
 
 - **Production**: PostgreSQL 16 + pgvector (Railway or local Docker)
 - **Dev**: Same via `docker compose up postgres`
-- **Migrations**: Laravel manages DDL (`api/database/migrations/`). Python side is read-only.
-- **Bootstrap**: `scripts/init-trading-tables.sql` creates all 44 tables directly (bypass Laravel)
+- **Migrations**: Python side manages DDL via SQLAlchemy or direct SQL.
+- **Bootstrap**: `scripts/init-trading-tables.sql` creates all 44 tables directly
 
 ## Frontend
 

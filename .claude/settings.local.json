@@ -87,7 +87,10 @@
       "Bash(wsl.exe -d Ubuntu -- bash -c \"find /opt/agent-memory-unified/taoshi-vanta/validation -type f 2>/dev/null | head -30\")",
       "Bash(wsl.exe -d Ubuntu -- bash -c \"cat /opt/agent-memory-unified/taoshi-vanta/validation/miners/5EPeU7Y8bqokEVf31ZWPZkP3F7Kv1v3ALuhnpp5T5Fvfjp85_51/positions/BTCUSD/open/74915906-db06-4eea-b0c0-bd22f20b0c9c\")",
       "Bash(wsl.exe -d Ubuntu -- bash -c \"ls /opt/agent-memory-unified/taoshi-vanta/validation/miners/ | wc -l && ls /opt/agent-memory-unified/taoshi-vanta/validation/miners/ | head -5\")",
-      "Bash(wsl.exe -d Ubuntu -- bash -c \"zcat /opt/agent-memory-unified/taoshi-vanta/validation/perf_ledgers.json.gz 2>/dev/null | python3 -c ''import sys,json; d=json.load\\(sys.stdin\\); print\\(f\"\"Miners with perf data: {len\\(d\\)}\"\"\\); k=list\\(d.keys\\(\\)\\)[0]; print\\(f\"\"Sample key: {k[:40]}...\"\"\\); v=d[k]; print\\(f\"\"Fields: {list\\(v.keys\\(\\)\\) if isinstance\\(v,dict\\) else type\\(v\\)}\"\"\\)'' 2>&1\")"
+      "Bash(wsl.exe -d Ubuntu -- bash -c \"zcat /opt/agent-memory-unified/taoshi-vanta/validation/perf_ledgers.json.gz 2>/dev/null | python3 -c ''import sys,json; d=json.load\\(sys.stdin\\); print\\(f\"\"Miners with perf data: {len\\(d\\)}\"\"\\); k=list\\(d.keys\\(\\)\\)[0]; print\\(f\"\"Sample key: {k[:40]}...\"\"\\); v=d[k]; print\\(f\"\"Fields: {list\\(v.keys\\(\\)\\) if isinstance\\(v,dict\\) else type\\(v\\)}\"\"\\)'' 2>&1\")",
+      "Bash(grep -E \"\\\\.py$\")",
+      "Bash(rm -f /opt/agent-memory-unified/.claude/knowledge/scripts/search.db)",
+      "Bash(uv run:*)"
     ]
   }
 }

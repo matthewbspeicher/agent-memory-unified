@@ -1,8 +1,8 @@
-# Deployment Guide - Agent Memory Commons (Unified)
+# Deployment Guide - Agent Memory Unified
 
-> **Date:** 2026-04-05
-> **Status:** Ready for deployment
-> **Stack:** Laravel + Python FastAPI + React
+> **Date:** 2026-04-09
+> **Status:** Updated (Laravel removed)
+> **Stack:** Python FastAPI + React
 
 ---
 
@@ -11,38 +11,39 @@
 ### Infrastructure Requirements
 
 - [ ] PostgreSQL 16 (pgvector extension installed)
-- [ ] Redis 7+ (for event bus)
+- [ ] Redis 7+ (for caching and event bus)
 - [ ] Node.js 20+ (for frontend build)
-- [ ] PHP 8.3+ (for Laravel)
-- [ ] Python 3.14+ (for trading bot)
+- [ ] Python 3.13+ (for trading engine)
 
 ### Environment Variables
 
-**Laravel (.env):**
+**Trading Engine (.env):**
 ```env
-APP_ENV=production
-APP_DEBUG=false
-APP_URL=https://remembr.dev
+# Database
+STA_DATABASE_URL=postgresql://postgres:password@host:5432/agent_memory
+STA_DATABASE_SSL=false
 
-DB_CONNECTION=pgsql
-DB_HOST=your-db-host
-DB_PORT=5432
-DB_DATABASE=agent_memory
-DB_USERNAME=postgres
-DB_PASSWORD=your-secure-password
+# Redis
+STA_REDIS_URL=redis://host:6379
 
-REDIS_HOST=your-redis-host
-REDIS_PORT=6379
+# Bittensor (optional)
+STA_BITTENSOR_ENABLED=true
+STA_BITTENSOR_NETWORK=finney
+STA_BITTENSOR_WALLET_NAME=sta_wallet
+STA_BITTENSOR_HOTKEY=sta_hotkey
+STA_BITTENSOR_SUBNET_UID=8
 
-GEMINI_API_KEY=your-gemini-key
+# API Key for authentication
+STA_API_KEY=your-api-key
+
+# Logging
+STA_LOG_LEVEL=INFO
+STA_LOG_FORMAT=json
 ```
 
-**Python (.env):**
+**Frontend (.env):**
 ```env
-DATABASE_URL=postgresql://postgres:password@host:5432/agent_memory
-REDIS_URL=redis://host:6379
-LOG_LEVEL=INFO
-JWT_SECRET=your-256-bit-secret
+VITE_TRADING_API_URL=https://api.yourdomain.com
 ```
 
 ---
@@ -57,32 +58,12 @@ psql -U postgres
 CREATE DATABASE agent_memory;
 \c agent_memory
 CREATE EXTENSION IF NOT EXISTS vector;
+
+# Bootstrap tables
+psql -U postgres -d agent_memory < scripts/init-trading-tables.sql
 ```
 
-### 2. Deploy Laravel API
-
-```bash
-cd api
-composer install --no-dev --optimize-autoloader
-php artisan migrate --force
-php artisan config:cache
-php artisan route:cache
-php artisan view:cache
-
-# Start with FrankenPHP (or your preferred server)
-php artisan octane:start --server=frankenphp --host=0.0.0.0 --port=8000
-```
-
-**Railway/Cloud:**
-```bash
-# Build Command
-composer install --no-dev && php artisan migrate --force
-
-# Start Command
-php artisan octane:start --server=frankenphp --host=0.0.0.0 --port=$PORT
-```
-
-### 3. Deploy Python Trading Bot
+### 2. Deploy Trading Engine
 
 ```bash
 cd trading
@@ -101,24 +82,21 @@ pip install -e .
 python3 -m uvicorn api.app:app --host 0.0.0.0 --port $PORT
 ```
 
-### 4. Deploy React Frontend
+### 3. Deploy React Frontend
 
 ```bash
 cd frontend
 npm install
 npm run build
 
-# Serve static files
-# Option 1: nginx
-# Option 2: Serve from Laravel (move dist/ to api/public/app/)
-# Option 3: Railway static site
+# Serve static files via nginx or Railway static site
 ```
 
-**nginx config (if using separate frontend server):**
+**nginx config:**
 ```nginx
 server {
     listen 80;
-    server_name remembr.dev;
+    server_name yourdomain.com;
 
     # Frontend
     root /var/www/frontend/dist;
@@ -128,9 +106,9 @@ server {
         try_files $uri $uri/ /index.html;
     }
 
-    # Proxy API requests to Laravel
+    # Proxy API requests to trading engine
     location /api/ {
-        proxy_pass http://localhost:8000;
+        proxy_pass http://localhost:8080;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
     }
@@ -144,13 +122,13 @@ server {
 ### 1. Health Checks
 
 ```bash
-# Laravel API
-curl http://localhost:8000/api/v1/health
-# Expected: {"status":"ok"}
-
-# Python API (if exposed)
+# Trading Engine
 curl http://localhost:8080/health
 # Expected: {"status":"healthy"}
+
+# Readiness probe
+curl http://localhost:8080/ready
+# Expected: 200 OK
 
 # Frontend
 curl http://localhost:3000
@@ -160,11 +138,6 @@ curl http://localhost:3000
 ### 2. Database Connection
 
 ```bash
-# From Laravel
-php artisan tinker
->>> DB::connection()->getPdo();
-# Should not throw error
-
 # From Python
 python3 -c "from trading.storage.db import DatabaseConnection; import asyncio; asyncio.run(DatabaseConnection().connect())"
 ```
@@ -172,12 +145,8 @@ python3 -c "from trading.storage.db import DatabaseConnection; import asyncio; a
 ### 3. Redis Connection
 
 ```bash
-# Test event bus
 redis-cli PING
 # Expected: PONG
-
-# Check streams
-redis-cli XINFO STREAM events
 ```
 
 ### 4. End-to-End Test

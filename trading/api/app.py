@@ -235,7 +235,7 @@ def _setup_agent_runtime(
         )
 
     from data.tradingview import TradingViewContextFetcher
-    
+
     # Extract raw redis client from event bus if available
     redis_client = getattr(event_bus, "_redis", None)
     tv_fetcher = TradingViewContextFetcher(redis_client) if redis_client else None
@@ -2076,6 +2076,9 @@ def create_app(
     from api.routes import competition as competition_route
 
     app.include_router(competition_route.router)
+    from api.routes import arena as arena_route
+
+    app.include_router(arena_route.router)
     from api.routes.memory import router as memory_router
 
     app.include_router(memory_router)

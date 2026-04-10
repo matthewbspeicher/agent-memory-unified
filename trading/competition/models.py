@@ -760,3 +760,148 @@ class LineageResponse(BaseModel):
     breeding_count: int
     can_breed: bool
     mutations: list[MutationResponse]
+
+
+# ── Arena Gym / Escape Room System ──
+
+DEFAULT_TOOLS = [
+    "fs_read",
+    "fs_list",
+    "exec_python",
+    "db_query",
+    "db_schema",
+    "state",
+    "submit_flag",
+]
+
+
+class RoomType(str, Enum):
+    DETERMINISTIC = "deterministic"
+    LLM_DRIVEN = "llm_driven"
+    DOCKER = "docker"
+
+
+class ChallengeStatus(str, Enum):
+    ACTIVE = "active"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class ArenaGym(BaseModel):
+    id: str
+    name: str
+    description: str
+    room_type: RoomType
+    difficulty: int
+    xp_reward: int
+    max_turns: int = 20
+    icon: str = "🔐"
+
+
+class ArenaChallenge(BaseModel):
+    id: str
+    gym_id: str
+    name: str
+    description: str
+    prompt: str
+    room_type: RoomType
+    config: dict
+    flag_hash: str
+    difficulty: int
+    xp_reward: int
+    max_turns: int = 20
+    tools: list[str] = Field(default_factory=lambda: DEFAULT_TOOLS.copy())
+    created_at: datetime | None = None
+
+
+class ArenaSession(BaseModel):
+    id: str
+    challenge_id: str
+    agent_id: str
+    current_state: str = "start"
+    inventory: list[str] = Field(default_factory=list)
+    turn_count: int = 0
+    score: float = 0.0
+    status: ChallengeStatus = ChallengeStatus.ACTIVE
+    completed_at: datetime | None = None
+
+
+class ArenaTurn(BaseModel):
+    id: str
+    session_id: str
+    turn_number: int
+    tool_name: str
+    tool_input: dict
+    tool_output: str
+    score_delta: float = 0.0
+    created_at: datetime | None = None
+
+
+class ArenaMatch(BaseModel):
+    id: str
+    challenge_id: str
+    competitor_a_id: str
+    competitor_b_id: str
+    session_a_id: str | None = None
+    session_b_id: str | None = None
+    winner_id: str | None = None
+    status: str = "pending"
+    created_at: datetime | None = None
+    completed_at: datetime | None = None
+
+
+class ToolExecution(BaseModel):
+    tool_name: str
+    kwargs: dict
+
+
+class ToolResult(BaseModel):
+    success: bool
+    output: str
+    new_state: str | None = None
+    new_item: str | None = None
+
+
+class ArenaGymResponse(BaseModel):
+    id: str
+    name: str
+    description: str
+    room_type: str
+    difficulty: int
+    xp_reward: int
+    max_turns: int
+    icon: str
+    challenge_count: int
+
+
+class ArenaChallengeResponse(BaseModel):
+    id: str
+    gym_id: str
+    name: str
+    description: str
+    prompt: str
+    room_type: str
+    difficulty: int
+    xp_reward: int
+    max_turns: int
+    tools: list[str]
+
+
+class ArenaSessionResponse(BaseModel):
+    id: str
+    challenge_id: str
+    agent_id: str
+    current_state: str
+    inventory: list[str]
+    turn_count: int
+    score: float
+    status: str
+
+
+class ArenaTurnResponse(BaseModel):
+    id: str
+    turn_number: int
+    tool_name: str
+    tool_input: dict
+    tool_output: str
+    score_delta: float
