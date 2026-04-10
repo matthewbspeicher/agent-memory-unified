@@ -17,12 +17,8 @@ async def award_arena_completion_rewards(
     session_data: dict,
     challenge_data: dict,
 ) -> dict:
-    rewards: dict[str, int | str | None] = {
-        "xp_awarded": 0,
-        "xp_source": None,
-        "bonus_xp": 0,
-        "total_xp": 0,
-    }
+    xp_awarded = 0
+    bonus_xp = 0
 
     score = session_data.get("score", 0)
     turn_count = session_data.get("turn_count", 0)
@@ -34,18 +30,13 @@ async def award_arena_completion_rewards(
         xp_amount = max(xp_amount, 10)
 
         try:
-            xp_result = await store.award_xp(
+            await store.award_xp(
                 competitor_id=competitor_id,
                 asset=asset,
                 source=XpSource.MISSION_COMPLETE,
                 amount=xp_amount,
             )
-            rewards["xp_awarded"] = xp_amount
-            rewards["xp_source"] = "challenge_complete"
-            rewards["total_xp"] = xp_amount
-            logger.info(
-                f"Awarded {xp_amount} XP to {competitor_id} for arena challenge completion"
-            )
+            xp_awarded = xp_amount
         except Exception as e:
             logger.error(f"Failed to award XP: {e}")
 
@@ -59,13 +50,15 @@ async def award_arena_completion_rewards(
                 source=XpSource.STREAK_MILESTONE,
                 amount=bonus,
             )
-            rewards["bonus_xp"] = bonus
-            rewards["total_xp"] += bonus
-            logger.info(f"Awarded {bonus} bonus XP for efficiency")
+            bonus_xp = bonus
         except Exception as e:
             logger.error(f"Failed to award bonus XP: {e}")
 
-    return rewards
+    return {
+        "xp_awarded": xp_awarded,
+        "bonus_xp": bonus_xp,
+        "total_xp": xp_awarded + bonus_xp,
+    }
 
 
 def get_arena_achievement_checks(
