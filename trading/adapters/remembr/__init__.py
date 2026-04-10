@@ -7,7 +7,6 @@ from .exceptions import (
 )
 from .models import TradeResult, Position, TradingStats
 from .trading import TradingJournal
-from .turbo import TurboQuantIndex
 
 __all__ = [
     "RemembrClient",
@@ -20,5 +19,4 @@ __all__ = [
     "Position",
     "TradingStats",
     "TradingJournal",
-    "TurboQuantIndex",
 ]
