@@ -57,6 +57,8 @@ dependencies = [
     "bittensor>=10.2.0",
     # Supabase
     "supabase>=2.0.0",
+    # Database ORM
+    "sqlmodel>=0.0.16",
 ]
 
 [project.optional-dependencies]

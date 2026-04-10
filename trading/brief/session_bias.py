@@ -169,7 +169,8 @@ class SessionBiasGenerator:
         """Generate fresh session bias for today."""
         rules = self._rules_loader.get()
         snapshot = await self._gather_market_snapshot(rules)
-        today = date.today().isoformat()
+        today_date = date.today()
+        today = today_date.isoformat()
 
         prompt = BIAS_PROMPT.format(
             bullish_criteria="; ".join(rules.session_bias.bullish_criteria),
@@ -190,13 +191,36 @@ class SessionBiasGenerator:
             report = await self._fallback_bias(today, rules)
 
         # Persist to daily_briefs table (as JSON)
-        now = datetime.now(timezone.utc).isoformat()
+        now_dt = datetime.now(timezone.utc)
         report_json = json.dumps(report.to_dict())
-        await self._db.execute(
-            "INSERT OR REPLACE INTO daily_briefs (date, brief_text, created_at) VALUES (?, ?, ?)",
-            (today, report_json, now),
-        )
-        await self._db.commit()
+        
+        try:
+            # Postgres / asyncpg path
+            await self._db.execute(
+                "INSERT INTO daily_briefs (date, brief_text, created_at) VALUES ($1, $2, $3) ON CONFLICT (date) DO UPDATE SET brief_text = EXCLUDED.brief_text, created_at = EXCLUDED.created_at",
+                today_date, report_json, now_dt,
+            )
+        except Exception:
+            # Fallback to sqlite format
+            try:
+                await self._db.execute(
+                    "INSERT OR REPLACE INTO daily_briefs (date, brief_text, created_at) VALUES (?, ?, ?)",
+                    (today, report_json, now_dt.isoformat()),
+                )
+            except Exception:
+                await self._db.execute(
+                    "INSERT OR REPLACE INTO daily_briefs (date, brief_text, created_at) VALUES (?, ?, ?)",
+                    (today_date, report_json, now_dt),
+                )
+            
+        # Add support for asyncpg/aiosqlite commit difference
+        if hasattr(self._db, 'commit'):
+            if callable(self._db.commit):
+                import inspect
+                if inspect.iscoroutinefunction(self._db.commit):
+                    await self._db.commit()
+                else:
+                    self._db.commit()
 
         self._cached_bias = report
         self._cached_date = today
