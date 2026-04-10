@@ -1,6 +1,6 @@
 # The Gladiators & The Bookie Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Implement the Gladiator LLM wrapper to connect AI personas to the arena, and the Bookie market engine to drive real-time stock-style betting based on arena events.
 
@@ -16,7 +16,7 @@
 - Create: `trading/agents/gladiator.py`
 - Test: `trading/shared/tests/test_gladiator.py`
 
-- [ ] **Step 1: Write the failing test for the Gladiator base class**
+- [x] **Step 1: Write the failing test for the Gladiator base class**
 
 ```python
 import pytest
@@ -29,12 +29,12 @@ def test_gladiator_init():
     assert "logical" in g.system_prompt.lower()
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `pytest trading/shared/tests/test_gladiator.py -v`
 Expected: FAIL with "ModuleNotFoundError: No module named 'trading.agents.gladiator'"
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```python
 from enum import Enum
@@ -73,12 +73,12 @@ class Gladiator:
         return {}
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `pytest trading/shared/tests/test_gladiator.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add trading/shared/tests/test_gladiator.py trading/agents/gladiator.py
@@ -93,7 +93,7 @@ git commit -m "feat: implement Gladiator base class and personas"
 - Create: `trading/economy/bookie.py`
 - Test: `trading/shared/tests/test_bookie.py`
 
-- [ ] **Step 1: Write the failing test for the Bookie engine**
+- [x] **Step 1: Write the failing test for the Bookie engine**
 
 ```python
 import pytest
@@ -112,12 +112,12 @@ def test_bookie_price_update():
     assert market.get_price("agent_1") == 10.625 # 12.50 - 15%
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `pytest trading/shared/tests/test_bookie.py -v`
 Expected: FAIL with "ModuleNotFoundError"
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```python
 from typing import Dict, Any
@@ -150,12 +150,12 @@ class BookieMarket:
             self.agent_prices[agent_id] = current_price * 0.99 # -1%
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `pytest trading/shared/tests/test_bookie.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add trading/shared/tests/test_bookie.py trading/economy/bookie.py

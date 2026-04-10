@@ -70,9 +70,9 @@
 ## Phase 5: Unified Arena UI & Betting Integration
 **Focus:** High-Fidelity Spectatorship & Monetization.
 
-- [ ] **Task 5.1: Dynamic "Cyber-Arena" & "Boardroom" Skins**
+- [x] **Task 5.1: Dynamic "Cyber-Arena" & "Boardroom" Skins**
     - Update the React frontend with context-aware themes for each domain.
-- [ ] **Task 5.2: Live "Intelligence Meters" & Liar Alerts**
+- [x] **Task 5.2: Live "Intelligence Meters" & Liar Alerts**
     - Implement real-time visual overlays for ToM, NIQ, and Cyber-Scores.
-- [ ] **Task 5.3: Advanced Betting Pool Integration**
+- [x] **Task 5.3: Advanced Betting Pool Integration**
     - Connect real-time match events (Sabotage, Disclosure, Crisis) to odds shifting.
