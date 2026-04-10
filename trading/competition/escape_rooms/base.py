@@ -13,3 +13,10 @@ class EscapeRoomEnvironment(ABC):
     @abstractmethod
     def verify_flag(self, flag: str) -> bool:
         pass
+
+    def tick(self) -> None:
+        """
+        Advance the environment by one step or cycle.
+        Override to implement active timers or round transitions.
+        """
+        pass

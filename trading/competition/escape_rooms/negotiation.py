@@ -50,16 +50,25 @@ class NegotiationEnvironment(EscapeRoomEnvironment):
         elif self.state == NegotiationState.CLOSING:
             self.state = NegotiationState.POST_MORTEM
 
+    def tick(self) -> None:
+        """Actively evaluates the 10-minute timer."""
+        if self.state == NegotiationState.NEGOTIATION_LOOP:
+            if self.start_time and (time.time() - self.start_time > 600):
+                self.state = NegotiationState.POST_MORTEM
+                self.match_log.append("TIME UP. Deal collapsed.")
+
     async def execute_tool(self, tool_name: str, kwargs: Dict[str, Any]) -> str:
         """Processes negotiation drafting, signing, and audit tools."""
         agent_id = kwargs.get("agent_id", 0)
 
+        # Enforce timer dynamically
+        self.tick()
+        
+        # If the tick just pushed us to POST_MORTEM due to timeout, return the error
+        if self.state == NegotiationState.POST_MORTEM and "TIME UP. Deal collapsed." in self.match_log[-1:]:
+             return "Error: Time has expired. The deal collapsed."
+
         if self.state == NegotiationState.NEGOTIATION_LOOP:
-            # Enforce 10-minute timer (600 seconds)
-            if self.start_time and (time.time() - self.start_time > 600):
-                self.state = NegotiationState.POST_MORTEM
-                self.match_log.append("TIME UP. Deal collapsed.")
-                return "Error: Time has expired. The deal collapsed."
                 
             # Shared Drafting Tools
             if tool_name == "propose_clause":

@@ -98,10 +98,13 @@ class GauntletEnvironment(EscapeRoomEnvironment):
                     self.puzzle.servers[target] = {"error": "CORRUPTED DATA"}
             elif self.puzzle_type == "sql" and isinstance(self.puzzle, SQLPuzzle):
                 try:
-                    cur = self.puzzle.conn.cursor()
-                    cur.execute(f"DROP TABLE IF EXISTS {target}")
-                    self.puzzle.conn.commit()
-                except:
+                    # Fix SQL Injection: Only allow dropping known tables
+                    allowed_tables = ["_tmp_v42", "_sys_x99"]
+                    if target in allowed_tables:
+                        cur = self.puzzle.conn.cursor()
+                        cur.execute(f"DROP TABLE IF EXISTS {target}")
+                        self.puzzle.conn.commit()
+                except sqlite3.Error:
                     pass
                     
             self.sandbox.system_alerts.append(f"Resource {target} corrupted by unknown.")
