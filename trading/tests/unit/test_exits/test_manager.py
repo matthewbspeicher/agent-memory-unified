@@ -130,11 +130,11 @@ class TestComputeDefaultExitsPrediction:
         assert len(rules) == 1
         assert isinstance(rules[0], ProbabilityTrailingStop)
 
-    def test_prediction_with_expiry_returns_pre_expiry_and_trailing(self):
+    def test_prediction_with_expiry_returns_theta_pre_expiry_and_trailing(self):
         from broker.models import AssetType
         from decimal import Decimal
         from datetime import datetime, timezone, timedelta
-        from exits.rules import PreExpiryExit, ProbabilityTrailingStop
+        from exits.rules import PreExpiryExit, ProbabilityTrailingStop, ThetaDecayExit
 
         em = self._em()
         expiry = datetime.now(timezone.utc) + timedelta(hours=10)
@@ -144,9 +144,10 @@ class TestComputeDefaultExitsPrediction:
             asset_type=AssetType.PREDICTION,
             contract_expires_at=expiry,
         )
-        assert len(rules) == 2
-        assert isinstance(rules[0], PreExpiryExit)
-        assert isinstance(rules[1], ProbabilityTrailingStop)
+        assert len(rules) == 3
+        assert isinstance(rules[0], ThetaDecayExit)
+        assert isinstance(rules[1], PreExpiryExit)
+        assert isinstance(rules[2], ProbabilityTrailingStop)
 
     def test_equity_defaults_unchanged(self):
         from decimal import Decimal

@@ -817,6 +817,10 @@ async def init_db(db: aiosqlite.Connection) -> None:
         ("profit_factor", "REAL"),
         ("total_trades", "INTEGER"),
         ("open_positions", "INTEGER"),
+        ("consecutive_losses", "INTEGER DEFAULT 0"),
+        ("max_consecutive_losses", "INTEGER DEFAULT 0"),
+        ("consecutive_wins", "INTEGER DEFAULT 0"),
+        ("max_consecutive_wins", "INTEGER DEFAULT 0"),
     ]:
         try:
             await db.execute(
@@ -861,6 +865,10 @@ async def init_db_postgres(db) -> None:
         ("performance_snapshots", "profit_factor", "REAL"),
         ("performance_snapshots", "total_trades", "INTEGER"),
         ("performance_snapshots", "open_positions", "INTEGER"),
+        ("performance_snapshots", "consecutive_losses", "INTEGER DEFAULT 0"),
+        ("performance_snapshots", "max_consecutive_losses", "INTEGER DEFAULT 0"),
+        ("performance_snapshots", "consecutive_wins", "INTEGER DEFAULT 0"),
+        ("performance_snapshots", "max_consecutive_wins", "INTEGER DEFAULT 0"),
         ("bittensor_derived_views", "evaluation_status", "TEXT DEFAULT 'pending'"),
     ]
     for table, col, col_def in _migrations:

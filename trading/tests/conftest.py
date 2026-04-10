@@ -49,6 +49,8 @@ _TEST_DDL = [
         avg_win TEXT DEFAULT '0', avg_loss TEXT DEFAULT '0',
         profit_factor REAL, total_trades INTEGER DEFAULT 0,
         open_positions INTEGER DEFAULT 0,
+        consecutive_losses INTEGER DEFAULT 0,
+        consecutive_wins INTEGER DEFAULT 0,
         created_at TEXT NOT NULL DEFAULT (datetime('now'))
     )""",
     """CREATE TABLE IF NOT EXISTS tracked_positions (
@@ -66,6 +68,11 @@ _TEST_DDL = [
     """CREATE TABLE IF NOT EXISTS risk_events (
         id INTEGER PRIMARY KEY AUTOINCREMENT, event_type TEXT NOT NULL,
         details TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )""",
+    """CREATE TABLE IF NOT EXISTS trade_executions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, opportunity_id TEXT,
+        order_result TEXT NOT NULL, risk_evaluation TEXT, agent_name TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
     )""",
 ]
 

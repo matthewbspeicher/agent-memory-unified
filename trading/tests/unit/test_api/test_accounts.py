@@ -3,13 +3,14 @@ from unittest.mock import AsyncMock
 from broker.models import Account, AccountBalance, Position, Symbol
 
 HEADERS = {"X-API-Key": "test-key"}
+PREFIX = "/engine/v1/trading/accounts"
 
 
 def test_list_accounts(client, mock_broker):
     mock_broker.account.get_accounts = AsyncMock(
         return_value=[Account(account_id="U12345"), Account(account_id="U67890")]
     )
-    resp = client.get("/accounts", headers=HEADERS)
+    resp = client.get(f"{PREFIX}", headers=HEADERS)
     assert resp.status_code == 200
     assert len(resp.json()) == 2
     assert resp.json()[0]["account_id"] == "U12345"
@@ -28,7 +29,7 @@ def test_get_positions(client, mock_broker):
             )
         ]
     )
-    resp = client.get("/accounts/U12345/positions", headers=HEADERS)
+    resp = client.get(f"{PREFIX}/U12345/positions", headers=HEADERS)
     assert resp.status_code == 200
     data = resp.json()
     assert len(data) == 1
@@ -45,7 +46,7 @@ def test_get_balances(client, mock_broker):
             maintenance_margin=Decimal("10000"),
         )
     )
-    resp = client.get("/accounts/U12345/balances", headers=HEADERS)
+    resp = client.get(f"{PREFIX}/U12345/balances", headers=HEADERS)
     assert resp.status_code == 200
     data = resp.json()
     assert data["net_liquidation"] == "100000"
