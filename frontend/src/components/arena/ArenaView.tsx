@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { AgentPriceCard } from './AgentPriceCard';
 import { PropBetUI } from './PropBetUI';
-import { ArenaMatchStream } from './ArenaMatchStream';
-import { ArenaBettingForm } from './ArenaBettingForm';
+import ArenaMatchStream from './ArenaMatchStream';
+import ArenaBettingForm from './ArenaBettingForm';
 
 interface ArenaViewProps {
   session: any;

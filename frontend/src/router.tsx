@@ -1,6 +1,16 @@
 import { createBrowserRouter } from 'react-router-dom';
 import { lazy, Suspense } from 'react';
 import { Layout } from './components/Layout';
+import { ArenaView } from './components/arena';
+
+const mockArenaSession = {
+  id: 'dev-session-001',
+  status: 'active' as const,
+  turn_count: 0,
+  score: 0,
+  turns: []
+};
+
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import CheckEmail from './pages/CheckEmail';
@@ -26,6 +36,7 @@ const AgentProfile = lazy(() => import('./pages/AgentProfile'));
 const HeadToHead = lazy(() => import('./pages/HeadToHead'));
 const BittensorNode = lazy(() => import('./pages/BittensorNode'));
 const FleetDashboard = lazy(() => import('./pages/FleetDashboard'));
+const TradingDashboard = lazy(() => import('./pages/TradingDashboard'));
 
 function LazyPage({ children }: { children: React.ReactNode }) {
   return (
@@ -88,7 +99,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'arena',
-        element: <LazyPage><Arena /></LazyPage>,
+        element: <ArenaView session={mockArenaSession} />,
       },
       {
         path: 'arena/gyms/:id',
@@ -121,6 +132,10 @@ export const router = createBrowserRouter([
       {
         path: 'fleet',
         element: <LazyPage><FleetDashboard /></LazyPage>,
+      },
+      {
+        path: 'trading',
+        element: <LazyPage><TradingDashboard /></LazyPage>,
       },
       {
         path: 'webhooks',
