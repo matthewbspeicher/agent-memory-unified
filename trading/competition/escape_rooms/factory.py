@@ -6,6 +6,7 @@ from .cipher import CipherPuzzle
 from .deterministic import DeterministicRoom
 from .filesystem import FileSystemPuzzle
 from .gauntlet import GauntletEnvironment
+from .negotiation import NegotiationEnvironment
 from .werewolf import WerewolfEnvironment
 
 _ROOM_TYPES: dict[str, Callable[[dict[str, Any]], EscapeRoomEnvironment]] = {
@@ -13,6 +14,7 @@ _ROOM_TYPES: dict[str, Callable[[dict[str, Any]], EscapeRoomEnvironment]] = {
     "deterministic": DeterministicRoom,
     "filesystem": FileSystemPuzzle,
     "gauntlet": GauntletEnvironment,
+    "negotiation": NegotiationEnvironment,
     "werewolf": WerewolfEnvironment,
 }
 

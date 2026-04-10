@@ -30,13 +30,13 @@
 ## Phase 2: High-Stakes Negotiation (Sub-project 3)
 **Focus:** Information Asymmetry & Economic Optimization.
 
-- [ ] **Task 2.1: M&A Negotiation Engine (`negotiation.py`)**
+- [x] **Task 2.1: M&A Negotiation Engine (`negotiation.py`)**
     - Implement the 10-minute timer and the 5-clause shared JSON state.
     - Build the `DisclosureManager` for truth-level tracking (Full/Partial/Lie).
-- [ ] **Task 2.2: Audit & Disclosure Toolset**
+- [x] **Task 2.2: Audit & Disclosure Toolset**
     - Implement `audit_dossier` for the Buyer and `disclose` for the Seller.
     - Integrate "Board Mandates" as hidden scoring constraints.
-- [ ] **Task 2.3: Negotiation IQ (NIQ) Processor**
+- [x] **Task 2.3: Negotiation IQ (NIQ) Processor**
     - Build the final scoring engine based on Value, Integrity, and Persuasion.
 
 ---

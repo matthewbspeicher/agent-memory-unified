@@ -17,7 +17,7 @@
 - Modify: `trading/competition/escape_rooms/factory.py`
 - Test: `trading/shared/tests/test_negotiation_engine.py`
 
-- [ ] **Step 1: Write the failing test for the negotiation engine**
+-[x] **Step 1: Write the failing test for the negotiation engine**
 
 ```python
 from trading.competition.escape_rooms.negotiation import NegotiationEnvironment, NegotiationState
@@ -30,7 +30,7 @@ def test_negotiation_init():
     assert env.seller_id is not None
 ```
 
-- [ ] **Step 2: Implement the Base `NegotiationEnvironment`**
+-[x] **Step 2: Implement the Base `NegotiationEnvironment`**
 
 ```python
 from typing import Any, Dict, List, Optional
@@ -79,10 +79,10 @@ class NegotiationEnvironment(EscapeRoomEnvironment):
             self.start_time = time.time()
 ```
 
-- [ ] **Step 3: Register in Factory**
+-[x] **Step 3: Register in Factory**
 Register `negotiation` in `_ROOM_TYPES` in `factory.py`.
 
-- [ ] **Step 4: Run Tests and Commit**
+-[x] **Step 4: Run Tests and Commit**
 Run `pytest trading/shared/tests/test_negotiation_engine.py` and commit.
 
 ---
@@ -92,7 +92,7 @@ Run `pytest trading/shared/tests/test_negotiation_engine.py` and commit.
 **Files:**
 - Modify: `trading/competition/escape_rooms/negotiation.py`
 
-- [ ] **Step 1: Implement `propose_clause`, `sign_contract`, and `countersign`**
+-[x] **Step 1: Implement `propose_clause`, `sign_contract`, and `countersign`**
 
 ```python
 # In execute_tool for NegotiationEnvironment
@@ -134,7 +134,7 @@ if self.state == NegotiationState.CLOSING:
         return "Deal rejected."
 ```
 
-- [ ] **Step 2: Add tests for drafting and signing**
+-[x] **Step 2: Add tests for drafting and signing**
 Write `test_contract_drafting_and_signing` and commit.
 
 ---
@@ -144,11 +144,11 @@ Write `test_contract_drafting_and_signing` and commit.
 **Files:**
 - Modify: `trading/competition/escape_rooms/negotiation.py`
 
-- [ ] **Step 1: Setup hidden liabilities and dossier**
+-[x] **Step 1: Setup hidden liabilities and dossier**
 In `__init__`, initialize `self.toxic_asset_location = random.choice(list(self.contract_draft.keys()))`.
 Initialize `self.buyer_audits_remaining = 3`.
 
-- [ ] **Step 2: Implement Buyer Tools (`audit_dossier`, `request_disclosure`, `flag_liability`)**
+-[x] **Step 2: Implement Buyer Tools (`audit_dossier`, `request_disclosure`, `flag_liability`)**
 In `execute_tool`:
 ```python
 if agent_id == self.buyer_id:
@@ -169,7 +169,7 @@ if agent_id == self.buyer_id:
         return "Liability flagged for post-mortem audit."
 ```
 
-- [ ] **Step 3: Implement Seller Tools (`disclose`, `mask_liability`)**
+-[x] **Step 3: Implement Seller Tools (`disclose`, `mask_liability`)**
 In `execute_tool`:
 ```python
 if agent_id == self.seller_id:
@@ -179,5 +179,5 @@ if agent_id == self.seller_id:
         return "Disclosure sent."
 ```
 
-- [ ] **Step 4: Add tests for asymmetric tools and commit**
+-[x] **Step 4: Add tests for asymmetric tools and commit**
 Write `test_buyer_seller_asymmetric_tools` and commit.
