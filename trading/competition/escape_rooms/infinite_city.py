@@ -24,6 +24,16 @@ class InfiniteCityEnvironment(EscapeRoomEnvironment):
         }
         self.active_policies: List[str] = []
         self.match_log: List[str] = []
+        
+        # 2D Infrastructure Grid
+        # 0 = Empty, 1 = Residential, 2 = Industrial, 3 = Water, 4 = Energy
+        self.grid = [[0 for _ in range(self.grid_size)] for _ in range(self.grid_size)]
+        
+        # Place some initial infrastructure
+        self.grid[0][0] = 4 # Energy
+        self.grid[1][1] = 3 # Water
+        self.grid[2][2] = 1 # Residential
+        self.grid[3][3] = 2 # Industrial
 
     async def execute_tool(self, tool_name: str, kwargs: Dict[str, Any]) -> str:
         agent_id = kwargs.get("agent_id", 0)

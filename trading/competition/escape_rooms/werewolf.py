@@ -82,6 +82,8 @@ class WerewolfEnvironment(EscapeRoomEnvironment):
                 return self._handle_inspect(agent_id, kwargs)
             elif tool_name == "protect":
                 return self._handle_protect(agent_id, kwargs)
+            elif tool_name == "whisper":
+                return self._handle_whisper(agent_id, kwargs)
 
         # Day phase tools
         if self.state == WerewolfState.DAY:
@@ -321,6 +323,15 @@ class WerewolfEnvironment(EscapeRoomEnvironment):
 
         self.night_actions["kills"].append(target_id)
         return f"Werewolf {agent_id} targeted agent {target_id} for elimination."
+
+    def _handle_whisper(self, agent_id: int, kwargs: Dict[str, Any]) -> str:
+        """Handle werewolf private communication during night phase."""
+        if self.roles.get(agent_id) != "werewolf":
+            return "Not allowed: Only werewolves can whisper."
+        
+        message = kwargs.get("message", "")
+        self.match_log.append(f"NIGHT [WHISPER]: Werewolf {agent_id} says '{message}'")
+        return "Message broadcast to other werewolves."
 
     def _handle_inspect(self, agent_id: int, kwargs: Dict[str, Any]) -> str:
         """Handle seer inspect action during night phase."""

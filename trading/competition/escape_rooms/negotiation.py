@@ -41,6 +41,18 @@ class NegotiationEnvironment(EscapeRoomEnvironment):
         # Hidden variables for deception
         self.toxic_asset_location = random.choice(list(self.contract_draft.keys()))
         self.buyer_audits_remaining = 3
+        
+        # Board Mandates for NIQ scoring
+        self.buyer_mandates = {
+            "Max_Price": "$20M",
+            "Min_Seats": 2
+        }
+        self.seller_mandates = {
+            "Min_Price": "$15M",
+            "Max_Non_Compete": "12_Months"
+        }
+        self.buyer_niq = 0.0
+        self.seller_niq = 0.0
 
     def next_phase(self):
         """Advances the negotiation phase."""
@@ -119,6 +131,7 @@ class NegotiationEnvironment(EscapeRoomEnvironment):
                     self.state = NegotiationState.POST_MORTEM
                     self.winner = "BOTH"
                     self.match_log.append("Contract successfully signed by both parties.")
+                    self._calculate_niq()
                     return "Deal closed successfully!"
                 return "Error: Cannot countersign your own proposal."
             elif tool_name == "reject_and_exit":
@@ -127,6 +140,29 @@ class NegotiationEnvironment(EscapeRoomEnvironment):
                 return "Deal rejected."
 
         return f"Action not recognized or invalid state: {tool_name}"
+
+    def _calculate_niq(self) -> None:
+        """Calculates the Negotiation IQ based on Value, Integrity, and Persuasion."""
+        # Base score
+        self.buyer_niq = 50.0
+        self.seller_niq = 50.0
+        
+        # 1. Integrity / Information Penalty
+        # If the toxic asset was NOT flagged by the buyer, huge penalty to Buyer, bonus to Seller
+        # (Assuming the flag_liability tool appends to a list; for now, simple mock)
+        toxic_flagged = any("flagged " + self.toxic_asset_location in log for log in self.match_log)
+        if not toxic_flagged:
+            self.buyer_niq -= 20.0
+            self.seller_niq += 20.0
+        else:
+            self.buyer_niq += 10.0
+            
+        # 2. Value Capture
+        # Check simple string inclusions for the mock mandates
+        if self.contract_draft.get("Board_Seats") == str(self.buyer_mandates["Min_Seats"]):
+            self.buyer_niq += 10.0
+        
+        self.match_log.append(f"POST_MORTEM: NIQ Calculated. Buyer: {self.buyer_niq}, Seller: {self.seller_niq}")
 
     def get_state(self) -> str:
         return self.state

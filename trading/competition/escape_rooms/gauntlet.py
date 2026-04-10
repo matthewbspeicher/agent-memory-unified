@@ -53,6 +53,32 @@ class NetworkPuzzle:
     def query_server(self, server_id: str) -> str:
         return str(self.servers.get(server_id, "Host unreachable"))
 
+class BugFixPuzzle:
+    def __init__(self):
+        self.code = "def calculate_total(prices):\n    total = 0\n    for p in prices:\n        total -= p\n    return total\n"
+        
+    def patch_code(self, new_code: str) -> str:
+        self.code = new_code
+        return "Code updated."
+        
+    def run_tests(self) -> str:
+        try:
+            # We mock the test execution for safety
+            local_vars = {}
+            exec(self.code, {}, local_vars)
+            func = local_vars.get("calculate_total")
+            
+            if not func:
+                return "FAIL: Function calculate_total not found."
+                
+            res = func([10, 20, 30])
+            if res == 60:
+                return "PASS: All tests passing! FLAG{bug_squasher}"
+            else:
+                return f"FAIL: Expected 60, got {res}."
+        except Exception as e:
+            return f"FAIL: Execution error - {str(e)}"
+
 class GauntletEnvironment(EscapeRoomEnvironment):
     """
     Multi-agent Adversarial Escape Room testing complex tool chaining and resilience.
@@ -71,6 +97,8 @@ class GauntletEnvironment(EscapeRoomEnvironment):
             self.puzzle = SQLPuzzle()
         elif self.puzzle_type == "network":
             self.puzzle = NetworkPuzzle()
+        elif self.puzzle_type == "bugfix":
+            self.puzzle = BugFixPuzzle()
 
     async def execute_tool(self, tool_name: str, kwargs: Dict[str, Any]) -> str:
         """
@@ -123,6 +151,13 @@ class GauntletEnvironment(EscapeRoomEnvironment):
         if self.puzzle_type == "network" and tool_name == "query_server":
             server_id = kwargs.get("server_id", "")
             return self.puzzle.query_server(server_id)
+            
+        if self.puzzle_type == "bugfix":
+            if tool_name == "patch_code":
+                new_code = kwargs.get("new_code", "")
+                return self.puzzle.patch_code(new_code)
+            if tool_name == "run_tests":
+                return self.puzzle.run_tests()
 
         return f"Action not recognized: {tool_name}"
 
