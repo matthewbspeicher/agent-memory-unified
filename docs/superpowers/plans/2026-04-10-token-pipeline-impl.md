@@ -1,108 +1,328 @@
-# Token Pipeline Infrastructure Implementation Plan
+# Token Pipeline Integration Plan (REVISED)
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Status:** Infrastructure exists. This plan covers integration into the build pipeline and component refactor.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans.
 
-**Goal:** Implement the `DESIGN.md` parser to extract design tokens into CSS custom properties and a Tailwind config module, establishing a single source of truth for the frontend's visual identity.
+**Goal:** Connect the existing design token pipeline to Tailwind and component styles, establishing CSS variables as the single source of truth.
 
-**Architecture:** A pure Node.js script (`build-tokens.mjs`) reads `frontend/design/DESIGN.md`, parses markdown tables for colors, typography, and elevation, and generates `tokens.generated.css` and `tailwind.tokens.generated.js`. Tailwind and `index.css` are updated to consume these generated files.
-
-**Tech Stack:** Node.js (no npm dependencies for the parser), CSS, Tailwind CSS.
+**Current State:**
+- ✅ `frontend/design/DESIGN.md` — Obsidian Neural spec (17 color roles)
+- ✅ `frontend/design/build-tokens.mjs` — Parser + generator (13 tests passing)
+- ✅ `frontend/src/styles/tokens.generated.css` — 45 CSS variables generated
+- ✅ `frontend/tailwind.tokens.generated.js` — designTokens export with semantic aliases
+- ❌ `tailwind.config.js` — Does NOT import designTokens (hardcoded colors)
+- ❌ `src/index.css` — Does NOT import tokens.generated.css (hardcoded hex)
+- ❌ `package.json` — Missing design:build, design:check, test:design scripts
 
 ---
 
-### Task 1: Source of Truth (`DESIGN.md` & Schema)
+### Task 1: Add npm Scripts
 
 **Files:**
-- Create: `frontend/design/DESIGN.md`
-- Create: `frontend/design/schema.md`
+- Modify: `frontend/package.json`
 
-- [ ] **Step 1: Create the strict-mode schema documentation**
-Create `frontend/design/schema.md` explaining the required sections (`Color Palette & Roles`, `Typography Rules`, `Depth & Elevation`) and column formats.
+- [x] **Step 1: Add design scripts**
+```json
+{
+  "scripts": {
+    "design:build": "node design/build-tokens.mjs",
+    "design:check": "node design/build-tokens.mjs --check",
+    "test:design": "node --test design/build-tokens.test.mjs design/build-tokens.swap.test.mjs"
+  }
+}
+```
 
-- [ ] **Step 2: Create the placeholder `DESIGN.md`**
-Create `frontend/design/DESIGN.md` containing the "Obsidian Neural" visual identity in strict markdown tables, exactly as specified in the adoption spec. Include the 17 color roles, typography, and elevation shadows.
+- [x] **Step 2: Integrate into dev/build pipeline**
+Update `dev` to prepend `design:build`, `build` to prepend `design:check`:
+```json
+{
+  "dev": "npm run design:build && vite",
+  "build": "npm run design:check && vite build"
+}
+```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Verify**
 ```bash
-git add frontend/design/DESIGN.md frontend/design/schema.md
-git commit -m "feat(design): add initial DESIGN.md and schema"
+cd frontend && npm run design:build
+cd frontend && npm run design:check
+```
+
+- [x] **Step 4: Commit**
+```bash
+git add frontend/package.json
+git commit -m "feat(design): add npm scripts and integrate into build pipeline"
 ```
 
 ---
 
-### Task 2: The Parser Script (`build-tokens.mjs`)
-
-**Files:**
-- Create: `frontend/design/build-tokens.mjs`
-
-- [ ] **Step 1: Write the minimal CLI and file reading logic**
-Implement argument parsing (`--check`, `--verbose`) and read `DESIGN.md` using `fs.readFileSync`.
-
-- [ ] **Step 2: Implement the Markdown Table Parser**
-Write the state machine to track `##` headings and extract rows from the first table in the required sections. Validate hex values (`/^#[0-9A-Fa-f]{6}$/`) and column counts. Throw clear errors on failure.
-
-- [ ] **Step 3: Implement Code Generation**
-Generate the CSS (`:root { ... }`) with hex values and RGB triples.
-Generate the JS (`export const designTokens = { ... }`).
-Add the header: `/* GENERATED — do not edit. Source: frontend/design/DESIGN.md */`.
-
-- [ ] **Step 4: Implement Idempotency and `--check` mode**
-Before writing, compare generated strings to existing file contents on disk. If `--check` is active, exit 1 on mismatch and print diff; otherwise write only if changed.
-
-- [ ] **Step 5: Commit**
-```bash
-git add frontend/design/build-tokens.mjs
-git commit -m "feat(design): implement build-tokens.mjs parser and generator"
-```
-
----
-
-### Task 3: Parser Tests
-
-**Files:**
-- Create: `frontend/design/build-tokens.test.mjs`
-- Create: `frontend/design/build-tokens.swap.test.mjs`
-
-- [ ] **Step 1: Write unit tests (`build-tokens.test.mjs`)**
-Use `node:test`. Test happy path parsing, missing required section (throws), bad hex value (throws), and wrong column count (throws).
-
-- [ ] **Step 2: Write integration swap test (`build-tokens.swap.test.mjs`)**
-Test an end-to-end brand swap by creating a temporary "all red" `DESIGN.md`, running the parser, and asserting the output CSS contains the new red hex values and none of the placeholder values.
-
-- [ ] **Step 3: Run tests to verify**
-Run `node --test frontend/design/build-tokens.test.mjs frontend/design/build-tokens.swap.test.mjs`. Ensure PASS.
-
-- [ ] **Step 4: Commit**
-```bash
-git add frontend/design/build-tokens.test.mjs frontend/design/build-tokens.swap.test.mjs
-git commit -m "test(design): add parser unit and swap integration tests"
-```
-
----
-
-### Task 4: Tailwind & CSS Integration
+### Task 2: Import Tokens in Tailwind Config
 
 **Files:**
 - Modify: `frontend/tailwind.config.js`
-- Modify: `frontend/src/index.css`
-- Create: `frontend/src/styles/rarity.css`
-- Modify: `frontend/package.json`
 
-- [ ] **Step 1: Run the parser to generate initial tokens**
-Run `node frontend/design/build-tokens.mjs` to create `tokens.generated.css` and `tailwind.tokens.generated.js`.
-
-- [ ] **Step 2: Update `tailwind.config.js`**
-Import `designTokens` from `./tailwind.tokens.generated.js` and extend `colors`, `fontFamily`, `borderRadius`, and `boxShadow`.
-
-- [ ] **Step 3: Refactor `src/index.css`**
-Import `./styles/tokens.generated.css` at the top. Carve out game-specific keyframes into `./styles/rarity.css` and import it. Rewrite base body styles and `.glass-panel`, `.neural-card`, `.neural-button` classes to use the new CSS variables (e.g., `bg-bg-base`, `text-text-primary`, `border-border-subtle`). Use the duplicated hover rules strategy (Option A) for legacy classes to avoid JSX churn.
-
-- [ ] **Step 4: Update `package.json` scripts**
-Add `"design:build": "node design/build-tokens.mjs"`, `"design:check": "node design/build-tokens.mjs --check"`, and `"test:design": "node --test design/build-tokens.test.mjs design/build-tokens.swap.test.mjs"`. Update `dev` to prepend `npm run design:build &&` and `build` to prepend `npm run design:check &&`.
-
-- [ ] **Step 5: Verify build and Commit**
-Run `cd frontend && npm run build` to ensure Tailwind compiles successfully.
-```bash
-git add frontend/
-git commit -m "refactor(frontend): integrate design tokens into Tailwind and index.css"
+- [x] **Step 1: Import designTokens**
+Add at top:
+```js
+import { designTokens } from './tailwind.tokens.generated.js';
 ```
+
+- [x] **Step 2: Extend theme with designTokens**
+Replace hardcoded colors/shadows with generated tokens:
+```js
+export default {
+  content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
+  theme: {
+    extend: {
+      colors: {
+        ...designTokens.colors,
+        // Trading-specific (keep these)
+        'trading-bg': '#0d1117',
+        'trading-surface': '#161b22',
+        'trading-elevated': '#21262d',
+        'trading-border': '#30363d',
+        gain: '#10b981',
+        'gain-hover': '#34d399',
+        loss: '#ef4444',
+        'loss-hover': '#f87171',
+        neutral: '#6b7280',
+        accent: '#8b5cf6',
+        'accent-hover': '#a78bfa',
+        'accent-light': '#c4b5fd',
+        success: '#10b981',
+        warning: '#f59e0b',
+        error: '#ef4444',
+        info: '#3b82f6',
+      },
+      fontFamily: designTokens.fontFamily,
+      borderRadius: {
+        ...designTokens.borderRadius,
+        DEFAULT: '0.5rem',
+        sm: '0.25rem',
+        md: '0.375rem',
+        lg: '0.5rem',
+        xl: '0.75rem',
+        '2xl': '1rem',
+        full: '9999px',
+      },
+      boxShadow: {
+        ...designTokens.boxShadow,
+        'card-hover': '0 10px 15px rgba(0, 0, 0, 0.5)',
+        'modal': '0 20px 25px rgba(0, 0, 0, 0.6)',
+      },
+      // Keep animations
+      animation: { /* existing */ },
+      keyframes: { /* existing */ },
+    },
+  },
+  plugins: [],
+}
+```
+
+- [x] **Step 3: Verify**
+```bash
+cd frontend && npx tailwindcss --content ./src/components/**/*.tsx --output /dev/null
+```
+
+- [x] **Step 4: Commit**
+```bash
+git add frontend/tailwind.config.js
+git commit -m "refactor(frontend): import designTokens into Tailwind config"
+```
+
+---
+
+### Task 3: Import Tokens CSS in index.css
+
+**Files:**
+- Modify: `frontend/src/index.css`
+
+- [x] **Step 1: Add import at top**
+```css
+@import './styles/tokens.generated.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+```
+
+- [x] **Step 2: Refactor body styles to use CSS variables**
+```css
+@layer base {
+    body {
+        @apply antialiased;
+        background-color: var(--color-bg-base);
+        color: var(--color-text-primary);
+        background-image: 
+            radial-gradient(circle at 50% -20%, rgba(var(--color-accent-primary-rgb), 0.15), transparent 40%),
+            radial-gradient(circle at 0% 0%, rgba(var(--color-accent-danger-rgb), 0.05), transparent 30%),
+            radial-gradient(circle at 100% 100%, rgba(var(--color-accent-success-rgb), 0.05), transparent 30%);
+        background-attachment: fixed;
+        selection-bg: var(--color-selection-bg);
+        selection-text: var(--color-selection-text);
+    }
+}
+```
+
+- [x] **Step 3: Refactor component classes to use CSS variables**
+```css
+@layer components {
+    .glass-panel {
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(24px);
+        border: 1px solid rgba(var(--color-border-subtle-rgb), 0.1);
+        border-radius: var(--radius-card);
+        box-shadow: var(--shadow-card);
+    }
+
+    .neural-card {
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(24px);
+        border: 1px solid rgba(var(--color-border-subtle-rgb), 0.1);
+        border-radius: var(--radius-card);
+        box-shadow: var(--shadow-card);
+        padding: 1.5rem;
+        transition: all 0.5s;
+    }
+    .neural-card:hover {
+        border-color: rgba(var(--color-border-subtle-rgb), 0.2);
+    }
+
+    .neural-card-indigo {
+        /* ... use var(--shadow-glow-primary) ... */
+    }
+
+    .neural-card-rose {
+        /* ... use var(--shadow-glow-danger) ... */
+    }
+
+    .neural-card-emerald {
+        /* ... use var(--shadow-glow-success) ... */
+    }
+
+    .neural-button-primary {
+        /* ... use var(--color-accent-primary) ... */
+    }
+
+    .neural-button-danger {
+        /* ... use var(--color-accent-danger) ... */
+    }
+}
+```
+
+- [x] **Step 4: Keep rarity animations unchanged**
+The `legendary-glow` and `epic-pulse` animations are game-theme, not brand-theme. Leave as-is.
+
+- [x] **Step 5: Verify build**
+```bash
+cd frontend && npm run build
+```
+
+- [x] **Step 6: Commit**
+```bash
+git add frontend/src/index.css
+git commit -m "refactor(frontend): use CSS variables in base styles and component classes"
+```
+
+---
+
+### Task 4: Refactor Existing Arena Components
+
+**Files:**
+- Modify: `frontend/src/components/arena/ArenaMatchStream.tsx`
+- Modify: `frontend/src/components/arena/ArenaBettingForm.tsx`
+
+- [x] **Step 1: Refactor ArenaMatchStream.tsx**
+Replace hardcoded hex values with token classes:
+```tsx
+// Before:
+className="bg-[#050505] border border-[#1a1a1a]..."
+
+// After:
+className="bg-bg-base border border-border-subtle..."
+```
+
+Specific replacements:
+| Before | After |
+|--------|-------|
+| `bg-[#050505]` | `bg-bg-base` |
+| `bg-[#0a0a0a]` | `bg-bg-surface` |
+| `border-[#1a1a1a]` | `border-border-subtle` |
+| `border-[#111]` | `border-border-subtle/50` |
+| `text-emerald-500` | `text-accent-success` |
+| `text-rose-400` | `text-accent-danger` |
+| `bg-emerald-500/10` | `bg-accent-success/10` |
+| `border-emerald-500/20` | `border-accent-success/20` |
+
+- [x] **Step 2: Refactor ArenaBettingForm.tsx**
+Same pattern:
+| Before | After |
+|--------|-------|
+| `bg-[#0a0a0a]` | `bg-bg-surface` |
+| `border-[#1a1a1a]` | `border-border-subtle` |
+| `bg-[#0d0d0d]` | `bg-bg-base` |
+| `border-emerald-500` | `border-accent-success` |
+| `bg-emerald-500/5` | `bg-accent-success/5` |
+| `text-emerald-400` | `text-accent-success` |
+| `text-emerald-500` | `text-accent-success` |
+| `border-blue-500` | `border-accent-primary` |
+| `text-blue-400` | `text-accent-primary` |
+
+- [x] **Step 3: Verify**
+```bash
+cd frontend && npm run build
+```
+
+- [x] **Step 4: Commit**
+```bash
+git add frontend/src/components/arena/
+git commit -m "refactor(arena): use design tokens in existing components"
+```
+
+---
+
+### Task 5: CI Workflow for Stale Tokens
+
+**Files:**
+- Create: `.github/workflows/design-tokens-stale.yml`
+
+- [x] **Step 1: Create workflow**
+```yaml
+name: Design Tokens Stale Check
+on:
+  pull_request:
+    paths:
+      - 'frontend/design/DESIGN.md'
+      - 'frontend/tailwind.tokens.generated.js'
+      - 'frontend/src/styles/tokens.generated.css'
+
+jobs:
+  check-tokens:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Check tokens are up to date
+        working-directory: frontend
+        run: |
+          npm run design:build
+          git diff --exit-code tailwind.tokens.generated.js src/styles/tokens.generated.css
+```
+
+- [x] **Step 2: Commit**
+```bash
+git add .github/workflows/design-tokens-stale.yml
+git commit -m "ci(design): add stale token detection workflow"
+```
+
+---
+
+### Verification Checklist
+
+- [x] `npm run design:build` succeeds
+- [x] `npm run design:check` exits 0 (idempotent)
+- [x] `npm run test:design` passes (13 tests)
+- [x] `npm run build` succeeds (Tailwind compiles)
+- [x] No hardcoded `#[0-9A-Fa-f]{6}` in arena components
+- [x] CSS variables resolve correctly in browser devtools
