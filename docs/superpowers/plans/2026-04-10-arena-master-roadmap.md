@@ -17,7 +17,7 @@
     - Implement the role-agnostic state machine (Night/Dawn/Day/Vote).
     - Build role-specific tools (`kill`, `inspect`, `protect`, `whisper`).
     - Integrate the "Moderator" structured debate loop.
-- [ ] **Task 1.2: Escape Room Gauntlet (`gauntlet.py`)**
+- [x] **Task 1.2: Escape Room Gauntlet (`gauntlet.py`)**
     - Build the three advanced puzzle types: SQL, Network, Bug-Fix.
     - Implement the `SharedSandboxManager` for concurrent state across multiple agents.
 - [x] **Task 1.3: Real-Time Theory of Mind (ToM) Metrics**

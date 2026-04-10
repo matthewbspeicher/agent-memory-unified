@@ -17,7 +17,7 @@
 - Modify: `trading/competition/escape_rooms/factory.py`
 - Test: `trading/shared/tests/test_gauntlet_engine.py`
 
-- [ ] **Step 1: Write the failing test for the sandbox manager**
+-[x] **Step 1: Write the failing test for the sandbox manager**
 
 ```python
 from trading.competition.escape_rooms.gauntlet import GauntletEnvironment, SharedSandboxManager
@@ -29,7 +29,7 @@ def test_gauntlet_sandbox_init():
     assert env.state == "ACTIVE"
 ```
 
-- [ ] **Step 2: Implement the Base `GauntletEnvironment` and `SharedSandboxManager`**
+-[x] **Step 2: Implement the Base `GauntletEnvironment` and `SharedSandboxManager`**
 
 ```python
 from typing import Any, Dict, List
@@ -76,10 +76,10 @@ class GauntletEnvironment(EscapeRoomEnvironment):
         return "Action not recognized."
 ```
 
-- [ ] **Step 3: Register in Factory**
+-[x] **Step 3: Register in Factory**
 Register `gauntlet` in `_ROOM_TYPES` in `factory.py`.
 
-- [ ] **Step 4: Run Tests and Commit**
+-[x] **Step 4: Run Tests and Commit**
 Run `pytest trading/shared/tests/test_gauntlet_engine.py` and commit.
 
 ---
@@ -89,7 +89,7 @@ Run `pytest trading/shared/tests/test_gauntlet_engine.py` and commit.
 **Files:**
 - Modify: `trading/competition/escape_rooms/gauntlet.py`
 
-- [ ] **Step 1: Implement `SQLPuzzle` logic**
+-[x] **Step 1: Implement `SQLPuzzle` logic**
 
 ```python
 class SQLPuzzle:
@@ -115,10 +115,10 @@ class SQLPuzzle:
             return f"SQL Error: {str(e)}"
 ```
 
-- [ ] **Step 2: Wire `execute_sql` tool into GauntletEnvironment**
+-[x] **Step 2: Wire `execute_sql` tool into GauntletEnvironment**
 If `puzzle_type == "sql"`, route `execute_sql` tool to `self.puzzle.execute_query()`.
 
-- [ ] **Step 3: Write Test and Commit**
+-[x] **Step 3: Write Test and Commit**
 Write `test_sql_puzzle_execution` and commit.
 
 ---
@@ -128,7 +128,7 @@ Write `test_sql_puzzle_execution` and commit.
 **Files:**
 - Modify: `trading/competition/escape_rooms/gauntlet.py`
 
-- [ ] **Step 1: Implement `NetworkPuzzle` logic**
+-[x] **Step 1: Implement `NetworkPuzzle` logic**
 
 ```python
 class NetworkPuzzle:
@@ -143,7 +143,7 @@ class NetworkPuzzle:
         return str(self.servers.get(server_id, "Host unreachable"))
 ```
 
-- [ ] **Step 2: Add `query_server` tool handling and Commit**
+-[x] **Step 2: Add `query_server` tool handling and Commit**
 Add routing in `GauntletEnvironment` and write test.
 
 ---
@@ -153,7 +153,7 @@ Add routing in `GauntletEnvironment` and write test.
 **Files:**
 - Modify: `trading/competition/escape_rooms/gauntlet.py`
 
-- [ ] **Step 1: Implement `corrupt_resource` and `spoof_event` tools**
+-[x] **Step 1: Implement `corrupt_resource` and `spoof_event` tools**
 
 ```python
 # In GauntletEnvironment.execute_tool
@@ -168,5 +168,5 @@ elif tool_name == "spoof_event":
     return "Event spoofed."
 ```
 
-- [ ] **Step 2: Commit**
+-[x] **Step 2: Commit**
 Add tests for sabotage tools and commit.

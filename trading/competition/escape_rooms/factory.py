@@ -5,11 +5,15 @@ from .base import EscapeRoomEnvironment
 from .cipher import CipherPuzzle
 from .deterministic import DeterministicRoom
 from .filesystem import FileSystemPuzzle
+from .gauntlet import GauntletEnvironment
+from .werewolf import WerewolfEnvironment
 
 _ROOM_TYPES: dict[str, Callable[[dict[str, Any]], EscapeRoomEnvironment]] = {
     "cipher": CipherPuzzle,
     "deterministic": DeterministicRoom,
     "filesystem": FileSystemPuzzle,
+    "gauntlet": GauntletEnvironment,
+    "werewolf": WerewolfEnvironment,
 }
 
 
