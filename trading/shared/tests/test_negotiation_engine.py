@@ -81,10 +81,56 @@ class TestNegotiationAsymmetricTools:
     async def test_timeout_collapse(self):
         env = NegotiationEnvironment()
         env.next_phase()
-        
+
         # Mock the start time to be 11 minutes ago
         env.start_time = time.time() - 660
-        
+
         res = await env.execute_tool("propose_clause", {"agent_id": env.buyer_id, "category": "Price", "value": "10"})
         assert "Error: Time has expired" in res
         assert env.state == NegotiationState.POST_MORTEM
+        # Timeout must resolve to a checkable winner flag.
+        assert env.winner == "TIMEOUT"
+        assert env.verify_flag("TIMEOUT") is True
+
+
+class TestNegotiationTerminalPaths:
+    @pytest.mark.asyncio
+    async def test_reject_and_exit_sets_winner(self):
+        env = NegotiationEnvironment()
+        env.next_phase()
+
+        # Fill all clauses so the contract can be proposed
+        for cat in ["Price", "Board_Seats", "IP_Ownership", "Non_Compete", "Liability_Cap"]:
+            await env.execute_tool(
+                "propose_clause",
+                {"agent_id": env.buyer_id, "category": cat, "value": "Agreed"},
+            )
+
+        # Buyer proposes signature
+        await env.execute_tool("sign_contract", {"agent_id": env.buyer_id})
+        assert env.state == NegotiationState.CLOSING
+
+        # Seller rejects
+        res = await env.execute_tool(
+            "reject_and_exit", {"agent_id": env.seller_id}
+        )
+        assert "rejected" in res.lower()
+        assert env.state == NegotiationState.POST_MORTEM
+        assert env.winner == f"REJECTED_BY_{env.seller_id}"
+        assert env.verify_flag(f"REJECTED_BY_{env.seller_id}") is True
+
+    @pytest.mark.asyncio
+    async def test_successful_deal_sets_both_winner(self):
+        """Regression guard for the happy-path winner assignment."""
+        env = NegotiationEnvironment()
+        env.next_phase()
+
+        for cat in ["Price", "Board_Seats", "IP_Ownership", "Non_Compete", "Liability_Cap"]:
+            await env.execute_tool(
+                "propose_clause",
+                {"agent_id": env.buyer_id, "category": cat, "value": "Agreed"},
+            )
+        await env.execute_tool("sign_contract", {"agent_id": env.buyer_id})
+        await env.execute_tool("countersign", {"agent_id": env.seller_id})
+        assert env.winner == "BOTH"
+        assert env.verify_flag("BOTH") is True

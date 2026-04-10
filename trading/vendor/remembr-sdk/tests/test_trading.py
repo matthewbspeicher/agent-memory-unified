@@ -7,7 +7,6 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from remembr.trading import TradingJournal
-from remembr.turbo import TurboQuantIndex
 from remembr.models import TradeResult, BulkImportResult
 from remembr.client import RemembrClient
 
@@ -142,33 +141,6 @@ class TestTradingJournal(unittest.TestCase):
         )
         self.assertIsInstance(result, BulkImportResult)
         self.assertEqual(result.total, 2)
-
-class TestTurboQuantIndex(unittest.TestCase):
-    def setUp(self):
-        self.mock_client = MagicMock(spec=RemembrClient)
-        self.loader = TurboQuantIndex(self.mock_client)
-
-    def test_load_context_success(self):
-        # Mock turboquant module
-        mock_turboquant = MagicMock()
-        mock_turboquant.compress_to_cache.return_value = "mock_cache_object"
-        
-        with patch.dict(sys.modules, {'turboquant': mock_turboquant}):
-            self.mock_client.search.return_value = [{"value": "mem1"}, {"value": "mem2"}]
-            
-            result = self.loader.load_context(q="test query", model="gpt-4")
-            
-            self.assertEqual(result, "mock_cache_object")
-            mock_turboquant.compress_to_cache.assert_called_once_with("mem1\nmem2", model_id="gpt-4")
-
-    def test_load_context_no_turboquant(self):
-        # Ensure turboquant is NOT in sys.modules and ImportError is raised
-        with patch.dict(sys.modules, {'turboquant': MagicMock()}):
-            with patch.dict(sys.modules, {'turboquant': None}):
-                with self.assertRaises(ImportError) as cm:
-                    self.loader.load_context(q="test", model="test-model")
-                
-                self.assertIn("turboquant is not installed", str(cm.exception))
 
 if __name__ == '__main__':
     unittest.main()

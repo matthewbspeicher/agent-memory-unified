@@ -7,14 +7,16 @@ class InfiniteCityEnvironment(EscapeRoomEnvironment):
     """
     def __init__(self, config: dict[str, Any] = None):
         super().__init__()
-        if config is None: 
+        if config is None:
             config = {}
         self.grid_size = config.get("grid_size", 10)
         self.num_agents = config.get("num_agents", 1)
         self.state = "ACTIVE"
-        self.winner = None
+        self.winner: str | None = None
         self.cycle_count = 0
-        
+        # Agents win by surviving `survival_target` cycles without collapse.
+        self.survival_target: int = config.get("survival_target", 20)
+
         # City State
         self.global_resources = {
             "Energy": 1000,
@@ -54,37 +56,58 @@ class InfiniteCityEnvironment(EscapeRoomEnvironment):
         if tool_name == "enact_policy":
             policy_text = kwargs.get("policy_text")
             target_metric = kwargs.get("target_metric")
-            
+
             self.active_policies.append(policy_text)
             self.match_log.append(f"Policy Enacted: {policy_text}")
-            
+
             if target_metric == "Energy_Conservation":
                 self.global_resources["Public_Sentiment"] -= 10
                 return "Policy enacted. Sentiment decreased, but Energy drain reduced."
-            
+
             return "Policy enacted."
-            
+
+        if tool_name == "advance_cycle":
+            self.advance_cycle()
+            return (
+                f"Cycle {self.cycle_count} advanced. "
+                f"State={self.state}. "
+                f"Energy={self.global_resources['Energy']}, "
+                f"Water={self.global_resources['Water']}."
+            )
+
         return f"Action not recognized: {tool_name}"
 
     def advance_cycle(self):
-        """Simulates time passing."""
+        """Simulates time passing. Terminal if resources deplete or survival target hit."""
+        if self.state != "ACTIVE":
+            return
         self.cycle_count += 1
-        
+
         # Default drain
         energy_drain = 50
         water_drain = 50
-        
+
         # Apply policies
         if any("conservation" in p.lower() for p in self.active_policies):
             energy_drain = 25
-            
+
         self.global_resources["Energy"] -= energy_drain
         self.global_resources["Water"] -= water_drain
-        
+
         # Check collapse condition
         if self.global_resources["Energy"] <= 0 or self.global_resources["Water"] <= 0:
             self.state = "COLLAPSED"
+            self.winner = "COLLAPSE"
             self.match_log.append(f"Systemic Collapse at Cycle {self.cycle_count}.")
+            return
+
+        # Check survival victory
+        if self.cycle_count >= self.survival_target:
+            self.state = "SURVIVED"
+            self.winner = "AGENT"
+            self.match_log.append(
+                f"City survived {self.survival_target} cycles — agents win."
+            )
             
     def get_state(self) -> str:
         return self.state

@@ -1,7 +1,8 @@
-from typing import Any, Dict, Optional
-from enum import Enum
-import random
+import secrets
 import time
+from enum import Enum
+from typing import Any, Dict, Optional
+
 from .base import EscapeRoomEnvironment
 
 class NegotiationState(str, Enum):
@@ -38,8 +39,10 @@ class NegotiationEnvironment(EscapeRoomEnvironment):
         self.start_time = None
         self.match_log = []
         
-        # Hidden variables for deception
-        self.toxic_asset_location = random.choice(list(self.contract_draft.keys()))
+        # Hidden variables for deception. Use cryptographic RNG so an
+        # adversarial agent with access to the stdlib `random` state
+        # cannot predict the toxic slot.
+        self.toxic_asset_location = secrets.choice(list(self.contract_draft.keys()))
         self.buyer_audits_remaining = 3
         
         # Board Mandates for NIQ scoring
@@ -67,6 +70,8 @@ class NegotiationEnvironment(EscapeRoomEnvironment):
         if self.state == NegotiationState.NEGOTIATION_LOOP:
             if self.start_time and (time.time() - self.start_time > 600):
                 self.state = NegotiationState.POST_MORTEM
+                # Assign a resolvable winner so verify_flag can report the outcome.
+                self.winner = "TIMEOUT"
                 self.match_log.append("TIME UP. Deal collapsed.")
 
     async def execute_tool(self, tool_name: str, kwargs: Dict[str, Any]) -> str:
@@ -136,6 +141,8 @@ class NegotiationEnvironment(EscapeRoomEnvironment):
                 return "Error: Cannot countersign your own proposal."
             elif tool_name == "reject_and_exit":
                 self.state = NegotiationState.POST_MORTEM
+                # Whoever rejects loses; the other party "wins" by exit.
+                self.winner = f"REJECTED_BY_{agent_id}"
                 self.match_log.append(f"Agent {agent_id} rejected the final contract.")
                 return "Deal rejected."
 

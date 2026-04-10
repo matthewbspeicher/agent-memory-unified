@@ -194,6 +194,98 @@ class TestCybersecurityMisc:
         res = await env.execute_tool("launch_nukes", {"agent_id": 0})
         assert "not recognized" in res.lower()
 
-    def test_get_state_active(self):
+    def test_get_state_starts_active(self):
         env = CybersecurityEnvironment()
         assert env.get_state() == "ACTIVE"
+
+    @pytest.mark.asyncio
+    async def test_get_state_transitions_on_red_win(self):
+        env = CybersecurityEnvironment()
+        await env.execute_tool(
+            "exploit_service",
+            {
+                "agent_id": 0,
+                "target_id": "database",
+                "payload": "sql_injection",
+            },
+        )
+        assert env.get_state() == "RED_WIN"
+        assert env.winner == "RED"
+
+
+class TestCybersecurityQuarantineEnforcement:
+    @pytest.mark.asyncio
+    async def test_quarantine_blocks_red_scan(self):
+        env = CybersecurityEnvironment()
+        await env.execute_tool(
+            "quarantine_ip",
+            {"agent_id": 1, "source_ip": "10.0.0.42"},
+        )
+        # Red Team attempts a scan from the quarantined IP
+        res = await env.execute_tool(
+            "scan_ports",
+            {"agent_id": 0, "source_ip": "10.0.0.42", "target_id": "server_A"},
+        )
+        assert "quarantined" in res.lower()
+
+    @pytest.mark.asyncio
+    async def test_quarantine_blocks_red_exploit(self):
+        env = CybersecurityEnvironment()
+        await env.execute_tool(
+            "quarantine_ip",
+            {"agent_id": 1, "source_ip": "10.0.0.42"},
+        )
+        res = await env.execute_tool(
+            "exploit_service",
+            {
+                "agent_id": 0,
+                "source_ip": "10.0.0.42",
+                "target_id": "database",
+                "payload": "sql_injection",
+            },
+        )
+        assert "quarantined" in res.lower()
+        # Winner must NOT be set because the exploit was blocked
+        assert env.winner is None
+        assert env.get_state() == "ACTIVE"
+
+    @pytest.mark.asyncio
+    async def test_quarantine_does_not_block_other_red_ips(self):
+        env = CybersecurityEnvironment()
+        await env.execute_tool(
+            "quarantine_ip",
+            {"agent_id": 1, "source_ip": "10.0.0.42"},
+        )
+        # Red Team pivots to a different IP
+        res = await env.execute_tool(
+            "scan_ports",
+            {"agent_id": 0, "source_ip": "10.0.0.99", "target_id": "server_A"},
+        )
+        assert "quarantined" not in res.lower()
+        assert "80" in res
+
+
+class TestCybersecurityCrossRoleAbuse:
+    @pytest.mark.asyncio
+    async def test_blue_cannot_call_red_scan(self):
+        env = CybersecurityEnvironment()
+        # Blue Team agent_id=1 tries to call a Red Team tool
+        res = await env.execute_tool(
+            "scan_ports", {"agent_id": 1, "target_id": "server_A"}
+        )
+        assert "not recognized" in res.lower()
+
+    @pytest.mark.asyncio
+    async def test_red_cannot_call_blue_patch(self):
+        env = CybersecurityEnvironment()
+        res = await env.execute_tool(
+            "patch_service",
+            {
+                "agent_id": 0,
+                "target_id": "database",
+                "fix_payload": "sql_injection",
+            },
+        )
+        assert "not recognized" in res.lower()
+        # Vulnerability must still exist
+        assert "sql_injection" in env.network_state["database"]["vulnerabilities"]

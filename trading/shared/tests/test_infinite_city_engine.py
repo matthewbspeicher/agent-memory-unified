@@ -59,8 +59,44 @@ class TestInfiniteCityGovernanceAndCycle:
     def test_systemic_collapse(self):
         env = InfiniteCityEnvironment()
         env.global_resources["Energy"] = 40 # Set low to trigger collapse on next cycle
-        
+
         env.advance_cycle() # Drains 50
-        
+
         assert env.state == "COLLAPSED"
+        assert env.winner == "COLLAPSE"
         assert "Systemic Collapse" in env.match_log[-1]
+
+
+class TestInfiniteCityPublicInterface:
+    @pytest.mark.asyncio
+    async def test_advance_cycle_via_execute_tool(self):
+        env = InfiniteCityEnvironment({"survival_target": 3})
+        assert env.cycle_count == 0
+        res = await env.execute_tool("advance_cycle", {"agent_id": 0})
+        assert "Cycle 1" in res
+        assert env.cycle_count == 1
+
+    @pytest.mark.asyncio
+    async def test_survival_target_wins(self):
+        env = InfiniteCityEnvironment({"survival_target": 2})
+        # Protect against resource drain by inflating resources
+        env.global_resources["Energy"] = 10_000
+        env.global_resources["Water"] = 10_000
+        await env.execute_tool("advance_cycle", {"agent_id": 0})
+        await env.execute_tool("advance_cycle", {"agent_id": 0})
+        assert env.state == "SURVIVED"
+        assert env.winner == "AGENT"
+        assert env.verify_flag("AGENT") is True
+        assert env.verify_flag("COLLAPSE") is False
+
+    @pytest.mark.asyncio
+    async def test_advance_cycle_stops_after_collapse(self):
+        env = InfiniteCityEnvironment()
+        env.global_resources["Energy"] = 40
+        env.global_resources["Water"] = 40
+        await env.execute_tool("advance_cycle", {"agent_id": 0})  # → COLLAPSED
+        assert env.state == "COLLAPSED"
+        cycle_after_collapse = env.cycle_count
+        # Another advance should be a no-op
+        await env.execute_tool("advance_cycle", {"agent_id": 0})
+        assert env.cycle_count == cycle_after_collapse

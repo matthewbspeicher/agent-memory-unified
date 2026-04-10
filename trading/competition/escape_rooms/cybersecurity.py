@@ -50,6 +50,7 @@ class CybersecurityEnvironment(EscapeRoomEnvironment):
         self.soc_logs: list[dict[str, Any]] = []
         self.quarantined_ips: list[str] = []
         self.winner: str | None = None
+        self.state: str = "ACTIVE"
 
     # ------------------------------------------------------------------
     # Tool dispatch
@@ -60,6 +61,11 @@ class CybersecurityEnvironment(EscapeRoomEnvironment):
 
         # Red Team Tools ------------------------------------------------
         if agent_id == self.red_team_id:
+            # Blue Team quarantine blocks all Red Team operations from that IP.
+            if source_ip in self.quarantined_ips:
+                self.generate_soc_log("blocked", source_ip, "firewall")
+                return f"Error: source IP {source_ip} is quarantined."
+
             if tool_name == "scan_ports":
                 target = kwargs.get("target_id")
                 self.generate_soc_log("scan", source_ip, target or "unknown")
@@ -82,6 +88,7 @@ class CybersecurityEnvironment(EscapeRoomEnvironment):
                     )
                     if target == "database":
                         self.winner = "RED"
+                        self.state = "RED_WIN"
                     return f"Exploit successful. Gained access to {target}."
                 return "Exploit failed."
 
@@ -133,7 +140,7 @@ class CybersecurityEnvironment(EscapeRoomEnvironment):
     # Environment contract
     # ------------------------------------------------------------------
     def get_state(self) -> str:
-        return "ACTIVE"
+        return self.state
 
     def verify_flag(self, flag: str) -> bool:
         if self.winner is None:

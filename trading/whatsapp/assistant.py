@@ -1,7 +1,7 @@
 from __future__ import annotations
 import logging
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from whatsapp.proactive import HermesProactiveOps
@@ -391,14 +391,11 @@ class WhatsAppAssistant:
             staleness = await self._get_staleness_warning()
             try:
                 ext_balances = await self._external_store.get_balances()
-                ext_positions: list[dict[str, Any]] = cast(
-                    list[dict[str, Any]], await self._external_store.get_positions()
-                )
+                ext_positions = await self._external_store.get_positions()
                 # Group positions by account
                 by_account: dict[str, list[dict[str, Any]]] = {}
-                for p in ext_positions:  # type: ignore[assignment]
-                    account_key = cast(str, p["account_id"])  # type: ignore[index]
-                    by_account.setdefault(account_key, []).append(p)  # type: ignore[arg-type]
+                for p in ext_positions:
+                    by_account.setdefault(p["account_id"], []).append(p)
 
                 for b in ext_balances:
                     acct_id = b["account_id"]
@@ -408,11 +405,10 @@ class WhatsAppAssistant:
                     lines.append(f"=== Fidelity ({name}) — ${nlv:,.2f} ===")
                     acct_positions = by_account.get(acct_id, [])
                     if acct_positions:
-                        for pos in acct_positions:
-                            p = pos  # type: ignore[assignment]
-                            qty = Decimal(str(p["quantity"]))  # type: ignore[index]
-                            price = Decimal(str(p["last_price"]))  # type: ignore[index]
-                            ticker = str(p["symbol"])  # type: ignore[index]
+                        for p in acct_positions:
+                            qty = Decimal(str(p["quantity"]))
+                            price = Decimal(str(p["last_price"]))
+                            ticker = str(p["symbol"])
                             lines.append(f"  {ticker}: {qty} @ ${price:,.2f}")
                     else:
                         lines.append("  No positions.")

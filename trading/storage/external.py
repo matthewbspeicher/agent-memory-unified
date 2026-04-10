@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from decimal import Decimal
+from typing import Any
 
 import aiosqlite
 
@@ -74,7 +75,7 @@ class ExternalPortfolioStore:
         broker: str | None = None,
         account_id: str | None = None,
         exclude_accounts: list[str] | None = None,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         where: list[str] = []
         params: list = []
         if broker is not None:
@@ -98,7 +99,7 @@ class ExternalPortfolioStore:
         self,
         broker: str | None = None,
         exclude_accounts: list[str] | None = None,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         where: list[str] = []
         params: list = []
         if broker is not None:
