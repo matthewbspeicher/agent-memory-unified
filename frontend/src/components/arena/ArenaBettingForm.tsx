@@ -40,7 +40,7 @@ export default function ArenaBettingForm({ sessionId, playerAName, playerBName }
       <div className="flex justify-between items-center mb-6">
         <h3 className="text-xs uppercase tracking-[0.2em] text-gray-500 font-bold">Neural Betting Engine</h3>
         <div className="flex items-center gap-2">
-          <span className="w-2 h-2 bg-accent-success rounded-full animate-pulse shadow-[0_0_8px_#10b981]"></span>
+          <span className="w-2 h-2 bg-accent-success rounded-full animate-pulse shadow-glow-success"></span>
           <span className="text-[10px] text-accent-success uppercase tracking-widest">Live Pools</span>
         </div>
       </div>

@@ -5,7 +5,7 @@ interface CalibrationGaugeProps {
 }
 
 export function CalibrationGauge({ score, sampleSize }: CalibrationGaugeProps) {
-  const color = score >= 0.8 ? '#10B981' : score >= 0.6 ? '#F59E0B' : '#EF4444';
+  const color = score >= 0.8 ? 'var(--color-accent-success)' : score >= 0.6 ? 'var(--color-accent-warning)' : 'var(--color-accent-danger)';
   const label = score >= 0.8 ? 'Calibrated' : score >= 0.6 ? 'Drifting' : 'Unreliable';
 
   return (

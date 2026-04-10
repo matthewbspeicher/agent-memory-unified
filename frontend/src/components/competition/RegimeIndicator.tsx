@@ -1,8 +1,8 @@
-const REGIME_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-  trending_bull:  { label: 'Bull',     color: '#10B981', bg: 'rgba(16, 185, 129, 0.15)' },
-  trending_bear:  { label: 'Bear',     color: '#EF4444', bg: 'rgba(239, 68, 68, 0.15)' },
-  volatile:       { label: 'Volatile', color: '#F59E0B', bg: 'rgba(245, 158, 11, 0.15)' },
-  quiet:          { label: 'Quiet',    color: '#6B7280', bg: 'rgba(107, 114, 128, 0.15)' },
+const REGIME_CONFIG: Record<MarketRegime, {label: string, color: string, bg: string}> = {
+  trending_bull:  { label: 'Bull',     color: 'var(--color-accent-success)', bg: 'rgba(var(--color-accent-success-rgb), 0.15)' },
+  trending_bear:  { label: 'Bear',     color: 'var(--color-accent-danger)', bg: 'rgba(var(--color-accent-danger-rgb), 0.15)' },
+  volatile:       { label: 'Volatile', color: 'var(--color-accent-warning)', bg: 'rgba(var(--color-accent-warning-rgb), 0.15)' },
+  quiet:          { label: 'Quiet',    color: 'var(--color-text-muted)', bg: 'rgba(var(--color-text-muted-rgb), 0.15)' },
 };
 
 export function RegimeIndicator({ regime }: { regime: string }) {

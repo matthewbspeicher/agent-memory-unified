@@ -20,7 +20,7 @@ export function EloChart({ competitorId, asset = 'BTC', days = 30, compact = fal
   const current = elos[elos.length - 1];
   const start = elos[0];
   const delta = current - start;
-  const deltaColor = delta >= 0 ? '#10B981' : '#EF4444';
+  const deltaColor = delta >= 0 ? 'var(--color-accent-success)' : 'var(--color-accent-danger)';
 
   if (compact) {
     return (
