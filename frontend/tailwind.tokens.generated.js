@@ -1,0 +1,40 @@
+/* GENERATED — do not edit. Source: frontend/design/DESIGN.md */
+export const designTokens = {
+  colors: {
+    'bg-base': 'rgb(var(--color-bg-base-rgb) / <alpha-value>)',
+    'bg-surface': 'rgb(var(--color-bg-surface-rgb) / <alpha-value>)',
+    'border-subtle': 'rgb(var(--color-border-subtle-rgb) / <alpha-value>)',
+    'text-primary': 'rgb(var(--color-text-primary-rgb) / <alpha-value>)',
+    'text-secondary': 'rgb(var(--color-text-secondary-rgb) / <alpha-value>)',
+    'text-muted': 'rgb(var(--color-text-muted-rgb) / <alpha-value>)',
+    'accent-primary': 'rgb(var(--color-accent-primary-rgb) / <alpha-value>)',
+    'accent-danger': 'rgb(var(--color-accent-danger-rgb) / <alpha-value>)',
+    'accent-warning': 'rgb(var(--color-accent-warning-rgb) / <alpha-value>)',
+    'accent-success': 'rgb(var(--color-accent-success-rgb) / <alpha-value>)',
+    'selection-bg': 'rgb(var(--color-selection-bg-rgb) / <alpha-value>)',
+    'selection-text': 'rgb(var(--color-selection-text-rgb) / <alpha-value>)',
+    'chart-1': 'rgb(var(--color-chart-1-rgb) / <alpha-value>)',
+    'chart-2': 'rgb(var(--color-chart-2-rgb) / <alpha-value>)',
+    'chart-3': 'rgb(var(--color-chart-3-rgb) / <alpha-value>)',
+    'chart-4': 'rgb(var(--color-chart-4-rgb) / <alpha-value>)',
+    'chart-5': 'rgb(var(--color-chart-5-rgb) / <alpha-value>)',
+    obsidian: 'rgb(var(--color-bg-base-rgb) / <alpha-value>)',
+    'indigo-glow': 'rgb(var(--color-accent-primary-rgb) / <alpha-value>)',
+    'rose-glow': 'rgb(var(--color-accent-danger-rgb) / <alpha-value>)',
+    'emerald-glow': 'rgb(var(--color-accent-success-rgb) / <alpha-value>)',
+  },
+  fontFamily: {
+    sans: ['var(--font-sans)'],
+    mono: ['var(--font-mono)'],
+  },
+  borderRadius: {
+    card: 'var(--radius-card)',
+  },
+  boxShadow: {
+    card: 'var(--shadow-card)',
+    'glow-primary': 'var(--shadow-glow-primary)',
+    'glow-danger':  'var(--shadow-glow-danger)',
+    'glow-warning': 'var(--shadow-glow-warning)',
+    'glow-success': 'var(--shadow-glow-success)',
+  },
+};

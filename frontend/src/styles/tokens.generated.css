@@ -1,0 +1,45 @@
+/* GENERATED — do not edit. Source: frontend/design/DESIGN.md */
+:root {
+  --color-bg-base: #050505;
+  --color-bg-base-rgb: 5 5 5;
+  --color-bg-surface: #FFFFFF;
+  --color-bg-surface-rgb: 255 255 255;
+  --color-border-subtle: #FFFFFF;
+  --color-border-subtle-rgb: 255 255 255;
+  --color-text-primary: #F3F4F6;
+  --color-text-primary-rgb: 243 244 246;
+  --color-text-secondary: #9CA3AF;
+  --color-text-secondary-rgb: 156 163 175;
+  --color-text-muted: #4B5563;
+  --color-text-muted-rgb: 75 85 99;
+  --color-accent-primary: #6366F1;
+  --color-accent-primary-rgb: 99 102 241;
+  --color-accent-danger: #F43F5E;
+  --color-accent-danger-rgb: 244 63 94;
+  --color-accent-warning: #F59E0B;
+  --color-accent-warning-rgb: 245 158 11;
+  --color-accent-success: #10B981;
+  --color-accent-success-rgb: 16 185 129;
+  --color-selection-bg: #6366F1;
+  --color-selection-bg-rgb: 99 102 241;
+  --color-selection-text: #C7D2FE;
+  --color-selection-text-rgb: 199 210 254;
+  --color-chart-1: #6366F1;
+  --color-chart-1-rgb: 99 102 241;
+  --color-chart-2: #F43F5E;
+  --color-chart-2-rgb: 244 63 94;
+  --color-chart-3: #10B981;
+  --color-chart-3-rgb: 16 185 129;
+  --color-chart-4: #F59E0B;
+  --color-chart-4-rgb: 245 158 11;
+  --color-chart-5: #8B5CF6;
+  --color-chart-5-rgb: 139 92 246;
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas;
+  --radius-card: 1rem;
+  --shadow-card: 0 25px 50px -12px rgba(0,0,0,0.25);
+  --shadow-glow-primary: 0 0 20px rgba(99,102,241,0.15);
+  --shadow-glow-danger: 0 0 20px rgba(244,63,94,0.15);
+  --shadow-glow-warning: 0 0 20px rgba(245,158,11,0.15);
+  --shadow-glow-success: 0 0 20px rgba(16,185,129,0.15);
+}
