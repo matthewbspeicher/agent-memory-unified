@@ -1,14 +1,17 @@
 // frontend/src/components/competition/LeaderboardTable.tsx
 import { useState, useEffect } from 'react';
-import type { Competitor } from '../../lib/api/competition';
+import type { Competitor, AgentCard as AgentCardType } from '../../lib/api/competition';
 import { TierBadge } from './TierBadge';
 import { StreakIndicator } from './StreakIndicator';
 import { CompetitorCard } from './CompetitorCard';
+import { AgentCard } from './AgentCard';
+import { LevelBadge } from './LevelBadge';
 
 interface LeaderboardTableProps {
   competitors: Competitor[];
   isLoading: boolean;
   onRowClick?: (id: string) => void;
+  cards?: Map<string, AgentCardType>;
 }
 
 function LoadingSkeleton() {
@@ -36,7 +39,7 @@ function EmptyState() {
   );
 }
 
-export function LeaderboardTable({ competitors, isLoading, onRowClick }: LeaderboardTableProps) {
+export function LeaderboardTable({ competitors, isLoading, onRowClick, cards }: LeaderboardTableProps) {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   useEffect(() => {
@@ -50,12 +53,19 @@ export function LeaderboardTable({ competitors, isLoading, onRowClick }: Leaderb
 
   if (isMobile) {
     return (
-      <div>
-        {competitors.map((c, i) => (
-          <div key={c.id} onClick={() => onRowClick?.(c.id)} className="cursor-pointer">
-            <CompetitorCard competitor={c} rank={i + 1} />
-          </div>
-        ))}
+      <div className="space-y-3">
+        {competitors.map((c, i) => {
+          const card = cards?.get(c.id);
+          return (
+            <div key={c.id} onClick={() => onRowClick?.(c.id)} className="cursor-pointer">
+              {card ? (
+                <AgentCard card={card} compact />
+              ) : (
+                <CompetitorCard competitor={c} rank={i + 1} />
+              )}
+            </div>
+          );
+        })}
       </div>
     );
   }
@@ -65,6 +75,7 @@ export function LeaderboardTable({ competitors, isLoading, onRowClick }: Leaderb
       <thead>
         <tr className="text-gray-500 border-b border-gray-700">
           <th className="py-2 px-2 text-left w-8">#</th>
+          <th className="py-2 px-2 text-left w-10">Lv</th>
           <th className="py-2 px-2 text-left w-16">Tier</th>
           <th className="py-2 px-2 text-left">Name</th>
           <th className="py-2 px-2 text-left w-14">Type</th>
@@ -81,6 +92,7 @@ export function LeaderboardTable({ competitors, isLoading, onRowClick }: Leaderb
             onClick={() => onRowClick?.(c.id)}
           >
             <td className="py-2 px-2 text-gray-500">{i + 1}</td>
+            <td className="py-2 px-2"><LevelBadge level={c.level} tier={c.tier} /></td>
             <td className="py-2 px-2"><TierBadge tier={c.tier} /></td>
             <td className="py-2 px-2 font-medium">{c.name}</td>
             <td className="py-2 px-2 text-gray-500 text-xs">{c.type}</td>
@@ -93,6 +105,7 @@ export function LeaderboardTable({ competitors, isLoading, onRowClick }: Leaderb
       <tfoot>
         <tr className="border-t-2 border-gray-600 bg-gray-900/50">
           <td className="py-2 px-2 text-gray-600">—</td>
+          <td className="py-2 px-2 text-gray-600">1</td>
           <td className="py-2 px-2"><span className="text-gray-600 text-xs">BASE</span></td>
           <td className="py-2 px-2 text-gray-500 italic">Hodler (baseline)</td>
           <td className="py-2 px-2 text-gray-600 text-xs">baseline</td>

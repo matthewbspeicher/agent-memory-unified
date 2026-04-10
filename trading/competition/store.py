@@ -10,7 +10,12 @@ from typing import Any
 
 from competition.models import (
     AgentCard,
+    AgentLineage,
     AgentTrait,
+    BetResult,
+    BetStatus,
+    BettingPool,
+    BreedResult,
     CardRarity,
     CardStats,
     CompetitorCreate,
@@ -19,10 +24,13 @@ from competition.models import (
     CompetitorXP,
     EloRating,
     LeaderboardEntry,
+    MatchBet,
     MissionId,
     MissionProgress,
     MissionResponse,
     MissionType,
+    Mutation,
+    MutationRarity,
     Season,
     SeasonLeaderboard,
     SeasonLeaderboardEntry,
@@ -32,9 +40,14 @@ from competition.models import (
     TraitUnlock,
     XpHistoryEntry,
     XpSource,
+    BETTING_HOUSE_CUT,
+    BREEDING_COOLDOWN_HOURS,
     CARD_RARITY_THRESHOLDS,
     ELO_SOFT_RESET_TARGET,
+    MAX_BET_XP,
     MISSION_INFO,
+    MIN_BET_XP,
+    MUTATION_CHANCE_PER_LEVEL,
     SEASON_DURATION_DAYS,
     TRAIT_REQUIREMENTS,
     card_rarity_for_achievements,
@@ -966,7 +979,9 @@ def _row_to_competitor(row: dict) -> CompetitorRecord:
         self, competitor_id: str | None = None
     ) -> tuple[Season | None, list[Season]]:
         now = datetime.utcnow()
-        async with self._db.execute("SELECT * FROM seasons ORDER BY number DESC LIMIT 10") as cur:
+        async with self._db.execute(
+            "SELECT * FROM seasons ORDER BY number DESC LIMIT 10"
+        ) as cur:
             rows = await cur.fetchall()
 
         seasons = []
@@ -1151,3 +1166,358 @@ def _row_to_competitor(row: dict) -> CompetitorRecord:
             },
             "cards": cards,
         }
+
+    async def get_betting_pool(self, match_id: str) -> BettingPool:
+        row = await self._db.fetchrow(
+            """
+            SELECT
+                match_id,
+                COALESCE(SUM(amount), 0) as total_pool,
+                COALESCE(SUM(CASE WHEN predicted_winner = competitor_a THEN amount ELSE 0 END), 0) as a_pool,
+                COALESCE(SUM(CASE WHEN predicted_winner = competitor_b THEN amount ELSE 0 END), 0) as b_pool,
+                COUNT(CASE WHEN predicted_winner = competitor_a THEN 1 END) as a_bettors,
+                COUNT(CASE WHEN predicted_winner = competitor_b THEN 1 END) as b_bettors
+            FROM match_bets
+            WHERE match_id = $1 AND status = 'open'
+            """,
+            match_id,
+        )
+
+        return BettingPool(
+            match_id=match_id,
+            total_pool=row["total_pool"] if row else 0,
+            competitor_a_pool=row["a_pool"] if row else 0,
+            competitor_b_pool=row["b_pool"] if row else 0,
+            competitor_a_bettors=row["a_bettors"] if row else 0,
+            competitor_b_bettors=row["b_bettors"] if row else 0,
+            status=BetStatus.OPEN,
+        )
+
+    async def place_bet(
+        self,
+        match_id: str,
+        better_id: str,
+        predicted_winner: str,
+        amount: int,
+        competitor_a: str,
+        competitor_b: str,
+    ) -> MatchBet:
+        if amount < MIN_BET_XP:
+            raise ValueError(f"Minimum bet is {MIN_BET_XP} XP")
+        if amount > MAX_BET_XP:
+            raise ValueError(f"Maximum bet is {MAX_BET_XP} XP")
+
+        if predicted_winner not in (competitor_a, competitor_b):
+            raise ValueError("Predicted winner must be one of the competitors")
+
+        bet_id = str(uuid.uuid4())
+        now = datetime.utcnow()
+
+        await self._db.execute(
+            """
+            INSERT INTO match_bets (id, match_id, better_id, predicted_winner, amount, status, created_at)
+            VALUES ($1, $2, $3, $4, $5, 'open', $6)
+            """,
+            bet_id,
+            match_id,
+            better_id,
+            predicted_winner,
+            amount,
+            now,
+        )
+
+        return MatchBet(
+            id=bet_id,
+            match_id=match_id,
+            better_id=better_id,
+            predicted_winner=predicted_winner,
+            amount=amount,
+            potential_payout=amount,
+            status=BetStatus.OPEN,
+            created_at=now,
+        )
+
+    async def settle_match_bets(self, match_id: str, winner_id: str) -> BetResult:
+        pool = await self.get_betting_pool(match_id)
+        if pool.status != BetStatus.OPEN:
+            raise ValueError("Betting pool already settled")
+
+        winner_pool = (
+            pool.competitor_a_pool
+            if winner_id == pool.competitor_a
+            else pool.competitor_b_pool
+        )
+
+        if winner_pool == 0:
+            await self._db.execute(
+                "UPDATE match_bets SET status = 'cancelled' WHERE match_id = $1",
+                match_id,
+            )
+            return BetResult(
+                match_id=match_id,
+                winner=winner_id,
+                total_pool=pool.total_pool,
+                house_cut=0,
+                distributed=0,
+                settled_bets=0,
+            )
+
+        house_cut = int(pool.total_pool * BETTING_HOUSE_CUT)
+        distributable = pool.total_pool - house_cut
+        now = datetime.utcnow()
+
+        rows = await self._db.fetch(
+            """
+            UPDATE match_bets
+            SET status = 'settled',
+                payout = CAST(CEIL(amount::float / $1 * $2) AS INTEGER),
+                settled_at = $3
+            WHERE match_id = $4 AND predicted_winner = $5 AND status = 'open'
+            RETURNING id, payout
+            """,
+            winner_pool,
+            distributable,
+            now,
+            match_id,
+            winner_id,
+        )
+
+        await self._db.execute(
+            """
+            UPDATE match_bets
+            SET status = 'cancelled', payout = 0, settled_at = $2
+            WHERE match_id = $1 AND predicted_winner != $3 AND status = 'open'
+            """,
+            match_id,
+            now,
+            winner_id,
+        )
+
+        total_distributed = sum(r["payout"] for r in rows)
+
+        return BetResult(
+            match_id=match_id,
+            winner=winner_id,
+            total_pool=pool.total_pool,
+            house_cut=house_cut,
+            distributed=total_distributed,
+            settled_bets=len(rows),
+        )
+
+    async def get_match_bets(
+        self, match_id: str, better_id: str | None = None
+    ) -> list[MatchBet]:
+        query = "SELECT * FROM match_bets WHERE match_id = $1"
+        params: list[Any] = [match_id]
+
+        if better_id:
+            query += " AND better_id = $2"
+            params.append(better_id)
+
+        query += " ORDER BY created_at DESC"
+
+        rows = await self._db.fetch(query, *params)
+
+        return [
+            MatchBet(
+                id=str(r["id"]),
+                match_id=str(r["match_id"]),
+                better_id=str(r["better_id"]),
+                predicted_winner=str(r["predicted_winner"]),
+                amount=r["amount"],
+                potential_payout=r["amount"],
+                status=BetStatus(r["status"]),
+                created_at=r["created_at"],
+                settled_at=r.get("settled_at"),
+                payout=r.get("payout", 0),
+            )
+            for r in rows
+        ]
+
+    async def process_level_up(
+        self, competitor_id: str, new_level: int, asset: str = "BTC"
+    ) -> Mutation | None:
+        import random
+
+        await self.auto_unlock_traits(competitor_id, new_level)
+
+        mutation = None
+        if random.random() < MUTATION_CHANCE_PER_LEVEL:
+            available_traits = list(AgentTrait)
+            trait = random.choice(available_traits)
+
+            roll = random.random()
+            if roll < 0.05:
+                rarity = MutationRarity.LEGENDARY
+                multiplier = 2.5
+            elif roll < 0.20:
+                rarity = MutationRarity.RARE
+                multiplier = 1.8
+            elif roll < 0.50:
+                rarity = MutationRarity.UNCOMMON
+                multiplier = 1.3
+            else:
+                rarity = MutationRarity.COMMON
+                multiplier = 1.1
+
+            mutation_id = str(uuid.uuid4())
+            await self._db.execute(
+                """
+                INSERT INTO agent_mutations (id, agent_id, trait, rarity, bonus_multiplier, level_obtained, created_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                """,
+                mutation_id,
+                competitor_id,
+                trait.value,
+                rarity.value,
+                multiplier,
+                new_level,
+                datetime.utcnow(),
+            )
+
+            mutation = Mutation(
+                id=mutation_id,
+                agent_id=competitor_id,
+                trait=trait,
+                rarity=rarity,
+                bonus_multiplier=multiplier,
+                level_obtained=new_level,
+                created_at=datetime.utcnow(),
+            )
+
+        return mutation
+
+    async def get_mutations(self, agent_id: str) -> list[Mutation]:
+        rows = await self._db.fetch(
+            """
+            SELECT id, agent_id, trait, rarity, bonus_multiplier, level_obtained, created_at
+            FROM agent_mutations
+            WHERE agent_id = $1
+            ORDER BY level_obtained DESC
+            """,
+            agent_id,
+        )
+
+        return [
+            Mutation(
+                id=str(r["id"]),
+                agent_id=str(r["agent_id"]),
+                trait=AgentTrait(r["trait"]),
+                rarity=MutationRarity(r["rarity"]),
+                bonus_multiplier=r["bonus_multiplier"],
+                level_obtained=r["level_obtained"],
+                created_at=r["created_at"],
+            )
+            for r in rows
+        ]
+
+    async def get_lineage(self, agent_id: str) -> AgentLineage | None:
+        row = await self._db.fetchrow(
+            """
+            SELECT id, agent_id, parent_a_id, parent_b_id, generation, breeding_count, last_breed_at, created_at
+            FROM agent_lineage
+            WHERE agent_id = $1
+            """,
+            agent_id,
+        )
+
+        if not row:
+            return None
+
+        return AgentLineage(
+            id=str(row["id"]),
+            agent_id=str(row["agent_id"]),
+            parent_a_id=str(row["parent_a_id"]) if row["parent_a_id"] else None,
+            parent_b_id=str(row["parent_b_id"]) if row["parent_b_id"] else None,
+            generation=row["generation"],
+            breeding_count=row["breeding_count"],
+            last_breed_at=row.get("last_breed_at"),
+            created_at=row.get("created_at"),
+        )
+
+    async def can_breed(self, agent_id: str) -> bool:
+        lineage = await self.get_lineage(agent_id)
+        if not lineage:
+            return True
+        if lineage.last_breed_at is None:
+            return True
+        cooldown_end = lineage.last_breed_at + timedelta(hours=BREEDING_COOLDOWN_HOURS)
+        return datetime.utcnow() >= cooldown_end
+
+    async def breed_agents(
+        self, parent_a_id: str, parent_b_id: str, child_name: str
+    ) -> BreedResult:
+        import random
+
+        if not await self.can_breed(parent_a_id):
+            raise ValueError(f"Agent {parent_a_id} is on breeding cooldown")
+        if not await self.can_breed(parent_b_id):
+            raise ValueError(f"Agent {parent_b_id} is on breeding cooldown")
+
+        parent_a_traits = await self.get_unlocked_traits(parent_a_id)
+        parent_b_traits = await self.get_unlocked_traits(parent_b_id)
+
+        all_traits = list(set(parent_a_traits + parent_b_traits))
+        num_inherited = min(3, len(all_traits))
+        inherited = random.sample(all_traits, num_inherited)
+
+        mutated_trait = None
+        mutation_rarity = None
+        roll = random.random()
+        if roll < 0.25:
+            available = [t for t in list(AgentTrait) if t not in inherited]
+            if available:
+                mutated_trait = random.choice(available)
+                if roll < 0.05:
+                    mutation_rarity = MutationRarity.LEGENDARY
+                elif roll < 0.15:
+                    mutation_rarity = MutationRarity.RARE
+                else:
+                    mutation_rarity = MutationRarity.UNCOMMON
+
+        parent_a_lineage = await self.get_lineage(parent_a_id)
+        parent_b_lineage = await self.get_lineage(parent_b_id)
+        gen_a = parent_a_lineage.generation if parent_a_lineage else 0
+        gen_b = parent_b_lineage.generation if parent_b_lineage else 0
+        child_generation = max(gen_a, gen_b) + 1
+
+        child_id = str(uuid.uuid4())
+        await self._db.execute(
+            """
+            INSERT INTO agent_lineage (id, agent_id, parent_a_id, parent_b_id, generation, breeding_count, created_at)
+            VALUES ($1, $2, $3, $4, $5, 0, $6)
+            """,
+            child_id,
+            child_id,
+            parent_a_id,
+            parent_b_id,
+            child_generation,
+            datetime.utcnow(),
+        )
+
+        await self._db.execute(
+            """
+            UPDATE agent_lineage
+            SET breeding_count = breeding_count + 1, last_breed_at = $1
+            WHERE agent_id IN ($2, $3)
+            """,
+            datetime.utcnow(),
+            parent_a_id,
+            parent_b_id,
+        )
+
+        all_inherited = inherited.copy()
+        if mutated_trait:
+            all_inherited.append(mutated_trait)
+
+        for trait in all_inherited:
+            await self.unlock_trait(child_id, trait, 0)
+
+        return BreedResult(
+            child_id=child_id,
+            child_name=child_name,
+            inherited_traits=inherited,
+            mutated_trait=mutated_trait,
+            mutation_rarity=mutation_rarity,
+            generation=child_generation,
+        )

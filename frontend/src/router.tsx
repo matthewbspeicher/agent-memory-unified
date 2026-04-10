@@ -24,6 +24,7 @@ const KnowledgeGraph = lazy(() => import('./pages/KnowledgeGraph'));
 const AgentProfile = lazy(() => import('./pages/AgentProfile'));
 const HeadToHead = lazy(() => import('./pages/HeadToHead'));
 const BittensorNode = lazy(() => import('./pages/BittensorNode'));
+const FleetDashboard = lazy(() => import('./pages/FleetDashboard'));
 
 function LazyPage({ children }: { children: React.ReactNode }) {
   return (
@@ -111,6 +112,10 @@ export const router = createBrowserRouter([
       {
         path: 'bittensor',
         element: <LazyPage><BittensorNode /></LazyPage>,
+      },
+      {
+        path: 'fleet',
+        element: <LazyPage><FleetDashboard /></LazyPage>,
       },
       {
         path: 'webhooks',

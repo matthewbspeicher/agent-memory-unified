@@ -5,17 +5,21 @@ import type { Trade } from '../lib/api/trading';
 import { AgentBadge } from '../components/AgentBadge';
 import { TradeList } from '../components/TradeList';
 import { GlassCard } from '../components/GlassCard';
-import { useCompetitor } from '../lib/api/competition';
+import { useCompetitor, useTraits, useLoadout, competitionApi } from '../lib/api/competition';
 import { EloChart } from '../components/competition/EloChart';
 import { TierBadge } from '../components/competition/TierBadge';
 import { CalibrationGauge } from '../components/competition/CalibrationGauge';
 import { MetaLearnerPanel } from '../components/competition/MetaLearnerPanel';
+import { TraitTree } from '../components/competition/TraitTree';
+import { TraitLoadout } from '../components/competition/TraitLoadout';
 
 export default function AgentProfile() {
   const { id } = useParams<{ id: string }>();
 
   // Competition data (may not exist for all agents)
   const { data: competitor } = useCompetitor(id || '');
+  const { data: traits } = useTraits(id || '');
+  const { data: loadout, refetch: refetchLoadout } = useLoadout(id || '');
 
   const { data: agent, isLoading: agentLoading } = useQuery({
     queryKey: ['agent-profile', id],
@@ -24,6 +28,18 @@ export default function AgentProfile() {
     },
     enabled: !!id,
   });
+
+  const handleEquipTrait = async (trait: string) => {
+    if (!id) return;
+    await competitionApi.equipTrait(id, trait as any);
+    refetchLoadout();
+  };
+
+  const handleUnequipTrait = async (trait: string) => {
+    if (!id) return;
+    await competitionApi.unequipTrait(id, trait as any);
+    refetchLoadout();
+  };
 
   const { data: trading, isLoading: tradingLoading } = useQuery({
     queryKey: ['agent-trading', id],
@@ -174,6 +190,41 @@ export default function AgentProfile() {
               </div>
               <CalibrationGauge score={competitor.calibration_score} sampleSize={competitor.matches_count} />
               <MetaLearnerPanel />
+            </GlassCard>
+          </div>
+        </section>
+      )}
+
+      {/* Trait System (if competitor exists) */}
+      {competitor && traits && (
+        <section>
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-sm font-black text-gray-300 uppercase tracking-[0.3em] flex items-center gap-4">
+              <span className="w-2 h-2 bg-cyan-500 rounded-sm animate-pulse"></span>
+              Agent Traits
+            </h2>
+            <div className="h-px flex-1 bg-gradient-to-r from-cyan-500/20 to-transparent ml-6"></div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Trait Tree */}
+            <GlassCard variant="default" className="p-6">
+              <TraitTree
+                traitTree={traits.trait_tree}
+                currentLevel={competitor.level}
+              />
+            </GlassCard>
+
+            {/* Loadout */}
+            <GlassCard variant="default" className="p-6">
+              {loadout && (
+                <TraitLoadout
+                  loadout={loadout}
+                  unlockedTraits={traits.unlocked_traits}
+                  onEquip={handleEquipTrait}
+                  onUnequip={handleUnequipTrait}
+                />
+              )}
             </GlassCard>
           </div>
         </section>
