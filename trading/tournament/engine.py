@@ -295,8 +295,10 @@ class TournamentEngine:
             negative_sharpe_penalty = agent_sharpe * 15 if agent_sharpe < 0 else 0
 
             base_elo_change = beat_median_rank * (K_FACTOR / total_agents)
-            
-            raw_delta = base_elo_change + positive_sharpe_bonus + negative_sharpe_penalty
+
+            raw_delta = (
+                base_elo_change + positive_sharpe_bonus + negative_sharpe_penalty
+            )
             raw_deltas.append(raw_delta)
 
         # Center deltas to enforce zero-sum ELO
@@ -370,7 +372,7 @@ class TournamentEngine:
                 }
             )
 
-        rankings.sort(key=lambda x: x["sharpe_ratio"], reverse=True)
+        rankings.sort(key=lambda x: x.get("sharpe_ratio") or 0.0, reverse=True)
 
         for i, r in enumerate(rankings):
             r["rank"] = i + 1

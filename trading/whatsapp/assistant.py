@@ -76,6 +76,8 @@ class WhatsAppAssistant:
         db=None,
         remembr_client=None,
         agent_store=None,
+        perf_store=None,
+        settings=None,
     ) -> None:
         self._client = client
         self._broker = broker
@@ -98,6 +100,8 @@ class WhatsAppAssistant:
         self._db = db
         self._remembr = remembr_client  # AsyncRemembrClient for user memory
         self._agent_store = agent_store  # AgentStore for evolution spawning
+        self._perf_store = perf_store
+        self._settings = settings
         self._journal_listing: dict[str, list[int]] = {}  # phone → [position_ids]
         self._proactive_ops: "HermesProactiveOps | None" = None
 

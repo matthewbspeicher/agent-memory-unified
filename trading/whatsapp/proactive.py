@@ -183,11 +183,12 @@ class HermesProactiveOps:
                     agent_name = info.name
 
                     # Extract last known performance from the db
+                    perf_store = self.wa._perf_store
                     history = await perf_store.get_history(agent_name, limit=1)
                     if history:
                         latest = history[0]
                         # Trigger tuning if 30-day trailing sharpe is dangerously low (e.g. < 0.5)
-                        if latest.sharpe_ratio < 0.5 and latest.position_count > 5:
+                        if latest.sharpe_ratio < 0.5 and latest.total_trades > 5:
                             logger.info(
                                 f"Agent {agent_name} trailing Sharpe {latest.sharpe_ratio} < 0.5. Triggering autotune."
                             )
@@ -369,7 +370,7 @@ class HermesProactiveOps:
                                     msg += "Reply *APPROVE* to spawn this shadow agent for real-time validation via WhatsApp."
 
                                     for phone in self.allowed_numbers:
-                                        self.wa._confirmation_gate.request(
+                                        self.wa._confirmation.create(
                                             phone,
                                             action_type="spawn_shadow",
                                             data=spawn_data,

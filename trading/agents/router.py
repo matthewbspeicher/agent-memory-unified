@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
-from agents.models import ActionLevel, Opportunity, OpportunityStatus
+from agents.models import ActionLevel, Opportunity, OpportunityStatus, TrustLevel
 from broker.models import OrderSide
 
 if TYPE_CHECKING:
@@ -1253,10 +1253,12 @@ class OpportunityRouter:
                 # Run slippage feedback loop after fill is recorded
                 if self._slippage_loop:
                     try:
-                        result = await self._slippage_loop.check_agent(
+                        result: (
+                            tuple[str, TrustLevel] | None
+                        ) = await self._slippage_loop.check_agent(
                             opportunity.agent_name
                         )
-                        if result:
+                        if result is not None:
                             action, new_trust = result
                             logger.info(
                                 "SlippageFeedbackLoop %s for %s → %s",

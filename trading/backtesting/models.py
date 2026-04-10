@@ -5,6 +5,8 @@ from decimal import Decimal
 from enum import Enum
 from typing import Any
 
+from broker.models import Symbol
+
 
 class BacktestStatus(str, Enum):
     PENDING = "pending"
@@ -50,7 +52,7 @@ class TradeRecord:
 
     id: str
     agent_name: str
-    symbol: str
+    symbol: Symbol
     side: str  # "BUY" | "SELL"
     entry_time: datetime
     entry_price: Decimal
@@ -72,7 +74,7 @@ class TradeRecord:
         return {
             "id": self.id,
             "agent_name": self.agent_name,
-            "symbol": self.symbol,
+            "symbol": self.symbol.ticker,
             "side": self.side,
             "entry_time": self.entry_time.isoformat(),
             "entry_price": str(self.entry_price),

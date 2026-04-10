@@ -40,18 +40,22 @@ class SimulatedPortfolio:
 
     def current_equity(self, current_prices: dict[str, Decimal]) -> Decimal:
         positions_value = sum(
-            (pos.quantity * current_prices.get(pos.symbol, pos.avg_cost)
-            for pos in self.positions.values()),
-            Decimal("0")
+            (
+                pos.quantity * current_prices.get(pos.symbol, pos.avg_cost)
+                for pos in self.positions.values()
+            ),
+            Decimal("0"),
         )
         return self.cash + positions_value
 
     def record_equity(self, timestamp: datetime, prices: dict[str, Decimal]) -> None:
         equity = self.current_equity(prices)
         positions_value = sum(
-            (pos.quantity * prices.get(pos.symbol, pos.avg_cost)
-            for pos in self.positions.values()),
-            Decimal("0")
+            (
+                pos.quantity * prices.get(pos.symbol, pos.avg_cost)
+                for pos in self.positions.values()
+            ),
+            Decimal("0"),
         )
         self.equity_history.append(
             EquityPoint(
@@ -106,7 +110,7 @@ class SimulatedPortfolio:
             TradeRecord(
                 id=trade_id,
                 agent_name=agent_name,
-                symbol=ticker,
+                symbol=Symbol(ticker=ticker),
                 side=side,
                 entry_time=timestamp,
                 entry_price=price,
@@ -141,7 +145,7 @@ class SimulatedPortfolio:
         # Find matching open trade for P&L calculation
         matching_trade = None
         for t in reversed(self.trades):
-            if t.symbol == ticker and t.side != side and t.is_closed is False:
+            if t.symbol.ticker == ticker and t.side != side and t.is_closed is False:
                 matching_trade = t
                 break
 
@@ -239,7 +243,12 @@ class BacktestEngine:
                 portfolio.record_equity(current_ts, current_prices)
 
                 # Build a mock DataBus if none provided
-                mock_bus = _MockDataBus(bars, historical_data, data_bus, current_idx=start_idx + bar_count - 1)
+                mock_bus = _MockDataBus(
+                    bars,
+                    historical_data,
+                    data_bus,
+                    current_idx=start_idx + bar_count - 1,
+                )
 
                 # Run each agent's scan
                 for agent in agents:
@@ -335,9 +344,11 @@ class BacktestEngine:
                     await asyncio.sleep(config.replay_speed)
 
             # Close any remaining positions at last price
-            last_prices: dict[str, Decimal] = {t: bar.close for t, bar in bars.items()} if bars else {}
+            last_prices: dict[str, Decimal] = (
+                {t: bar.close for t, bar in bars.items()} if bars else {}
+            )
             for key, trade in list(open_trades.items()):
-                ticker = trade.symbol
+                ticker = trade.symbol.ticker
                 if ticker in portfolio.positions:
                     last_price = last_prices.get(ticker, trade.entry_price)
                     close_side = "SELL" if trade.side == "BUY" else "BUY"

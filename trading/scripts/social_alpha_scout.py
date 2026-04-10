@@ -5,7 +5,7 @@ import json
 import logging
 import sys
 
-import requests
+import requests  # type: ignore[import-untyped]
 
 API_BASE = os.getenv("STA_API_BASE", "http://localhost:8080")
 API_KEY = os.getenv("STA_API_KEY")

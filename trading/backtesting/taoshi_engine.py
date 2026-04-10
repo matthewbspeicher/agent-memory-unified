@@ -182,11 +182,17 @@ class TaoshiBacktestEngine:
                     logger.info("Backtest: %d/%d bars", bar_count, total_bars)
 
             # Close any remaining positions at last price
-            last_prices = {t: bar.close for t, bar in bars.items()} if bars else {}
+            last_prices: dict[str, Decimal] = (
+                {t: bar.close for t, bar in bars.items()} if bars else {}
+            )
             for key, trade in list(open_trades.items()):
-                ticker = trade.symbol
+                ticker = trade.symbol.ticker
                 if ticker in portfolio.positions:
-                    last_price = last_prices.get(ticker, trade.entry_price)
+                    last_price = (
+                        last_prices.get(ticker, trade.entry_price)
+                        if trade.entry_price
+                        else Decimal("0")
+                    )
                     close_side = "SELL" if trade.side == "BUY" else "BUY"
                     portfolio.close_position(
                         ticker,
