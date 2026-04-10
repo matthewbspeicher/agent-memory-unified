@@ -1678,3 +1678,85 @@ def _row_to_competitor(row: dict) -> CompetitorRecord:
             **dict(session),
             "turns": [dict(t) for t in turns],
         }
+
+    async def get_arena_challenge(self, challenge_id: str) -> dict | None:
+        row = await self._db.fetchrow(
+            "SELECT * FROM arena_challenges WHERE id = $1", challenge_id
+        )
+        return dict(row) if row else None
+
+    async def place_arena_bet(
+        self,
+        session_id: str,
+        better_id: str,
+        predicted_winner: str,
+        amount: int,
+    ) -> dict:
+        if amount < MIN_BET_XP:
+            raise ValueError(f"Minimum bet is {MIN_BET_XP} XP")
+        if amount > MAX_BET_XP:
+            raise ValueError(f"Maximum bet is {MAX_BET_XP} XP")
+
+        session = await self.get_arena_session(session_id)
+        if not session:
+            raise ValueError("Session not found")
+
+        session_players = ["player_a", "player_b"]
+        if predicted_winner not in session_players:
+            raise ValueError(f"Predicted winner must be one of: {session_players}")
+
+        bet_id = str(uuid.uuid4())
+        now = datetime.utcnow()
+
+        await self._db.execute(
+            """
+            INSERT INTO match_bets (id, match_id, better_id, predicted_winner, amount, status, created_at)
+            VALUES ($1, $2, $3, $4, $5, 'open', $6)
+            """,
+            bet_id,
+            session_id,
+            better_id,
+            predicted_winner,
+            amount,
+            now,
+        )
+
+        return {
+            "id": bet_id,
+            "better_id": better_id,
+            "predicted_winner": predicted_winner,
+            "amount": amount,
+            "potential_payout": amount,
+            "status": "open",
+        }
+
+    async def get_arena_betting_pool(self, session_id: str) -> dict:
+        row = await self._db.fetchrow(
+            """
+            SELECT
+                COALESCE(SUM(amount), 0) as total_pool,
+                COALESCE(SUM(CASE WHEN predicted_winner = 'player_a' THEN amount ELSE 0 END), 0) as a_pool,
+                COALESCE(SUM(CASE WHEN predicted_winner = 'player_b' THEN amount ELSE 0 END), 0) as b_pool,
+                COUNT(CASE WHEN predicted_winner = 'player_a' THEN 1 END) as a_bettors,
+                COUNT(CASE WHEN predicted_winner = 'player_b' THEN 1 END) as b_bettors
+            FROM match_bets
+            WHERE match_id = $1 AND status = 'open'
+            """,
+            session_id,
+        )
+
+        total = row["total_pool"] if row else 0
+        a_pool = row["a_pool"] if row else 0
+        b_pool = row["b_pool"] if row else 0
+
+        a_odds = a_pool / total if total > 0 else 0.5
+        b_odds = b_pool / total if total > 0 else 0.5
+
+        return {
+            "total_pool": total,
+            "player_a_pool": a_pool,
+            "player_b_pool": b_pool,
+            "player_a_odds": round(a_odds, 2),
+            "player_b_odds": round(b_odds, 2),
+            "status": "open",
+        }

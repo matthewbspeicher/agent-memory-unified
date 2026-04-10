@@ -18,6 +18,7 @@ const Commons = lazy(() => import('./pages/Commons'));
 const Arena = lazy(() => import('./pages/Arena'));
 const ArenaGym = lazy(() => import('./pages/ArenaGym'));
 const ArenaMatch = lazy(() => import('./pages/ArenaMatch'));
+const ArenaEscapeRoom = lazy(() => import('./pages/ArenaEscapeRoom'));
 const Webhooks = lazy(() => import('./pages/Webhooks'));
 const WorkspaceList = lazy(() => import('./pages/WorkspaceList'));
 const KnowledgeGraph = lazy(() => import('./pages/KnowledgeGraph'));
@@ -96,6 +97,10 @@ export const router = createBrowserRouter([
       {
         path: 'arena/matches/:id',
         element: <LazyPage><ArenaMatch /></LazyPage>,
+      },
+      {
+        path: 'arena/escape/:id',
+        element: <LazyPage><ArenaEscapeRoom /></LazyPage>,
       },
       {
         path: 'arena/competitors/:id',

@@ -1,4 +1,3 @@
-# trading/api/routes/arena.py
 from __future__ import annotations
 
 import json
@@ -8,6 +7,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from api.auth import verify_api_key
+from competition.arena_rewards import (
+    award_arena_completion_rewards,
+    get_arena_achievement_checks,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -216,4 +219,146 @@ async def get_session(
         if session.get("completed_at") and hasattr(session["completed_at"], "isoformat")
         else session.get("completed_at"),
         turns=turns,
+    )
+
+
+class ClaimRewardsRequest(BaseModel):
+    session_id: str
+    asset: str = "BTC"
+
+
+class ClaimRewardsResponse(BaseModel):
+    xp_awarded: int
+    bonus_xp: int
+    total_xp: int
+    achievements: list[dict]
+
+
+@router.post("/sessions/claim-rewards", response_model=ClaimRewardsResponse)
+async def claim_session_rewards(
+    body: ClaimRewardsRequest,
+    request: Request,
+    _: str = Depends(verify_api_key),
+):
+    store = _get_store(request)
+
+    session = await store.get_arena_session(body.session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    if session["status"] != "completed":
+        raise HTTPException(
+            status_code=400, detail="Session must be completed to claim rewards"
+        )
+
+    challenge = await store.get_arena_challenge(session["challenge_id"])
+    if not challenge:
+        raise HTTPException(status_code=404, detail="Challenge not found")
+
+    rewards = await award_arena_completion_rewards(
+        store=store,
+        competitor_id=session["agent_id"],
+        asset=body.asset,
+        session_data=session,
+        challenge_data=challenge,
+    )
+
+    achievements = get_arena_achievement_checks(
+        session_data=session,
+        challenge_data=challenge,
+        competitor_stats=None,
+    )
+
+    return ClaimRewardsResponse(
+        xp_awarded=rewards["xp_awarded"],
+        bonus_xp=rewards["bonus_xp"],
+        total_xp=rewards["total_xp"],
+        achievements=achievements,
+    )
+
+
+class PlaceBetRequest(BaseModel):
+    session_id: str
+    predicted_winner: str
+    amount: int
+
+
+class BetResponse(BaseModel):
+    id: str
+    session_id: str
+    better_id: str
+    predicted_winner: str
+    amount: int
+    potential_payout: int
+    status: str
+
+
+class BettingPoolResponse(BaseModel):
+    session_id: str
+    total_pool: int
+    player_a_pool: int
+    player_b_pool: int
+    player_a_odds: float
+    player_b_odds: float
+    status: str
+
+
+@router.post("/sessions/bet", response_model=BetResponse)
+async def place_arena_bet(
+    body: PlaceBetRequest,
+    request: Request,
+    _: str = Depends(verify_api_key),
+):
+    store = _get_store(request)
+
+    session = await store.get_arena_session(body.session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    if session["status"] != "in_progress":
+        raise HTTPException(
+            status_code=400, detail="Can only bet on in-progress sessions"
+        )
+
+    try:
+        bet = await store.place_arena_bet(
+            session_id=body.session_id,
+            better_id="user",
+            predicted_winner=body.predicted_winner,
+            amount=body.amount,
+        )
+        return BetResponse(
+            id=bet["id"],
+            session_id=body.session_id,
+            better_id=bet["better_id"],
+            predicted_winner=bet["predicted_winner"],
+            amount=bet["amount"],
+            potential_payout=bet["potential_payout"],
+            status=bet["status"],
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/sessions/{session_id}/pool", response_model=BettingPoolResponse)
+async def get_arena_betting_pool(
+    session_id: str,
+    request: Request,
+    _: str = Depends(verify_api_key),
+):
+    store = _get_store(request)
+
+    session = await store.get_arena_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    pool = await store.get_arena_betting_pool(session_id)
+    return BettingPoolResponse(
+        session_id=session_id,
+        total_pool=pool.get("total_pool", 0),
+        player_a_pool=pool.get("player_a_pool", 0),
+        player_b_pool=pool.get("player_b_pool", 0),
+        player_a_odds=pool.get("player_a_odds", 0.5),
+        player_b_odds=pool.get("player_b_odds", 0.5),
+        status=pool.get("status", "open"),
     )

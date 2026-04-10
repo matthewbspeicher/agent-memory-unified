@@ -1,95 +1,88 @@
+// frontend/src/lib/api/arena.ts
 import { api } from './client';
-
-export interface ArenaProfile {
-  agent_id: string;
-  rating: number;
-  rank?: number;
-  matches_played: number;
-  wins: number;
-  losses: number;
-  draws: number;
-}
 
 export interface ArenaGym {
   id: string;
   name: string;
   description: string;
-  difficulty: 'easy' | 'medium' | 'hard' | 'expert';
-  category: string;
-  is_official: boolean;
-  challenges_count?: number;
+  room_type: string;
+  difficulty: number;
+  xp_reward: number;
+  max_turns: number;
+  icon: string;
+  challenge_count: number;
 }
 
 export interface ArenaChallenge {
   id: string;
   gym_id: string;
-  title: string;
-  prompt: string;
-  difficulty_level: string;
-  xp_reward: number;
+  name: string;
+  description: string;
+  difficulty: number;
+  room_type: string;
+  initial_state: Record<string, unknown>;
+  tools: string[];
   max_turns: number;
-}
-
-export interface ArenaSessionTurn {
-  id: string;
-  session_id: string;
-  turn_number: number;
-  input: string;
-  output: string | null;
-  validator_response: {
-    score: number;
-    feedback: string;
-  } | null;
-  score: number;
-  feedback: string | null;
+  xp_reward: number;
+  flag_hint?: string;
 }
 
 export interface ArenaSession {
   id: string;
-  agent_id: string;
   challenge_id: string;
-  match_id: string | null;
-  status: 'in_progress' | 'completed' | 'abandoned';
-  score: number | null;
-  turns?: ArenaSessionTurn[];
+  agent_id: string;
+  current_state: string;
+  inventory: string[];
+  turn_count: number;
+  score: number;
+  status: 'in_progress' | 'completed' | 'failed';
+  created_at: string;
+  completed_at?: string;
+  turns: ArenaTurn[];
 }
 
-import type { Agent } from '../../../../shared/types/generated/typescript/index';
-
-export interface ArenaMatchDetail {
+export interface ArenaTurn {
   id: string;
-  status: 'pending' | 'in_progress' | 'completed';
-  agent_1_id: string;
-  agent_2_id: string;
-  winner_id: string | null;
-  score_1: number | null;
-  score_2: number | null;
-  judge_feedback: string | null;
-  challenge: ArenaChallenge;
-  agent1: Agent;
-  agent2: Agent;
-  winner: Agent | null;
-  sessions?: ArenaSession[];
+  turn_number: number;
+  tool_name: string;
+  tool_input: Record<string, unknown>;
+  tool_output: string;
+  score_delta: number;
   created_at: string;
 }
 
-export interface ArenaMatchSummary {
-  id: string;
-  status: 'pending' | 'in_progress' | 'completed';
-  opponent_id: string;
-  winner_id?: string;
-  created_at: string;
+export interface StartSessionRequest {
+  challenge_id: string;
+  agent_id: string;
 }
 
-export interface ArenaGymDetail extends ArenaGym {
-  challenges: ArenaChallenge[];
+export interface ExecuteTurnRequest {
+  tool_name: string;
+  kwargs?: Record<string, unknown>;
+}
+
+export interface ExecuteTurnResult {
+  id: string;
+  turn_number: number;
+  tool_name: string;
+  tool_input: Record<string, unknown>;
+  tool_output: string;
+  score_delta: number;
+  status: string;
 }
 
 export const arenaApi = {
-  getProfile: () => api.get<{ data: ArenaProfile }>('/v1/arena/profile').then(res => res.data?.data ?? res.data),
-  listGyms: () => api.get<{ data: ArenaGym[] }>('/v1/arena/gyms').then(res => res.data?.data ?? res.data),
-  getGym: (id: string) => api.get<{ data: ArenaGymDetail }>('/v1/arena/gyms/' + id).then(res => res.data?.data ?? res.data),
-  listMatches: () => api.get<{ data: ArenaMatchSummary[] }>('/v1/arena/matches').then(res => res.data?.data ?? res.data),
-  getMatch: (id: string) => api.get<{ data: ArenaMatchDetail }>('/v1/arena/matches/' + id).then(res => res.data?.data ?? res.data),
-  requestMatch: () => api.post<{ data: ArenaMatchDetail }>('/v1/arena/matches/request').then(res => res.data?.data ?? res.data),
+  listGyms: () => api.get<ArenaGym[]>('/engine/v1/arena/gyms').then(res => res.data),
+  getGym: (id: string) => api.get<ArenaGym>(`/engine/v1/arena/gyms/${id}`).then(res => res.data),
+
+  listChallenges: (gymId?: string) => 
+    api.get<ArenaChallenge[]>('/engine/v1/arena/challenges', { params: { gym_id: gymId } }).then(res => res.data),
+  getChallenge: (id: string) => api.get<ArenaChallenge>(`/engine/v1/arena/challenges/${id}`).then(res => res.data),
+
+  startSession: (body: StartSessionRequest) => 
+    api.post<ArenaSession>('/engine/v1/arena/sessions', body).then(res => res.data),
+  getSession: (id: string) => api.get<ArenaSession>(`/engine/v1/arena/sessions/${id}`).then(res => res.data),
+  
+  executeTurn: (sessionId: string, body: ExecuteTurnRequest) =>
+    api.post<ExecuteTurnResult>(`/engine/v1/arena/sessions/${sessionId}/turns`, body).then(res => res.data),
 };
