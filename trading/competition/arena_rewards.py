@@ -17,7 +17,7 @@ async def award_arena_completion_rewards(
     session_data: dict,
     challenge_data: dict,
 ) -> dict:
-    rewards = {
+    rewards: dict[str, int | str | None] = {
         "xp_awarded": 0,
         "xp_source": None,
         "bonus_xp": 0,
