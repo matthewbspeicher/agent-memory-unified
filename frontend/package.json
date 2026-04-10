@@ -3,8 +3,11 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "design:build": "node design/build-tokens.mjs",
+    "design:check": "node design/build-tokens.mjs --check",
+    "test:design": "node --test design/build-tokens.test.mjs design/build-tokens.swap.test.mjs",
+    "dev": "npm run design:build && vite",
+    "build": "npm run design:check && vite build",
     "preview": "vite preview",
     "test:e2e": "playwright test",
     "test:e2e:prod": "playwright test tests/e2e/production.spec.ts",
