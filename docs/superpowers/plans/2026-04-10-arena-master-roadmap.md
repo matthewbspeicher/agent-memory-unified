@@ -57,12 +57,12 @@
 ## Phase 4: Infinite City Simulation (Sub-project 5)
 **Focus:** Long-Horizon Strategic Planning.
 
-- [ ] **Task 4.1: Dual-Layer City Engine (`infinite_city.py`)**
+- [x] **Task 4.1: Dual-Layer City Engine (`infinite_city.py`)**
     - Implement the mathematical 2D Grid (Infrastructure) and the asynchronous cycle manager.
     - Build the `PolicyEngine` (Governance) for text-based crisis resolution.
-- [ ] **Task 4.2: Interconnected Crisis Dynamics**
+- [x] **Task 4.2: Interconnected Crisis Dynamics**
     - Wire "Infrastructure Failures" to trigger "Governance Crises" and vice-versa.
-- [ ] **Task 4.3: Sustainability & Stability Metrics**
+- [x] **Task 4.3: Sustainability & Stability Metrics**
     - Implement the long-term scoring loop (100+ cycles).
 
 ---

@@ -17,7 +17,7 @@
 - Modify: `trading/competition/escape_rooms/factory.py`
 - Test: `trading/shared/tests/test_infinite_city_engine.py`
 
-- [ ] **Step 1: Write the failing test for grid initialization**
+- [x] **Step 1: Write the failing test for grid initialization**
 
 ```python
 from trading.competition.escape_rooms.infinite_city import InfiniteCityEnvironment
@@ -29,7 +29,7 @@ def test_city_init():
     assert env.state == "ACTIVE"
 ```
 
-- [ ] **Step 2: Implement the Base `InfiniteCityEnvironment`**
+- [x] **Step 2: Implement the Base `InfiniteCityEnvironment`**
 
 ```python
 from typing import Any, Dict, List
@@ -89,10 +89,10 @@ class InfiniteCityEnvironment(EscapeRoomEnvironment):
         return flag == self.winner
 ```
 
-- [ ] **Step 3: Register in Factory**
+- [x] **Step 3: Register in Factory**
 Register `infinite_city` in `_ROOM_TYPES` in `factory.py`.
 
-- [ ] **Step 4: Run Tests and Commit**
+- [x] **Step 4: Run Tests and Commit**
 Run `pytest trading/shared/tests/test_infinite_city_engine.py` and commit.
 
 ---
@@ -102,7 +102,7 @@ Run `pytest trading/shared/tests/test_infinite_city_engine.py` and commit.
 **Files:**
 - Modify: `trading/competition/escape_rooms/infinite_city.py`
 
-- [ ] **Step 1: Implement `enact_policy` tool**
+- [x] **Step 1: Implement `enact_policy` tool**
 
 ```python
 # In execute_tool for InfiniteCityEnvironment
@@ -121,8 +121,8 @@ Run `pytest trading/shared/tests/test_infinite_city_engine.py` and commit.
             return "Policy enacted."
 ```
 
-- [ ] **Step 2: Update `advance_cycle` to respect policies**
+- [x] **Step 2: Update `advance_cycle` to respect policies**
 Modify `advance_cycle` to check `self.active_policies`. If "Conservation" is active, reduce the Energy drain from 50 to 25.
 
-- [ ] **Step 3: Add Governance Tests and Commit**
+- [x] **Step 3: Add Governance Tests and Commit**
 Add `test_governance_policy_effects` and commit.
