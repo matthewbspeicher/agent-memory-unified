@@ -14,16 +14,12 @@ from storage.trades import TradeStore
 
 
 def get_broker() -> Broker:
-    from fastapi import Request
-    from typing import Annotated
 
     # Actual implementation uses Depends - see api/dependencies.py
     raise NotImplementedError("Use get_broker from api.dependencies instead")
 
 
 def get_agent_runner() -> AgentRunner:
-    from fastapi import Request
-    from typing import Annotated
 
     raise NotImplementedError("Use get_agent_runner from api.dependencies instead")
 

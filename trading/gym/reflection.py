@@ -433,7 +433,7 @@ class TradeAnalyzer:
             TradeCategory.SIZE_ISSUE: f"Small PnL ({pnl:.2f}) suggests position sizing may be suboptimal.",
             TradeCategory.REGIME_MISMATCH: f"High-confidence loss in {regime} regime suggests strategy不适合 current conditions.",
             TradeCategory.LUCKY_WIN: f"Profitable trade with low confidence ({confidence:.0%}) - may be noise.",
-            TradeCategory.UNLUCKY_LOSS: f"Loss despite good setup - market moved against position.",
+            TradeCategory.UNLUCKY_LOSS: "Loss despite good setup - market moved against position.",
         }
         return reasons.get(category, "Unable to determine cause.")
 

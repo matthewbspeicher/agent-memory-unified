@@ -3,10 +3,10 @@ Achievements API routes.
 """
 
 from fastapi import APIRouter, Depends, HTTPException
-from typing import List, Optional
+from typing import Optional
 
 from api.auth import verify_api_key
-from achievements import create_tracker, get_all_achievements, ACHIEVEMENTS
+from achievements import create_tracker, get_all_achievements
 
 
 router = APIRouter(

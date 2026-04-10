@@ -22,7 +22,6 @@ from competition.models import (
     CompetitorRecord,
     CompetitorType,
     CompetitorXP,
-    EloRating,
     LeaderboardEntry,
     MatchBet,
     MissionId,
@@ -38,11 +37,11 @@ from competition.models import (
     Tier,
     TraitLoadout,
     TraitUnlock,
+    TRAIT_INFO,
     XpHistoryEntry,
     XpSource,
     BETTING_HOUSE_CUT,
     BREEDING_COOLDOWN_HOURS,
-    CARD_RARITY_THRESHOLDS,
     ELO_SOFT_RESET_TARGET,
     MAX_BET_XP,
     MISSION_INFO,
@@ -203,7 +202,6 @@ class CompetitionStore:
 
     async def get_xp(self, competitor_id: str, asset: str) -> CompetitorXP:
         """Get XP and level data for a competitor on an asset."""
-        from competition.models import level_from_xp, xp_to_next_level
 
         sql = "SELECT xp FROM elo_ratings WHERE competitor_id = ? AND asset = ?"
         async with self._db.execute(sql, [competitor_id, asset]) as cur:
@@ -223,7 +221,7 @@ class CompetitionStore:
         If amount is None, uses the default from XP_AMOUNTS.
         Returns the updated CompetitorXP state.
         """
-        from competition.models import XP_AMOUNTS, level_from_xp, xp_to_next_level
+        from competition.models import XP_AMOUNTS
 
         xp_amount = amount if amount is not None else XP_AMOUNTS[source]
 
@@ -517,7 +515,7 @@ class CompetitionStore:
             for row in rows
         ]
 
-    async def get_competitor_calibration(
+    async def get_calibration_score(
         self, competitor_id: str, asset: str = "BTC"
     ) -> float:
         """Get calibration score for a competitor (0.0-1.0)."""
@@ -531,6 +529,12 @@ class CompetitionStore:
         if row:
             return float(row.get("calibration_score", 0.85))
         return 0.85  # Default
+
+    async def get_competitor_calibration(
+        self, competitor_id: str, asset: str = "BTC"
+    ) -> float:
+        """Backward-compatible alias for get_calibration_score()."""
+        return await self.get_calibration_score(competitor_id, asset)
 
     async def get_head_to_head(
         self, competitor_a: str, competitor_b: str, asset: str = "BTC"
@@ -573,115 +577,6 @@ class CompetitionStore:
                 match_data.get("elo_delta_a", 0),
                 match_data.get("elo_delta_b", 0),
                 match_data.get("match_type", "baseline"),
-            ],
-        )
-
-    # ------------------------------------------------------------------
-    # Trait System
-    # ------------------------------------------------------------------
-
-    async def get_unlocked_traits(self, competitor_id: str) -> list[dict]:
-        """Get all unlocked traits for a competitor."""
-        sql = """
-            SELECT trait, unlocked_at, unlocked_at_level
-            FROM unlocked_traits
-            WHERE competitor_id = ?
-            ORDER BY unlocked_at_level ASC
-        """
-        async with self._db.execute(sql, [competitor_id]) as cur:
-            rows = await cur.fetchall()
-        return [dict(r) for r in rows]
-
-    async def unlock_trait(
-        self, competitor_id: str, trait: AgentTrait, level: int
-    ) -> bool:
-        """Unlock a trait for a competitor. Returns True if newly unlocked."""
-        sql = """
-            INSERT INTO unlocked_traits (competitor_id, trait, unlocked_at_level)
-            VALUES (?, ?, ?)
-            ON CONFLICT (competitor_id, trait) DO NOTHING
-            RETURNING id
-        """
-        async with self._db.execute(sql, [competitor_id, trait.value, level]) as cur:
-            row = await cur.fetchone()
-        return row is not None
-
-    async def auto_unlock_traits(
-        self, competitor_id: str, current_level: int
-    ) -> list[AgentTrait]:
-        """Auto-unlock traits that the competitor is now eligible for.
-        Returns list of newly unlocked traits.
-        """
-        newly_unlocked = []
-        for trait, required_level in TRAIT_REQUIREMENTS.items():
-            if current_level >= required_level:
-                is_new = await self.unlock_trait(competitor_id, trait, current_level)
-                if is_new:
-                    newly_unlocked.append(trait)
-        return newly_unlocked
-
-    async def get_loadout(
-        self, competitor_id: str, asset: str = "BTC"
-    ) -> TraitLoadout | None:
-        """Get the current trait loadout for a competitor."""
-        sql = """
-            SELECT primary_trait, secondary_trait, tertiary_trait
-            FROM trait_loadout
-            WHERE competitor_id = ? AND asset = ?
-        """
-        async with self._db.execute(sql, [competitor_id, asset]) as cur:
-            row = await cur.fetchone()
-        if not row:
-            return TraitLoadout(competitor_id=competitor_id, asset=asset)
-        return TraitLoadout(
-            competitor_id=competitor_id,
-            asset=asset,
-            primary=AgentTrait(row["primary_trait"]) if row["primary_trait"] else None,
-            secondary=AgentTrait(row["secondary_trait"])
-            if row["secondary_trait"]
-            else None,
-            tertiary=AgentTrait(row["tertiary_trait"])
-            if row["tertiary_trait"]
-            else None,
-        )
-
-    async def equip_trait(
-        self, competitor_id: str, trait: AgentTrait, asset: str = "BTC"
-    ) -> TraitLoadout:
-        """Equip a trait in the first empty slot."""
-        loadout = await self.get_loadout(competitor_id, asset)
-        if not loadout.equip(trait):
-            raise ValueError("Loadout full - unequip a trait first")
-        await self._save_loadout(loadout)
-        return loadout
-
-    async def unequip_trait(
-        self, competitor_id: str, trait: AgentTrait, asset: str = "BTC"
-    ) -> TraitLoadout:
-        """Remove a trait from the loadout."""
-        loadout = await self.get_loadout(competitor_id, asset)
-        loadout.unequip(trait)
-        await self._save_loadout(loadout)
-        return loadout
-
-    async def _save_loadout(self, loadout: TraitLoadout) -> None:
-        """Save loadout to database."""
-        sql = """
-            INSERT INTO trait_loadout (competitor_id, asset, primary_trait, secondary_trait, tertiary_trait)
-            VALUES (?, ?, ?, ?, ?)
-            ON CONFLICT (competitor_id, asset) DO UPDATE
-                SET primary_trait = EXCLUDED.primary_trait,
-                    secondary_trait = EXCLUDED.secondary_trait,
-                    tertiary_trait = EXCLUDED.tertiary_trait
-        """
-        await self._db.execute(
-            sql,
-            [
-                loadout.competitor_id,
-                loadout.asset,
-                loadout.primary.value if loadout.primary else None,
-                loadout.secondary.value if loadout.secondary else None,
-                loadout.tertiary.value if loadout.tertiary else None,
             ],
         )
 
@@ -764,7 +659,7 @@ class CompetitionStore:
         )
 
         # Get trait icons
-        trait_icons = [TRAIT_REQUIREMENTS.get(t["trait"], "") for t in unlocked_traits]
+        trait_icons = [TRAIT_INFO[trait]["icon"] for trait in unlocked_traits]
 
         # Get top 5 achievement badges
         sql = """
@@ -800,6 +695,7 @@ class CompetitionStore:
 
 
 def _row_to_competitor(row: dict) -> CompetitorRecord:
+    row = dict(row)
     meta = row.get("metadata", {})
     if isinstance(meta, str):
         meta = json.loads(meta)

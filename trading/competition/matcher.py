@@ -12,7 +12,6 @@ from competition.calibration import CalibrationTracker
 from competition.engine import (
     calculate_elo_delta,
     k_factor_for_confidence,
-    k_factor_for_new_competitor,
 )
 from competition.tracker import TrackedSignal
 

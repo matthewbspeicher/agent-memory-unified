@@ -6,9 +6,12 @@ import logging
 import math
 from dataclasses import asdict
 from datetime import datetime, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from integrations.bittensor.models import PredictionRequest, RawMinerForecast
+
+if TYPE_CHECKING:
+    import bittensor as bt
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +67,7 @@ class TaoshiProtocolAdapter:
         self._subnet_uid = subnet_uid
         self._subtensor = None
         self._wallet = None
-        self._dendrite = None
+        self._dendrite: bt.Dendrite | None = None
         self._metagraph = None
 
     async def connect(
@@ -319,7 +322,7 @@ class TaoshiProtocolAdapter:
         if not axons or not uids:
             return []
 
-        uid_index = (
+        uid_index: dict[int, int] = (
             {uid: index for index, uid in enumerate(list(metagraph.uids))}
             if metagraph is not None
             else {}

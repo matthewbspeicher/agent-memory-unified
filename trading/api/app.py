@@ -1,7 +1,6 @@
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from pathlib import Path
 from fastapi import FastAPI
 
 from api.deps import (
@@ -46,6 +45,8 @@ async def _setup_trade_reflectors(
     remembr_sync,
     signal_bus,
     logger: logging.Logger,
+    task_mgr,
+    app,
 ):
     trade_reflector_factory = None
     global_reflector = None
@@ -971,9 +972,6 @@ async def lifespan(app: FastAPI):
         from data.signal_bus import SignalBus
         from risk.engine import RiskEngine
         from risk.config import load_risk_config
-        from agents.router import OpportunityRouter, ConsensusRouter
-        from agents.runner import AgentRunner
-        from agents.config import load_agents_config
         from storage.opportunities import OpportunityStore
         from storage.shadow import ShadowExecutionStore
         from storage.trades import TradeStore
@@ -981,7 +979,6 @@ async def lifespan(app: FastAPI):
 
         from storage.db import create_db
         from data.events import EventBus
-        from experiments.ab_test import get_experiment_manager
         from execution.shadow import ShadowExecutor, ShadowOutcomeResolver
 
         event_bus = EventBus()
@@ -1789,6 +1786,8 @@ async def lifespan(app: FastAPI):
             remembr_sync=remembr_sync,
             signal_bus=signal_bus,
             logger=_log,
+            task_mgr=task_mgr,
+            app=app,
         )
 
         health_engine, router, runner = _setup_agent_runtime(

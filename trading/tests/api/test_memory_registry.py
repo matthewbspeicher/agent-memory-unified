@@ -1,4 +1,3 @@
-import pytest
 from api.services.memory_registry import MemoryRegistry
 
 def test_memory_registry():

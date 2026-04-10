@@ -6,7 +6,7 @@ from dataclasses import asdict, is_dataclass
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from enum import Enum
-from typing import Any
+from typing import Any, TypeAlias, cast
 from uuid import uuid4
 
 from agents.models import ActionLevel, Opportunity
@@ -35,8 +35,7 @@ class ShadowResolutionStatus(str, Enum):
     EXPIRED = "expired"
 
 
-class ShadowExecutionRecord(dict[str, Any]):
-    """Typed alias for persisted shadow execution rows."""
+ShadowExecutionRecord: TypeAlias = dict[str, Any]
 
 
 def _utcnow() -> datetime:
@@ -72,8 +71,9 @@ def _serialize_value(value: Any) -> Any:
         return str(value)
     if isinstance(value, datetime):
         return _isoformat(value)
-    if is_dataclass(value):
-        return {key: _serialize_value(item) for key, item in asdict(value).items()}
+    if is_dataclass(value) and not isinstance(value, type):
+        serialized: dict[str, Any] = asdict(value)
+        return {key: _serialize_value(item) for key, item in serialized.items()}
     if isinstance(value, dict):
         return {key: _serialize_value(item) for key, item in value.items()}
     if isinstance(value, list):
@@ -168,7 +168,7 @@ class ShadowExecutor:
         }
         await self._store.save(record)
         stored = await self._store.get(record["id"])
-        return ShadowExecutionRecord(stored or record)
+        return cast(ShadowExecutionRecord, stored or record)
 
     def _pick_entry_price(
         self,
@@ -258,7 +258,7 @@ class ShadowOutcomeResolver:
                 record_id, now=now, reason="missing_entry_price"
             )
             updated = await self._store.get(record_id)
-            return ShadowExecutionRecord(updated) if updated else None
+            return cast(ShadowExecutionRecord, updated) if updated else None
 
         bars = await self._data_bus.get_historical(
             symbol=self._rehydrate_symbol(symbol),
@@ -275,7 +275,7 @@ class ShadowOutcomeResolver:
         if resolution_bar is None:
             await self._mark_insufficient(record_id, now=now, reason="no_bars")
             updated = await self._store.get(record_id)
-            return ShadowExecutionRecord(updated) if updated else None
+            return cast(ShadowExecutionRecord, updated) if updated else None
 
         eligible_bars = self._eligible_bars(
             bars,
@@ -285,7 +285,7 @@ class ShadowOutcomeResolver:
         if not eligible_bars:
             await self._mark_insufficient(record_id, now=now, reason="no_bars")
             updated = await self._store.get(record_id)
-            return ShadowExecutionRecord(updated) if updated else None
+            return cast(ShadowExecutionRecord, updated) if updated else None
 
         entry_price = Decimal(entry_price_raw)
         quantity = Decimal(record["expected_quantity"] or "0")
@@ -316,7 +316,7 @@ class ShadowOutcomeResolver:
             resolution_notes={"bars_seen": len(eligible_bars)},
         )
         updated = await self._store.get(record_id)
-        return ShadowExecutionRecord(updated) if updated else None
+        return cast(ShadowExecutionRecord, updated) if updated else None
 
     async def _mark_insufficient(
         self,

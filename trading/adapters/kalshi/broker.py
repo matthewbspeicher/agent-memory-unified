@@ -13,6 +13,7 @@ Order mapping:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Callable
 from decimal import Decimal
@@ -194,7 +195,7 @@ class KalshiMarketData(MarketDataProvider):
         self._client = client
         self._ob_cache: dict[str, Quote] = {}
         self._callbacks: list[Callable[[Quote], Any]] = []
-        self._ws_task = None
+        self._ws_task: asyncio.Task[None] | None = None
 
     def _on_ws_message(self, msg: dict) -> None:
         if msg.get("type") == "ticker":

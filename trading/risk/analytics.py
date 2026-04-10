@@ -369,7 +369,6 @@ class RiskAnalytics:
         # VaR checks
         equity = float(risk.current_equity) if risk.current_equity > 0 else 1.0
         var_95_pct = float(risk.portfolio_var_95) / equity
-        var_99_pct = float(risk.portfolio_var_99) / equity
 
         if var_95_pct > self._limits.max_var_95_pct:
             violations.append(

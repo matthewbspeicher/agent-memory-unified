@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
     from data.events import EventBus
@@ -49,13 +49,13 @@ class SpreadTracker:
                 except Exception as exc:
                     logger.warning("SpreadTracker._handle_quote error: %s", exc)
 
-    async def _handle_quote(self, data: dict) -> None:
-        condition_id: str = data.get("condition_id", "")
+    async def _handle_quote(self, data: dict[str, object]) -> None:
+        condition_id = cast(str, data.get("condition_id", ""))
         kalshi_ticker = self._match_index.get(condition_id)
         if not kalshi_ticker:
             return
 
-        poly_cents: int = data.get("yes_cents", 0)
+        poly_cents = cast(int, data.get("yes_cents", 0))
 
         # Fetch current Kalshi price (the data source caches internally)
         k_mkt = await self._kalshi_ds.get_market(kalshi_ticker)
@@ -66,7 +66,12 @@ class SpreadTracker:
             return
         if k_mkt.yes_bid is None and k_mkt.yes_ask is None:
             return
-        k_cents: int = k_mkt.yes_ask if k_mkt.yes_ask is not None else k_mkt.yes_bid
+        if k_mkt.yes_ask is not None:
+            k_cents = k_mkt.yes_ask
+        elif k_mkt.yes_bid is not None:
+            k_cents = k_mkt.yes_bid
+        else:
+            return
         gap = abs(k_cents - poly_cents)
 
         from storage.spreads import SpreadObservation
@@ -97,7 +102,7 @@ class SpreadTracker:
             )
             if self._notifier:
                 try:
-                    await self._notifier.notify(
+                    await self._notifier.send_text(
                         f"Arb spread alert: {kalshi_ticker} vs {condition_id} — gap {gap}¢"
                     )
                 except Exception as exc:

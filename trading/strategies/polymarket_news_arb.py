@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
+from decimal import Decimal
 
 from agents.base import StructuredAgent
 from agents.models import AgentConfig, Opportunity
@@ -158,7 +159,7 @@ class PolymarketNewsArbAgent(StructuredAgent):
                             suggested_trade=LimitOrder(
                                 symbol=sym,
                                 side=order_side,
-                                quantity=10,
+                                quantity=Decimal("10"),
                                 account_id="POLY",
                                 limit_price=limit_price,
                             ),

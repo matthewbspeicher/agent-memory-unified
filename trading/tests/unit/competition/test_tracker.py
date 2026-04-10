@@ -2,8 +2,8 @@
 from __future__ import annotations
 
 import pytest
-from datetime import datetime, timezone, timedelta
-from competition.tracker import SignalTracker, TrackedSignal
+from datetime import datetime, timezone
+from competition.tracker import SignalTracker
 
 
 class MockAgentSignal:

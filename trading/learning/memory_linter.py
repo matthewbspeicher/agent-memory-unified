@@ -1,6 +1,4 @@
 import logging
-from datetime import datetime, timezone
-from typing import Any
 from learning.memory_client import TradingMemoryClient
 
 logger = logging.getLogger(__name__)

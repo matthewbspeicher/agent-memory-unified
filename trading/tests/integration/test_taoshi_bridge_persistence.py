@@ -5,8 +5,7 @@ Integration test for TaoshiBridge persistence using BittensorStore.
 import pytest
 import json
 import asyncio
-from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
 from integrations.bittensor.taoshi_bridge import TaoshiBridge
 
 

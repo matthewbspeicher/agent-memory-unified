@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -294,6 +293,3 @@ async def transition_memory_status(
             "Status transition failed for %s/%s: %s", agent_name, memory_id, e
         )
         raise HTTPException(status_code=502, detail="Memory backend error")
-    registry.set_tuning_config(agent_name, config)
-    logger.info("Updated tuning config for agent %s", agent_name)
-    return TuningParamsResponse(agent=agent_name, **params.model_dump())

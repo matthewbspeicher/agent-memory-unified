@@ -1,11 +1,63 @@
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 logger = logging.getLogger(__name__)
 
 ProviderName = Literal["anthropic", "bedrock", "groq", "ollama", "rule-based"]
+
+if TYPE_CHECKING:
+    from anthropic.types import MessageParam
+    from openai.types.chat import ChatCompletionMessageParam
+
+
+def _anthropic_messages(messages: list[dict[str, str]]) -> list["MessageParam"]:
+    typed_messages: list["MessageParam"] = []
+    for message in messages:
+        role = message.get("role", "user")
+        content = message.get("content", "")
+        if role == "assistant":
+            typed_messages.append({"role": "assistant", "content": content})
+        else:
+            typed_messages.append({"role": "user", "content": content})
+    return typed_messages
+
+
+def _anthropic_message_text(message: Any) -> str:
+    from anthropic.types import TextBlock
+
+    parts: list[str] = []
+    for block in getattr(message, "content", []):
+        if isinstance(block, TextBlock):
+            parts.append(block.text)
+    return "".join(parts).strip()
+
+
+def _openai_messages(
+    system: str, messages: list[dict[str, str]]
+) -> list["ChatCompletionMessageParam"]:
+    full_messages: list["ChatCompletionMessageParam"] = []
+    if system:
+        full_messages.append({"role": "system", "content": system})
+    for message in messages:
+        role = message.get("role", "user")
+        content = message.get("content", "")
+        if role == "assistant":
+            full_messages.append({"role": "assistant", "content": content})
+        elif role == "developer":
+            full_messages.append({"role": "developer", "content": content})
+        elif role == "system":
+            full_messages.append({"role": "system", "content": content})
+        else:
+            full_messages.append({"role": "user", "content": content})
+    return full_messages
+
+
+def _openai_message_text(response: Any) -> str:
+    content = response.choices[0].message.content
+    return content.strip() if content else ""
+
 
 @dataclass
 class LLMResult:
@@ -16,11 +68,14 @@ class LLMResult:
     model: str
     latency_ms: float = 0.0
 
+
 class BaseProvider(ABC):
     name: ProviderName
 
     @abstractmethod
-    async def chat(self, system: str, messages: list[dict[str, str]], **kwargs) -> LLMResult | None:
+    async def chat(
+        self, system: str, messages: list[dict[str, str]], **kwargs
+    ) -> LLMResult | None:
         pass
 
     async def complete(self, prompt: str, **kwargs) -> LLMResult | None:
@@ -28,6 +83,7 @@ class BaseProvider(ABC):
 
     async def embed(self, text: str, **kwargs) -> list[float]:
         raise NotImplementedError
+
 
 class ProviderRegistry:
     def __init__(self):
@@ -38,6 +94,7 @@ class ProviderRegistry:
 
     def get(self, name: str) -> BaseProvider | None:
         return self.providers.get(name)
+
 
 class AnthropicProvider(BaseProvider):
     name = "anthropic"
@@ -54,14 +111,17 @@ class AnthropicProvider(BaseProvider):
 
             start = time.monotonic()
             client = anthropic.AsyncAnthropic(api_key=self.api_key)
+            anthropic_messages = _anthropic_messages(
+                [{"role": "user", "content": prompt}]
+            )
             msg = await client.messages.create(
                 model=self.model,
                 max_tokens=max_tokens,
-                messages=[{"role": "user", "content": prompt}],
+                messages=anthropic_messages,
             )
             latency = (time.monotonic() - start) * 1000
             return LLMResult(
-                text=msg.content[0].text.strip(),
+                text=_anthropic_message_text(msg),
                 provider="anthropic",
                 model=self.model,
                 latency_ms=round(latency),
@@ -70,7 +130,9 @@ class AnthropicProvider(BaseProvider):
             logger.warning("Anthropic failed: %s", exc)
             return None
 
-    async def chat(self, system: str, messages: list[dict[str, str]], **kwargs) -> LLMResult | None:
+    async def chat(
+        self, system: str, messages: list[dict[str, str]], **kwargs
+    ) -> LLMResult | None:
         max_tokens = kwargs.get("max_tokens", 500)
         try:
             import anthropic
@@ -78,15 +140,16 @@ class AnthropicProvider(BaseProvider):
 
             start = time.monotonic()
             client = anthropic.AsyncAnthropic(api_key=self.api_key)
+            anthropic_messages = _anthropic_messages(messages)
             msg = await client.messages.create(
                 model=self.model,
                 max_tokens=max_tokens,
                 system=system,
-                messages=messages,
+                messages=anthropic_messages,
             )
             latency = (time.monotonic() - start) * 1000
             return LLMResult(
-                text=msg.content[0].text.strip(),
+                text=_anthropic_message_text(msg),
                 provider="anthropic",
                 model=self.model,
                 latency_ms=round(latency),
@@ -112,7 +175,10 @@ class BedrockProvider(BaseProvider):
         self.secret_access_key = secret_access_key
 
     def _get_client(self):
-        import boto3
+        import importlib
+
+        boto3 = importlib.import_module("boto3")
+
         if self.access_key_id and self.secret_access_key:
             return boto3.client(
                 "bedrock-runtime",
@@ -157,7 +223,9 @@ class BedrockProvider(BaseProvider):
             logger.warning("Bedrock failed: %s", exc)
             return None
 
-    async def chat(self, system: str, messages: list[dict[str, str]], **kwargs) -> LLMResult | None:
+    async def chat(
+        self, system: str, messages: list[dict[str, str]], **kwargs
+    ) -> LLMResult | None:
         max_tokens = kwargs.get("max_tokens", 500)
         try:
             import json
@@ -196,11 +264,11 @@ class BedrockProvider(BaseProvider):
     async def embed(self, text: str, **kwargs) -> list[float]:
         try:
             import json
+
             client = self._get_client()
             body = json.dumps({"inputText": text})
             response = client.invoke_model(
-                modelId="amazon.titan-embed-text-v1",
-                body=body
+                modelId="amazon.titan-embed-text-v1", body=body
             )
             response_body = json.loads(response["body"].read())
             return response_body["embedding"]
@@ -227,14 +295,15 @@ class GroqProvider(BaseProvider):
                 base_url="https://api.groq.com/openai/v1",
                 api_key=self.api_key,
             )
+            full_messages = _openai_messages("", [{"role": "user", "content": prompt}])
             resp = await client.chat.completions.create(
                 model=self.model,
                 max_tokens=max_tokens,
-                messages=[{"role": "user", "content": prompt}],
+                messages=full_messages,
             )
             latency = (time.monotonic() - start) * 1000
             return LLMResult(
-                text=resp.choices[0].message.content.strip(),
+                text=_openai_message_text(resp),
                 provider="groq",
                 model=self.model,
                 latency_ms=round(latency),
@@ -243,7 +312,9 @@ class GroqProvider(BaseProvider):
             logger.warning("Groq failed: %s", exc)
             return None
 
-    async def chat(self, system: str, messages: list[dict[str, str]], **kwargs) -> LLMResult | None:
+    async def chat(
+        self, system: str, messages: list[dict[str, str]], **kwargs
+    ) -> LLMResult | None:
         max_tokens = kwargs.get("max_tokens", 500)
         try:
             import openai
@@ -254,7 +325,7 @@ class GroqProvider(BaseProvider):
                 base_url="https://api.groq.com/openai/v1",
                 api_key=self.api_key,
             )
-            full_messages = [{"role": "system", "content": system}] + messages
+            full_messages = _openai_messages(system, messages)
             resp = await client.chat.completions.create(
                 model=self.model,
                 max_tokens=max_tokens,
@@ -262,7 +333,7 @@ class GroqProvider(BaseProvider):
             )
             latency = (time.monotonic() - start) * 1000
             return LLMResult(
-                text=resp.choices[0].message.content.strip(),
+                text=_openai_message_text(resp),
                 provider="groq",
                 model=self.model,
                 latency_ms=round(latency),
@@ -275,7 +346,9 @@ class GroqProvider(BaseProvider):
 class OllamaProvider(BaseProvider):
     name = "ollama"
 
-    def __init__(self, base_url: str = "http://localhost:11434", model: str = "llama3.2:3b"):
+    def __init__(
+        self, base_url: str = "http://localhost:11434", model: str = "llama3.2:3b"
+    ):
         self.base_url = base_url
         self.model = model
 
@@ -291,14 +364,15 @@ class OllamaProvider(BaseProvider):
                 api_key="ollama",
                 timeout=30.0,
             )
+            full_messages = _openai_messages("", [{"role": "user", "content": prompt}])
             resp = await client.chat.completions.create(
                 model=self.model,
                 max_tokens=max_tokens,
-                messages=[{"role": "user", "content": prompt}],
+                messages=full_messages,
             )
             latency = (time.monotonic() - start) * 1000
             return LLMResult(
-                text=resp.choices[0].message.content.strip(),
+                text=_openai_message_text(resp),
                 provider="ollama",
                 model=self.model,
                 latency_ms=round(latency),
@@ -307,7 +381,9 @@ class OllamaProvider(BaseProvider):
             logger.warning("Ollama failed: %s", exc)
             return None
 
-    async def chat(self, system: str, messages: list[dict[str, str]], **kwargs) -> LLMResult | None:
+    async def chat(
+        self, system: str, messages: list[dict[str, str]], **kwargs
+    ) -> LLMResult | None:
         max_tokens = kwargs.get("max_tokens", 500)
         try:
             import openai
@@ -318,7 +394,7 @@ class OllamaProvider(BaseProvider):
                 base_url=f"{self.base_url}/v1",
                 api_key="ollama",
             )
-            full_messages = [{"role": "system", "content": system}] + messages
+            full_messages = _openai_messages(system, messages)
             resp = await client.chat.completions.create(
                 model=self.model,
                 max_tokens=max_tokens,
@@ -326,7 +402,7 @@ class OllamaProvider(BaseProvider):
             )
             latency = (time.monotonic() - start) * 1000
             return LLMResult(
-                text=resp.choices[0].message.content.strip(),
+                text=_openai_message_text(resp),
                 provider="ollama",
                 model=self.model,
                 latency_ms=round(latency),
@@ -338,10 +414,12 @@ class OllamaProvider(BaseProvider):
     async def embed(self, text: str, **kwargs) -> list[float]:
         try:
             import openai
-            client = openai.AsyncOpenAI(base_url=f"{self.base_url}/v1", api_key="ollama")
+
+            client = openai.AsyncOpenAI(
+                base_url=f"{self.base_url}/v1", api_key="ollama"
+            )
             resp = await client.embeddings.create(
-                input=[text],
-                model="nomic-embed-text"
+                input=[text], model="nomic-embed-text"
             )
             return resp.data[0].embedding
         except Exception as e:

@@ -93,11 +93,7 @@ class IBKROrderManager(OrderManager):
         def on_cancelled(t):
             event.set()
 
-        def on_failed(t):
-            event.set()
-
         trade.cancelledEvent += on_cancelled
-        trade.cancelFailedEvent += on_failed
         try:
             self._ib.cancelOrder(trade.order)
             await asyncio.wait_for(event.wait(), timeout=self._order_timeout)
@@ -105,7 +101,6 @@ class IBKROrderManager(OrderManager):
             pass
         finally:
             trade.cancelledEvent -= on_cancelled
-            trade.cancelFailedEvent -= on_failed
 
         return to_order_result(trade)
 

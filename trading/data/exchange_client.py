@@ -4,16 +4,18 @@
 from __future__ import annotations
 
 import logging
+from importlib import import_module
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
+ccxt: Any = None
+
 try:
-    import ccxt.async_support as ccxt  # type: ignore[import-untyped]
-    _CCXT_AVAILABLE = True
+    ccxt = import_module("ccxt.async_support")
+    _ccxt_available = True
 except ImportError:
-    ccxt = None  # type: ignore[assignment]
-    _CCXT_AVAILABLE = False
+    _ccxt_available = False
 
 from intelligence.circuit_breaker import ProviderCircuitBreaker
 
@@ -29,10 +31,10 @@ class FetchError:
 
 @dataclass
 class FetchResult:
-    ohlcv: list[dict] | None = None
-    funding: dict | None = None
+    ohlcv: list[dict[str, Any]] | None = None
+    funding: dict[str, Any] | None = None
     oi: float | None = None
-    orderbook: dict | None = None
+    orderbook: dict[str, Any] | None = None
     errors: list[FetchError] = field(default_factory=list)
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -71,19 +73,18 @@ class ExchangeClient:
         fallbacks: list[str] | None = None,
         enable_rate_limit: bool = True,
     ):
-        if not _CCXT_AVAILABLE:
+        self._exchange_ids: list[str] = []
+        self._exchanges: dict[str, Any] = {}
+        self._breakers: dict[str, ProviderCircuitBreaker] = {}
+
+        if not _ccxt_available:
             logger.warning(
                 "ccxt not installed — ExchangeClient is disabled. "
                 "Add 'ccxt' to requirements.txt and rebuild to enable."
             )
-            self._exchange_ids: list[str] = []
-            self._exchanges: dict = {}
-            self._breakers: dict[str, ProviderCircuitBreaker] = {}
             return
 
         self._exchange_ids = [primary] + (fallbacks or [])
-        self._exchanges: dict = {}
-        self._breakers: dict[str, ProviderCircuitBreaker] = {}
 
         for eid in self._exchange_ids:
             exchange_class = getattr(ccxt, eid, None)
@@ -164,7 +165,7 @@ class ExchangeClient:
             logger.warning("fetch_funding_rate failed: %s", e)
             return 0.0
 
-    async def _fetch_ohlcv(self, exchange: ccxt.Exchange, symbol: str) -> list[dict]:
+    async def _fetch_ohlcv(self, exchange: Any, symbol: str) -> list[dict[str, Any]]:
         raw = await exchange.fetch_ohlcv(self._format_spot(symbol), "1m", limit=100)
         return [
             {
@@ -178,7 +179,7 @@ class ExchangeClient:
             for r in raw
         ]
 
-    async def _fetch_funding(self, exchange: ccxt.Exchange, symbol: str) -> dict:
+    async def _fetch_funding(self, exchange: Any, symbol: str) -> dict[str, Any]:
         data = await exchange.fetch_funding_rate(self._format_perp(symbol))
         rate = data.get("fundingRate", 0.0)
         return {
@@ -187,14 +188,14 @@ class ExchangeClient:
             "timestamp": data.get("timestamp"),
         }
 
-    async def _fetch_oi(self, exchange: ccxt.Exchange, symbol: str) -> float:
+    async def _fetch_oi(self, exchange: Any, symbol: str) -> float:
         try:
             data = await exchange.fetch_open_interest(self._format_perp(symbol))
             return float(data.get("openInterestAmount", 0) or 0)
         except (ccxt.NotSupported, AttributeError):
             return 0.0
 
-    async def _fetch_orderbook(self, exchange: ccxt.Exchange, symbol: str) -> dict:
+    async def _fetch_orderbook(self, exchange: Any, symbol: str) -> dict[str, Any]:
         book = await exchange.fetch_order_book(self._format_spot(symbol), limit=20)
         return {"bids": book.get("bids", [])[:20], "asks": book.get("asks", [])[:20]}
 

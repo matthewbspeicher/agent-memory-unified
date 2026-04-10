@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
+from typing import TypedDict
 
 from intelligence.models import IntelReport
 from intelligence.providers.base import BaseIntelProvider
@@ -34,6 +35,13 @@ _SYMBOL_MAP: dict[str, str] = {
 
 # Thresholds for divergence classification
 _SLOPE_THRESHOLD = 1e-9  # below this, slope is considered flat
+
+
+class TradeTick(TypedDict):
+    price: float
+    amount: float
+    side: str
+    timestamp: int
 
 
 class OrderFlowProvider(BaseIntelProvider):
@@ -58,7 +66,9 @@ class OrderFlowProvider(BaseIntelProvider):
         try:
             trades = await self._fetch_recent_trades(symbol)
         except Exception as e:
-            logger.warning("OrderFlowProvider: failed to fetch trades for %s: %s", symbol, e)
+            logger.warning(
+                "OrderFlowProvider: failed to fetch trades for %s: %s", symbol, e
+            )
             return None
 
         if not trades:
@@ -96,11 +106,15 @@ class OrderFlowProvider(BaseIntelProvider):
             },
         )
 
-    async def _fetch_recent_trades(self, symbol: str) -> list[dict]:
+    async def _fetch_recent_trades(self, symbol: str) -> list[TradeTick]:
         """Fetch recent trades via CCXT. Returns list of {price, amount, side, timestamp}."""
         ccxt_symbol = _SYMBOL_MAP.get(symbol, symbol)
 
-        raw_trades = await self._exchange.exchange.fetch_trades(ccxt_symbol, limit=self._trade_limit)
+        exchange = next(iter(self._exchange._exchanges.values()), None)
+        if exchange is None:
+            return []
+
+        raw_trades = await exchange.fetch_trades(ccxt_symbol, limit=self._trade_limit)
         return [
             {
                 "price": t["price"],
@@ -112,7 +126,7 @@ class OrderFlowProvider(BaseIntelProvider):
         ]
 
     @staticmethod
-    def _compute_cvd(trades: list[dict]) -> list[float]:
+    def _compute_cvd(trades: list[TradeTick]) -> list[float]:
         """Compute cumulative volume delta from trade list.
 
         Buy-initiated trades add volume; sell-initiated trades subtract.

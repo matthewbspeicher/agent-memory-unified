@@ -208,7 +208,7 @@ class GridSearchRequest(BaseModel):
 
 
 class GeneticOptimizeRequest(BaseModel):
-    param_bounds: dict[str, list[tuple[float, float]]]
+    param_bounds: dict[str, tuple[float, float]]
     population_size: int = 20
     generations: int = 10
     mutation_rate: float = 0.1
@@ -253,7 +253,7 @@ async def run_grid_search(
     )
 
     async def backtest_fn(params: dict) -> dict:
-        results = await sandbox.run_backtest(
+        results = await sandbox.evaluate(
             strategy=strategy,
             parameters=params,
             symbols=universe[:10],
@@ -262,7 +262,7 @@ async def run_grid_search(
         return {
             "sharpe_ratio": results.sharpe_ratio,
             "win_rate": results.win_rate,
-            "max_drawdown": results.max_drawdown,
+            "max_drawdown": results.max_drawdown_pct,
             "total_trades": results.total_trades,
         }
 
@@ -314,7 +314,7 @@ async def run_genetic_optimize(
     )
 
     async def backtest_fn(params: dict) -> dict:
-        results = await sandbox.run_backtest(
+        results = await sandbox.evaluate(
             strategy=strategy,
             parameters=params,
             symbols=universe[:10],
@@ -322,7 +322,9 @@ async def run_genetic_optimize(
         )
         return {"sharpe_ratio": results.sharpe_ratio}
 
-    param_bounds = {k: tuple(v) for k, v in body.param_bounds.items()}
+    param_bounds: dict[str, tuple[float, float]] = {
+        k: (v[0], v[1]) for k, v in body.param_bounds.items()
+    }
     result = await tuner.genetic_optimize(
         agent_name,
         param_bounds,

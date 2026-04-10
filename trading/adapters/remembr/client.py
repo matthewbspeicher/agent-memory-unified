@@ -170,7 +170,7 @@ class RemembrClient:
         personality_tags: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """Update the agent's arena profile."""
-        payload = {}
+        payload: Dict[str, Any] = {}
         if bio:
             payload["bio"] = bio
         if avatar_url:
@@ -556,7 +556,7 @@ class AsyncRemembrClient:
         personality_tags: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """Update the agent's arena profile."""
-        payload = {}
+        payload: Dict[str, Any] = {}
         if bio:
             payload["bio"] = bio
         if avatar_url:

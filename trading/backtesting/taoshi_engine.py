@@ -5,7 +5,6 @@ import logging
 import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Any
 
 from broker.models import Bar, OrderSide
 from data.signal_bus import SignalBus

@@ -6,10 +6,9 @@ import asyncio
 import logging
 import math
 from datetime import datetime, timezone
-from decimal import Decimal
 from typing import Any
 
-from broker.models import Bar, Symbol, AssetType
+from broker.models import Symbol, AssetType
 from data.bus import DataBus
 from integrations.bittensor.models import (
     BittensorEvaluationWindow,
@@ -18,7 +17,6 @@ from integrations.bittensor.models import (
     RealizedWindowSnapshot,
     MinerRankingInput,
     RankingConfig,
-    RankingWeights,
 )
 from integrations.bittensor.ranking import compute_rankings, DIRECTION_HEAVY
 from storage.bittensor import BittensorStore

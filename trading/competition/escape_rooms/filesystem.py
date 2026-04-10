@@ -23,7 +23,6 @@ class FileSystemPuzzle(EscapeRoomEnvironment):
             return f"File not found: {filepath}"
 
         elif tool_name == "fs_list":
-            path = kwargs.get("path", "/")
             visible = list(self.files.keys())
             revealed_hidden = [
                 f

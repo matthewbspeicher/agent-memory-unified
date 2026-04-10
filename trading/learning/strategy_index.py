@@ -1,5 +1,4 @@
 import logging
-from typing import Any
 from learning.memory_client import TradingMemoryClient
 
 logger = logging.getLogger(__name__)

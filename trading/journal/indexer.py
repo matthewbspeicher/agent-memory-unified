@@ -6,18 +6,45 @@ import logging
 import os
 import threading
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Protocol
 
 import numpy as np
+
+
+class SentenceTransformerProtocol(Protocol):
+    def get_sentence_embedding_dimension(self) -> int: ...
+
+    def encode(self, sentences: str | list[str]) -> np.ndarray: ...
+
+
+class HNSWIndexProtocol(Protocol):
+    def init_index(
+        self, *, max_elements: int, ef_construction: int, M: int
+    ) -> None: ...
+
+    def set_ef(self, ef: int) -> None: ...
+
+    def resize_index(self, new_size: int) -> None: ...
+
+    def add_items(self, data: np.ndarray, ids: np.ndarray | list[int]) -> None: ...
+
+    def knn_query(self, data: np.ndarray, k: int) -> tuple[np.ndarray, np.ndarray]: ...
+
+    def save_index(self, path: str) -> None: ...
+
+    def load_index(self, path: str, max_elements: int | None = None) -> None: ...
+
+    def mark_deleted(self, label: int) -> None: ...
+
 
 # sentence_transformers / torch are loaded lazily in start() to avoid
 # a fatal libomp duplicate-library abort that occurs when torch loads
 # alongside other OpenMP-linked C extensions (e.g. numpy).  The module-level
 # import was triggering torch init at collection time, crashing pytest.
-SentenceTransformer = None  # type: ignore[assignment,misc]
+SentenceTransformer: type[Any] | None = None
 
 
-def _load_sentence_transformer_class():
+def _load_sentence_transformer_class() -> type[Any] | None:
     """Import SentenceTransformer lazily to avoid torch init at import time."""
     global SentenceTransformer
     if SentenceTransformer is not None:
@@ -27,7 +54,7 @@ def _load_sentence_transformer_class():
 
         SentenceTransformer = _ST
     except ImportError:
-        SentenceTransformer = None  # type: ignore[assignment]
+        SentenceTransformer = None
     return SentenceTransformer
 
 
@@ -81,8 +108,8 @@ class JournalIndexer:
         self._gpu_enabled = gpu_enabled
 
         # Index state
-        self._index = None  # hnswlib.Index, initialized in start()
-        self._model = None  # SentenceTransformer, loaded in start()
+        self._index: HNSWIndexProtocol | None = None  # initialized in start()
+        self._model: SentenceTransformerProtocol | None = None  # loaded in start()
         self._dim: int = 384  # MiniLM embedding dimension
 
         # Caches
@@ -111,6 +138,16 @@ class JournalIndexer:
         embedding_bytes = self._next_label * self._dim * 4
         return (embedding_bytes + self._meta_size_bytes) / (1024 * 1024)
 
+    def _require_model(self) -> SentenceTransformerProtocol:
+        if self._model is None:
+            raise RuntimeError("JournalIndexer model is not initialized")
+        return self._model
+
+    def _require_index(self) -> HNSWIndexProtocol:
+        if self._index is None:
+            raise RuntimeError("JournalIndexer index is not initialized")
+        return self._index
+
     async def start(self) -> None:
         """Non-blocking startup: loads model, inits index, starts background tasks."""
         ST = _load_sentence_transformer_class()
@@ -120,7 +157,7 @@ class JournalIndexer:
             )
             return
 
-        def load_model():
+        def load_model() -> SentenceTransformerProtocol:
             device = "cpu"
             try:
                 import torch
@@ -132,20 +169,22 @@ class JournalIndexer:
             logger.info("JournalIndexer: loading SentenceTransformer on %s", device)
             return ST(self._model_name, device=device)
 
-        self._model = await asyncio.to_thread(load_model)
-        self._dim = self._model.get_sentence_embedding_dimension()
+        model = await asyncio.to_thread(load_model)
+        self._model = model
+        self._dim = model.get_sentence_embedding_dimension()
 
         import hnswlib
 
         loaded = await self.load()
         if not loaded:
-            self._index = hnswlib.Index(space=self._space, dim=self._dim)
-            self._index.init_index(
+            index: HNSWIndexProtocol = hnswlib.Index(space=self._space, dim=self._dim)
+            index.init_index(
                 max_elements=self._max_elements,
                 ef_construction=self._ef_construction,
                 M=self._m,
             )
-            self._index.set_ef(self._ef_search)
+            index.set_ef(self._ef_search)
+            self._index = index
 
         self._subscriber_task = asyncio.create_task(self._run_subscriber())
         self._rehydrate_task = asyncio.create_task(self._rehydrate())
@@ -255,13 +294,14 @@ class JournalIndexer:
 
             import hnswlib
 
-            self._index = hnswlib.Index(space=self._space, dim=self._dim)
-            self._index.init_index(
+            index: HNSWIndexProtocol = hnswlib.Index(space=self._space, dim=self._dim)
+            index.init_index(
                 max_elements=self._max_elements,
                 ef_construction=self._ef_construction,
                 M=self._m,
             )
-            self._index.set_ef(self._ef_search)
+            index.set_ef(self._ef_search)
+            self._index = index
 
         # Delete stale cache files
         for suffix in (".hnsw", ".meta.json"):
@@ -290,6 +330,8 @@ class JournalIndexer:
     ) -> None:
         """Synchronous vectorized batch add: embed batch, insert into HNSW, update caches."""
         with self._lock:
+            index = self._require_index()
+            model = self._require_model()
             valid_indices = [
                 i for i, mid in enumerate(memory_ids) if mid not in self._id_map
             ]
@@ -306,17 +348,17 @@ class JournalIndexer:
                 new_cap = max(
                     int(self._max_elements * 1.5), self._next_label + num_new + 1000
                 )
-                self._index.resize_index(new_cap)
+                index.resize_index(new_cap)
                 self._max_elements = new_cap
                 logger.info("JournalIndexer: resized index to %d", new_cap)
 
             # Vectorized embedding generation
-            vecs = self._model.encode(batch_contents)
+            vecs = model.encode(batch_contents)
             if vecs.ndim == 1:
                 vecs = vecs.reshape(1, -1)
 
             labels = np.arange(self._next_label, self._next_label + num_new)
-            self._index.add_items(vecs, labels)
+            index.add_items(vecs, labels)
 
             for i, mid in enumerate(batch_mids):
                 label = int(labels[i])
@@ -342,36 +384,37 @@ class JournalIndexer:
     def _update_entry_sync(self, memory_id: str, content: str, metadata: dict) -> None:
         """Synchronous: Re-embed and replace an existing entry (tombstoning the old label)."""
         with self._lock:
+            index = self._require_index()
+            model = self._require_model()
             if memory_id not in self._id_map:
                 return
 
             old_label = self._id_map[memory_id]
 
             # Tombstone old entry in index if supported
-            if hasattr(self._index, "mark_deleted"):
-                try:
-                    self._index.mark_deleted(old_label)
-                except Exception as e:
-                    logger.warning(
-                        "JournalIndexer: failed to mark label %d as deleted: %s",
-                        old_label,
-                        e,
-                    )
+            try:
+                index.mark_deleted(old_label)
+            except Exception as e:
+                logger.warning(
+                    "JournalIndexer: failed to mark label %d as deleted: %s",
+                    old_label,
+                    e,
+                )
 
             # Auto-resize if needed
             if self._next_label + 1 >= int(self._max_elements * 0.9):
                 new_cap = int(self._max_elements * 1.5)
-                self._index.resize_index(new_cap)
+                index.resize_index(new_cap)
                 self._max_elements = new_cap
                 logger.info("JournalIndexer: resized index to %d", new_cap)
 
             # Generate new embedding
-            vec = self._model.encode([content])
+            vec = model.encode([content])
             if vec.ndim == 1:
                 vec = vec.reshape(1, -1)
 
             new_label = self._next_label
-            self._index.add_items(vec, [new_label])
+            index.add_items(vec, [new_label])
 
             # Update mappings
             self._id_map[memory_id] = new_label
@@ -401,14 +444,16 @@ class JournalIndexer:
         if self._index is None or self._next_label == 0:
             return []
 
-        vec = self._model.encode(query)
+        model = self._require_model()
+        index = self._require_index()
+        vec = model.encode(query)
         if vec.ndim == 1:
             vec = vec.reshape(1, -1)
 
         k = min(limit * 2, self._next_label - self._tombstone_count)
         if k <= 0:
             return []
-        labels, distances = self._index.knn_query(vec, k=k)
+        labels, distances = index.knn_query(vec, k=k)
 
         results: list[SearchResult] = []
         for label, dist in zip(labels[0], distances[0]):
@@ -439,13 +484,15 @@ class JournalIndexer:
             if self._index is None or self._next_label == 0:
                 return
 
+            index = self._require_index()
+
             os.makedirs(os.path.dirname(self._index_path) or ".", exist_ok=True)
 
             hnsw_path = f"{self._index_path}.hnsw"
             meta_path = f"{self._index_path}.meta.json"
 
             hnsw_tmp = f"{hnsw_path}.tmp"
-            self._index.save_index(hnsw_tmp)
+            index.save_index(hnsw_tmp)
             os.replace(hnsw_tmp, hnsw_path)
 
             meta_tmp = f"{meta_path}.tmp"
@@ -497,9 +544,12 @@ class JournalIndexer:
                 self._tombstone_count = state.get("tombstone_count", 0)
                 self._max_elements = state.get("max_elements", self._max_elements)
 
-                self._index = hnswlib.Index(space=self._space, dim=self._dim)
-                self._index.load_index(hnsw_path, max_elements=self._max_elements)
-                self._index.set_ef(self._ef_search)
+                index: HNSWIndexProtocol = hnswlib.Index(
+                    space=self._space, dim=self._dim
+                )
+                index.load_index(hnsw_path, max_elements=self._max_elements)
+                index.set_ef(self._ef_search)
+                self._index = index
 
                 # Recompute incremental metadata size counter
                 self._meta_size_bytes = (

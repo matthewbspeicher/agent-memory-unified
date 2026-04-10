@@ -53,7 +53,8 @@ class TradeReflector:
                 ticker = trade.trade_memory.symbol
                 # Map ticker back to Symbol object
                 asset_type = AssetType.STOCK
-                if "USD" in ticker and "-" not in ticker: asset_type = AssetType.CRYPTO
+                if "USD" in ticker and "-" not in ticker:
+                    asset_type = AssetType.CRYPTO
                 symbol_obj = Symbol(ticker=ticker, asset_type=asset_type)
                 
                 regime = trade.trade_memory.data.get("regime", {}).get("market_phase", "unknown")

@@ -1,11 +1,17 @@
-from backtesting.engine import BacktestEngine
-from backtesting.models import BacktestConfig, BacktestResult
-from backtesting.sandbox import BacktestSandbox, SandboxResult
-from backtesting.consensus_sim import (
-    ConsensusSimulator,
-    ConsensusSimulationResult,
-    ConsensusMetrics,
-)
+from importlib import import_module
+
+
+def __getattr__(name: str):
+    if name in {"BacktestEngine"}:
+        return import_module("backtesting.engine").BacktestEngine
+    if name in {"BacktestConfig", "BacktestResult"}:
+        return getattr(import_module("backtesting.models"), name)
+    if name in {"BacktestSandbox", "SandboxResult"}:
+        return getattr(import_module("backtesting.sandbox"), name)
+    if name in {"ConsensusSimulator", "ConsensusSimulationResult", "ConsensusMetrics"}:
+        return getattr(import_module("backtesting.consensus_sim"), name)
+    raise AttributeError(name)
+
 
 __all__ = [
     "BacktestEngine",

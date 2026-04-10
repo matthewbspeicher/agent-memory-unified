@@ -897,7 +897,7 @@ class OpportunityRouter:
                         _orig_qty = opportunity.suggested_trade.quantity
                         _throttled_qty = int(_D(str(_orig_qty)) * _D(str(_multiplier)))
                         if _throttled_qty > 0:
-                            opportunity.suggested_trade.quantity = _throttled_qty
+                            opportunity.suggested_trade.quantity = _D(_throttled_qty)
                             span.set_attribute(
                                 "health.throttle_multiplier", _multiplier
                             )

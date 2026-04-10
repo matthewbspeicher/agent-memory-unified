@@ -163,7 +163,6 @@ def compute_relative_volume(bars: list[Bar], period: int = 20) -> float:
 
 def add_technical_indicators(df: Any) -> Any:
     """Add 50+ standard technical indicators to OHLCV DataFrame using pandas_ta."""
-    import pandas_ta as ta
 
     # We append basic ones explicitly, or can use df.ta.strategy("all")
     df.ta.rsi(length=14, append=True)

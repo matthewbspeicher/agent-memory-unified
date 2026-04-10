@@ -413,7 +413,6 @@ class TournamentEngine:
         rankings = tournament_results["rankings"]
 
         if tuner is None:
-            from agents.runner import AgentRunner
             from agents.tuning import AdaptiveTuner
             from storage.opportunities import OpportunityStore
             from storage.trades import TradeStore

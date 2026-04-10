@@ -109,12 +109,15 @@ def _check_signal_bus(request: Request) -> dict:
 
 async def _check_memory_linter(request: Request) -> dict:
     """Run memory linter health check."""
-    from api.routes.memory import _shared_memory_client
-    if not _shared_memory_client:
+    from api.services.memory_registry import memory_registry
+
+    client = memory_registry.get_shared()
+    if not client:
         return {"ok": None, "detail": "Memory client not configured"}
-        
+
     from learning.memory_linter import MemoryLinter
-    linter = MemoryLinter(_shared_memory_client)
+
+    linter = MemoryLinter(client)
     return await linter.lint()
 
 
@@ -181,7 +184,7 @@ async def health_internal(request: Request):
 
     # SignalBus check
     signal_bus_status = _check_signal_bus(request)
-    
+
     # Memory Linter check
     memory_linter_status = await _check_memory_linter(request)
 

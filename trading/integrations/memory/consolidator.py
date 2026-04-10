@@ -1,19 +1,12 @@
-import logging
 import json
-from typing import Dict, Any, List
-
-try:
-    import redis.asyncio as aioredis
-except ImportError:
-    import aioredis
+import logging
+from typing import Any, Dict
 
 logger = logging.getLogger(__name__)
 
 
 class MemoryConsolidator:
-    def __init__(
-        self, llm_client, redis_client: aioredis.Redis, stream_name: str = "events"
-    ):
+    def __init__(self, llm_client, redis_client: Any, stream_name: str = "events"):
         self.llm = llm_client
         self.redis = redis_client
         self.stream_name = stream_name

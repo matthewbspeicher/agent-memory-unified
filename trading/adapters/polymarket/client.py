@@ -191,9 +191,9 @@ class PolymarketClient:
         limit: int = 100,
     ) -> dict:
         # /markets
-        params = {"limit": limit}
+        params: dict[str, str | int | bool] = {"limit": limit}
         if active:
-            params["active"] = "true"
+            params["active"] = True
         if next_cursor:
             params["next_cursor"] = next_cursor
 
@@ -207,7 +207,7 @@ class PolymarketClient:
 
     def get_trades(self, token_id: str, limit: int = 50) -> dict:
         # Not natively exposed effectively in recent clob SDK sometimes, raw HTTP
-        params = {"market": token_id, "limit": limit}
+        params: dict[str, str | int | bool] = {"market": token_id, "limit": limit}
         resp = httpx.get(f"{self.clob.host}/trades", params=params)
         resp.raise_for_status()
         return resp.json()

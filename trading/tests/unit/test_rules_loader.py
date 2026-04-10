@@ -1,12 +1,11 @@
 """Tests for the trading rules loader (brief/rules_loader.py)."""
 
-import tempfile
 from pathlib import Path
 
 import pytest
 import yaml
 
-from brief.rules_loader import RulesLoader, TradingRules, SessionBiasConfig, RiskOverlay
+from brief.rules_loader import RulesLoader, TradingRules
 
 
 @pytest.fixture

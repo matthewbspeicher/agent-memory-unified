@@ -1,9 +1,7 @@
 """Unit tests for RiskAnalytics module."""
 
-import pytest
 from decimal import Decimal
 from datetime import datetime, timezone
-from unittest.mock import Mock, patch
 
 from trading.risk.analytics import (
     RiskAnalytics,

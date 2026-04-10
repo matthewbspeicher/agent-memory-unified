@@ -1,6 +1,5 @@
 """Tests for Alpha Token Strategy."""
 
-import pytest
 from datetime import datetime
 
 from strategy.alpha_token import (

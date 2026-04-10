@@ -1,4 +1,3 @@
-import pytest
 from datetime import datetime, timezone
 from intelligence.models import IntelReport, IntelEnrichment, IntelRecord
 

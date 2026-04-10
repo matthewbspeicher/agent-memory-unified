@@ -36,8 +36,8 @@ class IBKRMarketDataProvider(MarketDataProvider):
         return Decimal(str(val))
 
     @staticmethod
-    def _safe_int(val: float) -> int:
-        if val != val or val is None:
+    def _safe_int(val: float | None) -> int:
+        if val is None or val != val:
             return 0
         return int(val)
 
@@ -111,7 +111,7 @@ class IBKRMarketDataProvider(MarketDataProvider):
                 high=Decimal(str(b.high)),
                 low=Decimal(str(b.low)),
                 close=Decimal(str(b.close)),
-                volume=b.volume,
+                volume=self._safe_int(b.volume),
                 timestamp=b.date
                 if isinstance(b.date, datetime)
                 else datetime.combine(b.date, datetime.min.time()),

@@ -5,7 +5,7 @@ into structured daily summaries.
 
 import asyncio
 import logging
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 
 from learning.memory_client import TradingMemoryClient
 

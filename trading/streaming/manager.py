@@ -1,5 +1,6 @@
 from __future__ import annotations
 import logging
+from functools import partial
 
 from broker.models import Quote, Symbol
 from data.bus import DataBus
@@ -67,9 +68,7 @@ class StreamManager:
         """Connect all streams and register fan-out callbacks."""
         for name, stream in self._streams.items():
             stream.on_quote(self._on_quote)
-            stream.on_disconnected(
-                lambda broker_name=name: self._on_stream_disconnected(broker_name)
-            )
+            stream.on_disconnected(partial(self._on_stream_disconnected, name))
             try:
                 await stream.connect()
                 await self._event_bus.publish("stream.connected", {"broker": name})

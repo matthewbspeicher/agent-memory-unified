@@ -33,7 +33,7 @@ _PERP_SYMBOL_MAP: dict[str, str] = {
 }
 
 # Funding rate thresholds (per 8h period)
-_FUNDING_HIGH = 0.0005   # 0.05% per 8h (~55% annualized)
+_FUNDING_HIGH = 0.0005  # 0.05% per 8h (~55% annualized)
 _FUNDING_MODERATE = 0.0001  # 0.01% per 8h (~11% annualized)
 
 
@@ -145,11 +145,16 @@ class DerivativesProvider(BaseIntelProvider):
     async def _fetch_funding_rate(self, symbol: str) -> float:
         """Fetch current funding rate from exchange via CCXT."""
         ccxt_symbol = _PERP_SYMBOL_MAP.get(symbol, f"{symbol[:3]}/USDT:USDT")
+        exchange = next(iter(self._exchange._exchanges.values()), None)
+        if exchange is None:
+            return 0.0
         try:
-            funding = await self._exchange.exchange.fetch_funding_rate(ccxt_symbol)
+            funding = await exchange.fetch_funding_rate(ccxt_symbol)
             return funding.get("fundingRate", 0.0) or 0.0
         except Exception as e:
-            logger.warning(f"DerivativesProvider failed to fetch funding rate for {symbol}: {e}")
+            logger.warning(
+                f"DerivativesProvider failed to fetch funding rate for {symbol}: {e}"
+            )
             return 0.0
 
     async def _fetch_oi_change_pct(self, symbol: str) -> float:
@@ -158,9 +163,12 @@ class DerivativesProvider(BaseIntelProvider):
         Returns percentage change in open interest.
         """
         ccxt_symbol = _PERP_SYMBOL_MAP.get(symbol, f"{symbol[:3]}/USDT:USDT")
+        exchange = next(iter(self._exchange._exchanges.values()), None)
+        if exchange is None:
+            return 0.0
         try:
             # Fetch open interest history (last 2 periods)
-            oi_data = await self._exchange.exchange.fetch_open_interest_history(
+            oi_data = await exchange.fetch_open_interest_history(
                 ccxt_symbol, timeframe="1h", limit=2
             )
             if len(oi_data) < 2:
@@ -171,16 +179,22 @@ class DerivativesProvider(BaseIntelProvider):
                 return 0.0
             return ((curr_oi - prev_oi) / prev_oi) * 100
         except Exception as e:
-            logger.warning(f"DerivativesProvider failed to fetch OI change for {symbol}: {e}")
+            logger.warning(
+                f"DerivativesProvider failed to fetch OI change for {symbol}: {e}"
+            )
             return 0.0
 
     async def _fetch_price_change_pct(self, symbol: str) -> float:
         """Fetch price change % over recent period via CCXT."""
         ccxt_symbol = _PERP_SYMBOL_MAP.get(symbol, f"{symbol[:3]}/USDT:USDT")
+        exchange = next(iter(self._exchange._exchanges.values()), None)
+        if exchange is None:
+            return 0.0
         try:
-            ticker = await self._exchange.exchange.fetch_ticker(ccxt_symbol)
+            ticker = await exchange.fetch_ticker(ccxt_symbol)
             return ticker.get("percentage", 0.0) or 0.0
         except Exception as e:
-            logger.warning(f"DerivativesProvider failed to fetch price change for {symbol}: {e}")
+            logger.warning(
+                f"DerivativesProvider failed to fetch price change for {symbol}: {e}"
+            )
             return 0.0
-

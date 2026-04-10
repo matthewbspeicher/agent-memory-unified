@@ -1,7 +1,6 @@
 from __future__ import annotations
 import vectorbt as vbt
 import pandas as pd
-import numpy as np
 
 def run_vbt_backtest(prices: pd.Series, signals: pd.Series) -> dict:
     """Run a vectorized backtest using vectorbt."""

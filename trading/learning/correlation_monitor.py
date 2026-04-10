@@ -15,11 +15,24 @@ import math
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import TYPE_CHECKING, Any
+from typing import Any, Protocol
 
-if TYPE_CHECKING:
-    from storage.performance import PerformanceStore
-    from storage.correlation import CorrelationStore
+
+class PerformanceStoreProtocol(Protocol):
+    async def get_all_latest(self) -> list[Any]: ...
+
+    async def get_daily_pnl_series(
+        self,
+        agent_name: str,
+        start_date: str,
+    ) -> list[float]: ...
+
+
+class CorrelationStoreProtocol(Protocol):
+    async def save_snapshot(self, snapshot: CorrelationSnapshot) -> None: ...
+
+    async def get_latest_snapshot(self) -> CorrelationSnapshot | None: ...
+
 
 logger = logging.getLogger(__name__)
 
@@ -144,8 +157,8 @@ class CorrelationMonitor:
 
     def __init__(
         self,
-        perf_store: "PerformanceStore",
-        correlation_store: "CorrelationStore",
+        perf_store: PerformanceStoreProtocol,
+        correlation_store: CorrelationStoreProtocol,
         config: CorrelationConfig | None = None,
     ) -> None:
         self._perf_store = perf_store

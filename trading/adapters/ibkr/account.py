@@ -23,23 +23,17 @@ class IBKRAccountProvider(AccountProvider):
         return [Account(account_id=a) for a in accounts]
 
     async def get_positions(self, account_id: str) -> list[Position]:
-        ib_positions = self._ib.positions(account_id)
+        portfolio_items = self._ib.portfolio(account_id)
         return [
             Position(
                 symbol=from_contract(p.contract),
                 quantity=Decimal(str(p.position)),
-                avg_cost=Decimal(str(p.avgCost)),
-                market_value=Decimal(str(p.marketValue))
-                if hasattr(p, "marketValue")
-                else Decimal("0"),
-                unrealized_pnl=Decimal(str(p.unrealizedPNL))
-                if hasattr(p, "unrealizedPNL")
-                else Decimal("0"),
-                realized_pnl=Decimal(str(p.realizedPNL))
-                if hasattr(p, "realizedPNL")
-                else Decimal("0"),
+                avg_cost=Decimal(str(p.averageCost)),
+                market_value=Decimal(str(p.marketValue)),
+                unrealized_pnl=Decimal(str(p.unrealizedPNL)),
+                realized_pnl=Decimal(str(p.realizedPNL)),
             )
-            for p in ib_positions
+            for p in portfolio_items
         ]
 
     async def get_balances(self, account_id: str) -> AccountBalance:

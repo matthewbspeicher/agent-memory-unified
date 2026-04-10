@@ -81,28 +81,6 @@ class AutopsyGenerator:
             return cached
         text = await self.generate(position)
 
-        if self._journal_manager:
-            try:
-                from journal.models import TradeExecution
-
-                pnl, pnl_pct = _compute_pnl(position)
-
-                exec_log = TradeExecution(
-                    agent_name=position["agent_name"],
-                    symbol=position["symbol"],
-                    position_id=str(position["id"]),
-                    opportunity_id=str(position.get("opportunity_id", "")),
-                    entry_time=datetime.fromisoformat(position["entry_time"]),
-                    exit_time=datetime.fromisoformat(position["exit_time"]),
-                    pnl_realized=float(pnl),
-                    autopsy=text,
-                )
-                await self._journal_manager.log_trade_execution(exec_log)
-            except Exception as e:
-                logger.warning(
-                    "Failed to store vector trade log for %s: %s", position["id"], e
-                )
-
         return text
 
     async def get_cached(self, position_id: int) -> str | None:
@@ -165,10 +143,11 @@ class AutopsyGenerator:
                 q = snapshot["quote"]
 
                 def _fmt(v: object) -> str:
-                    try:
-                        return f"{float(v):.2f}"
-                    except (TypeError, ValueError):
-                        return str(v) if v is not None else "N/A"
+                    if v is None:
+                        return "N/A"
+                    if isinstance(v, (int, float)):
+                        return f"{v:.2f}"
+                    return str(v)
 
                 snapshot_block = (
                     f"Bid: {_fmt(q.get('bid'))} | Ask: {_fmt(q.get('ask'))} | "
@@ -188,7 +167,7 @@ class AutopsyGenerator:
                 lessons = []
                 for r in rows:
                     lesson = r["lesson"] if isinstance(r, dict) else r[0]
-                    cat = r["category"] if isinstance(r, dict) else r[1]
+                    cat = r["category"] if isinstance(r, dict) else str(r[1])
                     lessons.append(f"- [{cat}] {lesson}")
                 lessons_block = "\n".join(lessons)
         except Exception as exc:

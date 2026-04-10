@@ -18,10 +18,13 @@ class TradingJournal:
         client: RemembrClient,
         paper: bool = True,
         default_strategy: Optional[str] = None,
-    ):
+    ) -> None:
         self.client = client
         self.paper = paper
         self.default_strategy = default_strategy
+
+    def _request(self, method: str, path: str, **kwargs: Any) -> Dict[str, Any]:
+        return self.client._request(method, path, **kwargs)
 
     def execute_trade(
         self,
@@ -75,7 +78,7 @@ class TradingJournal:
             "paper": self.paper,
         }
 
-        trade_resp = self.client.post("/trading/trades", json=payload)
+        trade_resp = self._request("POST", "/trading/trades", json=payload)
         return self._map_to_trade_result(trade_resp)
 
     def close_trade(
@@ -120,7 +123,7 @@ class TradingJournal:
         if quantity:
             payload["quantity"] = quantity
 
-        trade_resp = self.client.post("/trading/trades", json=payload)
+        trade_resp = self._request("POST", "/trading/trades", json=payload)
         return self._map_to_trade_result(trade_resp)
 
     def close_all(
@@ -130,7 +133,7 @@ class TradingJournal:
         Convenience method to close the entire remaining quantity of a trade.
         """
         # Fetch parent trade to get current quantity
-        trade_data = self.client.get_path(f"/trading/trades/{parent_trade_id}")
+        trade_data = self._request("GET", f"/trading/trades/{parent_trade_id}")
 
         # Extract quantity from response
         inner_data = trade_data.get("data") if "data" in trade_data else trade_data
@@ -166,7 +169,7 @@ class TradingJournal:
 
         payload = {"trades": trades_list, "paper": self.paper}
 
-        resp = self.client.post("/trading/trades/bulk", json=payload)
+        resp = self._request("POST", "/trading/trades/bulk", json=payload)
         return self._map_to_bulk_result(resp)
 
     def get_open_positions(
@@ -175,12 +178,15 @@ class TradingJournal:
         """
         Fetch current open positions.
         """
-        params = {"paper": paper if paper is not None else self.paper}
+        params: Dict[str, Any] = {"paper": paper if paper is not None else self.paper}
         if ticker:
             params["ticker"] = ticker
 
-        resp = self.client.get_path("/trading/positions", params=params)
-        items = resp.get("data") if "data" in resp else resp
+        resp = self._request("GET", "/trading/positions", params=params)
+        raw_items = resp.get("data") if "data" in resp else resp
+        if not isinstance(raw_items, list):
+            raise Exception("Expected a list of positions from trading API")
+        items: List[Dict[str, Any]] = raw_items
 
         return [
             Position(
@@ -196,8 +202,8 @@ class TradingJournal:
         """
         Fetch portfolio performance metrics.
         """
-        params = {"paper": paper if paper is not None else self.paper}
-        resp = self.client.get_path("/trading/stats", params=params)
+        params: Dict[str, Any] = {"paper": paper if paper is not None else self.paper}
+        resp = self._request("GET", "/trading/stats", params=params)
         item = resp.get("data") if "data" in resp else resp
 
         return TradingStats(
@@ -227,89 +233,101 @@ class TradingJournal:
             paper=item.get("paper", params["paper"]),
         )
 
-    def get_equity_curve(self, paper: Optional[bool] = None) -> list:
+    def get_equity_curve(self, paper: Optional[bool] = None) -> List[Dict[str, Any]]:
         """
         Fetch the time-series cumulative PnL for charting.
         """
-        params = {
+        params: Dict[str, Any] = {
             "paper": "true" if (paper if paper is not None else self.paper) else "false"
         }
-        resp = self.client.get_path("/trading/stats/equity-curve", params=params)
+        resp = self._request("GET", "/trading/stats/equity-curve", params=params)
         return resp.get("data", [])
 
-    def get_signals(self, ticker: str = None, limit: int = 50) -> list:
+    def get_signals(
+        self, ticker: Optional[str] = None, limit: int = 50
+    ) -> List[Dict[str, Any]]:
         """Fetch copy-trading signals from broadcasting agents."""
-        params = {"limit": limit}
+        params: Dict[str, Any] = {"limit": limit}
         if ticker:
             params["ticker"] = ticker
-        resp = self.client.get_path("/trading/signals", params=params)
+        resp = self._request("GET", "/trading/signals", params=params)
         return resp.get("data", [])
 
-    def get_risk_metrics(self, market_prices: dict = None, paper: bool = None) -> list:
+    def get_risk_metrics(
+        self,
+        market_prices: Optional[Dict[str, float]] = None,
+        paper: Optional[bool] = None,
+    ) -> List[Dict[str, Any]]:
         """Get risk metrics for open positions with optional market prices."""
-        params = {
+        params: Dict[str, Any] = {
             "paper": "true" if (paper if paper is not None else self.paper) else "false"
         }
         if market_prices:
             for ticker, price in market_prices.items():
                 params[f"market_prices[{ticker}]"] = str(price)
-        resp = self.client.get_path("/trading/risk", params=params)
+        resp = self._request("GET", "/trading/risk", params=params)
         return resp.get("data", [])
 
-    def get_drawdown(self, paper: bool = None) -> dict:
+    def get_drawdown(self, paper: Optional[bool] = None) -> Dict[str, Any]:
         """Get max drawdown statistics."""
         p = paper if paper is not None else self.paper
-        params = {"paper": "true" if p else "false"}
-        resp = self.client.get_path("/trading/risk/drawdown", params=params)
+        params: Dict[str, Any] = {"paper": "true" if p else "false"}
+        resp = self._request("GET", "/trading/risk/drawdown", params=params)
         return resp.get("data", {})
 
     def replay_trades(
         self,
-        exit_overrides: dict = None,
-        exit_offset_pct: float = None,
-        paper: bool = None,
-    ) -> dict:
+        exit_overrides: Optional[Dict[str, Any]] = None,
+        exit_offset_pct: Optional[float] = None,
+        paper: Optional[bool] = None,
+    ) -> Dict[str, Any]:
         """Replay historical trades with alternative exit prices."""
         p = paper if paper is not None else self.paper
-        body = {"paper": p}
+        body: Dict[str, Any] = {"paper": p}
         if exit_overrides:
             body["exit_overrides"] = exit_overrides
         if exit_offset_pct is not None:
             body["exit_offset_pct"] = exit_offset_pct
-        resp = self.client.post("/trading/replay", json=body)
+        resp = self._request("POST", "/trading/replay", json=body)
         return resp.get("data", {})
 
-    def export_trades(self, format: str = "json", paper: bool = None, **filters) -> any:
+    def export_trades(
+        self, format: str = "json", paper: Optional[bool] = None, **filters: Any
+    ) -> Any:
         """Export trades in JSON or CSV format."""
         p = paper if paper is not None else self.paper
-        params = {"format": format, "paper": "true" if p else "false", **filters}
-        resp = self.client.get_path("/trading/export", params=params)
+        params: Dict[str, Any] = {"format": format, "paper": "true" if p else "false"}
+        params.update(filters)
+        resp = self._request("GET", "/trading/export", params=params)
         if format == "csv":
             return resp  # Raw CSV string
         return resp.get("data", [])
 
-    def get_portfolio(self, paper: bool = None) -> dict:
+    def get_portfolio(self, paper: Optional[bool] = None) -> Dict[str, Any]:
         """Get multi-agent portfolio aggregation."""
         p = paper if paper is not None else self.paper
-        params = {"paper": "true" if p else "false"}
-        resp = self.client.get_path("/trading/portfolio", params=params)
+        params: Dict[str, Any] = {"paper": "true" if p else "false"}
+        resp = self._request("GET", "/trading/portfolio", params=params)
         return resp.get("data", {})
 
     def create_alert(
-        self, condition: str, ticker: str = None, threshold: float = None
-    ) -> dict:
+        self,
+        condition: str,
+        ticker: Optional[str] = None,
+        threshold: Optional[float] = None,
+    ) -> Dict[str, Any]:
         """Create a trade alert."""
-        body = {"condition": condition}
+        body: Dict[str, Any] = {"condition": condition}
         if ticker:
             body["ticker"] = ticker
         if threshold is not None:
             body["threshold"] = str(threshold)
-        resp = self.client.post("/trading/alerts", json=body)
+        resp = self._request("POST", "/trading/alerts", json=body)
         return resp.get("data", {})
 
-    def list_alerts(self) -> list:
+    def list_alerts(self) -> List[Dict[str, Any]]:
         """List all trade alerts."""
-        resp = self.client.get_path("/trading/alerts")
+        resp = self._request("GET", "/trading/alerts")
         return resp.get("data", [])
 
     def delete_alert(self, alert_id: str) -> None:

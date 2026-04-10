@@ -57,6 +57,8 @@ def to_contract(symbol: Symbol) -> Contract:
                 exchange=symbol.exchange or "SMART",
                 currency=symbol.currency,
             )
+        case _:
+            raise ValueError(f"Unsupported asset type: {symbol.asset_type}")
 
 
 def from_contract(contract: Contract) -> Symbol:

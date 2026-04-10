@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import sys
 from storage.trade_csv import TradeCSVLogger
 
 

@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any
 
@@ -72,20 +71,6 @@ class StressScenario:
         return prices
 
     def _apply_volatility_spike(self, prices: list[float]) -> list[float]:
-        vol_mult = 2.0 + (self.severity * 4.0)
-
-        end_idx = min(self.start_idx + self.duration, len(prices))
-        for i in range(self.start_idx, end_idx):
-            if i > 0:
-                normal_return = (prices[i] / prices[i - 1]) - 1
-                spiked_return = normal_return * vol_mult + random.gauss(
-                    0, 0.01 * self.severity
-                )
-                prices[i] = prices[i - 1] * (1 + spiked_return)
-
-        return prices
-
-    def _apply_volatility_spike(self, prices: list[float]) -> list[float]:
         """Extended period of high volatility."""
         vol_mult = 2.0 + (self.severity * 4.0)  # 2-6x normal volatility
 
@@ -105,24 +90,6 @@ class StressScenario:
 
         if self.start_idx < len(prices):
             prices[self.start_idx] *= 1 + gap_pct
-
-        return prices
-
-    def _apply_liquidity_drain(self, prices: list[float]) -> list[float]:
-        spread_mult = 1.5 + (self.severity * 3.0)
-
-        end_idx = min(self.start_idx + self.duration, len(prices))
-        for i in range(self.start_idx, end_idx):
-            noise = random.gauss(0, 0.005 * spread_mult)
-            prices[i] *= 1 + noise
-
-        return prices
-
-    def _apply_correlation_breakdown(self, prices: list[float]) -> list[float]:
-        end_idx = min(self.start_idx + self.duration, len(prices))
-        for i in range(self.start_idx, end_idx):
-            random_shock = random.gauss(0, 0.02 * self.severity)
-            prices[i] *= 1 + random_shock
 
         return prices
 

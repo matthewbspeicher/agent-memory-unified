@@ -4,10 +4,9 @@ Achievement System - Badge Registry
 Defines all achievements and their unlock criteria.
 """
 
-from dataclasses import dataclass, field
-from datetime import datetime
+from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Callable
+from typing import Callable
 
 
 class AchievementCategory(Enum):

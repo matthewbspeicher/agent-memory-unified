@@ -243,7 +243,7 @@ class TaoshiBridge:
                 },
             )
 
-    def _read_position(self, path: Path) -> dict | None:
+    def _read_position(self, path: Path) -> dict[str, Any] | None:
         """Read a Taoshi position JSON file.
 
         Implements retry logic to handle transient partial writes from the validator.
@@ -274,9 +274,10 @@ class TaoshiBridge:
             except Exception as exc:
                 logger.warning("Failed to read position %s: %s", path, exc)
                 return None
+        return None
 
     @staticmethod
-    def _hash_position(position: dict) -> str:
+    def _hash_position(position: dict[str, Any]) -> str:
         """Compute a content hash for change detection.
 
         Hash is based on order count, latest order timestamp, and latest
@@ -298,7 +299,7 @@ class TaoshiBridge:
 
     async def _emit_signal(
         self,
-        position: dict,
+        position: dict[str, Any],
         hotkey: str,
         symbol: str,
         signal_reason: str = "new_position",
@@ -375,7 +376,7 @@ class TaoshiBridge:
             },
         )
 
-    def get_status(self) -> dict:
+    def get_status(self) -> dict[str, Any]:
         """Return bridge status for API/dashboard."""
         return {
             "running": self._running,
@@ -390,7 +391,7 @@ class TaoshiBridge:
             "updates_detected": self.updates_detected,
         }
 
-    async def get_miner_summary(self) -> list[dict]:
+    async def get_miner_summary(self) -> list[dict[str, Any]]:
         """Get a summary of all tracked miners and their open positions."""
         if not self._miners_dir.exists():
             return []

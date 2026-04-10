@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import math
 from intelligence.models import IntelReport, IntelEnrichment
 
 

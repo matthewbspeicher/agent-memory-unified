@@ -12,7 +12,6 @@ import logging
 import os
 import re
 import sys
-from typing import Optional
 
 import asyncpg
 from redis.asyncio import Redis

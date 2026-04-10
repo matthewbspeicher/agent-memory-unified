@@ -27,10 +27,12 @@ def compute_metrics(result: BacktestResult) -> dict[str, Any]:
     equities = [ep.equity for ep in equity_curve]
     initial_equity = equities[0] if equities else config.initial_capital
     final_equity = equities[-1] if equities else config.initial_capital
+    initial_equity_f = float(initial_equity)
+    final_equity_f = float(final_equity)
 
     total_return_pct = (
-        float((final_equity - initial_equity) / initial_equity * 100)
-        if initial_equity
+        ((final_equity_f - initial_equity_f) / initial_equity_f) * 100
+        if initial_equity_f != 0.0
         else 0.0
     )
 
@@ -40,10 +42,10 @@ def compute_metrics(result: BacktestResult) -> dict[str, Any]:
         last_ts = equity_curve[-1].timestamp
         days = max((last_ts - first_ts).days, 1)
         years = days / 365.25
-        if years > 0 and initial_equity > 0:
-            annualized_return_pct = float(
-                (float(final_equity / initial_equity) ** (1 / years) - 1) * 100
-            )
+        if years > 0 and initial_equity_f > 0:
+            annualized_return_pct = (
+                (final_equity_f / initial_equity_f) ** (1 / years) - 1
+            ) * 100
         else:
             annualized_return_pct = total_return_pct
     else:
@@ -51,10 +53,10 @@ def compute_metrics(result: BacktestResult) -> dict[str, Any]:
 
     # Sharpe ratio
     returns = _compute_returns(equities)
-    sharpe = _compute_sharpe(returns, config.risk_free_rate)
+    sharpe = _compute_sharpe(returns, float(config.risk_free_rate))
 
     # Sortino ratio (uses downside deviation only)
-    sortino = _compute_sortino(returns, config.risk_free_rate)
+    sortino = _compute_sortino(returns, float(config.risk_free_rate))
 
     # Max drawdown
     max_dd_pct, max_dd_duration = _compute_max_drawdown(equity_curve)
@@ -63,9 +65,15 @@ def compute_metrics(result: BacktestResult) -> dict[str, Any]:
     win_rate = len(winning) / total_trades * 100 if total_trades else 0.0
 
     # Profit factor
-    gross_profit = sum((t.pnl for t in winning), Decimal("0")) if winning else Decimal("0")
-    gross_loss = abs(sum((t.pnl for t in losing), Decimal("0"))) if losing else Decimal("1")
-    profit_factor = float(gross_profit / gross_loss) if gross_loss > 0 else float("inf")
+    gross_profit = (
+        sum((t.pnl for t in winning), Decimal("0")) if winning else Decimal("0")
+    )
+    gross_loss = (
+        abs(sum((t.pnl for t in losing), Decimal("0"))) if losing else Decimal("1")
+    )
+    profit_factor = (
+        float(gross_profit / gross_loss) if gross_loss != Decimal("0") else float("inf")
+    )
 
     # Trade averages
     avg_pnl = (
@@ -73,8 +81,16 @@ def compute_metrics(result: BacktestResult) -> dict[str, Any]:
         if total_trades
         else Decimal("0")
     )
-    avg_win = sum((t.pnl for t in winning), Decimal("0")) / Decimal(len(winning)) if winning else Decimal("0")
-    avg_loss = sum((t.pnl for t in losing), Decimal("0")) / Decimal(len(losing)) if losing else Decimal("0")
+    avg_win = (
+        sum((t.pnl for t in winning), Decimal("0")) / Decimal(len(winning))
+        if winning
+        else Decimal("0")
+    )
+    avg_loss = (
+        sum((t.pnl for t in losing), Decimal("0")) / Decimal(len(losing))
+        if losing
+        else Decimal("0")
+    )
     largest_win = max((t.pnl for t in winning), default=Decimal("0"))
     largest_loss = min((t.pnl for t in losing), default=Decimal("0"))
     avg_holding = (
@@ -82,7 +98,7 @@ def compute_metrics(result: BacktestResult) -> dict[str, Any]:
         if total_trades
         else 0.0
     )
-    total_commission = sum(t.commission for t in trades)
+    total_commission = sum((t.commission for t in trades), Decimal("0"))
 
     # Per-agent metrics
     agent_metrics = _compute_agent_metrics(closed_trades, initial_equity)
@@ -123,7 +139,7 @@ def _compute_returns(equities: list[Decimal]) -> list[float]:
     """Compute period-over-period returns."""
     returns = []
     for i in range(1, len(equities)):
-        if equities[i - 1] and equities[i - 1] != 0:
+        if equities[i - 1] != 0:
             ret = float((equities[i] - equities[i - 1]) / equities[i - 1])
             returns.append(ret)
     return returns
@@ -185,7 +201,11 @@ def _compute_max_drawdown(equity_curve: list[EquityPoint]) -> tuple[float, int]:
             current_dd_duration = 0
         else:
             current_dd_duration += 1
-            dd = (peak - point.equity) / peak * 100 if peak else Decimal("0")
+            dd = (
+                (peak - point.equity) / peak * Decimal("100")
+                if peak != 0
+                else Decimal("0")
+            )
             if dd > max_dd:
                 max_dd = dd
                 max_dd_duration = current_dd_duration
@@ -205,9 +225,13 @@ def _compute_agent_metrics(
     for agent_name, agent_trades in by_agent.items():
         winning = [t for t in agent_trades if t.pnl > 0]
         losing = [t for t in agent_trades if t.pnl < 0]
-        total_pnl = sum(t.pnl for t in agent_trades)
-        gross_profit = sum(t.pnl for t in winning) if winning else Decimal("0")
-        gross_loss = abs(sum(t.pnl for t in losing)) if losing else Decimal("1")
+        total_pnl = sum((t.pnl for t in agent_trades), Decimal("0"))
+        gross_profit = (
+            sum((t.pnl for t in winning), Decimal("0")) if winning else Decimal("0")
+        )
+        gross_loss = (
+            abs(sum((t.pnl for t in losing), Decimal("0"))) if losing else Decimal("1")
+        )
 
         metrics[agent_name] = {
             "total_trades": len(agent_trades),
@@ -215,9 +239,11 @@ def _compute_agent_metrics(
             if agent_trades
             else 0.0,
             "total_pnl": str(total_pnl),
-            "avg_pnl": str(total_pnl / Decimal(len(agent_trades))) if agent_trades else "0",
+            "avg_pnl": str(total_pnl / Decimal(len(agent_trades)))
+            if agent_trades
+            else "0",
             "profit_factor": round(float(gross_profit / gross_loss), 4)
-            if gross_loss > 0
+            if gross_loss != Decimal("0")
             else float("inf"),
             "best_trade": str(max((t.pnl for t in agent_trades), default=Decimal("0"))),
             "worst_trade": str(

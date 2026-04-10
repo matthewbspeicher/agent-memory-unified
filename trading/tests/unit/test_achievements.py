@@ -1,5 +1,4 @@
 from datetime import datetime, timezone
-import pytest
 
 from achievements.registry import (
     ACHIEVEMENTS,

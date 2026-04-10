@@ -110,6 +110,7 @@ class SessionBiasGenerator:
             self._llm = llm
         else:
             from llm.client import LLMClient as _LLMClient
+
             self._llm = _LLMClient()
         self._cached_bias: SessionBiasReport | None = None
         self._cached_date: str = ""
@@ -123,11 +124,11 @@ class SessionBiasGenerator:
             return self._cached_bias
 
         # DB cache
-        row = await self._db.execute(
+        cursor = await self._db.execute(
             "SELECT brief_text FROM daily_briefs WHERE date = ? AND brief_text LIKE '{%'",
             (today,),
         )
-        row = await row.fetchone()
+        row = await cursor.fetchone()
         if row:
             try:
                 report = self._parse_report(today, row[0])
@@ -207,11 +208,17 @@ class SessionBiasGenerator:
             for indicator in rules.session_bias.indicators:
                 try:
                     if indicator == "rsi_14":
-                        data_points["rsi_14"] = round(await self._data_bus.get_rsi(symbol, 14), 2)
+                        data_points["rsi_14"] = round(
+                            await self._data_bus.get_rsi(symbol, 14), 2
+                        )
                     elif indicator == "ema_20":
-                        data_points["ema_20"] = round(await self._data_bus.get_ema(symbol, 20), 2)
+                        data_points["ema_20"] = round(
+                            await self._data_bus.get_ema(symbol, 20), 2
+                        )
                     elif indicator == "ema_200":
-                        data_points["ema_200"] = round(await self._data_bus.get_ema(symbol, 200), 2)
+                        data_points["ema_200"] = round(
+                            await self._data_bus.get_ema(symbol, 200), 2
+                        )
                     elif indicator == "macd":
                         macd = await self._data_bus.get_macd(symbol)
                         data_points["macd_line"] = round(macd.macd_line, 4)
@@ -307,10 +314,14 @@ class SessionBiasGenerator:
 
                 if bullish_signals > bearish_signals:
                     bias = "bullish"
-                    confidence = min(0.9, 0.5 + (bullish_signals - bearish_signals) * 0.15)
+                    confidence = min(
+                        0.9, 0.5 + (bullish_signals - bearish_signals) * 0.15
+                    )
                 elif bearish_signals > bullish_signals:
                     bias = "bearish"
-                    confidence = min(0.9, 0.5 + (bearish_signals - bullish_signals) * 0.15)
+                    confidence = min(
+                        0.9, 0.5 + (bearish_signals - bullish_signals) * 0.15
+                    )
 
             except Exception as e:
                 logger.debug("Fallback bias calculation failed for %s: %s", ticker, e)

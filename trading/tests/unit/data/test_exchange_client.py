@@ -1,7 +1,6 @@
 # tests/unit/data/test_exchange_client.py
 from __future__ import annotations
 
-import pytest
 from data.exchange_client import ExchangeClient, FetchResult, FetchError
 
 

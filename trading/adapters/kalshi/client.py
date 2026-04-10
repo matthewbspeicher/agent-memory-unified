@@ -45,13 +45,30 @@ def _build_signature(
     private_key = serialization.load_pem_private_key(
         private_key_pem.encode(), password=None
     )
-    signature = private_key.sign(
-        msg,
-        padding.PSS(
-            mgf=padding.MGF1(hashes.SHA256()), salt_length=padding.PSS.DIGEST_LENGTH
-        ),
-        hashes.SHA256(),
-    )
+
+    # RSA uses PSS padding scheme
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    from cryptography.hazmat.primitives.asymmetric import dsa
+    from cryptography.hazmat.primitives.asymmetric import ed25519
+    from cryptography.hazmat.primitives.asymmetric import ec
+
+    if isinstance(private_key, rsa.RSAPrivateKey):
+        signature = private_key.sign(
+            msg,
+            padding.PSS(
+                mgf=padding.MGF1(hashes.SHA256()), salt_length=padding.PSS.DIGEST_LENGTH
+            ),
+            hashes.SHA256(),
+        )
+    elif isinstance(private_key, ed25519.Ed25519PrivateKey):
+        signature = private_key.sign(msg)
+    elif isinstance(private_key, ec.EllipticCurvePrivateKey):
+        signature = private_key.sign(msg, ec.ECDSA(hashes.SHA256()))
+    elif isinstance(private_key, dsa.DSAPrivateKey):
+        signature = private_key.sign(msg, hashes.SHA256())
+    else:
+        raise ValueError(f"Unsupported private key type: {type(private_key)}")
+
     sig_b64 = base64.b64encode(signature).decode()
 
     return {

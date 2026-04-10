@@ -1,7 +1,6 @@
 # tests/unit/competition/test_models.py
 from __future__ import annotations
 
-import pytest
 from competition.models import (
     CompetitorCreate,
     CompetitorType,

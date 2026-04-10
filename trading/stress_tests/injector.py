@@ -42,7 +42,7 @@ class StressTestInjector:
         self,
         agent_name: str,
         strategy: str,
-        parameters: dict,
+        parameters: dict[str, Any],
         symbols: list[str],
         scenario: StressScenario,
     ) -> StressTestResult:
@@ -73,7 +73,7 @@ class StressTestInjector:
         return StressTestResult(
             agent_name=agent_name,
             scenario_name=scenario.name,
-            scenario_type=scenario.severity,
+            scenario_type=scenario.scenario_type,
             severity=scenario.severity,
             baseline_sharpe=baseline_sharpe,
             stressed_sharpe=stressed_sharpe,
@@ -87,7 +87,7 @@ class StressTestInjector:
         self,
         agent_name: str,
         strategy: str,
-        parameters: dict,
+        parameters: dict[str, Any],
         symbols: list[str],
         severities: list[float] | None = None,
     ) -> list[StressTestResult]:

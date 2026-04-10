@@ -1,11 +1,9 @@
 from __future__ import annotations
 import logging
-from decimal import Decimal
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING, List, Dict, Any
+from typing import TYPE_CHECKING
 
 from agents.base import Agent
-from agents.models import AgentConfig, Opportunity, AgentSignal
+from agents.models import AgentConfig, Opportunity
 from strategies.bittensor_consensus import BittensorAlphaAgent
 from memory.market_regime import RegimeMemoryManager
 from adapters.remembr.client import AsyncRemembrClient

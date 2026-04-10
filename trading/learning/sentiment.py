@@ -40,8 +40,8 @@ class CryptoBERTClient:
     ):
         self.model_name = model_name
         self.use_fallback = use_fallback
-        self._model = None
-        self._tokenizer = None
+        self._model: Any | None = None
+        self._tokenizer: Any | None = None
 
     def _load_model(self) -> bool:
         """Lazy load the model."""
@@ -49,7 +49,13 @@ class CryptoBERTClient:
             return True
 
         try:
-            from transformers import AutoModelForSequenceClassification, AutoTokenizer
+            from importlib import import_module
+
+            transformers = import_module("transformers")
+            AutoModelForSequenceClassification = (
+                transformers.AutoModelForSequenceClassification
+            )
+            AutoTokenizer = transformers.AutoTokenizer
 
             self._tokenizer = AutoTokenizer.from_pretrained(self.model_name)
             self._model = AutoModelForSequenceClassification.from_pretrained(
@@ -89,10 +95,17 @@ class CryptoBERTClient:
 
     def _analyze_with_model(self, text: str) -> SentimentResult:
         """Analyze using CryptoBERT model."""
-        import torch
+        from importlib import import_module
+
+        torch = import_module("torch")
+
+        tokenizer = self._tokenizer
+        model = self._model
+        assert tokenizer is not None
+        assert model is not None
 
         # Tokenize
-        inputs = self._tokenizer(
+        inputs = tokenizer(
             text,
             return_tensors="pt",
             truncation=True,
@@ -101,7 +114,7 @@ class CryptoBERTClient:
 
         # Predict
         with torch.no_grad():
-            outputs = self._model(**inputs)
+            outputs = model(**inputs)
             probs = torch.softmax(outputs.logits, dim=1)
             pred = torch.argmax(probs, dim=1).item()
 
@@ -247,13 +260,15 @@ class SentimentAggregator:
             self._confidence_ema = result.confidence
         else:
             # Confidence-weighted update
+            confidence_ema = self._confidence_ema
+            assert confidence_ema is not None
             weight = result.confidence
             self._sentiment_ema = (
                 self.decay * self._sentiment_ema
                 + (1 - self.decay) * result.sentiment * weight
             )
             self._confidence_ema = (
-                self.decay * self._confidence_ema + (1 - self.decay) * weight
+                self.decay * confidence_ema + (1 - self.decay) * weight
             )
 
         self._last_update = result.timestamp

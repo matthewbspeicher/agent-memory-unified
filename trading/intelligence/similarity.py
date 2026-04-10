@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 from typing import List, Dict, Any
-from intelligence.models import IntelReport
 
 logger = logging.getLogger(__name__)
 

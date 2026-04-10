@@ -49,10 +49,10 @@ class BriefGenerator:
     async def get_or_generate(self) -> dict:
         """Return today's brief from cache, or generate fresh."""
         today = date.today().isoformat()
-        row = await self._db.execute(
+        cursor = await self._db.execute(
             "SELECT brief_text, created_at FROM daily_briefs WHERE date = ?", (today,)
         )
-        row = await row.fetchone()
+        row = await cursor.fetchone()
         if row:
             return {
                 "date": today,
@@ -130,7 +130,7 @@ class BriefGenerator:
             "SELECT agent_name, symbol, signal, confidence FROM opportunities "
             "WHERE status = 'pending' ORDER BY created_at DESC LIMIT 5"
         )
-        opps = await cursor.fetchall()
+        opps = list(await cursor.fetchall())
         if opps:
             opp_lines = [f"  {o[0]}: {o[2]} {o[1]} (conf={o[3]:.0%})" for o in opps]
             sections.append(

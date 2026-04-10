@@ -1,7 +1,6 @@
 """Unit tests for MemClaw-style memory features."""
 
 import pytest
-from datetime import datetime, timezone, timedelta
 
 from storage.memory import LocalMemoryStore, MEMORY_DECAY_DAYS, VALID_STATUSES
 from storage.decay_scheduler import DecayScheduler

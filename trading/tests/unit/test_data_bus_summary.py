@@ -10,7 +10,6 @@ import pytest
 
 from broker.models import Bar, Quote, Symbol
 from data.bus import DataBus
-from data.indicators import MACD, BollingerBands
 
 
 def _make_bars(n: int = 50, base_price: float = 100.0) -> list[Bar]:

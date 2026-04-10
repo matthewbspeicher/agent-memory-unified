@@ -1,12 +1,14 @@
 from __future__ import annotations
 import logging
 from decimal import Decimal
-from typing import TYPE_CHECKING
-import inspect
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from whatsapp.proactive import HermesProactiveOps
 
 from agents.models import OpportunityStatus
 from whatsapp.commands import parse_command
-from whatsapp.confirmation import ConfirmationGate
+from whatsapp.confirmation import ConfirmationGate, PendingAction
 
 if TYPE_CHECKING:
     from broker.interfaces import Broker
@@ -97,15 +99,15 @@ class WhatsAppAssistant:
         self._remembr = remembr_client  # AsyncRemembrClient for user memory
         self._agent_store = agent_store  # AgentStore for evolution spawning
         self._journal_listing: dict[str, list[int]] = {}  # phone → [position_ids]
-        self.proactive_ops = None
+        self._proactive_ops: "HermesProactiveOps | None" = None
 
     def start_proactive(self, allowed_numbers: list[str]) -> None:
         """Starts background proactive monitoring tasks (Track 14)."""
-        if self.proactive_ops is None:
+        if self._proactive_ops is None:
             from whatsapp.proactive import HermesProactiveOps
 
-            self.proactive_ops = HermesProactiveOps(self, allowed_numbers)
-            self.proactive_ops.start()
+            self._proactive_ops = HermesProactiveOps(self, allowed_numbers)
+            self._proactive_ops.start()
 
     async def handle(self, phone: str, text: str, message_id: str) -> None:
         try:
@@ -113,9 +115,7 @@ class WhatsAppAssistant:
         except Exception:
             pass
 
-        maybe_awaitable = self._client.record_inbound(phone)
-        if inspect.isawaitable(maybe_awaitable):
-            await maybe_awaitable
+        self._client.record_inbound(phone)
         if self._db:
             try:
                 await self._client.persist_session(self._db, phone)
@@ -128,10 +128,20 @@ class WhatsAppAssistant:
                 self._confirmation.cancel(phone)
                 await self._client.send_text(phone, "Cancelled.")
                 return
-            action = self._confirmation.confirm(phone, text_upper)
-            if action:
-                await self._execute_confirmed(phone, action)
-                return
+
+            pending_action: PendingAction | None = self._confirmation._pending.get(
+                phone
+            )
+            if pending_action:
+                action = pending_action.action_type
+                data = pending_action.data
+            else:
+                confirmed: PendingAction | None = self._confirmation.confirm(
+                    phone, text_upper
+                )
+                if confirmed:
+                    await self._execute_confirmed(phone, confirmed)
+                    return
 
         # Tournament override commands — checked before general command parsing
         upper = text.strip().upper()
@@ -278,7 +288,11 @@ class WhatsAppAssistant:
             await self._client.send_text(phone, "Market data bus is unavailable.")
             return
 
-        markets = await self._data_bus.get_markets()
+        markets = (
+            await self._data_bus.get_kalshi_markets()
+            if hasattr(self._data_bus, "get_kalshi_markets")
+            else []
+        )
         pred_markets = [
             m
             for m in markets
@@ -373,11 +387,14 @@ class WhatsAppAssistant:
             staleness = await self._get_staleness_warning()
             try:
                 ext_balances = await self._external_store.get_balances()
-                ext_positions = await self._external_store.get_positions()
+                ext_positions: list[dict[str, Any]] = cast(
+                    list[dict[str, Any]], await self._external_store.get_positions()
+                )
                 # Group positions by account
-                by_account: dict[str, list[dict]] = {}
-                for p in ext_positions:
-                    by_account.setdefault(p["account_id"], []).append(p)
+                by_account: dict[str, list[dict[str, Any]]] = {}
+                for p in ext_positions:  # type: ignore[assignment]
+                    account_key = cast(str, p["account_id"])  # type: ignore[index]
+                    by_account.setdefault(account_key, []).append(p)  # type: ignore[arg-type]
 
                 for b in ext_balances:
                     acct_id = b["account_id"]
@@ -387,10 +404,12 @@ class WhatsAppAssistant:
                     lines.append(f"=== Fidelity ({name}) — ${nlv:,.2f} ===")
                     acct_positions = by_account.get(acct_id, [])
                     if acct_positions:
-                        for p in acct_positions:
-                            qty = Decimal(p["quantity"])
-                            price = Decimal(p["last_price"])
-                            lines.append(f"  {p['symbol']}: {qty} @ ${price:,.2f}")
+                        for pos in acct_positions:
+                            p = pos  # type: ignore[assignment]
+                            qty = Decimal(str(p["quantity"]))  # type: ignore[index]
+                            price = Decimal(str(p["last_price"]))  # type: ignore[index]
+                            ticker = str(p["symbol"])  # type: ignore[index]
+                            lines.append(f"  {ticker}: {qty} @ ${price:,.2f}")
                     else:
                         lines.append("  No positions.")
             except Exception as e:

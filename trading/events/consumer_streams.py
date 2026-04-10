@@ -95,12 +95,13 @@ class StreamsEventConsumer:
 
     async def _handle_message(self, msg_id: bytes, data: dict):
         """Process message with retries and DLQ."""
+        msg_id_text = msg_id.decode()
         try:
             # Decode event envelope
             # Note: aioredis with decode_responses=True returns string keys
             event_json = data.get("data")
             if not event_json:
-                logger.warning(f"Message {msg_id} has no data field")
+                logger.warning(f"Message {msg_id_text} has no data field")
                 await self.redis.xack(self.stream, self.group, msg_id)
                 return
 
@@ -123,7 +124,7 @@ class StreamsEventConsumer:
             await self.redis.xack(self.stream, self.group, msg_id)
 
         except Exception as e:
-            logger.error(f"Handler failed for {msg_id}: {e}", exc_info=True)
+            logger.error(f"Handler failed for {msg_id_text}: {e}", exc_info=True)
 
             # Check retry count via XPENDING
             pending = await self.redis.xpending_range(
@@ -138,17 +139,19 @@ class StreamsEventConsumer:
                     await self.redis.xadd(f"{self.stream}:dlq", data)
                     await self.redis.xack(self.stream, self.group, msg_id)
                     logger.warning(
-                        f"Moved {msg_id} to DLQ after {delivery_count} retries"
+                        f"Moved {msg_id_text} to DLQ after {delivery_count} retries"
                     )
                 else:
                     # Leave in pending, will be retried
                     logger.info(
-                        f"Message {msg_id} failed, retry {delivery_count}/{self.max_retries}"
+                        f"Message {msg_id_text} failed, retry {delivery_count}/{self.max_retries}"
                     )
             else:
                 # Pending info unavailable — leave unacked for retry on next iteration.
                 # Do NOT ack here: that would silently drop messages on first failure.
-                logger.warning(f"Could not check pending info for {msg_id}, will retry")
+                logger.warning(
+                    f"Could not check pending info for {msg_id_text}, will retry"
+                )
 
 
 # Example handler

@@ -1,6 +1,5 @@
 # trading/tests/unit/test_intel_on_chain.py
 import pytest
-from datetime import datetime, timezone
 from unittest.mock import AsyncMock, patch
 
 from intelligence.providers.on_chain import OnChainProvider

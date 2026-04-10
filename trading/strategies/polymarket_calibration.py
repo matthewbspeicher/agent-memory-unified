@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 import urllib.parse
 from datetime import datetime, timezone
+from decimal import Decimal
 
 from agents.base import Agent
 from agents.models import AgentConfig, Opportunity
@@ -92,7 +93,7 @@ class PolymarketCalibrationAgent(Agent):
                             suggested_trade=LimitOrder(
                                 symbol=sym,
                                 side=action,
-                                quantity=10,
+                                quantity=Decimal("10"),
                                 account_id="POLY",
                                 limit_price=poly_cents / 100.0,
                             ),

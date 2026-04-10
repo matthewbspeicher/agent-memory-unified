@@ -155,7 +155,6 @@ class TestBollinger:
 
 def test_compute_vwap():
     from broker.models import Bar
-    from decimal import Decimal
     from data.indicators import compute_vwap
     bars = [
         Bar(symbol='BTC', timestamp=0, open=100, high=105, low=95, close=100, volume=10),

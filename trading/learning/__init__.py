@@ -26,7 +26,12 @@ _LAZY_IMPORTS = {
     "CorrelationSnapshot": "learning.correlation_monitor",
 }
 
-__all__ = list(_LAZY_IMPORTS.keys())
+__all__ = [
+    "CorrelationConfig",
+    "CorrelationMonitor",
+    "CorrelationPair",
+    "CorrelationSnapshot",
+]
 
 
 def __getattr__(name: str):

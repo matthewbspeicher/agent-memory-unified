@@ -5,9 +5,7 @@ Configuration management - explicit Config pydantic models + load_config()
 from __future__ import annotations
 import json
 import os
-import warnings
 from pydantic import BaseModel, Field
-from pathlib import Path
 from typing import Any
 
 from intelligence.config import IntelligenceConfig
@@ -126,10 +124,10 @@ class Config(BaseModel):
         "alpaca_streaming",
     }
 
-    def __getattr__(self, name: str):
-        # Pydantic's __getattr__ handles extra fields. If it raises, try nested delegation.
+    def __getattr__(self, name: str) -> Any:
+        # Try direct access first, then nested delegation.
         try:
-            return super().__getattr__(name)
+            return object.__getattribute__(self, name)
         except AttributeError:
             pass
         # Try broker fields first (most common flat access pattern)
@@ -271,7 +269,7 @@ def load_config(env_file: str = ".env") -> Any:
     load_dotenv(env_file, override=False)
 
     # Re-collect all relevant data, prioritizing actual environment variables
-    env_data = {}
+    env_data: dict[str, Any] = {}
 
     # Start with .env values (already in os.environ now, but we want to be explicit)
     for key, value in os.environ.items():

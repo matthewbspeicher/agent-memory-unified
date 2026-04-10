@@ -10,9 +10,9 @@ from __future__ import annotations
 
 import logging
 import sys
-from typing import Any
 
 import structlog
+from structlog.typing import Processor
 
 
 def configure_structlog(
@@ -27,7 +27,7 @@ def configure_structlog(
     """
 
     # Determine processors based on format
-    processors = [
+    processors: list[Processor] = [
         structlog.contextvars.merge_contextvars,
         structlog.stdlib.add_log_level,
         structlog.stdlib.add_logger_name,

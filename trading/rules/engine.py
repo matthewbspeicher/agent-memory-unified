@@ -55,7 +55,7 @@ class RulesEngine:
                 logger.warning("Risk rule failed: %s", rule.name)
 
         all_pass = all(r.passed for r in results)
-        return RuleSetResult(rule_set=rule_set, results=results, all_passed=all_pass)
+        return RuleSetResult(rule_set=rule_set, results=results, all_pass=all_pass)
 
     def _evaluate_rule(self, rule: Rule, market_data: dict[str, Any]) -> RuleResult:
         evaluator = self._conditions.get(rule.condition)
@@ -119,7 +119,7 @@ class RulesEngine:
             rule=rule,
             passed=price > ema,
             actual=f"{price} vs EMA{int(rule.threshold or 8)}",
-            required=f"> ema",
+            required="> ema",
         )
 
     def _eval_ema_below(self, rule: Rule, data: dict) -> RuleResult:
@@ -133,7 +133,7 @@ class RulesEngine:
             rule=rule,
             passed=price < ema,
             actual=f"{price} vs EMA{int(rule.threshold or 8)}",
-            required=f"< ema",
+            required="< ema",
         )
 
     def _eval_vwap_above(self, rule: Rule, data: dict) -> RuleResult:
@@ -147,7 +147,7 @@ class RulesEngine:
             rule=rule,
             passed=price > vwap,
             actual=f"{price} vs {vwap}",
-            required=f"> vwap",
+            required="> vwap",
         )
 
     def _eval_vwap_below(self, rule: Rule, data: dict) -> RuleResult:
@@ -161,7 +161,7 @@ class RulesEngine:
             rule=rule,
             passed=price < vwap,
             actual=f"{price} vs {vwap}",
-            required=f"< vwap",
+            required="< vwap",
         )
 
     def _eval_distance_within_pct(self, rule: Rule, data: dict) -> RuleResult:
@@ -204,8 +204,6 @@ class RulesEngine:
             required="bearish",
         )
 
-
-
     def _eval_volatility_above(self, rule: Rule, data: dict) -> RuleResult:
         bb_width_pct = data.get("bb_width_pct", 0)
         threshold = rule.threshold or 0.02
@@ -216,6 +214,7 @@ class RulesEngine:
             actual=f"{bb_width_pct}%",
             required=f">= {threshold}%",
         )
+
 
 def create_vwap_rsi_ema_ruleset() -> RuleSet:
     return RuleSet(

@@ -118,7 +118,7 @@ class RiskProviderCircuitBreaker:
             )
             await self._record_success()
             return result
-        except Exception as e:
+        except Exception:
             await self._record_failure()
             raise
 

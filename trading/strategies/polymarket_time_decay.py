@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
+from decimal import Decimal
 
 from agents.base import Agent
 from agents.models import AgentConfig, Opportunity
@@ -79,7 +80,7 @@ class PolymarketTimeDecayAgent(Agent):
                         suggested_trade=LimitOrder(
                             symbol=sym,
                             side=OrderSide.SELL,
-                            quantity=20,
+                            quantity=Decimal("20"),
                             account_id="POLY",
                             limit_price=target_prob,
                         ),
@@ -107,7 +108,7 @@ class PolymarketTimeDecayAgent(Agent):
                         suggested_trade=LimitOrder(
                             symbol=sym,
                             side=OrderSide.BUY,
-                            quantity=20,
+                            quantity=Decimal("20"),
                             account_id="POLY",
                             limit_price=target_prob,
                         ),

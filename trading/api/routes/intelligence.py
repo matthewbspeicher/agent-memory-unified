@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request, HTTPException
+from fastapi import APIRouter, Depends, Request
 from api.auth import verify_api_key
 
 router = APIRouter(prefix="/intelligence", tags=["intelligence"], dependencies=[Depends(verify_api_key)])

@@ -1,4 +1,3 @@
-import pytest
 import pandas as pd
 import numpy as np
 from data.indicators import add_technical_indicators

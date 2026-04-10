@@ -1,6 +1,8 @@
 from __future__ import annotations
 import logging
 from datetime import datetime, timedelta, timezone
+from collections.abc import Mapping
+from typing import Any, cast
 
 import httpx
 
@@ -41,10 +43,10 @@ class WhatsAppClient:
             cursor = await db.execute(
                 "SELECT phone, last_inbound_at FROM whatsapp_sessions"
             )
-            rows = await cursor.fetchall()
+            rows = cast(list[Mapping[str, Any]], await cursor.fetchall())
             for row in rows:
-                self._sessions[row["phone"]] = datetime.fromisoformat(
-                    row["last_inbound_at"]
+                self._sessions[str(row["phone"])] = datetime.fromisoformat(
+                    str(row["last_inbound_at"])
                 ).replace(tzinfo=timezone.utc)
         except Exception:
             pass
@@ -103,14 +105,16 @@ class WhatsAppClient:
                 return
             media_id = upload_resp.json().get("id")
 
-        payload = {
+        image_payload: dict[str, str] = {"id": media_id}
+        if caption:
+            image_payload["caption"] = caption
+
+        payload: dict[str, Any] = {
             "messaging_product": "whatsapp",
             "to": to,
             "type": "image",
-            "image": {"id": media_id},
+            "image": image_payload,
         }
-        if caption:
-            payload["image"]["caption"] = caption
 
         async with httpx.AsyncClient(timeout=10.0) as client:
             await client.post(self._url(), headers=self._headers(), json=payload)

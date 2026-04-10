@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from trading.storage.memory import LocalMemoryStore
 
-from trading.storage.memory import MEMORY_DECAY_DAYS, MemoryRecord
+from trading.storage.memory import MEMORY_DECAY_DAYS
 
 logger = logging.getLogger(__name__)
 

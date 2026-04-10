@@ -1,8 +1,7 @@
 from __future__ import annotations
 import logging
 from datetime import datetime, timezone
-from decimal import Decimal
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 
 from broker.models import Bar, Symbol
 from adapters.remembr.client import AsyncRemembrClient

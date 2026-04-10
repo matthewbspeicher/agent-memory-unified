@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 from datetime import datetime, timezone, timedelta
-from competition.matcher import MatchProcessor, MatchResult
+from competition.matcher import MatchProcessor
 from competition.tracker import TrackedSignal
 
 

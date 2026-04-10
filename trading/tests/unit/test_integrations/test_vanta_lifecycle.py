@@ -1,4 +1,3 @@
-import pytest
 from integrations.bittensor.evaluator import MinerEvaluator
 from integrations.bittensor.models import MinerRankingInput
 

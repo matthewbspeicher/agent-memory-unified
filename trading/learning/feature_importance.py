@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any
 
 import numpy as np
 
@@ -138,18 +137,18 @@ class FeatureImportanceAnalyzer:
                 corr = 0.0
             correlations.append(corr)
 
-        correlations = np.array(correlations)
+        correlations_arr = np.array(correlations)
 
         # Normalize
-        if correlations.sum() > 0:
-            correlations = correlations / correlations.sum()
+        if correlations_arr.sum() > 0:
+            correlations_arr = correlations_arr / correlations_arr.sum()
 
-        top_idx = np.where(correlations > self.importance_threshold)[0]
+        top_idx = np.where(correlations_arr > self.importance_threshold)[0]
         top_features = [self.feature_names[i] for i in top_idx]
 
         importance = FeatureImportance(
             feature_names=self.feature_names,
-            importance_scores=correlations.tolist(),
+            importance_scores=correlations_arr.tolist(),
             top_features=top_features,
             timestamp=np.datetime64("now").astype(str),
         )

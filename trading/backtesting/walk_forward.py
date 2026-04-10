@@ -21,7 +21,6 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import List, Tuple
 
 import numpy as np
 
@@ -196,9 +195,6 @@ class WalkForwardEngine:
         windows_spec = self.generate_windows(start, end)
         if not windows_spec:
             return WalkForwardResult()
-
-        # Build a lookup: for each timestamp, store its index
-        ts_to_idx = {ts: i for i, ts in enumerate(timestamps)}
 
         window_results: list[WindowResult] = []
 

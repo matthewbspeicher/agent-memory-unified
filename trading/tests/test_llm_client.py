@@ -1,4 +1,3 @@
-import pytest
 from llm.client import LLMResult
 from llm.providers import ProviderRegistry, BaseProvider
 

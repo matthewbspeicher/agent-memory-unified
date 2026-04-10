@@ -13,12 +13,20 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 import anthropic
+from anthropic.types import TextBlock
 
 from agents.base import LLMAgent
 from agents.models import Opportunity, OpportunityStatus
 from data.bus import DataBus
 
 logger = logging.getLogger(__name__)
+
+
+def _extract_text_block(content: list[Any]) -> str:
+    for block in content:
+        if isinstance(block, TextBlock):
+            return block.text
+    return ""
 
 
 class ReactAnalystAgent(LLMAgent):
@@ -93,7 +101,7 @@ class ReactAnalystAgent(LLMAgent):
             if action.get("type") == "final_answer":
                 break
 
-            observation = await self._execute_tool(data, symbol, action)
+            observation = await self._execute_tool(data, symbol, context, action)
             tools_used.append(action.get("tool", "unknown"))
             reasoning_trace.append(
                 {
@@ -173,7 +181,7 @@ Otherwise, specify what additional data would help your analysis."""
             system=self.system_prompt,
             messages=[{"role": "user", "content": prompt}],
         )
-        return response.content[0].text
+        return _extract_text_block(response.content)
 
     def _should_conclude(self, thought: str) -> bool:
         """Check if thought indicates readiness to conclude.
@@ -222,12 +230,16 @@ Respond with JSON:
         )
 
         try:
-            return json.loads(response.content[0].text)
+            return json.loads(_extract_text_block(response.content))
         except json.JSONDecodeError:
             return {"type": "final_answer"}
 
     async def _execute_tool(
-        self, data: DataBus, symbol: Any, action: dict[str, Any]
+        self,
+        data: DataBus,
+        symbol: Any,
+        context: dict[str, Any],
+        action: dict[str, Any],
     ) -> str:
         """Execute tool and return observation.
 
@@ -252,7 +264,9 @@ Respond with JSON:
 
         elif tool == "query_agent_memory":
             if hasattr(self, "memory") and self.memory:
-                lessons = self.memory.query(symbol, limit=5)
+                lessons = await self.memory.query(
+                    symbol, json.dumps(context), self.name, top_k=5
+                )
                 return f"Past lessons: {lessons}"
             return "No memory available"
 
@@ -296,7 +310,7 @@ Only generate if confidence >= {confidence_threshold} and signal is clear."""
         )
 
         try:
-            result = json.loads(response.content[0].text)
+            result = json.loads(_extract_text_block(response.content))
 
             if result.get("confidence", 0) < confidence_threshold:
                 return None

@@ -6,6 +6,7 @@ from collections.abc import Awaitable, Callable
 from decimal import Decimal
 
 import websockets
+from websockets.asyncio.client import ClientConnection
 
 from broker.models import Quote, Symbol
 from streaming.base import BrokerStream
@@ -27,7 +28,7 @@ class AlpacaStream(BrokerStream):
         self._api_key = api_key
         self._secret_key = secret_key
         self._url = f"wss://stream.data.alpaca.markets/v2/{data_feed}"
-        self._ws = None
+        self._ws: ClientConnection | None = None
         self._connected = False
         self._subscribed_symbols: set[str] = set()
         self._callbacks: list[Callable[[str, Quote], Awaitable[None]]] = []
@@ -44,8 +45,11 @@ class AlpacaStream(BrokerStream):
                 "secret": self._secret_key,
             }
         )
-        await self._ws.send(auth_msg)
-        await self._ws.recv()
+        ws = self._ws
+        if ws is None:
+            raise RuntimeError("Alpaca websocket connection was not established")
+        await ws.send(auth_msg)
+        await ws.recv()
         self._connected = True
         logger.info("AlpacaStream connected and authenticated")
         # Start listening
@@ -59,22 +63,25 @@ class AlpacaStream(BrokerStream):
                 await self._listen_task
             except asyncio.CancelledError:
                 pass
-        if self._ws:
-            await self._ws.close()
+        ws = self._ws
+        if ws is not None:
+            await ws.close()
             self._ws = None
 
     async def subscribe(self, symbols: list[str]) -> None:
         self._subscribed_symbols.update(symbols)
-        if self._ws and self._connected:
+        ws = self._ws
+        if ws is not None and self._connected:
             msg = json.dumps({"action": "subscribe", "quotes": symbols})
-            await self._ws.send(msg)
+            await ws.send(msg)
             logger.debug("AlpacaStream subscribed: %s", symbols)
 
     async def unsubscribe(self, symbols: list[str]) -> None:
         self._subscribed_symbols -= set(symbols)
-        if self._ws and self._connected:
+        ws = self._ws
+        if ws is not None and self._connected:
             msg = json.dumps({"action": "unsubscribe", "quotes": symbols})
-            await self._ws.send(msg)
+            await ws.send(msg)
 
     def is_connected(self) -> bool:
         return self._connected
@@ -94,7 +101,10 @@ class AlpacaStream(BrokerStream):
     async def _listen(self) -> None:
         """Main listen loop — parse messages and invoke callbacks."""
         try:
-            async for message in self._ws:
+            ws = self._ws
+            if ws is None:
+                return
+            async for message in ws:
                 try:
                     data = json.loads(message)
                     if isinstance(data, list):

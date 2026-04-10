@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from typing import Any
 
 from .base import EscapeRoomEnvironment
@@ -5,7 +6,7 @@ from .cipher import CipherPuzzle
 from .deterministic import DeterministicRoom
 from .filesystem import FileSystemPuzzle
 
-_ROOM_TYPES = {
+_ROOM_TYPES: dict[str, Callable[[dict[str, Any]], EscapeRoomEnvironment]] = {
     "cipher": CipherPuzzle,
     "deterministic": DeterministicRoom,
     "filesystem": FileSystemPuzzle,

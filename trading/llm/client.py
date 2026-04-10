@@ -450,7 +450,7 @@ class LLMClient:
             if provider:
                 try:
                     return await provider.embed(text)
-                except Exception as e:
+                except Exception:
                     self._record_failure(provider_name)
 
         logger.error("LLMClient: no embedding provider available")

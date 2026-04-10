@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    import bittensor as bt
+    pass
 
 logger = logging.getLogger(__name__)
 

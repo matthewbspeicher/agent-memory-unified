@@ -4,8 +4,7 @@ Covers: /health-internal (Redis, TaoshiBridge, SignalBus fields),
         /ready (readiness probe with dependency checks).
 """
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from datetime import datetime, timezone, timedelta
 
 

@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import logging
 from decimal import Decimal
+from datetime import datetime
+from collections.abc import Callable
+from typing import Any
 
 from adapters.bitget.client import BitGetClient
 from broker.interfaces import (
@@ -13,10 +16,14 @@ from broker.interfaces import (
 )
 from broker.models import (
     AccountBalance,
+    Account,
     Bar,
+    BrokerCapabilities,
     ContractDetails,
     LimitOrder,
     MarketOrder,
+    OptionsChain,
+    OrderHistoryFilter,
     OrderResult,
     OrderSide,
     OrderStatus,
@@ -24,7 +31,6 @@ from broker.models import (
     Quote,
     Symbol,
 )
-from typing import AsyncGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +63,7 @@ class BitGetConnection(BrokerConnection):
             except Exception:
                 pass
 
-    def on_disconnected(self, callback) -> None:
+    def on_disconnected(self, callback: Callable[[], Any]) -> None:
         self._disconnect_callbacks.append(callback)
 
     def is_connected(self) -> bool:
@@ -72,10 +78,10 @@ class BitGetAccount(AccountProvider):
     def __init__(self, client: BitGetClient):
         self.client = client
 
-    async def get_accounts(self) -> list[str]:
-        return [ACCOUNT_ID]
+    async def get_accounts(self) -> list[Account]:
+        return [Account(account_id=ACCOUNT_ID)]
 
-    async def get_balances(self, account_id: str = "") -> AccountBalance:
+    async def get_balances(self, account_id: str) -> AccountBalance:
         balances = await self.client.get_balances()
         total_usd = Decimal("0")
         cash = Decimal("0")
@@ -96,11 +102,11 @@ class BitGetAccount(AccountProvider):
             maintenance_margin=Decimal("0"),
         )
 
-    async def get_positions(self, account_id: str = "") -> list[Position]:
+    async def get_positions(self, account_id: str) -> list[Position]:
         return []
 
     async def get_order_history(
-        self, account_id: str, limit: int = 50
+        self, account_id: str, filters: OrderHistoryFilter | None = None
     ) -> list[OrderResult]:
         return []
 
@@ -109,7 +115,7 @@ class BitGetMarketData(MarketDataProvider):
     def __init__(self, client: BitGetClient):
         self.client = client
 
-    async def get_quote(self, symbol: Symbol) -> Quote | None:
+    async def get_quote(self, symbol: Symbol) -> Quote:
         try:
             ticker = await self.client.get_ticker(symbol.ticker)
             data = ticker or {}
@@ -119,23 +125,29 @@ class BitGetMarketData(MarketDataProvider):
                 bid=last * Decimal("0.999"),
                 ask=last * Decimal("1.001"),
                 last=last,
-                timestamp=None,
+                timestamp=datetime.now(),
             )
         except Exception as e:
             logger.error("BitGet: Failed to get quote for %s: %s", symbol.ticker, e)
-            return None
+            return Quote(
+                symbol=symbol,
+                bid=None,
+                ask=None,
+                last=None,
+                timestamp=datetime.now(),
+            )
 
-    async def get_quotes(self, symbols: list[Symbol]) -> dict[Symbol, Quote]:
-        result = {}
+    async def get_quotes(self, symbols: list[Symbol]) -> list[Quote]:
+        result: list[Quote] = []
         for sym in symbols:
             q = await self.get_quote(sym)
             if q:
-                result[sym] = q
+                result.append(q)
         return result
 
     async def stream_quotes(
-        self, symbols: list[Symbol], callback=None
-    ) -> AsyncGenerator[Quote, None]:
+        self, symbols: list[Symbol], callback: Callable[[Quote], Any]
+    ) -> None:
         import asyncio
 
         symbol_map = {sym.ticker: sym for sym in symbols}
@@ -153,11 +165,10 @@ class BitGetMarketData(MarketDataProvider):
                             bid=last * Decimal("0.999"),
                             ask=last * Decimal("1.001"),
                             last=last,
-                            timestamp=None,
+                            timestamp=datetime.now(),
                         )
                         if callback:
                             callback(q)
-                        yield q
             except Exception as e:
                 logger.error("BitGet: Error streaming quotes: %s", e)
             await asyncio.sleep(5)
@@ -186,12 +197,13 @@ class BitGetMarketData(MarketDataProvider):
             for k in klines:
                 bars.append(
                     Bar(
-                        timestamp=k[0],
+                        symbol=symbol,
+                        timestamp=datetime.fromtimestamp(int(k[0]) / 1000),
                         open=Decimal(str(k[1])),
                         high=Decimal(str(k[2])),
                         low=Decimal(str(k[3])),
                         close=Decimal(str(k[4])),
-                        volume=Decimal(str(k[5])),
+                        volume=int(Decimal(str(k[5]))),
                     )
                 )
             return bars
@@ -201,8 +213,10 @@ class BitGetMarketData(MarketDataProvider):
             )
             return []
 
-    async def get_options_chain(self, symbol: Symbol):
-        return []
+    async def get_options_chain(
+        self, symbol: Symbol, expiry: str | None = None
+    ) -> OptionsChain:
+        return OptionsChain(symbol=symbol)
 
     async def get_contract_details(self, symbol: Symbol) -> ContractDetails:
         return ContractDetails(symbol=symbol)
@@ -212,9 +226,10 @@ class BitGetOrderManager(OrderManager):
     def __init__(self, client: BitGetClient, dry_run: bool = False):
         self.client = client
         self.dry_run = dry_run
+        self._order_update_callback: Callable[[OrderResult], Any] | None = None
 
-    async def on_order_update(self, callback) -> None:
-        pass
+    def on_order_update(self, callback: Callable[[OrderResult], Any]) -> None:
+        self._order_update_callback = callback
 
     async def place_order(self, account_id: str, order) -> OrderResult:
         symbol = order.symbol.ticker
@@ -228,7 +243,7 @@ class BitGetOrderManager(OrderManager):
             return OrderResult(
                 order_id="failed",
                 status=OrderStatus.REJECTED,
-                filled_qty=Decimal("0"),
+                filled_quantity=Decimal("0"),
                 avg_fill_price=Decimal("0"),
                 message=f"Unsupported order type: {type(order)}",
             )
@@ -244,7 +259,7 @@ class BitGetOrderManager(OrderManager):
             return OrderResult(
                 order_id=f"dry-run-{uuid.uuid4()}",
                 status=OrderStatus.SUBMITTED,
-                filled_qty=Decimal("0"),
+                filled_quantity=Decimal("0"),
                 avg_fill_price=Decimal("0"),
             )
 
@@ -261,7 +276,7 @@ class BitGetOrderManager(OrderManager):
             return OrderResult(
                 order_id=order_id,
                 status=OrderStatus.SUBMITTED,
-                filled_qty=Decimal("0"),
+                filled_quantity=Decimal("0"),
                 avg_fill_price=Decimal("0"),
             )
         except Exception as e:
@@ -269,16 +284,18 @@ class BitGetOrderManager(OrderManager):
             return OrderResult(
                 order_id="failed",
                 status=OrderStatus.REJECTED,
-                filled_qty=Decimal("0"),
+                filled_quantity=Decimal("0"),
                 avg_fill_price=Decimal("0"),
                 message=str(e),
             )
 
-    async def modify_order(self, order_id: str, changes: dict) -> OrderResult:
+    async def modify_order(
+        self, order_id: str, changes: dict[str, object]
+    ) -> OrderResult:
         return OrderResult(
             order_id=order_id,
             status=OrderStatus.REJECTED,
-            filled_qty=Decimal("0"),
+            filled_quantity=Decimal("0"),
             avg_fill_price=Decimal("0"),
             message="BitGet: Order modification not supported",
         )
@@ -289,7 +306,7 @@ class BitGetOrderManager(OrderManager):
             return OrderResult(
                 order_id=order_id,
                 status=OrderStatus.CANCELLED,
-                filled_qty=Decimal("0"),
+                filled_quantity=Decimal("0"),
                 avg_fill_price=Decimal("0"),
             )
         try:
@@ -297,25 +314,20 @@ class BitGetOrderManager(OrderManager):
             return OrderResult(
                 order_id=order_id,
                 status=OrderStatus.CANCELLED,
-                filled_qty=Decimal("0"),
+                filled_quantity=Decimal("0"),
                 avg_fill_price=Decimal("0"),
             )
         except Exception as e:
             return OrderResult(
                 order_id=order_id,
                 status=OrderStatus.REJECTED,
-                filled_qty=Decimal("0"),
+                filled_quantity=Decimal("0"),
                 avg_fill_price=Decimal("0"),
                 message=str(e),
             )
 
-    async def get_order_status(self, order_id: str) -> OrderResult:
-        return OrderResult(
-            order_id=order_id,
-            status=OrderStatus.SUBMITTED,
-            filled_qty=Decimal("0"),
-            avg_fill_price=Decimal("0"),
-        )
+    async def get_order_status(self, order_id: str) -> OrderStatus:
+        return OrderStatus.SUBMITTED
 
     async def cancel_all_orders(self) -> None:
         pass
@@ -354,3 +366,14 @@ class BitGetBroker(Broker):
     @property
     def orders(self) -> OrderManager:
         return self._om
+
+    def capabilities(self) -> BrokerCapabilities:
+        return BrokerCapabilities(
+            stocks=True,
+            options=False,
+            futures=False,
+            forex=False,
+            bonds=False,
+            streaming=False,
+            prediction_markets=False,
+        )

@@ -1,8 +1,6 @@
 # tests/unit/agents/test_funding_arb.py
 from __future__ import annotations
 
-import pytest
-import statistics
 from agents.adapters.funding_arb import FundingRateArbAdapter, FundingArbConfig
 from data.sources.derivatives import FundingOISnapshot
 
