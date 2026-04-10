@@ -80,3 +80,4 @@ pytest-xdist>=3.5.0
 # shimmy>=1.1.0
 # sentence-transformers>=3.0.0
 # hnswlib==0.8.0
+sqlmodel>=0.0.16

@@ -117,27 +117,52 @@ class SessionBiasGenerator:
 
     async def get_active_bias(self) -> SessionBiasReport | None:
         """Return today's bias from memory cache, DB cache, or None."""
-        today = date.today().isoformat()
+        today = date.today()
+        today_iso = today.isoformat()
 
         # In-memory cache (fast path)
-        if self._cached_date == today and self._cached_bias:
+        if self._cached_date == today_iso and self._cached_bias:
             return self._cached_bias
 
         # DB cache
-        cursor = await self._db.execute(
-            "SELECT brief_text FROM daily_briefs WHERE date = ? AND brief_text LIKE '{%'",
-            (today,),
-        )
-        row = await cursor.fetchone()
+        try:
+            # We use the date object for the parameter as asyncpg expects a date, not a string
+            cursor = await self._db.execute(
+                "SELECT brief_text FROM daily_briefs WHERE date = $1 AND brief_text LIKE '{%'",
+                today,
+            )
+        except Exception:
+            # Fallback for sqlite which uses ? and might prefer string
+            try:
+                cursor = await self._db.execute(
+                    "SELECT brief_text FROM daily_briefs WHERE date = ? AND brief_text LIKE '{%'",
+                    (today_iso,),
+                )
+            except Exception:
+                # If both fail, try with object and ?
+                cursor = await self._db.execute(
+                    "SELECT brief_text FROM daily_briefs WHERE date = ? AND brief_text LIKE '{%'",
+                    (today,),
+                )
+
+        row = await cursor.fetchone() if hasattr(cursor, 'fetchone') else (cursor[0] if isinstance(cursor, list) and cursor else None)
+
+        # Asyncpg fetchrow returns a Record directly, aiopg/aiosqlite returns a cursor
+        if hasattr(self._db, 'fetchrow'):
+            row = await self._db.fetchrow(
+                "SELECT brief_text FROM daily_briefs WHERE date = $1 AND brief_text LIKE '{%'",
+                today,
+            )
+
         if row:
             try:
-                report = self._parse_report(today, row[0])
+                report = self._parse_report(today_iso, row[0])
                 self._cached_bias = report
-                self._cached_date = today
+                self._cached_date = today_iso
                 return report
             except Exception:
-                pass
-
+                return None
+        return None
         return None
 
     async def generate(self) -> SessionBiasReport:
