@@ -1,0 +1,21 @@
+name: Design Tokens Stale Check
+on:
+  pull_request:
+    paths:
+      - 'frontend/design/DESIGN.md'
+      - 'frontend/tailwind.tokens.generated.js'
+      - 'frontend/src/styles/tokens.generated.css'
+
+jobs:
+  check-tokens:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Check tokens are up to date
+        working-directory: frontend
+        run: |
+          npm run design:build
+          git diff --exit-code tailwind.tokens.generated.js src/styles/tokens.generated.css
