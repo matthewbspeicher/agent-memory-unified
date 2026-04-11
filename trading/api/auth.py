@@ -3,7 +3,7 @@ import hashlib
 import hmac
 import logging
 
-from fastapi import HTTPException, Security, Request
+from fastapi import HTTPException, Security, Request, Depends
 from fastapi.security import APIKeyHeader
 
 from config import Config, load_config
