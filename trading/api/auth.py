@@ -1,3 +1,4 @@
+print("DEBUG: Loading trading/api/auth.py")
 from functools import lru_cache
 import hashlib
 import hmac
