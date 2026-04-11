@@ -20,6 +20,10 @@ Implement accuracy-based ranking and activate multi-factor strategies.
 Integrate vector memory and a temporal knowledge graph into the trading strategy cycle.
 *Link: [./tracks/intelligence_memory/plan.md](./tracks/intelligence_memory/plan.md)*
 
+## [ ] Track: Defensive Perimeter (Audit Phase A)
+Establish rate limiting, comprehensive audit logging, and a protected global kill-switch.
+*Link: [./tracks/defensive_perimeter/plan.md](./tracks/defensive_perimeter/plan.md)*
+
 ---
 
 ## [ ] Track: Arena & Social Deduction (AI Gamification & Monetization)
