@@ -65,6 +65,37 @@ These are explicitly the audit's separate work streams (Phases A, B, D). Do not 
 
 Per the audit's recommended sequence: **do not invite external agent traffic** (no Moltbook posts, no FOR_AGENTS.md announcement, no public arena participation endpoints) **until rate limiting (Phase A), per-agent identity (Phase B), and this track's intelligence/memory Phase 2-3 (Phase C in the audit's sequence) have all landed.** That's the gate.
 
+## Verification status (2026-04-10 evening)
+
+After Gemini reported Phases 1-3 complete, Claude Code did a verification spot-check across the v2 spec's claims. **The work is real and substantial.** Status per claim:
+
+| Claim | Verified | Evidence |
+|---|---|---|
+| WAL mode + busy_timeout on SQLite | ✅ | Committed `1d70444`, `aa49b11`; verify script asserts `PRAGMA journal_mode == "wal"` |
+| Content-hash dedup with `access_count` increment | ✅ | `trading/storage/memory.py:208-242`; verify script asserts second store returns same id + `deduplicated=True` |
+| Structured logging events `memory.write` / `memory.deduplicated` / `kg.triple_added` | ✅ | `memory.py:226`, `memory.py:294`, `knowledge_graph.py:223` — all use `log_event()` |
+| Temporal Knowledge Graph (entities + triples + sweep) | ✅ | Committed `ef52c19`; verify script tests sweep with `valid_to` in past, asserts return value |
+| KG ingestion writers wired into TaoshiBridge / MinerEvaluator / RegimeMemoryManager | ✅ | Committed `89834c8`, `ef04e58`, `2309532`, `f30482e`; runtime guards at `taoshi_bridge.py:163,199`, `evaluator.py:183`, `market_regime.py:169` |
+| `STA_KNOWLEDGE_GRAPH_ENABLED` feature flag (default false) | ✅ | `config.py:213` `knowledge_graph_enabled: bool = False`; threaded as `kg_enabled` constructor param to all writers (note: env var → snake_case → constructor rename, see `reference_sta_env_var_convention.md`) |
+| L0/L1 generation in `SqlPromptStore` using `JournalIndexer` | ✅ | `prompt_store.py:155-185` `generate_agent_context()`; verify script asserts generated context contains "## Identity" + agent name + "## Recent Performance" |
+| L0/L1 wired into `LLMAgent.system_prompt` + agent startup priming | ✅ | Committed `6f852c4`, `47d65fc` |
+| `JournalIndexer` as canonical vector wrapper | ✅ | Used in `prompt_store.py` constructor; matches `reference_vector_index_canonical.md` rule, no parallel wrappers introduced |
+| LLM budget enforcement (`max_calls_per_scan`) | ✅ | `agents/base.py:63-69` raises `RuntimeError` on overflow; `agents/config.py:40` `Field(default=5, ge=1, le=50)`; threaded through `models.py:80`, `config.py:245` |
+| Verify script with real assertions | ✅ | `trading/tests/verify_intelligence_loop.py` (~145 lines, 4 test functions covering WAL / dedup / KG sweep / L0+L1) |
+| Postgres dual-backend refactor for `TradingKnowledgeGraph` | ⚠️ Partial | The committed `ef52c19` is SQLite-only. The dual-backend refactor exists in the working tree (`git status` shows `M trading/storage/knowledge_graph.py`) but is uncommitted at verification time. Code-shape not fully read by Claude Code |
+| ReACT analyst upgrade to `claude-opus-4-6` + `query_knowledge_graph` tool | ⚠️ Not personally verified | Claimed in user-relayed Gemini summary; Claude Code did not read `trading/strategies/react_analyst.py` during the verification pass |
+
+**Verify script coverage gaps (worth knowing for regression tracking):** the script does NOT exercise the `STA_KNOWLEDGE_GRAPH_ENABLED` runtime gating, the LLM budget enforcement path, the KG ingestion writers in their actual integration sites, the structured event emission output (it doesn't capture log lines), the Postgres backend (uses SQLite), or the ReACT agent. All of these are *implemented* but *not asserted* by the test suite.
+
+**Audit findings closed by this verification:**
+- 🟠 #6 Audit logs on writes — closed for the new memory/KG write paths added by Gemini's track. **Not closed** for the existing ~40 write routes — that remains audit Phase A territory.
+- 🔴 #8 Per-agent resource limits — closed at the per-agent-config level (`max_calls_per_scan` enforced in `base.py`). **Not closed** at the cross-cutting level (no monthly token quota enforcement, no global LLM cost ceiling).
+
+**Audit findings still open after this verification:**
+- 🔴 #2 Rate limiting (none added — separate work stream, audit Phase A)
+- 🔴 #5 Write surface protection / kill-switch confirmation (separate work stream, audit Phase A)
+- 🟠 #1 Identity & auth — partial coverage planned for Phase 4 (agent-level identity migration); broader API-wide identity remains audit Phase B
+
 ## Pointers
 
 - Audit (full): `docs/superpowers/specs/2026-04-10-agent-readiness-audit.md`
