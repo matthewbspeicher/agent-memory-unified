@@ -14,10 +14,12 @@ from risk.rules import (
     MaxOpenPositions,
     MaxPortfolioExposure,
     MaxPositionSize,
+    PortfolioDrawdownKillSwitch,
     RiskRule,
     SectorConcentration,
     MaxPredictionExposure,
 )
+from risk.correlation_gate import CorrelationGate
 
 _RULE_REGISTRY: dict[str, type] = {
     "max_position_size": MaxPositionSize,
@@ -30,6 +32,8 @@ _RULE_REGISTRY: dict[str, type] = {
     "max_drawdown_pct": MaxDrawdownPct,
     "max_correlation": MaxCorrelation,
     "max_combo_delta": MaxComboDelta,
+    "portfolio_drawdown_kill": PortfolioDrawdownKillSwitch,
+    "correlation_gate": CorrelationGate,
 }
 
 
@@ -74,6 +78,8 @@ def load_risk_config(
     agent_store=None,
     settings=None,
     journal_manager=None,
+    portfolio_state_store=None,
+    correlation_monitor=None,
     preloaded_data: dict | None = None,
 ) -> RiskEngine:
     # Use pre-loaded data if provided, otherwise read from disk
@@ -118,6 +124,23 @@ def load_risk_config(
         from risk.deja_vu import DejaVuGuard
 
         rules.append(DejaVuGuard(journal_manager=journal_manager))
+
+    if portfolio_state_store:
+        rules.append(
+            PortfolioDrawdownKillSwitch(
+                max_drawdown_pct=25.0,
+                cooldown_hours=24,
+                state_store=portfolio_state_store,
+            )
+        )
+
+    if correlation_monitor:
+        rules.append(
+            CorrelationGate(
+                correlation_monitor=correlation_monitor,
+                high_correlation_threshold=0.7,
+            )
+        )
 
     for r in risk_data.get("rules", []):
         if r is None:

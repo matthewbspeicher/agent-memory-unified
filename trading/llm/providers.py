@@ -67,6 +67,16 @@ class LLMResult:
     provider: ProviderName
     model: str
     latency_ms: float = 0.0
+    # Token tracking for cost monitoring
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+
+    @property
+    def total_tokens(self) -> int | None:
+        """Total tokens used (input + output)."""
+        if self.input_tokens is not None and self.output_tokens is not None:
+            return self.input_tokens + self.output_tokens
+        return None
 
 
 class BaseProvider(ABC):
@@ -125,6 +135,8 @@ class AnthropicProvider(BaseProvider):
                 provider="anthropic",
                 model=self.model,
                 latency_ms=round(latency),
+                input_tokens=getattr(msg.usage, "input_tokens", None),
+                output_tokens=getattr(msg.usage, "output_tokens", None),
             )
         except Exception as exc:
             logger.warning("Anthropic failed: %s", exc)
@@ -153,6 +165,8 @@ class AnthropicProvider(BaseProvider):
                 provider="anthropic",
                 model=self.model,
                 latency_ms=round(latency),
+                input_tokens=getattr(msg.usage, "input_tokens", None),
+                output_tokens=getattr(msg.usage, "output_tokens", None),
             )
         except Exception as exc:
             logger.warning("Anthropic chat failed: %s", exc)
@@ -302,11 +316,16 @@ class GroqProvider(BaseProvider):
                 messages=full_messages,
             )
             latency = (time.monotonic() - start) * 1000
+            usage = getattr(resp, "usage", None)
             return LLMResult(
                 text=_openai_message_text(resp),
                 provider="groq",
                 model=self.model,
                 latency_ms=round(latency),
+                input_tokens=getattr(usage, "prompt_tokens", None) if usage else None,
+                output_tokens=getattr(usage, "completion_tokens", None)
+                if usage
+                else None,
             )
         except Exception as exc:
             logger.warning("Groq failed: %s", exc)
@@ -332,11 +351,16 @@ class GroqProvider(BaseProvider):
                 messages=full_messages,
             )
             latency = (time.monotonic() - start) * 1000
+            usage = getattr(resp, "usage", None)
             return LLMResult(
                 text=_openai_message_text(resp),
                 provider="groq",
                 model=self.model,
                 latency_ms=round(latency),
+                input_tokens=getattr(usage, "prompt_tokens", None) if usage else None,
+                output_tokens=getattr(usage, "completion_tokens", None)
+                if usage
+                else None,
             )
         except Exception as exc:
             logger.warning("Groq chat failed: %s", exc)
@@ -371,11 +395,16 @@ class OllamaProvider(BaseProvider):
                 messages=full_messages,
             )
             latency = (time.monotonic() - start) * 1000
+            usage = getattr(resp, "usage", None)
             return LLMResult(
                 text=_openai_message_text(resp),
                 provider="ollama",
                 model=self.model,
                 latency_ms=round(latency),
+                input_tokens=getattr(usage, "prompt_tokens", None) if usage else None,
+                output_tokens=getattr(usage, "completion_tokens", None)
+                if usage
+                else None,
             )
         except Exception as exc:
             logger.warning("Ollama failed: %s", exc)
@@ -401,11 +430,16 @@ class OllamaProvider(BaseProvider):
                 messages=full_messages,
             )
             latency = (time.monotonic() - start) * 1000
+            usage = getattr(resp, "usage", None)
             return LLMResult(
                 text=_openai_message_text(resp),
                 provider="ollama",
                 model=self.model,
                 latency_ms=round(latency),
+                input_tokens=getattr(usage, "prompt_tokens", None) if usage else None,
+                output_tokens=getattr(usage, "completion_tokens", None)
+                if usage
+                else None,
             )
         except Exception as exc:
             logger.warning("Ollama chat failed: %s", exc)

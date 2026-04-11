@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
 
@@ -19,6 +19,7 @@ class TradeMemory:
     outcome: str  # "win" | "loss" | "scratch"
     hold_duration_mins: int
     timestamp: datetime
+    data: dict = field(default_factory=dict)
 
 
 @dataclass

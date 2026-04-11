@@ -1,9 +1,10 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
-from typing import Optional
+from typing import Any, Optional
 
 from broker.models import AccountBalance, OrderBase, Position, Quote
 
@@ -371,3 +372,97 @@ class MaxCorrelation(RiskRule):
             )
 
         return RiskResult(passed=True, rule_name=self.name)
+
+
+class PortfolioDrawdownKillSwitch(RiskRule):
+    """Triggers kill switch when aggregate portfolio drawdown exceeds threshold.
+
+    Persists high-water mark to survive restarts via PortfolioStateStore.
+    """
+
+    name = "portfolio_drawdown_kill"
+
+    def __init__(
+        self,
+        max_drawdown_pct: float = 25.0,
+        cooldown_hours: int = 24,
+        state_store: Any = None,
+    ) -> None:
+        self.max_drawdown_pct = max_drawdown_pct
+        self.cooldown_hours = cooldown_hours
+        self.state_store = state_store
+        self._state_key = "portfolio_drawdown"
+
+    async def async_evaluate(
+        self, trade: OrderBase, quote: Quote, ctx: PortfolioContext
+    ) -> RiskResult:
+        hwm = Decimal("0")
+        triggered = False
+        triggered_at: datetime | None = None
+
+        if self.state_store:
+            state = await self.state_store.get_state(self._state_key)
+            if state:
+                hwm = state.high_water_mark
+                triggered = state.triggered
+                triggered_at = state.triggered_at
+
+        if triggered and triggered_at:
+            cooldown_end = triggered_at + timedelta(hours=self.cooldown_hours)
+            if datetime.now(timezone.utc) < cooldown_end:
+                return RiskResult(
+                    passed=False,
+                    rule_name=self.name,
+                    reason=f"Portfolio kill switch active (cooldown until {cooldown_end.isoformat()})",
+                )
+            triggered = False
+            triggered_at = None
+
+        current_value = ctx.balance.net_liquidation
+        if current_value > hwm:
+            hwm = current_value
+
+        if hwm > 0:
+            drawdown_pct = float((hwm - current_value) / hwm * 100)
+            if drawdown_pct >= self.max_drawdown_pct:
+                triggered = True
+                triggered_at = datetime.now(timezone.utc)
+
+                if self.state_store:
+                    from storage.portfolio_state import PortfolioState
+
+                    await self.state_store.save_state(
+                        PortfolioState(
+                            high_water_mark=hwm,
+                            triggered=triggered,
+                            triggered_at=triggered_at,
+                            updated_at=datetime.now(timezone.utc),
+                        ),
+                        key=self._state_key,
+                    )
+
+                return RiskResult(
+                    passed=False,
+                    rule_name=self.name,
+                    reason=f"Portfolio drawdown {drawdown_pct:.1f}% >= {self.max_drawdown_pct}%",
+                )
+
+        if self.state_store:
+            from storage.portfolio_state import PortfolioState
+
+            await self.state_store.save_state(
+                PortfolioState(
+                    high_water_mark=hwm,
+                    triggered=triggered,
+                    triggered_at=triggered_at,
+                    updated_at=datetime.now(timezone.utc),
+                ),
+                key=self._state_key,
+            )
+
+        return RiskResult(passed=True, rule_name=self.name)
+
+    def evaluate(
+        self, trade: OrderBase, quote: Quote, ctx: PortfolioContext
+    ) -> RiskResult:
+        return RiskResult(passed=True, rule_name=self.name, reason="Use async_evaluate")

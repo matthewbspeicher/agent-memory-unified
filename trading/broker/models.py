@@ -279,6 +279,66 @@ class IBKRFeeModel(FeeModel):
         return commission.quantize(Decimal("0.0001"))
 
 
+class KalshiFeeModel(FeeModel):
+    """Kalshi prediction market fee schedule.
+
+    - Taker fee: 2% of notional
+    - Maker fee: 0% (rebate)
+    """
+
+    TAKER_FEE_RATE = Decimal("0.02")
+    MAKER_FEE_RATE = Decimal("0.00")
+
+    def calculate(self, order: "OrderBase", fill_price: Decimal) -> Decimal:
+        notional = fill_price * order.quantity
+        return (notional * self.TAKER_FEE_RATE).quantize(Decimal("0.01"))
+
+
+class PolymarketFeeModel(FeeModel):
+    """Polymarket prediction market fee schedule.
+
+    - Taker fee: 2% of notional
+    - Maker fee: 1% of notional
+    """
+
+    TAKER_FEE_RATE = Decimal("0.02")
+    MAKER_FEE_RATE = Decimal("0.01")
+
+    def calculate(self, order: "OrderBase", fill_price: Decimal) -> Decimal:
+        notional = fill_price * order.quantity
+        return (notional * self.TAKER_FEE_RATE).quantize(Decimal("0.01"))
+
+
+class BinanceFeeModel(FeeModel):
+    """Binance spot fee schedule.
+
+    - Spot taker: 0.1%
+    - Spot maker: 0.1%
+    """
+
+    SPOT_TAKER = Decimal("0.001")
+    SPOT_MAKER = Decimal("0.001")
+
+    def calculate(self, order: "OrderBase", fill_price: Decimal) -> Decimal:
+        notional = fill_price * order.quantity
+        return (notional * self.SPOT_TAKER).quantize(Decimal("0.0001"))
+
+
+class BinanceFuturesFeeModel(FeeModel):
+    """Binance futures fee schedule.
+
+    - Futures taker: 0.04%
+    - Futures maker: 0.02%
+    """
+
+    FUTURES_TAKER = Decimal("0.0004")
+    FUTURES_MAKER = Decimal("0.0002")
+
+    def calculate(self, order: "OrderBase", fill_price: Decimal) -> Decimal:
+        notional = fill_price * order.quantity
+        return (notional * self.FUTURES_TAKER).quantize(Decimal("0.0001"))
+
+
 @dataclass
 class OptionsChain:
     symbol: Symbol

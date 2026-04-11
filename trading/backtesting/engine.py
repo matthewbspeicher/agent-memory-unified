@@ -444,6 +444,66 @@ def _get_commission_fn(model: CommissionModel, params: dict) -> Any:
             return fm_ibkr.calculate(order, price)
 
         return _ibkr
+    elif model == CommissionModel.KALSHI:
+        from broker.models import KalshiFeeModel, OrderBase, OrderSide
+
+        fm = KalshiFeeModel()
+
+        def _kalshi(qty, price, symbol):
+            order = OrderBase(
+                symbol=symbol,
+                side=OrderSide.BUY,
+                quantity=qty,
+                account_id="backtest",
+            )
+            return fm.calculate(order, price)
+
+        return _kalshi
+    elif model == CommissionModel.POLYMARKET:
+        from broker.models import PolymarketFeeModel, OrderBase, OrderSide
+
+        fm = PolymarketFeeModel()
+
+        def _polymarket(qty, price, symbol):
+            order = OrderBase(
+                symbol=symbol,
+                side=OrderSide.BUY,
+                quantity=qty,
+                account_id="backtest",
+            )
+            return fm.calculate(order, price)
+
+        return _polymarket
+    elif model == CommissionModel.BINANCE_SPOT:
+        from broker.models import BinanceFeeModel, OrderBase, OrderSide
+
+        fm = BinanceFeeModel()
+
+        def _binance_spot(qty, price, symbol):
+            order = OrderBase(
+                symbol=symbol,
+                side=OrderSide.BUY,
+                quantity=qty,
+                account_id="backtest",
+            )
+            return fm.calculate(order, price)
+
+        return _binance_spot
+    elif model == CommissionModel.BINANCE_FUTURES:
+        from broker.models import BinanceFuturesFeeModel, OrderBase, OrderSide
+
+        fm = BinanceFuturesFeeModel()
+
+        def _binance_futures(qty, price, symbol):
+            order = OrderBase(
+                symbol=symbol,
+                side=OrderSide.BUY,
+                quantity=qty,
+                account_id="backtest",
+            )
+            return fm.calculate(order, price)
+
+        return _binance_futures
     else:
         return lambda qty, price, symbol: Decimal("0")
 

@@ -15,6 +15,7 @@ from exits.rules import (
     PredictionTimeExit,
     PreExpiryExit,
     ProbabilityTrailingStop,
+    ThetaDecayExit,
     parse_rule,
 )
 from broker.models import AssetType
@@ -113,6 +114,16 @@ class ExitManager:
         if asset_type == AssetType.PREDICTION:
             rules: list[ExitRule] = []
             if contract_expires_at:
+                rules.append(
+                    ThetaDecayExit(
+                        entry_price=entry_price,
+                        profit_target_pct=0.50,
+                        stop_loss_pct=2.0,
+                        min_dte=2,
+                        expires_at=contract_expires_at,
+                        side=side,
+                    )
+                )
                 rules.append(
                     PreExpiryExit(
                         expires_at=contract_expires_at,

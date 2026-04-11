@@ -99,7 +99,7 @@ async def portfolio_summary(
         if isinstance(result, Exception):
             logger.warning("Broker fetch failed: %s", result)
             continue
-        name, entry = result
+        name, entry = result  # type: ignore[misc]
         broker_data[name] = entry
         total_equity += Decimal(str(entry["balance"]["net_liquidation"]))
         total_buying_power += Decimal(str(entry["balance"]["buying_power"]))

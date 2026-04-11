@@ -6,16 +6,21 @@ into structured daily summaries.
 import asyncio
 import logging
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
 from learning.memory_client import TradingMemoryClient
 
+if TYPE_CHECKING:
+    from llm.client import LLMClient
+
 logger = logging.getLogger(__name__)
+
 
 class DailyTradeCompiler:
     def __init__(
         self,
         memory_client: TradingMemoryClient,
-        llm: getattr(__import__("llm.client", fromlist=["LLMClient"]), "LLMClient") = None,
+        llm: "LLMClient | None" = None,
         compile_hour: int = 18,
         compile_minute: int = 0,
     ) -> None:
@@ -24,6 +29,7 @@ class DailyTradeCompiler:
             self._llm = llm
         else:
             from llm.client import LLMClient
+
             self._llm = LLMClient()
         self.compile_hour = compile_hour
         self.compile_minute = compile_minute
@@ -39,7 +45,9 @@ class DailyTradeCompiler:
 
         # 1. Fetch raw data
         # We search both namespaces for today's trades and deep reflections.
-        raw_memories = await self._memory.search_both("trade deep_reflection market_observation", top_k=50)
+        raw_memories = await self._memory.search_both(
+            "trade deep_reflection market_observation", top_k=50
+        )
 
         if not raw_memories:
             logger.info("No raw memories found for compilation.")
@@ -94,7 +102,9 @@ class DailyTradeCompiler:
     async def start_loop(self) -> None:
         """Run the compiler loop, triggering at the specified hour and minute."""
         self._running = True
-        logger.info(f"DailyTradeCompiler loop started. Will compile at {self.compile_hour:02d}:{self.compile_minute:02d} UTC.")
+        logger.info(
+            f"DailyTradeCompiler loop started. Will compile at {self.compile_hour:02d}:{self.compile_minute:02d} UTC."
+        )
         while self._running:
             now = datetime.now(timezone.utc)
             today_str = now.strftime("%Y-%m-%d")
@@ -116,16 +126,16 @@ class DailyTradeCompiler:
         """Handle real-time knowledge.capture signals from agents."""
         if signal.signal_type != "knowledge.capture":
             return
-            
+
         content = signal.payload.get("rationale", "")
         if not content:
             return
-            
+
         logger.info("Captured real-time knowledge from %s", signal.source_agent)
         try:
             await self._memory.store_shared(
                 content=content,
-                tags=["market_observation", "knowledge_capture", signal.source_agent]
+                tags=["market_observation", "knowledge_capture", signal.source_agent],
             )
         except Exception as e:
             logger.error("Failed to store knowledge capture: %s", e)

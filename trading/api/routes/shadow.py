@@ -122,7 +122,7 @@ async def promote_agent(
         raise HTTPException(status_code=400, detail="Agent is not in shadow mode")
 
     # Build promotion entry
-    promotion_entry = {
+    promotion_entry: dict = {
         "promoted_at": datetime.now(timezone.utc).isoformat(),
         "promoted_by": promoted_by,
         "rationale": rationale,

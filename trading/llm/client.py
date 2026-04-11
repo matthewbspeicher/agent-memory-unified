@@ -200,30 +200,34 @@ class LLMClient:
         ollama_model: str = "llama3.2:3b",
         bedrock_model: str = "anthropic.claude-3-haiku-20240307-v1:0",
     ) -> None:
-        self._chain: list[ProviderName] = chain or [
+        self._chain: list[str] = chain or [
             "anthropic",
             "bedrock",
             "groq",
             "ollama",
             "rule-based",
         ]
-        
+
         self.registry = ProviderRegistry()
-        
+
         if anthropic_key:
-            self.registry.register(AnthropicProvider(api_key=anthropic_key, model=anthropic_model))
-            
+            self.registry.register(
+                AnthropicProvider(api_key=anthropic_key, model=anthropic_model)
+            )
+
         if bedrock_region:
-            self.registry.register(BedrockProvider(
-                region=bedrock_region,
-                model=bedrock_model,
-                access_key_id=bedrock_access_key_id,
-                secret_access_key=bedrock_secret_access_key,
-            ))
-            
+            self.registry.register(
+                BedrockProvider(
+                    region=bedrock_region,
+                    model=bedrock_model,
+                    access_key_id=bedrock_access_key_id,
+                    secret_access_key=bedrock_secret_access_key,
+                )
+            )
+
         if groq_key:
             self.registry.register(GroqProvider(api_key=groq_key, model=groq_model))
-            
+
         self.registry.register(OllamaProvider(base_url=ollama_url, model=ollama_model))
 
         # Per-provider circuit breaker (disabled after N consecutive failures)
@@ -253,7 +257,9 @@ class LLMClient:
         self._disabled.clear()
         logger.info("LLMClient: all providers re-enabled")
 
-    async def complete(self, prompt: str, *, max_tokens: int = 200) -> LLMResult:
+    async def complete(
+        self, prompt: str, *, max_tokens: int = 200, temperature: float | None = None
+    ) -> LLMResult:
         """
         Try each provider in chain order. Always returns a result
         (falls back to rule-based if all fail).
@@ -360,7 +366,10 @@ class LLMClient:
                                 ),
                                 sentiment=str(data.get("sentiment", "neutral")),
                                 mispricing_score=float(
-                                    max(-1.0, min(1.0, data.get("mispricing_score", 0.0)))
+                                    max(
+                                        -1.0,
+                                        min(1.0, data.get("mispricing_score", 0.0)),
+                                    )
                                 ),
                             )
                     except (json.JSONDecodeError, ValueError):
@@ -417,7 +426,10 @@ class LLMClient:
                             return ProbabilityEstimate(
                                 implied_probability=max(
                                     0.01,
-                                    min(0.99, float(data.get("implied_probability", 0.5))),
+                                    min(
+                                        0.99,
+                                        float(data.get("implied_probability", 0.5)),
+                                    ),
                                 ),
                                 confidence=max(
                                     0, min(100, int(data.get("confidence", 50)))
@@ -433,19 +445,118 @@ class LLMClient:
         logger.debug("LLMClient: using rule-based fallback for probability estimate")
         return _rule_based_probability(question, headlines)
 
+    async def structured_complete(
+        self,
+        prompt: str,
+        schema: dict[str, Any],
+        *,
+        system: str | None = None,
+        max_tokens: int = 1024,
+    ) -> dict[str, Any] | None:
+        """
+        Structured output with JSON schema validation.
+
+        Tries Anthropic with native JSON schema support first,
+        then falls back to other providers with JSON parsing.
+
+        Returns parsed dict if successful, None if all providers fail.
+        """
+        import json
+        import re
+
+        providers = self._resolve_chain()
+
+        # Try Anthropic first (has native JSON schema support)
+        if "anthropic" in providers and not self._is_disabled("anthropic"):
+            provider = self.registry.get("anthropic")
+            if provider:
+                try:
+                    import anthropic
+                    import time
+
+                    start = time.monotonic()
+                    client = anthropic.AsyncAnthropic(api_key=provider.api_key)
+                    messages = [{"role": "user", "content": prompt}]
+                    create_kwargs = {
+                        "model": provider.model,
+                        "max_tokens": max_tokens,
+                        "messages": messages,
+                        "response_format": {
+                            "type": "json_schema",
+                            "json_schema": schema,
+                        },
+                    }
+                    if system:
+                        create_kwargs["system"] = system
+
+                    response = await client.messages.create(**create_kwargs)
+                    latency = (time.monotonic() - start) * 1000
+
+                    # Extract text from response
+                    text = ""
+                    for block in getattr(response, "content", []):
+                        if hasattr(block, "text"):
+                            text += block.text
+
+                    if text:
+                        self._record_success("anthropic")
+                        try:
+                            return json.loads(text)
+                        except json.JSONDecodeError:
+                            pass
+                except Exception as exc:
+                    logger.warning("Anthropic structured failed: %s", exc)
+                    self._record_failure("anthropic")
+
+        # Fallback: try other providers with JSON parsing
+        for provider_name in providers:
+            if provider_name == "anthropic":
+                continue  # Already tried
+            if provider_name == "rule-based":
+                continue
+            if self._is_disabled(provider_name):
+                continue
+
+            provider = self.registry.get(provider_name)
+            if provider:
+                # Build prompt that asks for JSON output
+                json_prompt = (
+                    f"{prompt}\n\n"
+                    f"Respond with ONLY valid JSON matching this schema: {json.dumps(schema.get('schema', {}))}\n"
+                    f"Do not include any explanation, just the JSON object."
+                )
+                if system:
+                    json_prompt = f"{system}\n\n{json_prompt}"
+
+                result = await provider.complete(json_prompt, max_tokens=max_tokens)
+                if result and result.text:
+                    self._record_success(provider_name)
+                    try:
+                        # Try to extract JSON from response
+                        match = re.search(r"\{.*\}", result.text, re.DOTALL)
+                        if match:
+                            return json.loads(match.group(0))
+                    except (json.JSONDecodeError, ValueError):
+                        pass
+                else:
+                    self._record_failure(provider_name)
+
+        logger.error("LLMClient.structured_complete: all providers failed")
+        return None
+
     async def embed(self, text: str) -> list[float]:
         """
         Generate vector embeddings for the given text.
         Currently supports Ollama and Bedrock (Titan).
         """
         providers = self._resolve_chain()
-        
+
         # Prefer Ollama for local embeddings if available, then Bedrock
         preferred = ["ollama", "bedrock"]
         for provider_name in preferred:
             if provider_name not in providers or self._is_disabled(provider_name):
                 continue
-                
+
             provider = self.registry.get(provider_name)
             if provider:
                 try:

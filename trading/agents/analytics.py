@@ -30,7 +30,10 @@ class AnalyticsAgent(Agent):
         perf_store: "PerformanceStore | None" = None,
         trade_store: "TradeStore | None" = None,
     ):
-        super().__init__(config)
+        normalized_config = (
+            config if isinstance(config, AgentConfig) else AgentConfig(**config)
+        )
+        super().__init__(normalized_config)
         self._runner = runner
         self._opp_store = opp_store
         self._perf_store = perf_store
@@ -95,12 +98,54 @@ class AnalyticsAgent(Agent):
             if avg_price is None or quantity is None:
                 continue
             gross = float(avg_price) * float(quantity)
-            # BUY = cash outflow (negative P&L contribution), SELL = inflow
             if str(side).upper() == "SELL":
                 pnl_values.append(gross - commission)
             else:
                 pnl_values.append(-gross - commission)
         return pnl_values
+
+    async def _compute_streaks(self, agent_name: str) -> dict[str, int]:
+        """Compute consecutive win/loss streaks from recent trades."""
+        if not self._trade_store:
+            return {
+                "consecutive_losses": 0,
+                "max_consecutive_losses": 0,
+                "consecutive_wins": 0,
+                "max_consecutive_wins": 0,
+            }
+
+        trades = await self._trade_store.get_trades(agent_name=agent_name, limit=200)
+
+        consecutive_losses = 0
+        max_consecutive_losses = 0
+        consecutive_wins = 0
+        max_consecutive_wins = 0
+
+        for trade in reversed(trades):
+            raw = trade.get("order_result")
+            if not raw:
+                continue
+            try:
+                result = json.loads(raw) if isinstance(raw, str) else raw
+            except (json.JSONDecodeError, TypeError):
+                continue
+
+            pnl = float(result.get("realized_pnl", 0))
+            if pnl < 0:
+                consecutive_losses += 1
+                max_consecutive_losses = max(max_consecutive_losses, consecutive_losses)
+                consecutive_wins = 0
+            elif pnl > 0:
+                consecutive_wins += 1
+                max_consecutive_wins = max(max_consecutive_wins, consecutive_wins)
+                consecutive_losses = 0
+
+        return {
+            "consecutive_losses": consecutive_losses,
+            "max_consecutive_losses": max_consecutive_losses,
+            "consecutive_wins": consecutive_wins,
+            "max_consecutive_wins": max_consecutive_wins,
+        }
 
     async def scan(self, data_bus: "DataBus") -> list[Opportunity]:
         if not self._runner or not self._opp_store or not self._perf_store:
@@ -120,6 +165,7 @@ class AnalyticsAgent(Agent):
             pnl_values = await self._extract_trade_pnl(agent_info.name)
             sharpe = self._compute_sharpe(pnl_values)
             max_dd = self._compute_max_drawdown(pnl_values)
+            streaks = await self._compute_streaks(agent_info.name)
 
             snapshot = PerformanceSnapshot(
                 agent_name=agent_info.name,
@@ -129,6 +175,7 @@ class AnalyticsAgent(Agent):
                 win_rate=win_rate,
                 sharpe_ratio=sharpe,
                 max_drawdown=max_dd,
+                **streaks,
             )
             await self._perf_store.save(snapshot)
             logger.info(

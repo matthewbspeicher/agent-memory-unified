@@ -36,7 +36,7 @@ function RosterCard({ agentName }: { agentName: string }) {
 export default function Roster() {
   const { data: agents, isLoading } = useQuery({
     queryKey: ['agents'],
-    queryFn: () => agentApi.listAgents(),
+    queryFn: () => agentApi.getDirectory(),
   });
 
   return (

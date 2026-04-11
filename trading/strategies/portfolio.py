@@ -99,7 +99,7 @@ class TaxLossHarvestingAgent(StructuredAgent):
         opportunities = []
 
         trades = await data.get_recent_trades(limit=500)
-        recent_trade_dates = {}
+        recent_trade_dates: dict[str, datetime] = {}
         for t in trades:
             order_res = (
                 json.loads(t["order_result"])

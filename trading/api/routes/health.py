@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 
 from api.auth import verify_api_key
-from api.deps import get_broker
+from api.dependencies import get_broker
 from broker.interfaces import Broker
 
 logger = logging.getLogger(__name__)

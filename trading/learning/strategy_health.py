@@ -57,6 +57,8 @@ class StrategyHealthConfig:
         recovery_window_trades: int = 30,
         throttle_multiplier: float = 0.5,
         retire_after_breaches: int = 3,
+        max_consecutive_losses: int = 5,
+        consecutive_loss_cooldown_hours: int = 48,
     ) -> None:
         self.enabled = enabled
         self.default_window_trades = default_window_trades
@@ -67,6 +69,8 @@ class StrategyHealthConfig:
         self.recovery_window_trades = recovery_window_trades
         self.throttle_multiplier = throttle_multiplier
         self.retire_after_breaches = retire_after_breaches
+        self.max_consecutive_losses = max_consecutive_losses
+        self.consecutive_loss_cooldown_hours = consecutive_loss_cooldown_hours
 
     @classmethod
     def from_learning_config(cls, cfg: Any) -> "StrategyHealthConfig":
@@ -81,7 +85,6 @@ class StrategyHealthConfig:
                     if k in cls.__init__.__code__.co_varnames
                 }
             )
-        # Pydantic model
         return cls(
             enabled=getattr(cfg, "enabled", True),
             default_window_trades=getattr(cfg, "default_window_trades", 50),
@@ -92,6 +95,10 @@ class StrategyHealthConfig:
             recovery_window_trades=getattr(cfg, "recovery_window_trades", 30),
             throttle_multiplier=getattr(cfg, "throttle_multiplier", 0.5),
             retire_after_breaches=getattr(cfg, "retire_after_breaches", 3),
+            max_consecutive_losses=getattr(cfg, "max_consecutive_losses", 5),
+            consecutive_loss_cooldown_hours=getattr(
+                cfg, "consecutive_loss_cooldown_hours", 48
+            ),
         )
 
 
@@ -199,6 +206,29 @@ class StrategyHealthEngine:
             "profit_factor": float(snapshot.profit_factor or 0),
             "total_trades": total_trades,
         }
+
+        consecutive_losses = snapshot.consecutive_losses or 0
+        if consecutive_losses >= self._cfg.max_consecutive_losses:
+            logger.warning(
+                "Circuit breaker triggered for %s: %d consecutive losses >= %d",
+                agent_name,
+                consecutive_losses,
+                self._cfg.max_consecutive_losses,
+            )
+            # Load current state for transition
+            existing = await self._health_store.get_status(agent_name)
+            current_status_str = (
+                existing["status"] if existing else StrategyHealthStatus.NORMAL.value
+            )
+            current_status = StrategyHealthStatus(current_status_str)
+            await self._transition(
+                agent_name=agent_name,
+                old_status=current_status,
+                new_status=StrategyHealthStatus.THROTTLED,
+                reason=f"Circuit breaker: {consecutive_losses} consecutive losses >= {self._cfg.max_consecutive_losses}",
+                metrics=metrics,
+            )
+            return StrategyHealthStatus.THROTTLED
 
         # Load current state (for cooldown and transition logic)
         existing = await self._health_store.get_status(agent_name)

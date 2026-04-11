@@ -21,6 +21,10 @@ class PerformanceSnapshot(BaseModel):
     profit_factor: float = 0.0
     total_trades: int = 0
     open_positions: int = 0
+    consecutive_losses: int = 0
+    max_consecutive_losses: int = 0
+    consecutive_wins: int = 0
+    max_consecutive_wins: int = 0
 
 
 class PerformanceStore:
@@ -37,8 +41,9 @@ class PerformanceStore:
             INSERT INTO performance_snapshots
             (agent_name, timestamp, opportunities_generated, opportunities_executed, win_rate,
              total_pnl, daily_pnl, daily_pnl_pct, sharpe_ratio, max_drawdown,
-             avg_win, avg_loss, profit_factor, total_trades, open_positions)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             avg_win, avg_loss, profit_factor, total_trades, open_positions,
+             consecutive_losses, max_consecutive_losses, consecutive_wins, max_consecutive_wins)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 snapshot.agent_name,
@@ -56,6 +61,10 @@ class PerformanceStore:
                 snapshot.profit_factor,
                 snapshot.total_trades,
                 snapshot.open_positions,
+                snapshot.consecutive_losses,
+                snapshot.max_consecutive_losses,
+                snapshot.consecutive_wins,
+                snapshot.max_consecutive_wins,
             ),
         )
         await self._db.commit()
@@ -67,7 +76,8 @@ class PerformanceStore:
             """
             SELECT id, agent_name, timestamp, opportunities_generated, opportunities_executed, win_rate,
                    total_pnl, daily_pnl, daily_pnl_pct, sharpe_ratio, max_drawdown,
-                   avg_win, avg_loss, profit_factor, total_trades, open_positions
+                   avg_win, avg_loss, profit_factor, total_trades, open_positions,
+                   consecutive_losses, max_consecutive_losses, consecutive_wins, max_consecutive_wins
             FROM performance_snapshots
             WHERE agent_name = ?
             ORDER BY timestamp DESC
@@ -97,6 +107,10 @@ class PerformanceStore:
                     profit_factor=r["profit_factor"] or 0.0,
                     total_trades=r["total_trades"] or 0,
                     open_positions=r["open_positions"] or 0,
+                    consecutive_losses=r["consecutive_losses"] or 0,
+                    max_consecutive_losses=r["max_consecutive_losses"] or 0,
+                    consecutive_wins=r["consecutive_wins"] or 0,
+                    max_consecutive_wins=r["max_consecutive_wins"] or 0,
                 )
             )
         return results

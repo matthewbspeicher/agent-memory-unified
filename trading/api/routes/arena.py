@@ -303,7 +303,26 @@ class BettingPoolResponse(BaseModel):
     status: str
 
 
-@router.post("/sessions/bet", response_model=BetResponse)
+class BetLeaderboardEntry(BaseModel):
+    user_id: str
+    total_profit: int
+    total_bets: int
+    wins: int
+
+
+@router.get("/bets/leaderboard", response_model=list[BetLeaderboardEntry])
+async def get_bet_leaderboard(
+    request: Request,
+    limit: int = Query(10, ge=1, le=100),
+    _: str = Depends(verify_api_key),
+):
+    store = _get_store(request)
+    leaderboard = await store.get_arena_betting_leaderboard(limit=limit)
+    return [BetLeaderboardEntry(**e) for e in leaderboard]
+
+
+@router.get("/sessions/{session_id}/pool", response_model=BettingPoolResponse)
+
 async def place_arena_bet(
     body: PlaceBetRequest,
     request: Request,

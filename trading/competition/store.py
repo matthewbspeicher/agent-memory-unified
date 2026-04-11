@@ -688,28 +688,6 @@ class CompetitionStore:
             achievement_badges=achievement_badges,
         )
 
-
-# ------------------------------------------------------------------
-# Helpers
-# ------------------------------------------------------------------
-
-
-def _row_to_competitor(row: dict) -> CompetitorRecord:
-    row = dict(row)
-    meta = row.get("metadata", {})
-    if isinstance(meta, str):
-        meta = json.loads(meta)
-    return CompetitorRecord(
-        id=str(row["id"]),
-        type=CompetitorType(row["type"]),
-        name=row["name"],
-        ref_id=row["ref_id"],
-        status=row.get("status", "active"),
-        metadata=meta,
-        created_at=row.get("created_at"),
-        updated_at=row.get("updated_at"),
-    )
-
     async def get_missions(
         self, competitor_id: str, mission_type: MissionType | None = None
     ) -> list[MissionResponse]:
@@ -1656,3 +1634,44 @@ def _row_to_competitor(row: dict) -> CompetitorRecord:
             "player_b_odds": round(b_odds, 2),
             "status": "open",
         }
+
+    async def get_arena_betting_leaderboard(self, limit: int = 10) -> list[dict]:
+        """Get the top bettors by total profit."""
+        rows = await self._db.fetch(
+            """
+            SELECT
+                better_id as user_id,
+                SUM(payout - amount) as total_profit,
+                COUNT(*) as total_bets,
+                COUNT(CASE WHEN status = 'settled' AND payout > 0 THEN 1 END) as wins
+            FROM match_bets
+            WHERE status IN ('settled', 'cancelled')
+            GROUP BY better_id
+            ORDER BY total_profit DESC
+            LIMIT $1
+            """,
+            limit,
+        )
+        return [dict(r) for r in rows]
+
+
+# ------------------------------------------------------------------
+# Helpers
+# ------------------------------------------------------------------
+
+
+def _row_to_competitor(row: dict) -> CompetitorRecord:
+    row = dict(row)
+    meta = row.get("metadata", {})
+    if isinstance(meta, str):
+        meta = json.loads(meta)
+    return CompetitorRecord(
+        id=str(row["id"]),
+        type=CompetitorType(row["type"]),
+        name=row["name"],
+        ref_id=row["ref_id"],
+        status=row.get("status", "active"),
+        metadata=meta,
+        created_at=row.get("created_at"),
+        updated_at=row.get("updated_at"),
+    )

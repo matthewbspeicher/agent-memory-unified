@@ -44,7 +44,7 @@ class SentimentProvider(BaseIntelProvider):
             try:
                 lc_score, lc_conf, lc_details = await self._fetch_lunarcrush(symbol)
                 scores.append(lc_score)
-                confidence = float(max(confidence, lc_conf))
+                confidence = max(confidence, float(lc_conf))
                 details.update(lc_details)
             except Exception as e:
                 logger.warning("SentimentProvider (LunarCrush) failed: %s", e)
@@ -56,7 +56,7 @@ class SentimentProvider(BaseIntelProvider):
                 scores.append(av_score)
                 # Boost confidence if AV has a clear signal
                 if abs(av_score) > 0.5:
-                    confidence = float(max(confidence, 0.8))
+                    confidence = max(confidence, 0.8)
                 details["av_sentiment_score"] = av_score
             except Exception as e:
                 logger.warning("SentimentProvider (AlphaVantage) failed: %s", e)

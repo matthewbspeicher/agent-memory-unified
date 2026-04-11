@@ -12,9 +12,6 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-import anthropic
-from anthropic.types import TextBlock
-
 from agents.base import LLMAgent
 from agents.models import Opportunity, OpportunityStatus
 from data.bus import DataBus
@@ -22,20 +19,14 @@ from data.bus import DataBus
 logger = logging.getLogger(__name__)
 
 
-def _extract_text_block(content: list[Any]) -> str:
-    for block in content:
-        if isinstance(block, TextBlock):
-            return block.text
-    return ""
-
-
 class ReactAnalystAgent(LLMAgent):
-    """ReACT-based analyst that iteratively reasons about market opportunities.
+    def __init__(self, config, prompt_store=None, llm_client=None):
+        super().__init__(config, prompt_store)
+        self._llm_client = llm_client
 
-    Uses a Reasoning-Acting-Observing loop to query market data,
-    indicators, and memory, building layered analysis before
-    generating trading opportunities.
-    """
+    @property
+    def model(self) -> str:
+        return self._config.model or "claude-opus-4-6"
 
     @property
     def description(self) -> str:
@@ -69,15 +60,6 @@ class ReactAnalystAgent(LLMAgent):
     async def _analyze_symbol(
         self, data: DataBus, symbol: Any
     ) -> Optional[Opportunity]:
-        """Run ReACT loop for a single symbol.
-
-        Args:
-            data: DataBus for market data.
-            symbol: Trading symbol to analyze.
-
-        Returns:
-            Opportunity if found, None otherwise.
-        """
         max_iterations = self.config.parameters.get("max_iterations", 5)
         confidence_threshold = self.config.parameters.get("confidence_threshold", 0.6)
 
@@ -85,18 +67,14 @@ class ReactAnalystAgent(LLMAgent):
         reasoning_trace: list[dict[str, Any]] = []
         tools_used: list[str] = []
 
-        client = anthropic.AsyncAnthropic()
-
         for iteration in range(max_iterations):
-            thought = await self._generate_thought(
-                client, context, reasoning_trace, tools_used
-            )
+            thought = await self._generate_thought(context, reasoning_trace, tools_used)
             reasoning_trace.append({"iteration": iteration, "thought": thought})
 
             if self._should_conclude(thought):
                 break
 
-            action = await self._generate_action(client, thought, context)
+            action = await self._generate_action(thought, context)
 
             if action.get("type") == "final_answer":
                 break
@@ -112,7 +90,7 @@ class ReactAnalystAgent(LLMAgent):
             )
 
         return await self._generate_opportunity(
-            client, symbol, reasoning_trace, confidence_threshold
+            symbol, reasoning_trace, confidence_threshold
         )
 
     async def _gather_initial_context(
@@ -142,22 +120,10 @@ class ReactAnalystAgent(LLMAgent):
 
     async def _generate_thought(
         self,
-        client: anthropic.AsyncAnthropic,
         context: dict[str, Any],
         trace: list[dict[str, Any]],
         tools_used: list[str],
     ) -> str:
-        """Generate reasoning thought about current market state.
-
-        Args:
-            client: Anthropic client.
-            context: Current market context.
-            trace: Previous reasoning trace.
-            tools_used: Tools already used.
-
-        Returns:
-            Thought text from LLM.
-        """
         prompt = f"""You are a quantitative trading analyst analyzing {context["symbol"]}.
 
 Current Market Data:
@@ -175,13 +141,16 @@ Analyze the current situation and determine what you need to know next.
 If you have enough information to make a trading decision, state your conclusion clearly.
 Otherwise, specify what additional data would help your analysis."""
 
-        response = await client.messages.create(
-            model=self.model,
-            max_tokens=500,
-            system=self.system_prompt,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        return _extract_text_block(response.content)
+        if self._llm_client:
+            self.increment_llm_call_count()
+            result = await self._llm_client.chat(
+                system=self.system_prompt,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=500,
+            )
+            return result.text
+
+        return ""
 
     def _should_conclude(self, thought: str) -> bool:
         """Check if thought indicates readiness to conclude.
@@ -197,20 +166,9 @@ Otherwise, specify what additional data would help your analysis."""
 
     async def _generate_action(
         self,
-        client: anthropic.AsyncAnthropic,
         thought: str,
         context: dict[str, Any],
     ) -> dict[str, Any]:
-        """Generate action to take based on thought.
-
-        Args:
-            client: Anthropic client.
-            thought: Current thought.
-            context: Market context.
-
-        Returns:
-            Action dictionary with tool and params.
-        """
         prompt = f"""Based on this analysis:
 {thought}
 
@@ -218,21 +176,25 @@ Available tools:
 1. query_market_data - Get additional price/volume data
 2. query_indicators - Get technical indicators (MACD, BB, ATR)
 3. query_agent_memory - Get past trade lessons for this symbol
-4. final_answer - Conclude with trading decision
+4. query_knowledge_graph - Get related market entities and relationships
+5. final_answer - Conclude with trading decision
 
 Respond with JSON:
 {{"tool": "<tool_name>", "params": {{...}}}} or {{"type": "final_answer", "answer": "..."}}"""
 
-        response = await client.messages.create(
-            model=self.model,
-            max_tokens=200,
-            messages=[{"role": "user", "content": prompt}],
-        )
+        if self._llm_client:
+            self.increment_llm_call_count()
+            result = await self._llm_client.chat(
+                system="You are a trading analyst. Respond with valid JSON only.",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=200,
+            )
+            try:
+                return json.loads(result.text)
+            except json.JSONDecodeError:
+                pass
 
-        try:
-            return json.loads(_extract_text_block(response.content))
-        except json.JSONDecodeError:
-            return {"type": "final_answer"}
+        return {"type": "final_answer"}
 
     async def _execute_tool(
         self,
@@ -255,7 +217,7 @@ Respond with JSON:
 
         if tool == "query_market_data":
             quote = await data.get_quote(symbol)
-            return f"Price: {quote.last}, Volume: {quote.volume}"
+            return f"Price: {quote.last if quote else 'N/A'}, Volume: {quote.volume if quote else 'N/A'}"
 
         elif tool == "query_indicators":
             macd = await data.get_macd(symbol)
@@ -270,26 +232,26 @@ Respond with JSON:
                 return f"Past lessons: {lessons}"
             return "No memory available"
 
+        elif tool == "query_knowledge_graph":
+            # Access Knowledge Graph via app.state (dependency injection needed or via DataBus)
+            # For now, we assume it might be available on the agent if injected by runner
+            kg = getattr(self, "knowledge_graph", None)
+            if kg:
+                try:
+                    triples = await kg.query_entity(str(symbol), direction="both")
+                    return f"KG triples for {symbol}: {triples[:10]}"
+                except Exception as e:
+                    return f"KG query failed: {e}"
+            return "Knowledge Graph not available"
+
         return f"Unknown tool: {tool}"
 
     async def _generate_opportunity(
         self,
-        client: anthropic.AsyncAnthropic,
         symbol: Any,
         trace: list[dict[str, Any]],
         confidence_threshold: float,
     ) -> Optional[Opportunity]:
-        """Generate Opportunity from reasoning trace.
-
-        Args:
-            client: Anthropic client.
-            symbol: Trading symbol.
-            trace: Complete reasoning trace.
-            confidence_threshold: Minimum confidence to generate opportunity.
-
-        Returns:
-            Opportunity if confidence exceeds threshold, None otherwise.
-        """
         prompt = f"""Based on this analysis trace for {symbol}:
 {json.dumps(trace, indent=2)}
 
@@ -303,31 +265,35 @@ Generate a trading opportunity as JSON:
 
 Only generate if confidence >= {confidence_threshold} and signal is clear."""
 
-        response = await client.messages.create(
-            model=self.model,
-            max_tokens=300,
+        if not self._llm_client:
+            return None
+
+        self.increment_llm_call_count()
+        result = await self._llm_client.chat(
+            system="You are a trading analyst. Respond with valid JSON only.",
             messages=[{"role": "user", "content": prompt}],
+            max_tokens=300,
         )
 
         try:
-            result = json.loads(_extract_text_block(response.content))
+            data = json.loads(result.text)
 
-            if result.get("confidence", 0) < confidence_threshold:
+            if data.get("confidence", 0) < confidence_threshold:
                 return None
 
-            if result.get("direction") == "neutral":
+            if data.get("direction") == "neutral":
                 return None
 
             return Opportunity(
                 id=str(uuid.uuid4()),
                 agent_name=self.name,
                 symbol=symbol,
-                signal=result["signal"],
-                confidence=result["confidence"],
-                reasoning=result["reasoning"],
+                signal=data["signal"],
+                confidence=data["confidence"],
+                reasoning=data["reasoning"],
                 data={
                     "trace_length": len(trace),
-                    "direction": result["direction"],
+                    "direction": data["direction"],
                 },
                 timestamp=datetime.now(timezone.utc),
                 status=OpportunityStatus.PENDING,

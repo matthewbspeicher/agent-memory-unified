@@ -163,10 +163,14 @@ async def test_complete_uses_first_available_provider():
         text="test response", provider="groq", model="llama-3.3-70b-versatile"
     )
 
-    with patch(
-        "llm.client._try_groq", new_callable=AsyncMock, return_value=mock_result
+    client = LLMClient(groq_key="gsk-test", chain=["groq", "rule-based"])
+    # Mock the GroqProvider's complete method
+    with patch.object(
+        client.registry.get("groq"),
+        "complete",
+        new_callable=AsyncMock,
+        return_value=mock_result,
     ):
-        client = LLMClient(groq_key="gsk-test", chain=["groq", "rule-based"])
         result = await client.complete("test prompt")
 
     assert result.text == "test response"
@@ -180,13 +184,20 @@ async def test_complete_falls_back_on_provider_failure():
         text="ollama response", provider="ollama", model="llama3.2:3b"
     )
 
-    with patch("llm.client._try_groq", new_callable=AsyncMock, return_value=None):
-        with patch(
-            "llm.client._try_ollama", new_callable=AsyncMock, return_value=mock_result
+    client = LLMClient(groq_key="gsk-test", chain=["groq", "ollama", "rule-based"])
+    # Mock groq to fail, ollama to succeed
+    with patch.object(
+        client.registry.get("groq"),
+        "complete",
+        new_callable=AsyncMock,
+        return_value=None,
+    ):
+        with patch.object(
+            client.registry.get("ollama"),
+            "complete",
+            new_callable=AsyncMock,
+            return_value=mock_result,
         ):
-            client = LLMClient(
-                groq_key="gsk-test", chain=["groq", "ollama", "rule-based"]
-            )
             result = await client.complete("test prompt")
 
     assert result.text == "ollama response"
@@ -196,11 +207,19 @@ async def test_complete_falls_back_on_provider_failure():
 @pytest.mark.asyncio
 async def test_complete_records_failures():
     """Failed provider gets failure recorded."""
-    with patch("llm.client._try_groq", new_callable=AsyncMock, return_value=None):
-        with patch("llm.client._try_ollama", new_callable=AsyncMock, return_value=None):
-            client = LLMClient(
-                groq_key="gsk-test", chain=["groq", "ollama", "rule-based"]
-            )
+    client = LLMClient(groq_key="gsk-test", chain=["groq", "ollama", "rule-based"])
+    with patch.object(
+        client.registry.get("groq"),
+        "complete",
+        new_callable=AsyncMock,
+        return_value=None,
+    ):
+        with patch.object(
+            client.registry.get("ollama"),
+            "complete",
+            new_callable=AsyncMock,
+            return_value=None,
+        ):
             await client.complete("test prompt")
 
     assert client._fail_counts.get("groq", 0) == 1
@@ -214,17 +233,19 @@ async def test_complete_skips_disabled_providers():
         text="ollama response", provider="ollama", model="llama3.2:3b"
     )
 
-    with patch("llm.client._try_groq", new_callable=AsyncMock) as mock_groq:
-        with patch(
-            "llm.client._try_ollama", new_callable=AsyncMock, return_value=mock_result
-        ):
-            client = LLMClient(
-                groq_key="gsk-test", chain=["groq", "ollama", "rule-based"]
-            )
-            # Disable groq via circuit breaker
-            for _ in range(5):
-                client._record_failure("groq")
+    client = LLMClient(groq_key="gsk-test", chain=["groq", "ollama", "rule-based"])
+    # Disable groq via circuit breaker
+    for _ in range(5):
+        client._record_failure("groq")
 
+    mock_groq = AsyncMock(return_value=None)
+    with patch.object(client.registry.get("groq"), "complete", mock_groq):
+        with patch.object(
+            client.registry.get("ollama"),
+            "complete",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ):
             result = await client.complete("test prompt")
 
     mock_groq.assert_not_called()
@@ -242,10 +263,13 @@ async def test_chat_uses_first_available():
         text="chat response", provider="groq", model="llama-3.3-70b-versatile"
     )
 
-    with patch(
-        "llm.client._try_groq_chat", new_callable=AsyncMock, return_value=mock_result
+    client = LLMClient(groq_key="gsk-test", chain=["groq", "rule-based"])
+    with patch.object(
+        client.registry.get("groq"),
+        "chat",
+        new_callable=AsyncMock,
+        return_value=mock_result,
     ):
-        client = LLMClient(groq_key="gsk-test", chain=["groq", "rule-based"])
         result = await client.chat(
             "You are helpful.", [{"role": "user", "content": "Hi"}]
         )
@@ -257,10 +281,10 @@ async def test_chat_uses_first_available():
 @pytest.mark.asyncio
 async def test_chat_skips_rule_based():
     """Chat has no rule-based fallback — returns error message instead."""
-    with patch(
-        "llm.client._try_ollama_chat", new_callable=AsyncMock, return_value=None
+    client = LLMClient(chain=["ollama", "rule-based"])
+    with patch.object(
+        client.registry.get("ollama"), "chat", new_callable=AsyncMock, return_value=None
     ):
-        client = LLMClient(chain=["ollama", "rule-based"])
         result = await client.chat(
             "You are helpful.", [{"role": "user", "content": "Hello"}]
         )
@@ -283,10 +307,13 @@ async def test_score_headline_parses_llm_json():
         model="llama-3.3-70b-versatile",
     )
 
-    with patch(
-        "llm.client._try_groq", new_callable=AsyncMock, return_value=mock_result
+    client = LLMClient(groq_key="gsk-test", chain=["groq", "rule-based"])
+    with patch.object(
+        client.registry.get("groq"),
+        "complete",
+        new_callable=AsyncMock,
+        return_value=mock_result,
     ):
-        client = LLMClient(groq_key="gsk-test", chain=["groq", "rule-based"])
         result = await client.score_headline(
             "Will AAPL rise?", "Apple reports record Q4"
         )
@@ -306,10 +333,13 @@ async def test_score_headline_clamps_values():
         model="test",
     )
 
-    with patch(
-        "llm.client._try_groq", new_callable=AsyncMock, return_value=mock_result
+    client = LLMClient(groq_key="gsk-test", chain=["groq", "rule-based"])
+    with patch.object(
+        client.registry.get("groq"),
+        "complete",
+        new_callable=AsyncMock,
+        return_value=mock_result,
     ):
-        client = LLMClient(groq_key="gsk-test", chain=["groq", "rule-based"])
         result = await client.score_headline("Test", "Test headline")
 
     assert result.relevance == 1.0  # clamped from 2.5
@@ -323,10 +353,13 @@ async def test_score_headline_falls_back_to_rules_on_bad_json():
         text="Sorry, I cannot parse that.", provider="groq", model="test"
     )
 
-    with patch(
-        "llm.client._try_groq", new_callable=AsyncMock, return_value=mock_result
+    client = LLMClient(groq_key="gsk-test", chain=["groq", "rule-based"])
+    with patch.object(
+        client.registry.get("groq"),
+        "complete",
+        new_callable=AsyncMock,
+        return_value=mock_result,
     ):
-        client = LLMClient(groq_key="gsk-test", chain=["groq", "rule-based"])
         result = await client.score_headline("Test contract", "Stocks surge on growth")
 
     assert isinstance(result, ScoredHeadline)
@@ -359,10 +392,13 @@ async def test_estimate_probability_parses_llm_json():
         model="llama3.2:3b",
     )
 
-    with patch(
-        "llm.client._try_ollama", new_callable=AsyncMock, return_value=mock_result
+    client = LLMClient(chain=["ollama", "rule-based"])
+    with patch.object(
+        client.registry.get("ollama"),
+        "complete",
+        new_callable=AsyncMock,
+        return_value=mock_result,
     ):
-        client = LLMClient(chain=["ollama", "rule-based"])
         result = await client.estimate_probability(
             "Will X happen?", ["X is very likely"]
         )
@@ -380,10 +416,13 @@ async def test_estimate_probability_clamps_bounds():
         model="test",
     )
 
-    with patch(
-        "llm.client._try_groq", new_callable=AsyncMock, return_value=mock_result
+    client = LLMClient(groq_key="gsk-test", chain=["groq", "rule-based"])
+    with patch.object(
+        client.registry.get("groq"),
+        "complete",
+        new_callable=AsyncMock,
+        return_value=mock_result,
     ):
-        client = LLMClient(groq_key="gsk-test", chain=["groq", "rule-based"])
         result = await client.estimate_probability("Test?", ["test"])
 
     assert result.implied_probability == 0.99  # clamped
@@ -410,20 +449,31 @@ async def test_estimate_probability_falls_back_to_rules():
 @pytest.mark.asyncio
 async def test_full_chain_anthropic_to_groq_to_rules():
     """Simulates Anthropic failing, Groq failing, falling back to rules."""
-    with patch(
-        "llm.client._try_anthropic", new_callable=AsyncMock, return_value=None
+    client = LLMClient(
+        anthropic_key="sk-test",
+        groq_key="gsk-test",
+        chain=["anthropic", "groq", "ollama", "rule-based"],
+    )
+
+    # Mock all providers to fail
+    with patch.object(
+        client.registry.get("anthropic"),
+        "complete",
+        new_callable=AsyncMock,
+        return_value=None,
     ) as mock_a:
-        with patch(
-            "llm.client._try_groq", new_callable=AsyncMock, return_value=None
+        with patch.object(
+            client.registry.get("groq"),
+            "complete",
+            new_callable=AsyncMock,
+            return_value=None,
         ) as mock_g:
-            with patch(
-                "llm.client._try_ollama", new_callable=AsyncMock, return_value=None
+            with patch.object(
+                client.registry.get("ollama"),
+                "complete",
+                new_callable=AsyncMock,
+                return_value=None,
             ) as mock_o:
-                client = LLMClient(
-                    anthropic_key="sk-test",
-                    groq_key="gsk-test",
-                    chain=["anthropic", "groq", "ollama", "rule-based"],
-                )
                 result = await client.score_headline(
                     "Will tech stocks rally?",
                     "Tech stocks surge on AI boom",

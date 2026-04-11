@@ -429,6 +429,61 @@ class StagnationExitRule(ExitRule):
         }
 
 
+@dataclass
+class ThetaDecayExit(ExitRule):
+    entry_price: Decimal
+    profit_target_pct: float
+    stop_loss_pct: float = 2.0
+    min_dte: int = 1
+    expires_at: datetime | None = None
+    side: str = "BUY"
+
+    @property
+    def name(self) -> str:
+        return "theta_decay_exit"
+
+    def should_exit(
+        self,
+        current_price: Decimal,
+        current_time: datetime | None = None,
+        **kwargs: Any,
+    ) -> bool:
+        now = current_time or datetime.now(timezone.utc)
+
+        if self.side == "BUY":
+            profit_pct = float((current_price - self.entry_price) / self.entry_price)
+        else:
+            profit_pct = float((self.entry_price - current_price) / self.entry_price)
+
+        if profit_pct >= self.profit_target_pct:
+            return True
+        if profit_pct <= -self.stop_loss_pct:
+            return True
+
+        if self.expires_at:
+            expires = (
+                self.expires_at.replace(tzinfo=timezone.utc)
+                if self.expires_at.tzinfo is None
+                else self.expires_at
+            )
+            days_remaining = (expires - now).total_seconds() / 86400
+            if days_remaining <= self.min_dte:
+                return True
+
+        return False
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "type": "theta_decay_exit",
+            "entry_price": str(self.entry_price),
+            "profit_target_pct": self.profit_target_pct,
+            "stop_loss_pct": self.stop_loss_pct,
+            "min_dte": self.min_dte,
+            "expires_at": self.expires_at.isoformat() if self.expires_at else None,
+            "side": self.side,
+        }
+
+
 def parse_rule(d: dict[str, Any]) -> ExitRule | None:
     """Reconstruct an ExitRule from a dictionary."""
     t = d.get("type")
@@ -489,4 +544,15 @@ def parse_rule(d: dict[str, Any]) -> ExitRule | None:
         if d.get("triggered", False):
             r2.mark_triggered()
         return r2
+    elif t == "theta_decay_exit":
+        return ThetaDecayExit(
+            entry_price=Decimal(d["entry_price"]),
+            profit_target_pct=d["profit_target_pct"],
+            stop_loss_pct=d.get("stop_loss_pct", 2.0),
+            min_dte=d.get("min_dte", 1),
+            expires_at=datetime.fromisoformat(d["expires_at"])
+            if d.get("expires_at")
+            else None,
+            side=d.get("side", "BUY"),
+        )
     return None

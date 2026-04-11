@@ -126,7 +126,7 @@ class LLMAnalystAgent(LLMAgent):
                                                 }
                                             )
                                 messages.append(
-                                    {"role": "user", "content": tool_results}
+                                    {"role": "user", "content": tool_results}  # type: ignore[dict-item]
                                 )
                             else:
                                 break

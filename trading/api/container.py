@@ -296,12 +296,19 @@ class ServiceContainer:
         from learning.signal_features import SignalFeatureCapture
 
         self.sizing_engine = SizingEngine(perf_store=self.perf_store)
+
+        from storage.portfolio_state import PortfolioStateStore
+
+        portfolio_state_store = PortfolioStateStore(self.db)
+        await portfolio_state_store.initialize()
+
         self.risk_engine = load_risk_config(
             self._resolve_path("risk.yaml"),
             perf_store=self.perf_store,
             agent_store=self.agent_store,
             settings=self.settings,
             journal_manager=self.journal_manager,
+            portfolio_state_store=portfolio_state_store,
         )
         set_risk_engine(self.risk_engine)
 

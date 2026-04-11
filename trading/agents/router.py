@@ -293,6 +293,44 @@ class OpportunityRouter:
 
         return None
 
+    async def _check_htf_alignment(self, opportunity: Opportunity) -> str | None:
+        """Check if trade direction aligns with higher-timeframe trend.
+
+        Returns None if aligned, or a rejection reason string if blocked.
+        """
+        if not self._runner or not self._data_bus:
+            return None
+
+        agent = self._runner.get_agent(opportunity.agent_name)
+        if not agent or not hasattr(agent, "config"):
+            return None
+
+        cfg = agent.config
+        htf = getattr(cfg, "htf_filter", None)
+        if not htf:
+            return None
+
+        require_alignment = getattr(cfg, "htf_require_alignment", True)
+        if not require_alignment:
+            return None
+
+        trade = opportunity.suggested_trade
+        if not trade:
+            return None
+
+        symbol = opportunity.symbol
+        side = trade.side.value if hasattr(trade.side, "value") else str(trade.side)
+
+        try:
+            aligned = await self._data_bus.check_htf_alignment(symbol, side, htf)
+            if not aligned:
+                htf_data = await self._data_bus.get_htf_trend(symbol, htf)
+                return f"htf_filter: {side} rejected - HTF {htf} trend is {htf_data.get('trend', 'unknown')}"
+        except Exception as e:
+            logger.warning("HTF check failed for %s: %s", opportunity.symbol.ticker, e)
+
+        return None
+
     async def _get_confidence_recommendation(
         self,
         opportunity: Opportunity,
@@ -518,6 +556,19 @@ class OpportunityRouter:
                         risk_snapshot={"reason": rejection_reason},
                     )
                     return
+                await self._store.update_status(
+                    opportunity.id, OpportunityStatus.REJECTED
+                )
+                return
+
+            htf_rejection = await self._check_htf_alignment(opportunity)
+            if htf_rejection:
+                logger.info(
+                    "HTF filter blocked %s (%s): %s",
+                    opportunity.agent_name,
+                    opportunity.symbol.ticker,
+                    htf_rejection,
+                )
                 await self._store.update_status(
                     opportunity.id, OpportunityStatus.REJECTED
                 )

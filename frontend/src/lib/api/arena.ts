@@ -71,6 +71,27 @@ export interface ExecuteTurnResult {
   status: string;
 }
 
+export interface BettingPool {
+  total_pool: number;
+  player_a_pool: number;
+  player_b_pool: number;
+  player_a_odds: number;
+  player_b_odds: number;
+  status: string;
+}
+
+export interface PlaceBetRequest {
+  predicted_winner: string;
+  amount: number;
+}
+
+export interface BetLeaderboardEntry {
+  user_id: string;
+  total_profit: number;
+  total_bets: number;
+  wins: number;
+}
+
 export const arenaApi = {
   listGyms: () => api.get<ArenaGym[]>('/engine/v1/arena/gyms').then(res => res.data),
   getGym: (id: string) => api.get<ArenaGym>(`/engine/v1/arena/gyms/${id}`).then(res => res.data),
@@ -85,4 +106,13 @@ export const arenaApi = {
   
   executeTurn: (sessionId: string, body: ExecuteTurnRequest) =>
     api.post<ExecuteTurnResult>(`/engine/v1/arena/sessions/${sessionId}/turns`, body).then(res => res.data),
+
+  getPool: (sessionId: string) =>
+    api.get<BettingPool>(`/engine/v1/arena/sessions/${sessionId}/pool`).then(res => res.data),
+  
+  placeBet: (sessionId: string, body: PlaceBetRequest) =>
+    api.post<void>(`/engine/v1/arena/sessions/${sessionId}/bet`, body).then(res => res.data),
+
+  getBetLeaderboard: (limit: number = 10) =>
+    api.get<BetLeaderboardEntry[]>('/engine/v1/arena/bets/leaderboard', { params: { limit } }).then(res => res.data),
 };

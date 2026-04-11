@@ -57,11 +57,10 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    ports:
-      - "3000:3000"
     environment:
       PORT: "3000"
       VITE_TRADING_API_URL: http://localhost:8080
+    # Port mapping removed - run natively via Vite due to Docker port forwarding issues
 
   prometheus:
     image: prom/prometheus:latest

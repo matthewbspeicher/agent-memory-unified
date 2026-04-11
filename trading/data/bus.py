@@ -93,7 +93,9 @@ class DataBus:
         return list(await asyncio.gather(*(self.get_quote(s) for s in symbols)))
 
     async def get_order_book(self, symbol: Symbol, limit: int = 20) -> dict:
-        return await self._fetch_from_sources("get_order_book", "supports_order_book", symbol, limit)
+        return await self._fetch_from_sources(
+            "get_order_book", "supports_order_book", symbol, limit
+        )
 
     async def get_historical(
         self,
@@ -241,7 +243,9 @@ class DataBus:
             "atr_14": round(atr, 4),
             "atr_pct": round(atr / price * 100, 2) if price else 0,
             "bb_width": round(bb.upper - bb.lower, 2),
-            "bb_width_pct": round((bb.upper - bb.lower) / bb.middle * 100, 2) if bb.middle else 0,
+            "bb_width_pct": round((bb.upper - bb.lower) / bb.middle * 100, 2)
+            if bb.middle
+            else 0,
             "avg_daily_range": round(avg_range, 4),
             "last_range": round(recent_ranges[-1], 4) if recent_ranges else 0,
         }
@@ -272,8 +276,14 @@ class DataBus:
             "low": min(lows),
             "avg_close": round(sum(closes) / len(closes), 4),
             "avg_volume": round(sum(volumes) / len(volumes), 0),
-            "change_pct": round((closes[-1] - closes[0]) / closes[0] * 100, 2) if closes[0] else 0,
-            "trend": "up" if closes[-1] > closes[0] else "down" if closes[-1] < closes[0] else "flat",
+            "change_pct": round((closes[-1] - closes[0]) / closes[0] * 100, 2)
+            if closes[0]
+            else 0,
+            "trend": "up"
+            if closes[-1] > closes[0]
+            else "down"
+            if closes[-1] < closes[0]
+            else "flat",
         }
 
     # --- Portfolio (always from broker) ---
@@ -312,6 +322,67 @@ class DataBus:
         if not self._trade_store:
             return []
         return await self._trade_store.get_trades(limit=limit)
+
+    async def get_htf_trend(self, symbol: Symbol, htf: str = "4h") -> dict:
+        """Get higher-timeframe trend direction.
+
+        Note: "4h" is supported by BitGet and IBKR adapters.
+        Falls back to "1d" if 4h unavailable.
+        """
+        try:
+            bars = await self.get_historical(symbol, timeframe=htf, period="3mo")
+        except Exception:
+            bars = await self.get_historical(symbol, timeframe="1d", period="3mo")
+
+        if not bars or len(bars) < 50:
+            return {
+                "symbol": str(symbol),
+                "htf": htf,
+                "trend": "neutral",
+                "confidence": 0.0,
+            }
+
+        closes = [float(b.close) for b in bars]
+        sma_20 = sum(closes[-20:]) / 20
+        sma_50 = sum(closes[-50:]) / 50
+        current = closes[-1]
+
+        if sma_20 > sma_50 and current > sma_20:
+            trend = "bullish"
+        elif sma_20 < sma_50 and current < sma_20:
+            trend = "bearish"
+        else:
+            trend = "neutral"
+
+        separation = abs(sma_20 - sma_50) / sma_50
+        confidence = min(1.0, separation * 10)
+
+        return {
+            "symbol": str(symbol),
+            "htf": htf,
+            "trend": trend,
+            "sma_20": sma_20,
+            "sma_50": sma_50,
+            "confidence": confidence,
+        }
+
+    async def check_htf_alignment(
+        self, symbol: Symbol, side: str, htf: str = "4h"
+    ) -> bool:
+        """Check if trade direction aligns with HTF trend."""
+        htf_data = await self.get_htf_trend(symbol, htf)
+
+        if htf_data["confidence"] < 0.3:
+            return True
+
+        if side == "BUY" and htf_data["trend"] == "bullish":
+            return True
+        elif side == "SELL" and htf_data["trend"] == "bearish":
+            return True
+        elif htf_data["trend"] == "neutral":
+            return True
+
+        return False
 
     # --- Prediction Markets ---
 

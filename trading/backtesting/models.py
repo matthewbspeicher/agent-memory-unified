@@ -22,6 +22,10 @@ class CommissionModel(str, Enum):
     PERCENT_OF_NOTIONAL = "percent_of_notional"
     FIDELITY = "fidelity"
     IBKR = "ibkr"
+    KALSHI = "kalshi"
+    POLYMARKET = "polymarket"
+    BINANCE_SPOT = "binance_spot"
+    BINANCE_FUTURES = "binance_futures"
 
 
 @dataclass

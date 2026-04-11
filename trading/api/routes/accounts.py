@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 
 from api.auth import verify_api_key
-from api.deps import get_broker
+from api.dependencies import get_broker
 from api.schemas import (
     AccountSchema,
     PositionSchema,
