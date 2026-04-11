@@ -787,6 +787,23 @@ _INIT_DDL = """
         );
         CREATE INDEX IF NOT EXISTS idx_elo_history_agent ON elo_rating_history(agent_name);
         CREATE INDEX IF NOT EXISTS idx_elo_history_timestamp ON elo_rating_history(timestamp);
+
+        CREATE TABLE IF NOT EXISTS audit_logs (
+            id TEXT PRIMARY KEY,
+            timestamp TEXT NOT NULL DEFAULT (datetime('now')),
+            action_name TEXT NOT NULL,
+            actor_id TEXT NOT NULL,
+            actor_type TEXT NOT NULL,
+            resource_id TEXT,
+            status TEXT NOT NULL,
+            duration_ms INTEGER,
+            request_id TEXT,
+            payload TEXT,
+            error_detail TEXT,
+            client_ip TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_logs(timestamp);
+        CREATE INDEX IF NOT EXISTS idx_audit_actor ON audit_logs(actor_id);
 """
 
 

@@ -9,6 +9,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sse_starlette.sse import EventSourceResponse
 
 from api.auth import verify_api_key
+from api.dependencies import check_kill_switch
+from utils.audit import audit_event
 from api.routes.competition_schemas import (
     AgentCardResponse,
     BetPlacement,
@@ -16,9 +18,11 @@ from api.routes.competition_schemas import (
     BetResultResponse,
     BreedRequest,
     BreedResultResponse,
+    CardStatsResponse,
     ClaimMissionResponse,
     CompetitorDetailResponse,
     DashboardSummaryResponse,
+    EloHistoryPoint,
     EloHistoryResponse,
     FleetResponse,
     LeaderboardResponse,
@@ -26,6 +30,7 @@ from api.routes.competition_schemas import (
     MissionsResponse,
     MutationResponse,
     PoolResponse,
+    SeasonLeaderboardEntry,
     SeasonLeaderboardResponse,
     SeasonResponse,
     SeasonsResponse,
@@ -143,12 +148,12 @@ async def get_elo_history(
         competitor_id=competitor_id,
         asset=asset,
         history=[
-            {
-                "elo": h["elo"],
-                "tier": h["tier"],
-                "elo_delta": h.get("elo_delta", 0),
-                "recorded_at": str(h["recorded_at"]),
-            }
+            EloHistoryPoint(
+                elo=h["elo"],
+                tier=h["tier"],
+                elo_delta=h.get("elo_delta", 0),
+                recorded_at=str(h["recorded_at"]),
+            )
             for h in history
         ],
     )
@@ -394,7 +399,9 @@ async def get_competitor_loadout(
 @router.post(
     "/competitors/{competitor_id}/loadout/equip",
     response_model_exclude_none=True,
+    dependencies=[Depends(check_kill_switch)]
 )
+@audit_event("competition.trait.equip")
 async def equip_trait(
     competitor_id: str,
     request: Request,
@@ -445,7 +452,9 @@ async def equip_trait(
 @router.post(
     "/competitors/{competitor_id}/loadout/unequip",
     response_model_exclude_none=True,
+    dependencies=[Depends(check_kill_switch)]
 )
+@audit_event("competition.trait.unequip")
 async def unequip_trait(
     competitor_id: str,
     request: Request,
@@ -503,17 +512,18 @@ async def get_agent_card(
         tier=card.tier.value,
         elo=card.elo,
         rarity=card.rarity.value,
-        stats={
-            "matches": card.stats.matches,
-            "wins": card.stats.wins,
-            "losses": card.stats.losses,
-            "win_rate": card.stats.win_rate,
-            "best_streak": card.stats.best_streak,
-            "total_xp": card.stats.total_xp,
-            "achievement_count": card.stats.achievement_count,
-            "traits_unlocked": card.stats.traits_unlocked,
-            "calibration_score": card.stats.calibration_score,
-        },
+        stats=CardStatsResponse(
+            matches=card.stats.matches,
+            wins=card.stats.wins,
+            losses=card.stats.losses,
+            win_rate=card.stats.win_rate,
+            current_streak=card.stats.current_streak,
+            best_streak=card.stats.best_streak,
+            total_xp=card.stats.total_xp,
+            achievement_count=card.stats.achievement_count,
+            traits_unlocked=card.stats.traits_unlocked,
+            calibration_score=card.stats.calibration_score,
+        ),
         trait_icons=card.trait_icons,
         achievement_badges=card.achievement_badges,
         card_version=card.card_version,
@@ -547,7 +557,9 @@ async def get_missions(
 @router.post(
     "/competitors/{competitor_id}/missions/{mission_id}/claim",
     response_model=ClaimMissionResponse,
+    dependencies=[Depends(check_kill_switch)]
 )
+@audit_event("competition.mission.claim")
 async def claim_mission(
     request: Request,
     competitor_id: str,
@@ -631,14 +643,14 @@ async def get_season_leaderboard(
     return SeasonLeaderboardResponse(
         season_id=leaderboard.season_id,
         leaderboard=[
-            {
-                "rank": e.rank,
-                "competitor_id": e.competitor_id,
-                "name": e.name,
-                "elo": e.elo,
-                "tier": e.tier.value,
-                "matches": e.matches,
-            }
+            SeasonLeaderboardEntry(
+                rank=e.rank,
+                competitor_id=e.competitor_id,
+                name=e.name,
+                elo=e.elo,
+                tier=e.tier.value,
+                matches=e.matches,
+            )
             for e in leaderboard.leaderboard
         ],
     )
@@ -678,7 +690,12 @@ async def get_betting_pool(
     )
 
 
-@router.post("/matches/{match_id}/bet", response_model=BetResponse)
+@router.post(
+    "/matches/{match_id}/bet", 
+    response_model=BetResponse,
+    dependencies=[Depends(check_kill_switch)]
+)
+@audit_event("competition.bet.place")
 async def place_bet(
     request: Request,
     match_id: str,
@@ -737,7 +754,12 @@ async def get_match_bets(
     ]
 
 
-@router.post("/matches/{match_id}/settle", response_model=BetResultResponse)
+@router.post(
+    "/matches/{match_id}/settle", 
+    response_model=BetResultResponse,
+    dependencies=[Depends(check_kill_switch)]
+)
+@audit_event("competition.settle")
 async def settle_match(
     request: Request,
     match_id: str,
@@ -835,7 +857,12 @@ async def get_lineage(
     )
 
 
-@router.post("/breed", response_model=BreedResultResponse)
+@router.post(
+    "/breed", 
+    response_model=BreedResultResponse,
+    dependencies=[Depends(check_kill_switch)]
+)
+@audit_event("competition.breed")
 async def breed_agents(
     request: Request,
     breed: BreedRequest,

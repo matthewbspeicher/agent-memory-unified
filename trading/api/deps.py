@@ -44,6 +44,10 @@ def get_trade_store() -> TradeStore:
     raise NotImplementedError("Use get_trade_store from api.dependencies instead")
 
 
+def check_kill_switch():
+    raise NotImplementedError("Use check_kill_switch from api.dependencies instead")
+
+
 # Backward compatibility setters - DEPRECATED
 def set_broker(broker: Broker) -> None:
     import warnings

@@ -211,6 +211,7 @@ class Config(BaseModel):
     arb_toxicity_threshold: float | None = None
     order_timeout: int | None = None
     knowledge_graph_enabled: bool = False
+    rate_limit_enabled: bool = False
 
     # Logging
     log_level: str = "INFO"

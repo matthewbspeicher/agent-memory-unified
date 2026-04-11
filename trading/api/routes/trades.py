@@ -9,8 +9,9 @@ Requires JWT or legacy amc_* token for authentication.
 from fastapi import APIRouter, Depends, HTTPException, Request
 from typing import Optional
 
-from api.dependencies import get_current_user
+from api.dependencies import get_current_user, check_kill_switch
 from storage.trades import TradeStore
+from utils.audit import audit_event
 
 router = APIRouter(prefix="/trades", tags=["trades"])
 
@@ -85,7 +86,8 @@ async def get_trade(
     return trade
 
 
-@router.post("")
+@router.post("", dependencies=[Depends(check_kill_switch)])
+@audit_event("trades.create")
 async def create_trade(
     payload: dict,
     request: Request,

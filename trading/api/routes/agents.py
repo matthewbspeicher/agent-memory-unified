@@ -1,12 +1,14 @@
 # api/routes/agents.py
 import logging
+import json
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from agents.runner import AgentRunner
 from agents.models import AgentInfo, Opportunity, AgentStatus
 from agents.config import _STRATEGY_REGISTRY, _ensure_strategies_registered
-from api.deps import get_agent_runner
+from api.deps import get_agent_runner, check_kill_switch
 from api.auth import verify_api_key, _get_settings
+from utils.audit import audit_event
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +22,8 @@ def list_agents(runner: AgentRunner = Depends(get_agent_runner)) -> list[AgentIn
     return runner.list_agents()
 
 
-@router.post("", status_code=201)
+@router.post("", status_code=201, dependencies=[Depends(check_kill_switch)])
+@audit_event("agents.create")
 async def create_agent(payload: dict, request: Request):
     """Create a new agent in the registry.
 
@@ -177,8 +180,13 @@ async def update_agent(name: str, payload: dict, request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/{name}/start")
-async def start_agent(name: str, runner: AgentRunner = Depends(get_agent_runner)):
+@router.post("/{name}/start", dependencies=[Depends(check_kill_switch)])
+@audit_event("agents.start")
+async def start_agent(
+    name: str, 
+    request: Request,
+    runner: AgentRunner = Depends(get_agent_runner)
+):
     try:
         await runner.start_agent(name)
         return {"status": "ok", "message": f"Agent '{name}' started"}
@@ -186,8 +194,13 @@ async def start_agent(name: str, runner: AgentRunner = Depends(get_agent_runner)
         raise HTTPException(status_code=404, detail=str(e))
 
 
-@router.post("/{name}/stop")
-async def stop_agent(name: str, runner: AgentRunner = Depends(get_agent_runner)):
+@router.post("/{name}/stop", dependencies=[Depends(check_kill_switch)])
+@audit_event("agents.stop")
+async def stop_agent(
+    name: str, 
+    request: Request,
+    runner: AgentRunner = Depends(get_agent_runner)
+):
     try:
         await runner.stop_agent(name)
         return {"status": "ok", "message": f"Agent '{name}' stopped"}
@@ -195,8 +208,17 @@ async def stop_agent(name: str, runner: AgentRunner = Depends(get_agent_runner))
         raise HTTPException(status_code=404, detail=str(e))
 
 
-@router.post("/{name}/scan", response_model=list[Opportunity])
-async def scan_agent(name: str, runner: AgentRunner = Depends(get_agent_runner)):
+@router.post(
+    "/{name}/scan", 
+    response_model=list[Opportunity],
+    dependencies=[Depends(check_kill_switch)]
+)
+@audit_event("agents.scan")
+async def scan_agent(
+    name: str, 
+    request: Request,
+    runner: AgentRunner = Depends(get_agent_runner)
+):
     try:
         return await runner.run_once(name)
     except KeyError as e:

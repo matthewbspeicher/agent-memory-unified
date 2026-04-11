@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from decimal import Decimal
 from typing import Annotated, Any
 
 from api.auth import verify_api_key
-from api.deps import get_broker
+from api.dependencies import get_broker, check_kill_switch
 from api.schemas import OrderRequestSchema, OrderResultSchema
 from broker.interfaces import Broker
 from broker.models import (
@@ -19,6 +19,7 @@ from broker.models import (
     TrailingStopOrder,
 )
 from storage.trade_csv import TradeCSVLogger
+from utils.audit import audit_event
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
@@ -89,9 +90,15 @@ def _build_order(req: OrderRequestSchema) -> OrderBase:
             )
 
 
-@router.post("", response_model=OrderResultSchema)
+@router.post(
+    "", 
+    response_model=OrderResultSchema,
+    dependencies=[Depends(check_kill_switch)]
+)
+@audit_event("orders.place")
 async def place_order(
     req: OrderRequestSchema,
+    request: Request,
     _: Annotated[str, Depends(verify_api_key)],
     broker: Annotated[Broker, Depends(get_broker)],
 ):
@@ -118,19 +125,31 @@ async def place_order(
     return result
 
 
-@router.patch("/{order_id}", response_model=OrderResultSchema)
+@router.patch(
+    "/{order_id}", 
+    response_model=OrderResultSchema,
+    dependencies=[Depends(check_kill_switch)]
+)
+@audit_event("orders.modify")
 async def modify_order(
     order_id: str,
     changes: dict[str, Any],
+    request: Request,
     _: Annotated[str, Depends(verify_api_key)],
     broker: Annotated[Broker, Depends(get_broker)],
 ):
     return await broker.orders.modify_order(order_id, changes)
 
 
-@router.delete("/{order_id}", response_model=OrderResultSchema)
+@router.delete(
+    "/{order_id}", 
+    response_model=OrderResultSchema,
+    dependencies=[Depends(check_kill_switch)]
+)
+@audit_event("orders.cancel")
 async def cancel_order(
     order_id: str,
+    request: Request,
     _: Annotated[str, Depends(verify_api_key)],
     broker: Annotated[Broker, Depends(get_broker)],
 ):

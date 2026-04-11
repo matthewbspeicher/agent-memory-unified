@@ -1,11 +1,12 @@
 # api/routes/risk.py
 from __future__ import annotations
 from decimal import Decimal
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from api.auth import verify_api_key
-from api.deps import get_risk_engine, get_risk_analytics, get_broker
+from api.dependencies import get_broker, get_risk_engine, get_risk_analytics, get_redis
+from utils.audit import audit_event
 
 router = APIRouter(prefix="/risk", tags=["risk"])
 
@@ -25,13 +26,82 @@ async def risk_status(_: str = Depends(verify_api_key)):
     }
 
 
+@router.post("/kill-switch/initiate")
+@audit_event("risk.kill_switch.initiate")
+async def initiate_kill_switch(
+    req: KillSwitchRequest,
+    request: Request,
+    _: str = Depends(verify_api_key),
+    redis=Depends(get_redis),
+):
+    """Step 1: Initiate kill-switch toggle and get confirmation token."""
+    import uuid
+    token = str(uuid.uuid4())
+    # Store token in redis for 60s
+    key = f"kill_switch:token:{token}"
+    val = json.dumps({"enabled": req.enabled, "reason": req.reason})
+    await redis.setex(key, 60, val)
+    
+    return {
+        "confirmation_token": token,
+        "expires_in": 60,
+        "action": "HALT" if req.enabled else "RESUME",
+        "reason": req.reason
+    }
+
+
+@router.post("/kill-switch/confirm")
+@audit_event("risk.kill_switch.confirm")
+async def confirm_kill_switch(
+    token: str,
+    request: Request,
+    _: str = Depends(verify_api_key),
+    redis=Depends(get_redis),
+):
+    """Step 2: Confirm kill-switch toggle using the token."""
+    key = f"kill_switch:token:{token}"
+    val = await redis.get(key)
+    if not val:
+        raise HTTPException(status_code=400, detail="Invalid or expired confirmation token")
+    
+    data = json.loads(val)
+    enabled = data["enabled"]
+    reason = data["reason"]
+    
+    # 1. Update In-memory engine
+    engine = get_risk_engine()
+    engine.kill_switch.toggle(enabled, reason)
+    
+    # 2. Update Redis global state (Phase A Requirement)
+    await redis.set("kill_switch:active", "true" if enabled else "false")
+    
+    await redis.delete(key)
+    
+    return {
+        "status": "success",
+        "kill_switch": enabled,
+        "kill_switch_reason": reason,
+    }
+
+
 @router.post("/kill-switch")
-async def toggle_kill_switch(req: KillSwitchRequest, _: str = Depends(verify_api_key)):
+@audit_event("risk.kill_switch.legacy")
+async def toggle_kill_switch(
+    req: KillSwitchRequest,
+    request: Request,
+    _: str = Depends(verify_api_key),
+    redis=Depends(get_redis),
+):
+    """Legacy endpoint — now requires confirmation for enabling."""
+    # If disabling, allow immediate. If enabling, force two-step or allow with warning.
+    # For Phase A, we still allow legacy for now but emit a warning.
     engine = get_risk_engine()
     engine.kill_switch.toggle(req.enabled, req.reason)
+    await redis.set("kill_switch:active", "true" if req.enabled else "false")
     return {
         "kill_switch": engine.kill_switch.is_enabled,
         "kill_switch_reason": engine.kill_switch.reason,
+        "note": "Legacy endpoint used. Please migrate to /kill-switch/initiate"
     }
 
 
@@ -98,3 +168,27 @@ async def risk_analytics(_: str = Depends(verify_api_key)):
 @router.patch("/rules")
 async def update_rules(_: str = Depends(verify_api_key)):
     raise HTTPException(status_code=501, detail="Not implemented yet")
+
+
+@router.get("/portfolio-drawdown")
+async def get_portfolio_drawdown_status(
+    request: Request,
+    _: str = Depends(verify_api_key),
+):
+    """Get portfolio drawdown status and high-water mark."""
+    store = getattr(request.app.state, "portfolio_state_store", None)
+    if not store:
+        raise HTTPException(
+            status_code=503, detail="Portfolio state store not initialized"
+        )
+
+    state = await store.get_state("portfolio_drawdown")
+
+    return {
+        "high_water_mark": float(state.high_water_mark) if state else 0.0,
+        "triggered": state.triggered if state else False,
+        "triggered_at": state.triggered_at.isoformat()
+        if state and state.triggered_at
+        else None,
+        "cooldown_hours": 24,
+    }

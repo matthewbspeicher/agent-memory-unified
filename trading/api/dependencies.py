@@ -12,6 +12,56 @@ import os
 from shared.auth.validate import validate_token, TokenValidationError
 
 from .services.memory_registry import memory_registry, MemoryRegistry
+from broker.interfaces import Broker
+
+
+# Module-level singletons for risk engine and analytics (set at startup)
+_risk_engine = None
+_risk_analytics = None
+
+
+def set_risk_engine(engine):
+    """Set the risk engine singleton. Called at app startup."""
+    global _risk_engine
+    _risk_engine = engine
+
+
+def set_risk_analytics(analytics):
+    """Set the risk analytics singleton. Called at app startup."""
+    global _risk_analytics
+    _risk_analytics = analytics
+
+
+def get_risk_engine(request: Request = None):
+    """Get risk engine from app state or module-level singleton."""
+    if request is not None:
+        engine = getattr(request.app.state, "risk_engine", None)
+        if engine is not None:
+            return engine
+    global _risk_engine
+    if _risk_engine is None:
+        raise HTTPException(500, "Risk engine not initialized")
+    return _risk_engine
+
+
+def get_risk_analytics(request: Request = None):
+    """Get risk analytics from app state or module-level singleton."""
+    if request is not None:
+        analytics = getattr(request.app.state, "risk_analytics", None)
+        if analytics is not None:
+            return analytics
+    global _risk_analytics
+    if _risk_analytics is None:
+        return None  # Return None instead of raising, let caller handle
+    return _risk_analytics
+
+
+def get_broker(request: Request) -> Broker:
+    """Get broker from app state."""
+    broker = getattr(request.app.state, "broker", None)
+    if broker is None:
+        raise HTTPException(500, "Broker not initialized")
+    return broker
 
 
 def get_memory_registry() -> MemoryRegistry:
@@ -32,6 +82,21 @@ def get_db(request: Request):
     if db is None:
         raise HTTPException(500, "Database not initialized")
     return db
+
+
+async def check_kill_switch(request: Request):
+    """
+    Dependency to block mutations if the global kill-switch is active in Redis.
+    """
+    redis = get_redis(request)
+    is_active = await redis.get("kill_switch:active")
+    if is_active == "true":
+        # Check if route is allowlisted (only GET usually, but double check)
+        if request.method != "GET":
+            raise HTTPException(
+                status_code=503, 
+                detail="Trading is currently halted via global kill-switch"
+            )
 
 
 async def get_current_user(

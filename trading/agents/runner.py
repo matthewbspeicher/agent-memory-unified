@@ -375,6 +375,14 @@ class AgentRunner:
                         )
 
                 agent.reset_llm_call_count()
+                
+                # Check global kill-switch in Redis (Phase A Requirement)
+                if self._redis:
+                    is_active = await self._redis.get("kill_switch:active")
+                    if is_active == b"true" or is_active == "true":
+                        logger.warning(f"Scan skipped for {agent.name} - global kill-switch is active")
+                        return
+
                 async with self._scan_semaphore:
                     timeout = (
                         getattr(agent.config, "scan_timeout", None)
