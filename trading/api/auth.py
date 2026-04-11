@@ -1,13 +1,16 @@
-print("DEBUG: Loading trading/api/auth.py")
 from functools import lru_cache
 import hashlib
 import hmac
 import logging
 
-from fastapi import HTTPException, Security, Request, Depends
+import fastapi
+from fastapi import HTTPException, Security, Request
 from fastapi.security import APIKeyHeader
 
 from config import Config, load_config
+
+print(f"DEBUG: auth.py loading. fastapi version: {fastapi.__version__}")
+print(f"DEBUG: Depends in globals: {'Depends' in globals()}")
 
 _api_key_header = APIKeyHeader(name="X-API-Key")
 _agent_token_header = APIKeyHeader(name="X-Agent-Token", auto_error=False)
@@ -37,7 +40,7 @@ def verify_api_key(
 
 def verify_agent_token(
     request: Request,
-    api_key: str = Depends(verify_api_key),
+    api_key: str = fastapi.Depends(verify_api_key),
     agent_token: str | None = Security(_agent_token_header),
 ) -> str:
     """Verify agent identity via X-Agent-Token.
