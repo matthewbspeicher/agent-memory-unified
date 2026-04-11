@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Request
 
-from api.auth import verify_api_key
+from api.auth import verify_api_key, verify_agent_token
 from api.routes.bittensor_schemas import (
     BittensorMetricsResponse,
     BittensorRankingsResponse,
@@ -228,13 +228,19 @@ async def kg_entity(
     as_of: str | None = None,
     direction: str = "both",
     request: Request = None,
+    agent_id: str = Depends(verify_agent_token),
 ):
     """Query knowledge graph for entity facts."""
     kg = getattr(request.app.state, "knowledge_graph", None)
     if not kg:
         return {"error": "Knowledge graph not initialized"}
     facts = await kg.query_entity(name, as_of=as_of, direction=direction)
-    return {"entity": name, "facts": facts, "count": len(facts)}
+    return {
+        "entity": name,
+        "facts": facts,
+        "count": len(facts),
+        "queried_by": agent_id
+    }
 
 
 @router.get("/kg/timeline")
@@ -242,19 +248,30 @@ async def kg_timeline(
     entity: str | None = None,
     limit: int = 50,
     request: Request = None,
+    agent_id: str = Depends(verify_agent_token),
 ):
     """Get chronological timeline of KG facts."""
     kg = getattr(request.app.state, "knowledge_graph", None)
     if not kg:
         return {"error": "Knowledge graph not initialized"}
     tl = await kg.timeline(entity_name=entity, limit=limit)
-    return {"entity": entity, "timeline": tl, "count": len(tl)}
+    return {
+        "entity": entity,
+        "timeline": tl,
+        "count": len(tl),
+        "queried_by": agent_id
+    }
 
 
 @router.get("/kg/stats")
-async def kg_stats(request: Request):
+async def kg_stats(
+    request: Request,
+    agent_id: str = Depends(verify_agent_token),
+):
     """Get knowledge graph statistics."""
     kg = getattr(request.app.state, "knowledge_graph", None)
     if not kg:
         return {"error": "Knowledge graph not initialized"}
-    return await kg.stats()
+    stats = await kg.stats()
+    stats["queried_by"] = agent_id
+    return stats

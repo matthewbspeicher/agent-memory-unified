@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 import os
 from pydantic import BaseModel, Field
-from typing import Any
+from typing import Any, ClassVar
 
 from intelligence.config import IntelligenceConfig
 
@@ -98,14 +98,14 @@ class Config(BaseModel):
     competition: CompetitionConfig = Field(default_factory=CompetitionConfig)
 
     # Flat accessors for nested config — backward compat with code that does config.ib_host
-    _NESTED_PREFIXES = {
+    _NESTED_PREFIXES: ClassVar[dict[str, str]] = {
         "broker": "broker",
         "bittensor": "bittensor",
         "llm": "llm",
         "intel": "intel",
         "competition": "competition",
     }
-    _BROKER_FIELDS = {
+    _BROKER_FIELDS: ClassVar[set[str]] = {
         "ib_host",
         "ib_port",
         "ib_client_id",
@@ -130,11 +130,13 @@ class Config(BaseModel):
             return object.__getattribute__(self, name)
         except AttributeError:
             pass
+        # Access class attributes via type(self) to avoid recursion
+        cls = type(self)
         # Try broker fields first (most common flat access pattern)
-        if name in self._BROKER_FIELDS:
+        if name in cls._BROKER_FIELDS:
             return getattr(object.__getattribute__(self, "broker"), name)
         # Try nested configs by prefix (e.g. bittensor_enabled -> bittensor.enabled)
-        for prefix, attr in self._NESTED_PREFIXES.items():
+        for prefix, attr in cls._NESTED_PREFIXES.items():
             if name.startswith(prefix + "_"):
                 suffix = name[len(prefix) + 1 :]
                 nested = object.__getattribute__(self, attr)
@@ -208,6 +210,7 @@ class Config(BaseModel):
     broker_routing: dict[str, str] | None = None
     arb_toxicity_threshold: float | None = None
     order_timeout: int | None = None
+    knowledge_graph_enabled: bool = False
 
     # Logging
     log_level: str = "INFO"

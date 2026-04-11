@@ -11,25 +11,42 @@ import hashlib
 import json
 import logging
 from datetime import datetime, timezone
+from typing import Any
 
 import aiosqlite
+
+from utils.logging import log_event
 
 logger = logging.getLogger(__name__)
 
 
 class TradingKnowledgeGraph:
-    """SQLite-backed temporal entity-relationship graph."""
+    """Temporal entity-relationship graph with SQLite and PostgreSQL support."""
 
-    def __init__(self, db_path: str = "data/knowledge_graph.sqlite3"):
+    def __init__(
+        self,
+        db_path: str | None = "data/knowledge_graph.sqlite3",
+        db: aiosqlite.Connection | PostgresDB | None = None,
+        schema: str | None = None,
+    ):
         self._db_path = db_path
-        self._db: aiosqlite.Connection | None = None
+        self._db = db
+        self._schema = f"{schema}." if schema else ""
+        self._external_db = db is not None
 
     # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------
 
     async def connect(self) -> None:
-        """Open DB, enable WAL + busy_timeout, create tables."""
+        """Open DB if not provided externally, enable WAL + busy_timeout, create tables."""
+        if self._external_db:
+            await self._init_tables()
+            return
+
+        if not self._db_path:
+            raise ValueError("Either db or db_path must be provided")
+
         self._db = await aiosqlite.connect(self._db_path)
         self._db.row_factory = aiosqlite.Row
         await self._db.execute("PRAGMA journal_mode=WAL")
@@ -41,16 +58,21 @@ class TradingKnowledgeGraph:
         if not self._db:
             raise RuntimeError("Not connected - call connect() first")
 
-        await self._db.executescript("""
-            CREATE TABLE IF NOT EXISTS kg_entities (
+        # Create schema if using Postgres and schema is specified
+        if self._schema and hasattr(self._db, "pool"):
+            schema_name = self._schema.rstrip(".")
+            await self._db.execute(f"CREATE SCHEMA IF NOT EXISTS {schema_name}")
+
+        await self._db.executescript(f"""
+            CREATE TABLE IF NOT EXISTS {self._schema}kg_entities (
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
                 entity_type TEXT DEFAULT 'unknown',
-                properties TEXT DEFAULT '{}',
+                properties TEXT DEFAULT '{{}}',
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             );
 
-            CREATE TABLE IF NOT EXISTS kg_triples (
+            CREATE TABLE IF NOT EXISTS {self._schema}kg_triples (
                 id TEXT PRIMARY KEY,
                 subject TEXT NOT NULL,
                 predicate TEXT NOT NULL,
@@ -59,27 +81,27 @@ class TradingKnowledgeGraph:
                 valid_to TEXT,
                 confidence REAL DEFAULT 1.0,
                 source TEXT,
-                properties TEXT DEFAULT '{}',
+                properties TEXT DEFAULT '{{}}',
                 invalidation_reason TEXT,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (subject) REFERENCES kg_entities(id),
-                FOREIGN KEY (object) REFERENCES kg_entities(id)
+                FOREIGN KEY (subject) REFERENCES {self._schema}kg_entities(id),
+                FOREIGN KEY (object) REFERENCES {self._schema}kg_entities(id)
             );
 
             CREATE INDEX IF NOT EXISTS idx_kg_triples_subject
-                ON kg_triples(subject);
+                ON {self._schema}kg_triples(subject);
             CREATE INDEX IF NOT EXISTS idx_kg_triples_object
-                ON kg_triples(object);
+                ON {self._schema}kg_triples(object);
             CREATE INDEX IF NOT EXISTS idx_kg_triples_predicate
-                ON kg_triples(predicate);
+                ON {self._schema}kg_triples(predicate);
             CREATE INDEX IF NOT EXISTS idx_kg_triples_validity
-                ON kg_triples(valid_from, valid_to);
+                ON {self._schema}kg_triples(valid_from, valid_to);
         """)
         await self._db.commit()
 
     async def close(self) -> None:
-        """Close the database connection."""
-        if self._db:
+        """Close the database connection if not provided externally."""
+        if self._db and not self._external_db:
             await self._db.close()
             self._db = None
 
@@ -128,8 +150,8 @@ class TradingKnowledgeGraph:
         now = datetime.now(timezone.utc).isoformat()
 
         await self._db.execute(
-            """
-            INSERT INTO kg_entities (id, name, entity_type, properties, created_at)
+            f"""
+            INSERT INTO {self._schema}kg_entities (id, name, entity_type, properties, created_at)
             VALUES (?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 entity_type = excluded.entity_type,
@@ -172,7 +194,7 @@ class TradingKnowledgeGraph:
 
         # Check for existing (idempotent)
         cursor = await self._db.execute(
-            "SELECT id FROM kg_triples WHERE id = ?", (triple_id,)
+            f"SELECT id FROM {self._schema}kg_triples WHERE id = ?", (triple_id,)
         )
         existing = await cursor.fetchone()
         if existing:
@@ -182,8 +204,8 @@ class TradingKnowledgeGraph:
         now = datetime.now(timezone.utc).isoformat()
 
         await self._db.execute(
-            """
-            INSERT INTO kg_triples
+            f"""
+            INSERT INTO {self._schema}kg_triples
                 (id, subject, predicate, object, valid_from, valid_to,
                  confidence, source, properties, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -194,6 +216,20 @@ class TradingKnowledgeGraph:
             ),
         )
         await self._db.commit()
+
+        log_event(
+            logger,
+            logging.INFO,
+            "kg.triple_added",
+            f"Added KG triple: {triple_id}",
+            data={
+                "id": triple_id,
+                "subject": sub_id,
+                "predicate": predicate,
+                "object": obj_id,
+                "source": source,
+            },
+        )
         return triple_id
 
     async def invalidate(
@@ -213,8 +249,8 @@ class TradingKnowledgeGraph:
         ended = ended or datetime.now(timezone.utc).isoformat()
 
         await self._db.execute(
-            """
-            UPDATE kg_triples
+            f"""
+            UPDATE {self._schema}kg_triples
             SET valid_to = ?, invalidation_reason = ?
             WHERE subject = ? AND predicate = ? AND object = ?
               AND valid_to IS NULL
@@ -222,6 +258,19 @@ class TradingKnowledgeGraph:
             (ended, reason, sub_id, predicate, obj_id),
         )
         await self._db.commit()
+
+        log_event(
+            logger,
+            logging.INFO,
+            "kg.triple_invalidated",
+            f"Invalidated KG triples: {sub_id} {predicate} {obj_id}",
+            data={
+                "subject": sub_id,
+                "predicate": predicate,
+                "object": obj_id,
+                "reason": reason,
+            },
+        )
 
     # ------------------------------------------------------------------
     # Query operations
@@ -246,13 +295,13 @@ class TradingKnowledgeGraph:
         params: list = []
 
         if direction == "outgoing":
-            base = "SELECT * FROM kg_triples WHERE subject = ?"
+            base = f"SELECT * FROM {self._schema}kg_triples WHERE subject = ?"
             params.append(eid)
         elif direction == "incoming":
-            base = "SELECT * FROM kg_triples WHERE object = ?"
+            base = f"SELECT * FROM {self._schema}kg_triples WHERE object = ?"
             params.append(eid)
         else:  # both
-            base = "SELECT * FROM kg_triples WHERE subject = ? OR object = ?"
+            base = f"SELECT * FROM {self._schema}kg_triples WHERE subject = ? OR object = ?"
             params.extend([eid, eid])
 
         if as_of:
@@ -277,7 +326,7 @@ class TradingKnowledgeGraph:
             raise RuntimeError("Not connected")
 
         params: list = [predicate]
-        sql = "SELECT * FROM kg_triples WHERE predicate = ?"
+        sql = f"SELECT * FROM {self._schema}kg_triples WHERE predicate = ?"
 
         if as_of:
             sql += (
@@ -302,13 +351,13 @@ class TradingKnowledgeGraph:
         if entity_name:
             eid = self._entity_id(entity_name)
             sql = (
-                "SELECT * FROM kg_triples WHERE subject = ? OR object = ? "
+                f"SELECT * FROM {self._schema}kg_triples WHERE subject = ? OR object = ? "
                 "ORDER BY COALESCE(valid_from, '0000') ASC LIMIT ?"
             )
             params: list = [eid, eid, limit]
         else:
             sql = (
-                "SELECT * FROM kg_triples "
+                f"SELECT * FROM {self._schema}kg_triples "
                 "ORDER BY COALESCE(valid_from, '0000') ASC LIMIT ?"
             )
             params = [limit]
@@ -323,28 +372,28 @@ class TradingKnowledgeGraph:
             raise RuntimeError("Not connected")
 
         entities = await (
-            await self._db.execute("SELECT COUNT(*) FROM kg_entities")
+            await self._db.execute(f"SELECT COUNT(*) FROM {self._schema}kg_entities")
         ).fetchone()
 
         triples = await (
-            await self._db.execute("SELECT COUNT(*) FROM kg_triples")
+            await self._db.execute(f"SELECT COUNT(*) FROM {self._schema}kg_triples")
         ).fetchone()
 
         current = await (
             await self._db.execute(
-                "SELECT COUNT(*) FROM kg_triples WHERE valid_to IS NULL"
+                f"SELECT COUNT(*) FROM {self._schema}kg_triples WHERE valid_to IS NULL"
             )
         ).fetchone()
 
         expired = await (
             await self._db.execute(
-                "SELECT COUNT(*) FROM kg_triples WHERE valid_to IS NOT NULL"
+                f"SELECT COUNT(*) FROM {self._schema}kg_triples WHERE valid_to IS NOT NULL"
             )
         ).fetchone()
 
         rel_types = await (
             await self._db.execute(
-                "SELECT DISTINCT predicate FROM kg_triples"
+                f"SELECT DISTINCT predicate FROM {self._schema}kg_triples"
             )
         ).fetchall()
 
@@ -355,3 +404,30 @@ class TradingKnowledgeGraph:
             "expired_facts": expired[0],
             "relationship_types": [r[0] for r in rel_types],
         }
+
+    async def sweep_expired(self) -> int:
+        """Remove triples that have reached their expiration date.
+
+        Returns:
+            Number of triples removed.
+        """
+        if not self._db:
+            raise RuntimeError("Not connected")
+
+        now = datetime.now(timezone.utc).isoformat()
+        cursor = await self._db.execute(
+            f"DELETE FROM {self._schema}kg_triples WHERE valid_to IS NOT NULL AND valid_to < ?",
+            (now,),
+        )
+        count = cursor.rowcount
+        await self._db.commit()
+
+        if count > 0:
+            log_event(
+                logger,
+                logging.INFO,
+                "kg.sweep",
+                f"Swept {count} expired KG triples",
+                data={"count": count},
+            )
+        return count

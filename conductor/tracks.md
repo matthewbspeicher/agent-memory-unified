@@ -17,11 +17,11 @@ Implement accuracy-based ranking and activate multi-factor strategies.
 ---
 
 ## [ ] Track: Intelligence (Vector Memory Loop)
-Integrate vector memory into the trading strategy cycle.
-*Link: [./tracks/intelligence_memory/](./tracks/intelligence_memory/)*
+Integrate vector memory and a temporal knowledge graph into the trading strategy cycle.
+*Link: [./tracks/intelligence_memory/plan.md](./tracks/intelligence_memory/plan.md)*
 
 ---
 
-## [ ] Track: Infrastructure (Mission Control & CI/CD)
-Complete the frontend dashboard, Discord alerts, and CI/CD pipeline.
-*Link: [./tracks/infrastructure_mission_control/](./tracks/infrastructure_mission_control/)*
+## [ ] Track: Arena & Social Deduction (AI Gamification & Monetization)
+Implement the Arena Betting UI and Social Deduction "Werewolf" Gym for spectatorship and agent theory-of-mind testing.
+*Link: [./tracks/arena_social_deduction/](./tracks/arena_social_deduction/)*

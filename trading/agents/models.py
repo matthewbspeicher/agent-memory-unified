@@ -74,6 +74,10 @@ class AgentConfig:
     )
     allowed_regimes: dict[str, list[str]] = field(default_factory=dict)
     disallowed_regimes: dict[str, list[str]] = field(default_factory=dict)
+    htf_filter: str | None = None
+    htf_require_alignment: bool = True
+    scan_timeout: float = 120.0
+    max_calls_per_scan: int = 5
 
 
 @dataclass

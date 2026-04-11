@@ -36,8 +36,13 @@ class PromptStore(ABC):
 class SqlPromptStore(PromptStore):
     """Local SQLite-backed prompt store. Authoritative for all prompt state."""
 
-    def __init__(self, db: aiosqlite.Connection) -> None:
+    def __init__(
+        self,
+        db: aiosqlite.Connection | PostgresDB,
+        journal_indexer: Any | None = None,
+    ) -> None:
         self._db = db
+        self._journal_indexer = journal_indexer
         self._prompts: dict[str, str] = {}
         self._context_cache: dict[str, str] = {}
 
@@ -156,23 +161,35 @@ class SqlPromptStore(PromptStore):
     ) -> None:
         """Generate L0 (identity) + L1 (performance story) and cache."""
         # L0: Agent Identity
-        universe = agent_config.universe
+        universe = getattr(agent_config, "universe", [])
         if isinstance(universe, list):
             uni_str = ", ".join(str(u) for u in universe[:6])
-            if len(agent_config.universe) > 6:
-                uni_str += f" (+{len(agent_config.universe) - 6} more)"
+            if len(universe) > 6:
+                uni_str += f" (+{len(universe) - 6} more)"
         else:
             uni_str = str(universe)
+
         l0 = (
             f"## Identity\n"
             f"Agent: {agent_name} | Strategy: {agent_config.strategy} "
-            f"| Action: {agent_config.action_level}\n"
-            f"Universe: {uni_str} | Schedule: {agent_config.schedule}"
+            f"| Action: {getattr(agent_config, 'action_level', 'notify')}\n"
+            f"Universe: {uni_str} | Schedule: {getattr(agent_config, 'schedule', 'manual')}"
         )
         if hasattr(agent_config, "description") and agent_config.description:
             l0 += f"\n{agent_config.description}"
 
-        # L1: Performance Story
+        # L1: Performance Story (Fetch from JournalIndexer if not provided)
+        if not trade_memories and self._journal_indexer:
+            # Query indexer for recent trades by this agent
+            # Note: Indexer might need a per-agent query method,
+            # but for now we search for the agent name in content/metadata.
+            results = await asyncio.to_thread(
+                self._journal_indexer.search, f"agent:{agent_name}", limit=10
+            )
+            trade_memories = [
+                {"value": r.content, "importance": r.score or 0.5} for r in results
+            ]
+
         if not trade_memories:
             l1 = (
                 "## Recent Performance\n"
@@ -210,6 +227,22 @@ class SqlPromptStore(PromptStore):
             (agent_name, l0, l1, now_iso, trade_count),
         )
         await self._db.commit()
+
+        from utils.logging import log_event
+        import logging
+
+        log_event(
+            logging.getLogger("trading.learning.prompt_store"),
+            logging.INFO,
+            "agent.context_generated",
+            f"Generated L0/L1 context for agent {agent_name}",
+            data={
+                "agent_name": agent_name,
+                "trade_count": trade_count,
+                "l0_len": len(l0),
+                "l1_len": len(l1),
+            },
+        )
 
     async def maybe_regenerate_context(
         self,

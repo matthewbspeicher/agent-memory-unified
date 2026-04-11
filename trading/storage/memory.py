@@ -15,6 +15,8 @@ from typing import Any, List
 
 import aiosqlite
 
+from utils.logging import log_event
+
 logger = logging.getLogger(__name__)
 
 # MemClaw decay windows by memory type (days)
@@ -217,6 +219,19 @@ class LocalMemoryStore:
                 (now.isoformat(), existing["id"]),
             )
             await self._db.commit()
+
+            log_event(
+                logger,
+                logging.INFO,
+                "memory.deduplicated",
+                f"Deduplicated memory write: {existing['id']}",
+                data={
+                    "id": existing["id"],
+                    "agent_id": agent_id,
+                    "content_hash": content_hash,
+                },
+            )
+
             return {
                 "id": existing["id"],
                 "key": key,
@@ -272,6 +287,20 @@ class LocalMemoryStore:
                 ),
             )
             await self._db.commit()
+
+            log_event(
+                logger,
+                logging.INFO,
+                "memory.write",
+                f"New memory write: {memory_id}",
+                data={
+                    "id": memory_id,
+                    "agent_id": agent_id,
+                    "memory_type": memory_type,
+                    "category": category,
+                    "content_hash": content_hash,
+                },
+            )
         except Exception as exc:
             if "UNIQUE constraint failed" in str(exc):
                 # Race condition: another concurrent store inserted first

@@ -36,6 +36,8 @@ class AgentConfigSchema(BaseModel):
     regime_policy_mode: str | None = None
     allowed_regimes: dict | None = None
     disallowed_regimes: dict | None = None
+    scan_timeout: float = Field(default=120.0, ge=1.0, le=600.0)
+    max_calls_per_scan: int = Field(default=5, ge=1, le=50)
 
     @field_validator("regime_policy_mode")
     @classmethod
@@ -62,6 +64,7 @@ class AgentConfigSchema(BaseModel):
             "pre_expiry_exit",
             "probability_trailing_stop",
             "partial_exit",
+            "theta_decay_exit",
         }
         for rule in v:
             rule_type = rule.get("type")
@@ -179,11 +182,13 @@ def _ensure_strategies_registered() -> None:
 
     register_strategy("correlation_monitor", StrategyCorrelationMonitor)
 
-    # Placeholders for dynamically registered strategies (see api/app.py)
-    # These allow Pydantic validation to pass during startup.
-    register_strategy("cross_platform_arb", lambda cfg: None)  # type: ignore
-    register_strategy("meta_agent", lambda cfg: None)  # type: ignore
-    register_strategy("meta", lambda cfg: None)  # type: ignore
+    register_strategy("cross_platform_arb", lambda cfg: None)
+    register_strategy("meta_agent", lambda cfg: None)
+    register_strategy("meta", lambda cfg: None)
+
+    from agents.decorators import register_decorated_strategies
+
+    register_decorated_strategies()
 
 
 def load_agents_config(
@@ -237,6 +242,7 @@ def load_agents_config(
             regime_policy_mode=entry.regime_policy_mode or "annotate_only",
             allowed_regimes=entry.allowed_regimes or {},
             disallowed_regimes=entry.disallowed_regimes or {},
+            max_calls_per_scan=entry.max_calls_per_scan,
         )
         if isinstance(factory, type) and issubclass(factory, LLMAgent) and prompt_store:
             agents.append(factory(config=config, prompt_store=prompt_store))

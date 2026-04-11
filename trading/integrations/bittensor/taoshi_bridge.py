@@ -49,6 +49,7 @@ class TaoshiBridge:
         event_bus: Any | None = None,
         poll_interval: float = 30.0,
         knowledge_graph: Any | None = None,
+        kg_enabled: bool = False,
     ):
         self._root = Path(taoshi_root)
         self._miners_dir = self._root / "validation" / "miners"
@@ -57,6 +58,7 @@ class TaoshiBridge:
         self._event_bus = event_bus
         self._poll_interval = poll_interval
         self._knowledge_graph = knowledge_graph
+        self._kg_enabled = kg_enabled
         self._running = False
         self._initialized_from_store: set[str] = set()
 
@@ -158,7 +160,7 @@ class TaoshiBridge:
                                     signal_reason="new_position",
                                 )
                                 new_signals += 1
-                                if self._knowledge_graph:
+                                if self._knowledge_graph and self._kg_enabled:
                                     try:
                                         await self._knowledge_graph.add_triple(
                                             f"miner_{hotkey[:8]}",
@@ -194,7 +196,7 @@ class TaoshiBridge:
         stale_uuids = set(self._seen_positions.keys()) - current_uuids
         for uuid in stale_uuids:
             # KG invalidation for closed positions
-            if self._knowledge_graph and uuid in self._position_context:
+            if self._knowledge_graph and self._kg_enabled and uuid in self._position_context:
                 hotkey, symbol = self._position_context[uuid]
                 try:
                     await self._knowledge_graph.invalidate(

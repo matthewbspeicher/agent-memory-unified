@@ -170,16 +170,18 @@ class PostgresDB:
         """Convert INSERT OR REPLACE INTO t (...) VALUES (...) →
         INSERT INTO t (...) VALUES (...) ON CONFLICT DO UPDATE SET ..."""
         m = re.match(
-            r"\s*INSERT\s+OR\s+REPLACE\s+INTO\s+(\w+)\s*\(([^)]+)\)",
+            r"\s*INSERT\s+OR\s+REPLACE\s+INTO\s+([\w.]+)\s*\(([^)]+)\)",
             sql,
             re.IGNORECASE | re.DOTALL,
         )
         if not m:
             return sql
         table = m.group(1)
+        # If schema-prefixed, use only the table name for composite PK lookup
+        table_name_only = table.split(".")[-1]
         cols = [c.strip() for c in m.group(2).split(",")]
         # Use composite PK if known, else assume first column is the PK
-        pk_cols = cls._COMPOSITE_PKS.get(table, [cols[0]])
+        pk_cols = cls._COMPOSITE_PKS.get(table_name_only, [cols[0]])
         pk_set = set(pk_cols)
         pk_clause = ", ".join(pk_cols)
         update_cols = [c for c in cols if c not in pk_set]

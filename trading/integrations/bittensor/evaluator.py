@@ -32,10 +32,12 @@ class MinerEvaluator:
         store: BittensorStore,
         data_bus: DataBus,
         knowledge_graph: Any | None = None,
+        kg_enabled: bool = False,
     ):
         self.store = store
         self.data_bus = data_bus
         self._knowledge_graph = knowledge_graph
+        self._kg_enabled = kg_enabled
 
     async def evaluate_pending_windows(self, now: datetime | None = None) -> int:
         """Fetch unevaluated windows and realize their outcomes."""
@@ -178,7 +180,7 @@ class MinerEvaluator:
                 pass
 
         # Write accuracy triple to knowledge graph (best-effort)
-        if self._knowledge_graph:
+        if self._knowledge_graph and self._kg_enabled:
             try:
                 accuracy_score = (
                     path_corr

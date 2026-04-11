@@ -28,12 +28,21 @@ tracer = get_tracer(__name__)
 
 
 class AgentRunner:
-    async def _record_thought(self, agent_name: str, symbol: str, action: Any, score: float, rules: list, memories: list):
+    async def _record_thought(
+        self,
+        agent_name: str,
+        symbol: str,
+        action: Any,
+        score: float,
+        rules: list,
+        memories: list,
+    ):
         if not self._db:
             return
         from models.thought import ThoughtRecord
         import uuid
         import json
+
         record = ThoughtRecord(
             id=uuid.uuid4(),
             timestamp=datetime.now(timezone.utc),
@@ -42,7 +51,7 @@ class AgentRunner:
             action=action,
             conviction_score=score,
             rule_evaluations=rules,
-            memory_context=memories
+            memory_context=memories,
         )
         try:
             if hasattr(self._db, "add"):
@@ -63,7 +72,7 @@ class AgentRunner:
                     record.action.value,
                     record.conviction_score,
                     json.dumps(record.rule_evaluations),
-                    json.dumps(record.memory_context)
+                    json.dumps(record.memory_context),
                 )
         except Exception as e:
             logger.error(f"Failed to record thought for {agent_name}: {e}")
@@ -81,6 +90,8 @@ class AgentRunner:
         session_bias_generator: Any | None = None,
         db: Any | None = None,
         tradingview_fetcher: Any | None = None,
+        max_concurrent_scans: int = 5,
+        default_scan_timeout: float = 120.0,
     ) -> None:
         self._data_bus = data_bus
         self._router = router
@@ -106,6 +117,8 @@ class AgentRunner:
         self._poll_task: asyncio.Task | None = None
         # Snapshot of registry configs for change detection (warm-restart)
         self._registry_configs: dict[str, dict] = {}
+        self._scan_semaphore = asyncio.Semaphore(max_concurrent_scans)
+        self._default_scan_timeout = default_scan_timeout
 
     def register(self, agent: Agent) -> None:
         self._agents[agent.name] = agent
@@ -186,7 +199,7 @@ class AgentRunner:
             return
         agent.signal_bus = self._signal_bus
         # Prime L0+L1 context (no cold starts)
-        if hasattr(agent, '_prompt_store') and agent._prompt_store:
+        if hasattr(agent, "_prompt_store") and agent._prompt_store:
             await agent._prompt_store.generate_agent_context(
                 agent_name=name,
                 agent_config=agent._config,
@@ -337,45 +350,82 @@ class AgentRunner:
                 if hasattr(self, "_tv_fetcher") and self._tv_fetcher:
                     try:
                         universe = agent.config.universe
-                        ticker = universe[0] if isinstance(universe, list) and universe else "UNKNOWN"
-                        tv_context = await self._tv_fetcher.get_latest_chart_context(ticker)
+                        ticker = (
+                            universe[0]
+                            if isinstance(universe, list) and universe
+                            else "UNKNOWN"
+                        )
+                        tv_context = await self._tv_fetcher.get_latest_chart_context(
+                            ticker
+                        )
                         if tv_context:
                             agent._tv_context = tv_context
                             if self._event_bus:
                                 await self._event_bus.publish(
                                     "tradingview_context_injected",
-                                    {"agent_name": agent.name, "symbol": ticker, "drawings": tv_context.get("drawings", [])}
+                                    {
+                                        "agent_name": agent.name,
+                                        "symbol": ticker,
+                                        "drawings": tv_context.get("drawings", []),
+                                    },
                                 )
                     except Exception as tv_exc:
-                        logger.warning(f"TradingView context injection failed for {agent.name}: {tv_exc}")
+                        logger.warning(
+                            f"TradingView context injection failed for {agent.name}: {tv_exc}"
+                        )
 
-                opportunities = await agent.scan(self._data_bus)
+                agent.reset_llm_call_count()
+                async with self._scan_semaphore:
+                    timeout = (
+                        getattr(agent.config, "scan_timeout", None)
+                        or self._default_scan_timeout
+                    )
+                    try:
+                        opportunities = await asyncio.wait_for(
+                            agent.scan(self._data_bus), timeout=timeout
+                        )
+                    except asyncio.TimeoutError:
+                        logger.error(
+                            "Agent %s scan timed out after %.1fs", agent.name, timeout
+                        )
+                        self._error_counts[agent.name] += 1
+                        self._last_errors[agent.name] = f"Scan timeout ({timeout}s)"
+                        return []
                 span.set_attribute("opportunities.found", len(opportunities))
-                
+
                 from models.thought import ActionType
+
                 if not opportunities:
                     universe = getattr(agent, "universe", None) or agent.config.universe
-                    ticker = universe[0] if isinstance(universe, list) and universe else (universe if isinstance(universe, str) else "UNKNOWN")
+                    ticker = (
+                        universe[0]
+                        if isinstance(universe, list) and universe
+                        else (universe if isinstance(universe, str) else "UNKNOWN")
+                    )
                     await self._record_thought(
                         agent_name=agent.name,
                         symbol=ticker,
                         action=ActionType.HOLD,
                         score=0.0,
                         rules=[],
-                        memories=[]
+                        memories=[],
                     )
                 else:
                     for opp in opportunities:
-                        action = ActionType.BUY if str(opp.signal).lower() in ("buy", "long") else ActionType.SELL
+                        action = (
+                            ActionType.BUY
+                            if str(opp.signal).lower() in ("buy", "long")
+                            else ActionType.SELL
+                        )
                         await self._record_thought(
                             agent_name=agent.name,
-                            symbol=opp.symbol,
+                            symbol=opp.symbol.ticker,
                             action=action,
                             score=float(opp.confidence),
                             rules=[],
-                            memories=[]
+                            memories=[],
                         )
-                
+
                 self._last_run[agent.name] = datetime.now(timezone.utc)
                 self._cycle_counts[agent.name] = (
                     self._cycle_counts.get(agent.name, 0) + 1

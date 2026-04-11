@@ -543,6 +543,7 @@ async def _setup_bittensor_integration(
             event_bus=event_bus,
             poll_interval=30.0,
             knowledge_graph=getattr(app.state, "knowledge_graph", None),
+            kg_enabled=config.knowledge_graph_enabled,
         )
         app.state.taoshi_bridge = bridge
         task_mgr.create_task(bridge.run(), name="taoshi_bridge")
@@ -572,19 +573,23 @@ async def _setup_bittensor_integration(
         from intelligence.layer import IntelligenceLayer
         from memory.market_regime import RegimeMemoryManager
         from memory.vector_service import MarketVectorService
-        from remembr.client import AsyncRemembrClient
 
         # Try to init memory manager for regime provider
         regime_mem = None
         if config.remembr_api_key:
             try:
+                from remembr.client import AsyncRemembrClient
+
                 _remembr_client = AsyncRemembrClient(
                     agent_token=config.remembr_api_key,
                     base_url=config.remembr_base_url,
                 )
                 _vector_service = MarketVectorService(llm_client=llm_client)
                 regime_mem = RegimeMemoryManager(
-                    _remembr_client, vector_service=_vector_service
+                    _remembr_client,
+                    vector_service=_vector_service,
+                    knowledge_graph=getattr(app.state, "knowledge_graph", None),
+                    kg_enabled=config.knowledge_graph_enabled,
                 )
             except Exception as e:
                 logger.warning("Failed to init RegimeMemoryManager: %s", e)
@@ -1007,10 +1012,13 @@ async def lifespan(app: FastAPI):
         # --- Knowledge Graph ---
         from storage.knowledge_graph import TradingKnowledgeGraph
 
-        _kg = TradingKnowledgeGraph(db_path="data/knowledge_graph.sqlite3")
+        _kg = TradingKnowledgeGraph(
+            db=db,
+            schema="kg" if config.database_url else None
+        )
         await _kg.connect()
         app.state.knowledge_graph = _kg
-        _log.info("TradingKnowledgeGraph initialized")
+        _log.info("TradingKnowledgeGraph initialized (shared db)")
 
         from llm.client import LLMClient
 
@@ -1321,6 +1329,19 @@ async def lifespan(app: FastAPI):
         agent_store = AgentStore(db)
         app.state.agent_store = agent_store
 
+        from storage.correlation import CorrelationStore
+        from learning.correlation_monitor import CorrelationMonitor, CorrelationConfig
+
+        corr_store = CorrelationStore(db)
+        await corr_store.initialize()
+        corr_config = CorrelationConfig()
+        correlation_monitor = CorrelationMonitor(
+            perf_store=perf_store,
+            correlation_store=corr_store,
+            config=corr_config,
+        )
+        app.state.correlation_monitor = correlation_monitor
+
         # Bootstrap agent registry from YAML if empty
         try:
             # Reuse already-loaded agents data from validation (cached in config_loader)
@@ -1359,7 +1380,10 @@ async def lifespan(app: FastAPI):
 
         # Local SQLite prompt store — authoritative for all prompt state.
         # Optional remembr mirror can be added later but must fail open to local-only.
-        prompt_store = SqlPromptStore(db)
+        prompt_store = SqlPromptStore(
+            db,
+            journal_indexer=getattr(app.state, "journal_indexer", None)
+        )
 
         # Learning API routes
         learning_router = create_learning_router(
@@ -1589,6 +1613,12 @@ async def lifespan(app: FastAPI):
             _log.error("CRITICAL: risk.yaml not found at any location!")
             _risk_data = {"rules": [], "kill_switch": {"enabled": False}}
 
+        from storage.portfolio_state import PortfolioStateStore
+
+        portfolio_state_store = PortfolioStateStore(db)
+        await portfolio_state_store.initialize()
+        app.state.portfolio_state_store = portfolio_state_store
+
         # NOTE: load_risk_config() now accepts preloaded_data to avoid duplicate reads
         if _risk_path_str is None:
             _log.error("CRITICAL: risk.yaml path is None, cannot initialize RiskEngine")
@@ -1606,6 +1636,8 @@ async def lifespan(app: FastAPI):
                 agent_store=agent_store,
                 settings=config,
                 journal_manager=journal_manager,
+                portfolio_state_store=portfolio_state_store,
+                correlation_monitor=correlation_monitor,
                 preloaded_data=_risk_data,
             )
 

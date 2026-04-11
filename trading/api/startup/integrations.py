@@ -179,7 +179,10 @@ async def setup_bittensor(
         )
 
         _bt_evaluator = MinerEvaluator(
-            store=_bt_store, data_bus=data_bus, knowledge_graph=knowledge_graph
+            store=_bt_store,
+            data_bus=data_bus,
+            knowledge_graph=knowledge_graph,
+            kg_enabled=config.knowledge_graph_enabled,
         )
 
         logger.info(

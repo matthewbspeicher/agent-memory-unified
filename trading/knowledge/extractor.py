@@ -1,136 +1,110 @@
-"""Entity extraction from text for knowledge graph population.
+"""Rule-based entity and relationship extraction for trading news.
 
-Uses LLM to extract structured entities and relationships from
-unstructured text such as news headlines and articles.
+Provides deterministic extraction of market entities (tickers, sectors, orgs)
+and triples from text headlines without requiring LLM calls.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Optional
-
-from llm.client import LLMClient
-
-import json
-import logging
-
-logger = logging.getLogger(__name__)
-
-
-@dataclass
-class ExtractedEntity:
-    """Entity extracted from text."""
-
-    name: str
-    entity_type: str
-    symbol: Optional[str] = None
-    relevance: float = 1.0
-
-
-@dataclass
-class ExtractedRelationship:
-    """Relationship extracted between entities."""
-
-    source: str
-    target: str
-    relationship_type: str
-    strength: float = 1.0
-
-
-@dataclass
-class EntityExtractionResult:
-    """Result of entity extraction from text."""
-
-    entities: list[ExtractedEntity] = field(default_factory=list)
-    relationships: list[ExtractedRelationship] = field(default_factory=list)
-    sentiment: Optional[float] = None
-    temporal_bounds: dict = field(default_factory=dict)
-
-
-EXTRACTION_PROMPT = """Extract structured entities and relationships from this text.
-
-Text: {text}
-{context_line}
-
-Return ONLY valid JSON:
-{{
-    "entities": [
-        {{"name": "NVDA", "type": "company", "symbol": "NVDA", "relevance": 0.95}}
-    ],
-    "relationships": [
-        {{"source": "semiconductor tariffs", "target": "NVDA", "type": "affects", "strength": 0.8}}
-    ],
-    "sentiment": 0.3,
-    "temporal_bounds": {{
-        "valid_until": "2025-06-30"
-    }}
-}}
-
-Entity types: company, sector, indicator, event, policy, commodity, crypto
-Relationship types: affects, belongs_to, competes_with, correlated_with, part_of, caused_by"""
+import re
+from datetime import datetime, timezone
+from typing import Any
 
 
 class EntityExtractor:
-    """Extract structured entities and relationships from text.
+    """Extracts trading entities and triples using regex and keyword rules."""
 
-    Uses LLM to identify market-relevant entities and their
-    relationships from unstructured text.
-    """
+    # Ticker pattern: 2-5 uppercase letters, optionally prefixed with $
+    TICKER_PATTERN = re.compile(r"\$?([A-Z]{2,5})\b")
+    
+    # Relationship keywords
+    RELATIONSHIPS = {
+        "partnership": ["partner", "collaborate", "joint venture", "integration"],
+        "acquisition": ["acquire", "buyout", "merger", "purchase"],
+        "sentiment_positive": ["bullish", "surge", "rally", "breakout", "upgrade"],
+        "sentiment_negative": ["bearish", "crash", "plummet", "dump", "downgrade"],
+        "listing": ["list", "listing", "exchange", "available on"],
+    }
 
-    def __init__(self, llm_client: LLMClient) -> None:
-        self._llm = llm_client
+    def __init__(self):
+        self.common_words = {"THE", "AND", "FOR", "ARE", "BUT", "NOT", "YOU", "ALL", "ANY"}
 
-    async def extract(
-        self, text: str, context: Optional[str] = None
-    ) -> EntityExtractionResult:
-        """Extract entities and relationships from text.
+    def extract_entities(self, text: str) -> list[dict[str, str]]:
+        """Extract potential entities from text."""
+        entities = []
+        
+        # 1. Extract Tickers
+        tickers = self.TICKER_PATTERN.findall(text)
+        for ticker in tickers:
+            if ticker.upper() not in self.common_words:
+                entities.append({
+                    "id": ticker.upper(),
+                    "name": ticker.upper(),
+                    "type": "asset"
+                })
+        
+        # 2. Extract specific orgs (heuristic: Title Case words > 3 chars)
+        # Narrowed to avoid noise
+        org_matches = re.findall(r"\b([A-Z][a-z]{3,})\b", text)
+        for org in org_matches:
+            if org.upper() not in self.common_words:
+                entities.append({
+                    "id": org.lower(),
+                    "name": org,
+                    "type": "organization"
+                })
+                
+        return entities
 
-        Args:
-            text: Text to extract from (headline, article, etc.)
-            context: Optional context (contract title, topic, etc.)
+    def extract_triples(self, text: str, source: str = "extractor") -> list[dict[str, Any]]:
+        """Extract triples (subject-predicate-object) based on proximity and keywords."""
+        triples = []
+        entities = self.extract_entities(text)
+        
+        if not entities:
+            return []
 
-        Returns:
-            EntityExtractionResult with extracted entities and relationships.
-        """
-        context_line = f"Context: {context}" if context else ""
-        prompt = EXTRACTION_PROMPT.format(text=text, context_line=context_line)
+        text_lower = text.lower()
+        now = datetime.now(timezone.utc).isoformat()
 
-        try:
-            response = await self._llm.complete(
-                prompt=prompt,
-                max_tokens=500,
-                temperature=0.1,
-            )
+        # Rule 1: Relationship between two entities
+        if len(entities) >= 2:
+            for i in range(len(entities)):
+                for j in range(i + 1, len(entities)):
+                    subj = entities[i]
+                    obj = entities[j]
+                    
+                    for pred, keywords in self.RELATIONSHIPS.items():
+                        if any(kw in text_lower for kw in keywords):
+                            triples.append({
+                                "subject": subj["id"],
+                                "predicate": pred,
+                                "object": obj["id"],
+                                "confidence": 0.7,
+                                "source": source,
+                                "valid_from": now
+                            })
 
-            data = json.loads(response)
+        # Rule 2: Asset sentiment (if only one ticker found)
+        if len(entities) == 1 and entities[0]["type"] == "asset":
+            asset = entities[0]["id"]
+            if any(kw in text_lower for kw in self.RELATIONSHIPS["sentiment_positive"]):
+                triples.append({
+                    "subject": asset,
+                    "predicate": "has_sentiment",
+                    "object": "bullish",
+                    "confidence": 0.6,
+                    "source": source,
+                    "valid_from": now
+                })
+            elif any(kw in text_lower for kw in self.RELATIONSHIPS["sentiment_negative"]):
+                triples.append({
+                    "subject": asset,
+                    "predicate": "has_sentiment",
+                    "object": "bearish",
+                    "confidence": 0.6,
+                    "source": source,
+                    "valid_from": now
+                })
 
-            entities = [
-                ExtractedEntity(
-                    name=e["name"],
-                    entity_type=e["type"],
-                    symbol=e.get("symbol"),
-                    relevance=e.get("relevance", 1.0),
-                )
-                for e in data.get("entities", [])
-            ]
-
-            relationships = [
-                ExtractedRelationship(
-                    source=r["source"],
-                    target=r["target"],
-                    relationship_type=r["type"],
-                    strength=r.get("strength", 1.0),
-                )
-                for r in data.get("relationships", [])
-            ]
-
-            return EntityExtractionResult(
-                entities=entities,
-                relationships=relationships,
-                sentiment=data.get("sentiment"),
-                temporal_bounds=data.get("temporal_bounds", {}),
-            )
-
-        except (json.JSONDecodeError, KeyError) as e:
-            logger.warning("Entity extraction failed: %s", e)
-            return EntityExtractionResult()
+        return triples
