@@ -61,25 +61,32 @@ export default function KnowledgeGraph() {
     };
 
     if (!graphInstance.current) {
-      graphInstance.current = new ForceGraph3D(graphRef.current)
-        .nodeLabel('summary')
-        .nodeColor((node: any) => colorMap[node.type] || '#ffffff')
-        .linkLabel((link: any) => {
-          let label = link.relation || 'related';
-          if (link.metadata?.rationale) {
-            label += `: ${link.metadata.rationale}`;
-          }
-          return `<div style="background: rgba(2, 6, 23, 0.8); padding: 4px 8px; border-radius: 4px; border: 1px solid rgba(168, 85, 247, 0.4); font-family: monospace; font-size: 10px; color: #e2e8f0;">${label}</div>`;
-        })
-        .linkDirectionalParticles(2)
-        .linkDirectionalParticleSpeed(() => 0.01)
-        .linkDirectionalParticleColor((link: any) => colorMap[link.target.type] || '#ffffff')
-        .backgroundColor('#020617') // slate-950
-        .width(graphRef.current.offsetWidth)
-        .height(graphRef.current.offsetHeight);
+      try {
+        graphInstance.current = new ForceGraph3D(graphRef.current)
+          .nodeLabel('summary')
+          .nodeColor((node: any) => colorMap[node.type] || '#ffffff')
+          .linkLabel((link: any) => {
+            let label = link.relation || 'related';
+            if (link.metadata?.rationale) {
+              label += `: ${link.metadata.rationale}`;
+            }
+            return `<div style="background: rgba(2, 6, 23, 0.8); padding: 4px 8px; border-radius: 4px; border: 1px solid rgba(168, 85, 247, 0.4); font-family: monospace; font-size: 10px; color: #e2e8f0;">${label}</div>`;
+          })
+          .linkDirectionalParticles(2)
+          .linkDirectionalParticleSpeed(() => 0.01)
+          .linkDirectionalParticleColor((link: any) => colorMap[link.target.type] || '#ffffff')
+          .backgroundColor('#020617') // slate-950
+          .width(graphRef.current.offsetWidth)
+          .height(graphRef.current.offsetHeight);
+      } catch (e) {
+        console.error("ForceGraph3D initialization failed. WebGL may be unavailable.", e);
+        // Fallback or leave graphInstance.current null
+      }
     }
 
-    graphInstance.current.graphData(graphData);
+    if (graphInstance.current) {
+      graphInstance.current.graphData(graphData);
+    }
 
     const handleResize = () => {
       if (graphRef.current && graphInstance.current) {

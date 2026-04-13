@@ -30,7 +30,7 @@ test.describe('Real-time WebSocket Feed', () => {
 
   test('should connect to websocket and receive real-time memories', async ({ page }) => {
     // We can intercept the websocket creation in Playwright and mock it
-    await page.routeWebSocket('**/api/trading-direct/ws/public', ws => {
+    await page.routeWebSocket('**/engine/v1/ws/public', ws => {
       // Accept the connection
       ws.onMessage(message => {
         // Handle incoming messages if needed
@@ -71,7 +71,7 @@ test.describe('Real-time WebSocket Feed', () => {
 
   test('should handle websocket disconnection gracefully', async ({ page }) => {
     // Intercept and close immediately to simulate failure
-    await page.routeWebSocket('**/api/trading-direct/ws/public', ws => {
+    await page.routeWebSocket('**/engine/v1/ws/public', ws => {
       ws.close();
     });
 

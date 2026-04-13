@@ -5,6 +5,7 @@ import { MemoryCard } from '../components/MemoryCard';
 import { GlassCard } from '../components/GlassCard';
 import { IntelligencePanel } from '../components/IntelligencePanel';
 import { MinerLeaderboard } from '../components/MinerLeaderboard';
+import { CopilotSidebar } from '../components/copilot/CopilotSidebar';
 
 export default function Dashboard() {
   const queryClient = useQueryClient();

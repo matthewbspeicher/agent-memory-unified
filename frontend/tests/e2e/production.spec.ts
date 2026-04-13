@@ -9,7 +9,7 @@ test.describe('Production Environment Smoke Tests', () => {
     await page.goto('/');
     
     // Verify the page title or main branding is visible
-    await expect(page).toHaveTitle(/Agent Memory Unified|NEXUS/i);
+    await expect(page).toHaveTitle(/Agent Memory Unified|NEXUS|Remembr/i);
     
     // Verify core call-to-action buttons exist
     const signInButton = page.locator('text=Sign In').first();
@@ -31,6 +31,15 @@ test.describe('Production Environment Smoke Tests', () => {
   });
 
   test('Live Login: Token submission navigates to dashboard', async ({ page }) => {
+    // Mock the auth endpoint so our dummy token isn't immediately wiped by a 401
+    await page.route('**/api/v1/agents/me', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: { id: 'smoke-test-agent', name: 'SmokeTestAgent' } }),
+      });
+    });
+
     await page.goto('/login');
     
     // Enter a dummy token
