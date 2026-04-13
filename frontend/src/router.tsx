@@ -37,6 +37,8 @@ const HeadToHead = lazy(() => import('./pages/HeadToHead'));
 const BittensorNode = lazy(() => import('./pages/BittensorNode'));
 const FleetDashboard = lazy(() => import('./pages/FleetDashboard'));
 const TradingDashboard = lazy(() => import('./pages/TradingDashboard'));
+const Forge = lazy(() => import('./pages/Forge'));
+const Lab = lazy(() => import('./pages/Lab'));
 
 function LazyPage({ children }: { children: React.ReactNode }) {
   return (
@@ -148,6 +150,14 @@ export const router = createBrowserRouter([
       {
         path: 'explorer',
         element: <LazyPage><KnowledgeGraph /></LazyPage>,
+      },
+      {
+        path: 'studio/forge',
+        element: <LazyPage><Forge /></LazyPage>,
+      },
+      {
+        path: 'studio/lab/:id',
+        element: <LazyPage><Lab /></LazyPage>,
       },
     ],
   },
