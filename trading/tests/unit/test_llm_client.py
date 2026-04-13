@@ -121,33 +121,36 @@ class TestCircuitBreaker:
 
 
 class TestChainResolution:
-    def test_removes_providers_without_keys(self):
+    @pytest.mark.asyncio
+    async def test_removes_providers_without_keys(self):
         client = LLMClient(
             anthropic_key=None,
             groq_key=None,
             chain=["anthropic", "groq", "ollama", "rule-based"],
         )
-        chain = client._resolve_chain()
+        chain = await client._resolve_chain()
         assert "anthropic" not in chain
         assert "groq" not in chain
         assert "ollama" in chain
         assert "rule-based" in chain
 
-    def test_keeps_providers_with_keys(self):
+    @pytest.mark.asyncio
+    async def test_keeps_providers_with_keys(self):
         client = LLMClient(
             anthropic_key="sk-test",
             groq_key="gsk-test",
             chain=["anthropic", "groq", "ollama", "rule-based"],
         )
-        chain = client._resolve_chain()
+        chain = await client._resolve_chain()
         assert chain == ["anthropic", "groq", "ollama", "rule-based"]
 
-    def test_custom_chain_order(self):
+    @pytest.mark.asyncio
+    async def test_custom_chain_order(self):
         client = LLMClient(
             groq_key="gsk-test",
             chain=["groq", "ollama", "rule-based"],
         )
-        chain = client._resolve_chain()
+        chain = await client._resolve_chain()
         assert chain[0] == "groq"
 
 

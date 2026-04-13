@@ -395,7 +395,7 @@ class LLMClient:
         )
 
         # Try LLM providers
-        providers = self._resolve_chain()
+        providers = await self._resolve_chain()
         for provider_name in providers:
             if provider_name == "rule-based":
                 continue
@@ -459,7 +459,7 @@ class LLMClient:
             f'- "reasoning": A short string\n'
         )
 
-        providers = self._resolve_chain()
+        providers = await self._resolve_chain()
         for provider_name in providers:
             if provider_name == "rule-based":
                 continue
@@ -516,7 +516,7 @@ class LLMClient:
         import json
         import re
 
-        providers = self._resolve_chain()
+        providers = await self._resolve_chain()
 
         # Try Anthropic first (has native JSON schema support)
         if "anthropic" in providers and not self._is_disabled("anthropic"):
@@ -601,7 +601,7 @@ class LLMClient:
         Generate vector embeddings for the given text.
         Currently supports Ollama and Bedrock (Titan).
         """
-        providers = self._resolve_chain()
+        providers = await self._resolve_chain()
 
         # Prefer Ollama for local embeddings if available, then Bedrock
         preferred = ["ollama", "bedrock"]
