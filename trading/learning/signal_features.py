@@ -64,8 +64,8 @@ class SignalFeatureCapture:
             # Store a minimal failed row so the opportunity is traceable
             try:
                 opp_ts = opportunity.timestamp
-                if not opp_ts.tzinfo:
-                    opp_ts = opp_ts.replace(tzinfo=timezone.utc)
+                if opp_ts.tzinfo:
+                    opp_ts = opp_ts.astimezone(timezone.utc).replace(tzinfo=None)
                 await self._store.upsert(
                     str(opportunity.id),
                     agent_name=opportunity.agent_name,
@@ -75,7 +75,7 @@ class SignalFeatureCapture:
                     broker_id=opportunity.broker_id,
                     confidence=float(opportunity.confidence),
                     opportunity_timestamp=opp_ts,
-                    captured_at=datetime.now(timezone.utc),
+                    captured_at=datetime.utcnow(),
                     feature_version=FEATURE_VERSION,
                     feature_payload="{}",
                     capture_status="failed",
@@ -96,11 +96,16 @@ class SignalFeatureCapture:
     ) -> None:
         from broker.models import Symbol, AssetType
 
-        captured_at = datetime.now(timezone.utc)
-        opp_ts = opportunity.timestamp
-        if not opp_ts.tzinfo:
-            opp_ts = opp_ts.replace(tzinfo=timezone.utc)
-        capture_delay_ms = (captured_at - opp_ts).total_seconds() * 1000
+        captured_at_aware = datetime.now(timezone.utc)
+        opp_ts_aware = opportunity.timestamp
+        if not opp_ts_aware.tzinfo:
+            opp_ts_aware = opp_ts_aware.replace(tzinfo=timezone.utc)
+        
+        capture_delay_ms = (captured_at_aware - opp_ts_aware).total_seconds() * 1000
+
+        # For asyncpg compatibility with TIMESTAMP columns, we must pass naive UTC datetimes
+        opp_ts_naive = opp_ts_aware.replace(tzinfo=None)
+        captured_at_naive = captured_at_aware.replace(tzinfo=None)
 
         features: dict[str, Any] = {
             "agent_name": opportunity.agent_name,
@@ -109,8 +114,8 @@ class SignalFeatureCapture:
             "asset_type": opportunity.symbol.asset_type.value,
             "broker_id": opportunity.broker_id,
             "confidence": float(opportunity.confidence),
-            "opportunity_timestamp": opp_ts,
-            "captured_at": captured_at,
+            "opportunity_timestamp": opp_ts_naive,
+            "captured_at": captured_at_naive,
             "capture_delay_ms": round(capture_delay_ms, 2),
             "feature_version": FEATURE_VERSION,
             "capture_status": "captured",
