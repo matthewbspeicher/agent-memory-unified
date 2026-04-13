@@ -30,9 +30,11 @@ class SignalFeatureStore:
         # Force opportunity_id to be first so PostgresDB adapter ON CONFLICT works correctly
         ordered_fields = {"opportunity_id": opportunity_id}
         ordered_fields.update(fields)
-        ordered_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
+        
+        now_naive = datetime.utcnow()
+        ordered_fields["updated_at"] = now_naive
         if "created_at" not in ordered_fields:
-            ordered_fields["created_at"] = ordered_fields["updated_at"]
+            ordered_fields["created_at"] = now_naive
 
         # Ensure feature_payload is stored as JSON string
         if "feature_payload" in ordered_fields and isinstance(
