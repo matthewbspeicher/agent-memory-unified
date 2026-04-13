@@ -184,6 +184,8 @@ class LLMClient:
 
     Tries providers in configured order, returns first success.
     Falls back to rule-based scoring if all providers fail.
+
+    When cost_ledger is provided, filters paid providers when over budget.
     """
 
     def __init__(
@@ -199,6 +201,9 @@ class LLMClient:
         groq_model: str = "llama-3.3-70b-versatile",
         ollama_model: str = "llama3.2:3b",
         bedrock_model: str = "anthropic.claude-3-haiku-20240307-v1:0",
+        agent_name: str = "unknown",
+        cost_ledger: "CostLedger | None" = None,
+        notifier: "Notifier | None" = None,
     ) -> None:
         self._chain: list[str] = chain or [
             "anthropic",
@@ -207,6 +212,10 @@ class LLMClient:
             "ollama",
             "rule-based",
         ]
+        self._agent_name = agent_name
+        self._cost_ledger = cost_ledger
+        self._notifier = notifier
+        self._fired_alerts: set[str] = set()
 
         self.registry = ProviderRegistry()
 
@@ -257,15 +266,61 @@ class LLMClient:
         self._disabled.clear()
         logger.info("LLMClient: all providers re-enabled")
 
+    async def _record_cost(self, result: LLMResult) -> None:
+        if not self._cost_ledger:
+            return
+        if result.input_tokens is None and result.output_tokens is None:
+            return
+
+        await self._cost_ledger.record(
+            self._agent_name,
+            result.provider,
+            result.model,
+            result.input_tokens or 0,
+            result.output_tokens or 0,
+        )
+        await self._maybe_fire_alert()
+
+    async def _maybe_fire_alert(self) -> None:
+        event_type = await self._cost_ledger.check_thresholds()
+        if not event_type:
+            return
+        if event_type in self._fired_alerts:
+            return
+        self._fired_alerts.add(event_type)
+
+        from datetime import datetime, timedelta, timezone
+
+        from notifications.cost import CostAlertData, notify_cost_event
+
+        spend = await self._cost_ledger.get_global_spend()
+        budget = self._cost_ledger._config.daily_budget_cents
+        (
+            top_agent,
+            top_spend,
+            provider_breakdown,
+        ) = await self._cost_ledger.get_breakdown()
+        grace_deadline = await self._cost_ledger._get_grace_deadline()
+
+        data = CostAlertData(
+            global_spend_cents=spend,
+            budget_cents=budget,
+            percent_used=(spend / budget * 100) if budget > 0 else 0.0,
+            top_agent=top_agent,
+            top_agent_spend_cents=top_spend,
+            provider_breakdown=provider_breakdown,
+            grace_deadline=grace_deadline,
+            window_reset_at=datetime.now(timezone.utc) + timedelta(hours=24),
+        )
+        await notify_cost_event(event_type, data, self._notifier)
+
     async def complete(
         self, prompt: str, *, max_tokens: int = 200, temperature: float | None = None
     ) -> LLMResult:
-        """
-        Try each provider in chain order. Always returns a result
-        (falls back to rule-based if all fail).
-        """
+        from llm.stats import get_stats_collector
 
-        providers = self._resolve_chain()
+        providers = await self._resolve_chain()
+        collector = get_stats_collector()
 
         for provider_name in providers:
             if provider_name == "rule-based":
@@ -278,11 +333,12 @@ class LLMClient:
                 result = await provider.complete(prompt, max_tokens=max_tokens)
                 if result:
                     self._record_success(provider_name)
+                    collector.record_call(result, success=True)
+                    await self._record_cost(result)
                     return result
                 else:
                     self._record_failure(provider_name)
 
-        # All providers failed — this should not happen (rule-based always works)
         logger.error("LLMClient: all providers failed, returning empty result")
         return LLMResult(text="", provider="anthropic", model="none")
 
@@ -293,15 +349,11 @@ class LLMClient:
         *,
         max_tokens: int = 500,
     ) -> LLMResult:
-        """
-        Multi-turn chat with system prompt. Used by WhatsApp assistant.
-        Tries each provider in chain order. Returns first success.
-        """
-        providers = self._resolve_chain()
+        providers = await self._resolve_chain()
 
         for provider_name in providers:
             if provider_name == "rule-based":
-                continue  # no rule-based fallback for chat
+                continue
             if self._is_disabled(provider_name):
                 continue
 
@@ -310,11 +362,11 @@ class LLMClient:
                 result = await provider.chat(system, messages, max_tokens=max_tokens)
                 if result:
                     self._record_success(provider_name)
+                    await self._record_cost(result)
                     return result
                 else:
                     self._record_failure(provider_name)
 
-        # All providers failed
         logger.error("LLMClient.chat: all providers failed")
         return LLMResult(
             text="I'm unable to process that right now. Try a /command instead.",
@@ -567,10 +619,9 @@ class LLMClient:
         logger.error("LLMClient: no embedding provider available")
         return []
 
-    def _resolve_chain(self) -> list[str]:
+    async def _resolve_chain(self) -> list[str]:
         """Return chain filtered to available providers."""
         chain = list(self._chain)
-        # Remove providers that lack credentials (not registered)
         if "anthropic" in chain and not self.registry.get("anthropic"):
             chain.remove("anthropic")
         if "bedrock" in chain and not self.registry.get("bedrock"):
@@ -579,5 +630,8 @@ class LLMClient:
             chain.remove("groq")
         if "ollama" in chain and not self.registry.get("ollama"):
             chain.remove("ollama")
-        # rule-based is always last
-        return chain
+
+        if self._cost_ledger and await self._cost_ledger.should_block_paid():
+            chain = [p for p in chain if p in self._cost_ledger._free_providers]
+
+        return chain or ["rule-based"]

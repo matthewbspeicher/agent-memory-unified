@@ -1022,7 +1022,8 @@ async def lifespan(app: FastAPI):
 
         from api.identity.store import IdentityStore
 
-        app.state.identity_store = IdentityStore(pool=db)
+        pool = getattr(db, "_pool", db)
+        app.state.identity_store = IdentityStore(pool=pool)
         _log.info("IdentityStore initialized")
 
         # --- Knowledge Graph ---
@@ -1034,6 +1035,16 @@ async def lifespan(app: FastAPI):
         _log.info("TradingKnowledgeGraph initialized (shared db)")
 
         from llm.client import LLMClient
+        from llm.cost_ledger import CostLedger, LLMCostConfig
+
+        llm_cost_config = LLMCostConfig(
+            daily_budget_cents=config.llm.daily_budget_cents,
+            warning_threshold_pct=config.llm.warning_threshold_pct,
+            grace_period_minutes=config.llm.grace_period_minutes,
+            cost_table_override=config.llm.cost_table_override,
+        )
+        cost_ledger = CostLedger(redis=redis_client, config=llm_cost_config)
+        app.state.cost_ledger = cost_ledger
 
         llm_client = LLMClient(
             anthropic_key=config.anthropic_api_key,
@@ -1043,6 +1054,7 @@ async def lifespan(app: FastAPI):
             bedrock_model=config.bedrock_model,
             bedrock_access_key_id=config.bedrock_access_key_id,
             bedrock_secret_access_key=config.bedrock_secret_access_key,
+            cost_ledger=cost_ledger,
         )
         app.state.llm_client = llm_client
 

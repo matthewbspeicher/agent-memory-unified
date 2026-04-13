@@ -181,10 +181,25 @@ All config uses `STA_` prefix env vars. `trading/config.py` has `load_config()` 
   - `evaluator.py` — Scores predictions against realized prices
   - `weight_setter.py` — Sets on-chain weights
   - `taoshi_bridge.py` — Polls official validator's position files
+- `trading/llm/client.py` — Fallback-chain LLM client with cost tracking integration
+- `trading/llm/cost_ledger.py` — Redis-backed LLM cost tracker with 24h rolling window, per-agent spend, and budget enforcement
 - `trading/api/app.py` — FastAPI app with complex lifespan (broker connect, DB init, agent framework, bittensor setup). ~1700 lines.
 - `trading/api/routes/bittensor.py` — Status/rankings/metrics/signals endpoints
 - `trading/data/signal_bus.py` — In-memory pub/sub for agent signals
 - `trading/agents/` — Multi-strategy agent framework (13 agents in `agents.yaml`)
+
+### LLM Cost Ceiling
+
+The `CostLedger` tracks LLM spend in a 24h rolling window via Redis. When budget is exceeded:
+
+| Threshold | Behavior |
+|-----------|----------|
+| < 80% | Normal operation |
+| 80-99% | WARNING alert, proceed |
+| 100%+ (grace period) | CRITICAL alert, in-flight work completes |
+| 100%+ (grace expired) | Paid providers blocked, fallback to free (groq/ollama/rule-based) |
+
+Config via `STA_LLM_DAILY_BUDGET_CENTS`, `STA_LLM_WARNING_THRESHOLD_PCT`, `STA_LLM_GRACE_PERIOD_MINUTES`.
 
 ### Database
 

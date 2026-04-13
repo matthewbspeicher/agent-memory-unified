@@ -76,6 +76,12 @@ class LLMConfig(BaseModel):
         default_factory=lambda: ["anthropic", "bedrock", "groq", "ollama", "rule-based"]
     )
 
+    # Cost control
+    daily_budget_cents: int = 500  # $5.00/day
+    warning_threshold_pct: float = 0.80  # Alert at 80%
+    grace_period_minutes: int = 15  # After ceiling hit
+    cost_table_override: str | None = None  # JSON override
+
 
 class CompetitionConfig(BaseModel):
     """Arena competition system configuration."""
