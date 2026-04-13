@@ -1,0 +1,64 @@
+{
+  "timestamp": "2026-04-10T13:59:57.455811",
+  "total_value": 62979.0,
+  "total_cost": 49050.0,
+  "total_pnl": 13929.0,
+  "total_pnl_pct": 28.397553516819574,
+  "assets": [
+    {
+      "symbol": "BTC",
+      "amount": 0.5,
+      "price": 73108,
+      "value": 36554.0,
+      "cost": 21000.0,
+      "pnl": 15554.0,
+      "pnl_pct": 74.06666666666666,
+      "change_24h": 1.0664595743379324,
+      "allocation": 58.04156941202623
+    },
+    {
+      "symbol": "ETH",
+      "amount": 5.0,
+      "price": 2248.5,
+      "value": 11242.5,
+      "cost": 11000.0,
+      "pnl": 242.5,
+      "pnl_pct": 2.2045454545454546,
+      "change_24h": 1.1715495460467753,
+      "allocation": 17.851188491401896
+    },
+    {
+      "symbol": "USDC",
+      "amount": 10000,
+      "price": 1.0,
+      "value": 10000.0,
+      "cost": 10000.0,
+      "pnl": 0.0,
+      "pnl_pct": 0.0,
+      "change_24h": 0,
+      "allocation": 15.878308642563393
+    },
+    {
+      "symbol": "SOL",
+      "amount": 50.0,
+      "price": 84.87,
+      "value": 4243.5,
+      "cost": 4250.0,
+      "pnl": -6.5,
+      "pnl_pct": -0.15294117647058825,
+      "change_24h": 0.4347633521317301,
+      "allocation": 6.737960272471777
+    },
+    {
+      "symbol": "AVAX",
+      "amount": 100.0,
+      "price": 9.39,
+      "value": 939.0,
+      "cost": 2800.0,
+      "pnl": -1861.0,
+      "pnl_pct": -66.46428571428571,
+      "change_24h": 0.2481518424547025,
+      "allocation": 1.4909731815367027
+    }
+  ]
+}

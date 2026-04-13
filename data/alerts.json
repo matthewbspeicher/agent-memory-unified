@@ -1,0 +1,85 @@
+[
+  {
+    "id": "rsi_extreme_BTC_1775845015",
+    "timestamp": "2026-04-10T14:16:55.860521",
+    "alert_type": "rsi_extreme",
+    "severity": "medium",
+    "symbol": "BTC",
+    "message": "BTC RSI overbought at 75.0",
+    "data": {
+      "rsi": 75,
+      "level": "overbought"
+    },
+    "acknowledged": false
+  },
+  {
+    "id": "rsi_extreme_ETH_1775845015",
+    "timestamp": "2026-04-10T14:16:55.860730",
+    "alert_type": "rsi_extreme",
+    "severity": "medium",
+    "symbol": "ETH",
+    "message": "ETH RSI oversold at 25.0",
+    "data": {
+      "rsi": 25,
+      "level": "oversold"
+    },
+    "acknowledged": false
+  },
+  {
+    "id": "volume_spike_SOL_1775845015",
+    "timestamp": "2026-04-10T14:16:55.861004",
+    "alert_type": "volume_spike",
+    "severity": "medium",
+    "symbol": "SOL",
+    "message": "SOL volume 5.0x above average",
+    "data": {
+      "current_volume": 5000000,
+      "avg_volume": 1000000,
+      "multiplier": 5.0
+    },
+    "acknowledged": false
+  },
+  {
+    "id": "signal_convergence_ADA_1775845015",
+    "timestamp": "2026-04-10T14:16:55.861792",
+    "alert_type": "signal_convergence",
+    "severity": "high",
+    "symbol": "ADA",
+    "message": "ADA strong BUY convergence (4/4 signals)",
+    "data": {
+      "buy_signals": 4,
+      "sell_signals": 0,
+      "total_signals": 4,
+      "direction": "BUY"
+    },
+    "acknowledged": false
+  },
+  {
+    "id": "whale_movement_BTC_1775845015",
+    "timestamp": "2026-04-10T14:16:55.862119",
+    "alert_type": "whale_movement",
+    "severity": "high",
+    "symbol": "BTC",
+    "message": "Whale deposit: $5,000,000 BTC",
+    "data": {
+      "value_usd": 5000000,
+      "direction": "deposit"
+    },
+    "acknowledged": false
+  },
+  {
+    "id": "sentiment_shift_DOGE_1775845015",
+    "timestamp": "2026-04-10T14:16:55.862455",
+    "alert_type": "sentiment_shift",
+    "severity": "medium",
+    "symbol": "DOGE",
+    "message": "DOGE sentiment shifted bullish by 35.0 points",
+    "data": {
+      "current": 75,
+      "previous": 40,
+      "shift": 35,
+      "direction": "bullish"
+    },
+    "acknowledged": false
+  }
+]

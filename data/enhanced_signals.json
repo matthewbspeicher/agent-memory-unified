@@ -1,0 +1,589 @@
+{
+  "timestamp": "2026-04-10T14:12:49.174600",
+  "regime": "ranging",
+  "signals": [
+    {
+      "symbol": "BTC",
+      "name": "Bitcoin",
+      "price": 73028,
+      "market_cap_rank": 1,
+      "signal": "BUY",
+      "action": "BUY",
+      "confidence": 50.0,
+      "weighted_score": 60.0,
+      "components": {
+        "technical": {
+          "score": 65,
+          "signals": [
+            "Above SMA20",
+            "SMA7 > SMA20"
+          ],
+          "interpretation": "Bullish"
+        },
+        "sentiment": {
+          "score": 55,
+          "momentum": 4.508392729006026,
+          "volume_ratio": 0.026772487208198217
+        },
+        "whale": {
+          "score": 60,
+          "volume_ratio": 0.026772487208198217
+        },
+        "momentum": {
+          "score": 60,
+          "momentum": 4.130559613104932,
+          "timeframes": {
+            "1h": 0.20708940354725985,
+            "24h": 1.51552,
+            "7d": 8.997701822515063,
+            "30d": 3.1862804199856223
+          }
+        }
+      },
+      "weights_used": {
+        "technical": 0.3,
+        "sentiment": 0.3,
+        "whale": 0.25,
+        "momentum": 0.15
+      },
+      "regime": "ranging"
+    },
+    {
+      "symbol": "ETH",
+      "name": "Ethereum",
+      "price": 2245.57,
+      "market_cap_rank": 2,
+      "signal": "BUY",
+      "action": "BUY",
+      "confidence": 50.0,
+      "weighted_score": 60.0,
+      "components": {
+        "technical": {
+          "score": 65,
+          "signals": [
+            "Above SMA20",
+            "SMA7 > SMA20"
+          ],
+          "interpretation": "Bullish"
+        },
+        "sentiment": {
+          "score": 55,
+          "momentum": 4.732586457198018,
+          "volume_ratio": 0.0684995990135847
+        },
+        "whale": {
+          "score": 60,
+          "volume_ratio": 0.0684995990135847
+        },
+        "momentum": {
+          "score": 60,
+          "momentum": 5.8805369931501605,
+          "timeframes": {
+            "1h": 0.10894385578989392,
+            "24h": 1.69867,
+            "7d": 9.283461142995044,
+            "30d": 8.583344215575526
+          }
+        }
+      },
+      "weights_used": {
+        "technical": 0.3,
+        "sentiment": 0.3,
+        "whale": 0.25,
+        "momentum": 0.15
+      },
+      "regime": "ranging"
+    },
+    {
+      "symbol": "USDT",
+      "name": "Tether",
+      "price": 1.0,
+      "market_cap_rank": 3,
+      "signal": "BUY",
+      "action": "BUY",
+      "confidence": 53.0,
+      "weighted_score": 63.0,
+      "components": {
+        "technical": {
+          "score": 45,
+          "signals": [
+            "Below SMA20",
+            "SMA7 > SMA20"
+          ],
+          "interpretation": "Neutral"
+        },
+        "sentiment": {
+          "score": 65,
+          "momentum": 0.021731957388536494,
+          "volume_ratio": 0.34180498258019176
+        },
+        "whale": {
+          "score": 90,
+          "volume_ratio": 0.34180498258019176
+        },
+        "momentum": {
+          "score": 50,
+          "momentum": 0.019018729016786032,
+          "timeframes": {
+            "1h": 0.004568740611089121,
+            "24h": 0.01194,
+            "7d": 0.03641989347134124,
+            "30d": 0.01351295638091583
+          }
+        }
+      },
+      "weights_used": {
+        "technical": 0.3,
+        "sentiment": 0.3,
+        "whale": 0.25,
+        "momentum": 0.15
+      },
+      "regime": "ranging"
+    },
+    {
+      "symbol": "XRP",
+      "name": "XRP",
+      "price": 1.35,
+      "market_cap_rank": 4,
+      "signal": "NEUTRAL",
+      "action": "HOLD",
+      "confidence": 40,
+      "weighted_score": 58.5,
+      "components": {
+        "technical": {
+          "score": 65,
+          "signals": [
+            "Above SMA20",
+            "SMA7 > SMA20"
+          ],
+          "interpretation": "Bullish"
+        },
+        "sentiment": {
+          "score": 55,
+          "momentum": 1.070772641088141,
+          "volume_ratio": 0.022414697801670217
+        },
+        "whale": {
+          "score": 60,
+          "volume_ratio": 0.022414697801670217
+        },
+        "momentum": {
+          "score": 50,
+          "momentum": 0.0900411483249638,
+          "timeframes": {
+            "1h": 0.15009922214480723,
+            "24h": 0.10398,
+            "7d": 2.520961602720353,
+            "30d": -2.37483751568541
+          }
+        }
+      },
+      "weights_used": {
+        "technical": 0.3,
+        "sentiment": 0.3,
+        "whale": 0.25,
+        "momentum": 0.15
+      },
+      "regime": "ranging"
+    },
+    {
+      "symbol": "BNB",
+      "name": "BNB",
+      "price": 607.48,
+      "market_cap_rank": 5,
+      "signal": "NEUTRAL",
+      "action": "HOLD",
+      "confidence": 40,
+      "weighted_score": 58.5,
+      "components": {
+        "technical": {
+          "score": 65,
+          "signals": [
+            "Above SMA20",
+            "SMA7 > SMA20"
+          ],
+          "interpretation": "Bullish"
+        },
+        "sentiment": {
+          "score": 55,
+          "momentum": 1.3945519058760552,
+          "volume_ratio": 0.012249910993912583
+        },
+        "whale": {
+          "score": 60,
+          "volume_ratio": 0.012249910993912583
+        },
+        "momentum": {
+          "score": 50,
+          "momentum": -0.8403211635033174,
+          "timeframes": {
+            "1h": 0.27708639767340926,
+            "24h": 0.15149,
+            "7d": 3.2591447646901375,
+            "30d": -6.304067442258998
+          }
+        }
+      },
+      "weights_used": {
+        "technical": 0.3,
+        "sentiment": 0.3,
+        "whale": 0.25,
+        "momentum": 0.15
+      },
+      "regime": "ranging"
+    },
+    {
+      "symbol": "USDC",
+      "name": "USDC",
+      "price": 0.999738,
+      "market_cap_rank": 6,
+      "signal": "SELL",
+      "action": "SELL",
+      "confidence": 55.5,
+      "weighted_score": 39.5,
+      "components": {
+        "technical": {
+          "score": 35,
+          "signals": [
+            "Below SMA20",
+            "SMA7 < SMA20"
+          ],
+          "interpretation": "Bearish"
+        },
+        "sentiment": {
+          "score": 55,
+          "momentum": -0.028370840287446856,
+          "volume_ratio": 0.17121852665814888
+        },
+        "whale": {
+          "score": 20,
+          "volume_ratio": 0.17121852665814888
+        },
+        "momentum": {
+          "score": 50,
+          "momentum": -0.025879179125353244,
+          "timeframes": {
+            "1h": -0.021981150438406795,
+            "24h": -0.01842,
+            "7d": -0.04329710071861714,
+            "30d": -0.017219779553091407
+          }
+        }
+      },
+      "weights_used": {
+        "technical": 0.3,
+        "sentiment": 0.3,
+        "whale": 0.25,
+        "momentum": 0.15
+      },
+      "regime": "ranging"
+    },
+    {
+      "symbol": "SOL",
+      "name": "Solana",
+      "price": 84.82,
+      "market_cap_rank": 7,
+      "signal": "NEUTRAL",
+      "action": "HOLD",
+      "confidence": 40,
+      "weighted_score": 56.0,
+      "components": {
+        "technical": {
+          "score": 65,
+          "signals": [
+            "Above SMA20",
+            "SMA7 > SMA20"
+          ],
+          "interpretation": "Bullish"
+        },
+        "sentiment": {
+          "score": 55,
+          "momentum": 2.5256265742452775,
+          "volume_ratio": 0.07412016671199043
+        },
+        "whale": {
+          "score": 50,
+          "volume_ratio": 0.07412016671199043
+        },
+        "momentum": {
+          "score": 50,
+          "momentum": 1.242465331070338,
+          "timeframes": {
+            "1h": 0.08765831642804171,
+            "24h": 0.67121,
+            "7d": 5.3072514356131935,
+            "30d": -1.8661297708547468
+          }
+        }
+      },
+      "weights_used": {
+        "technical": 0.3,
+        "sentiment": 0.3,
+        "whale": 0.25,
+        "momentum": 0.15
+      },
+      "regime": "ranging"
+    },
+    {
+      "symbol": "STETH",
+      "name": "Lido Staked Ether",
+      "price": 2243.28,
+      "market_cap_rank": null,
+      "signal": "NEUTRAL",
+      "action": "HOLD",
+      "confidence": 40,
+      "weighted_score": 56.0,
+      "components": {
+        "technical": {
+          "score": 65,
+          "signals": [
+            "Above SMA20",
+            "SMA7 > SMA20"
+          ],
+          "interpretation": "Bullish"
+        },
+        "sentiment": {
+          "score": 50,
+          "momentum": 4.619363580919488,
+          "volume_ratio": 0.0006450537290121437
+        },
+        "whale": {
+          "score": 50,
+          "volume_ratio": 0.0006450537290121437
+        },
+        "momentum": {
+          "score": 60,
+          "momentum": 5.7873151868446895,
+          "timeframes": {
+            "1h": -0.018540285009051534,
+            "24h": 1.57013,
+            "7d": 9.193213952298722,
+            "30d": 8.533886765519927
+          }
+        }
+      },
+      "weights_used": {
+        "technical": 0.3,
+        "sentiment": 0.3,
+        "whale": 0.25,
+        "momentum": 0.15
+      },
+      "regime": "ranging"
+    },
+    {
+      "symbol": "DOGE",
+      "name": "Dogecoin",
+      "price": 0.093673,
+      "market_cap_rank": 10,
+      "signal": "NEUTRAL",
+      "action": "HOLD",
+      "confidence": 40,
+      "weighted_score": 59.8,
+      "components": {
+        "technical": {
+          "score": 65,
+          "signals": [
+            "Above SMA20",
+            "SMA7 > SMA20"
+          ],
+          "interpretation": "Bullish"
+        },
+        "sentiment": {
+          "score": 55,
+          "momentum": 0.9958658705935528,
+          "volume_ratio": 0.08485954141895602
+        },
+        "whale": {
+          "score": 65,
+          "volume_ratio": 0.08485954141895602
+        },
+        "momentum": {
+          "score": 50,
+          "momentum": 0.6366508798452959,
+          "timeframes": {
+            "1h": -0.256162402460189,
+            "24h": 0.39852,
+            "7d": 1.891884676483882,
+            "30d": -0.08284760951283246
+          }
+        }
+      },
+      "weights_used": {
+        "technical": 0.3,
+        "sentiment": 0.3,
+        "whale": 0.25,
+        "momentum": 0.15
+      },
+      "regime": "ranging"
+    },
+    {
+      "symbol": "ADA",
+      "name": "Cardano",
+      "price": 0.254663,
+      "market_cap_rank": 14,
+      "signal": "NEUTRAL",
+      "action": "HOLD",
+      "confidence": 40,
+      "weighted_score": 56.0,
+      "components": {
+        "technical": {
+          "score": 65,
+          "signals": [
+            "Above SMA20",
+            "SMA7 > SMA20"
+          ],
+          "interpretation": "Bullish"
+        },
+        "sentiment": {
+          "score": 55,
+          "momentum": 0.9764393805972371,
+          "volume_ratio": 0.03910122628879865
+        },
+        "whale": {
+          "score": 50,
+          "volume_ratio": 0.03910122628879865
+        },
+        "momentum": {
+          "score": 50,
+          "momentum": -0.29338381647117917,
+          "timeframes": {
+            "1h": -0.1113328652439201,
+            "24h": -0.08467,
+            "7d": 2.5681034514930925,
+            "30d": -3.424268551315716
+          }
+        }
+      },
+      "weights_used": {
+        "technical": 0.3,
+        "sentiment": 0.3,
+        "whale": 0.25,
+        "momentum": 0.15
+      },
+      "regime": "ranging"
+    }
+  ],
+  "correlations": {
+    "BTC": {
+      "BTC": 1.0,
+      "ETH": 1.0,
+      "USDT": 1.0,
+      "XRP": 1.0,
+      "BNB": 1.0,
+      "USDC": -1.0,
+      "SOL": 1.0,
+      "STETH": 1.0,
+      "DOGE": 1.0,
+      "ADA": 1.0
+    },
+    "ETH": {
+      "BTC": 1.0,
+      "ETH": 1.0,
+      "USDT": 1.0,
+      "XRP": 1.0,
+      "BNB": 1.0,
+      "USDC": -1.0,
+      "SOL": 1.0,
+      "STETH": 1.0,
+      "DOGE": 1.0,
+      "ADA": 1.0
+    },
+    "USDT": {
+      "BTC": 1.0,
+      "ETH": 1.0,
+      "USDT": 1.0,
+      "XRP": 1.0,
+      "BNB": 1.0,
+      "USDC": -1.0,
+      "SOL": 1.0,
+      "STETH": 1.0,
+      "DOGE": 1.0,
+      "ADA": 1.0
+    },
+    "XRP": {
+      "BTC": 1.0,
+      "ETH": 1.0,
+      "USDT": 1.0,
+      "XRP": 1.0,
+      "BNB": 1.0,
+      "USDC": -1.0,
+      "SOL": 1.0,
+      "STETH": 1.0,
+      "DOGE": 1.0,
+      "ADA": 1.0
+    },
+    "BNB": {
+      "BTC": 1.0,
+      "ETH": 1.0,
+      "USDT": 1.0,
+      "XRP": 1.0,
+      "BNB": 1.0,
+      "USDC": -1.0,
+      "SOL": 1.0,
+      "STETH": 1.0,
+      "DOGE": 1.0,
+      "ADA": 1.0
+    },
+    "USDC": {
+      "BTC": -1.0,
+      "ETH": -1.0,
+      "USDT": -1.0,
+      "XRP": -1.0,
+      "BNB": -1.0,
+      "USDC": 1.0,
+      "SOL": -1.0,
+      "STETH": -1.0,
+      "DOGE": -1.0,
+      "ADA": -1.0
+    },
+    "SOL": {
+      "BTC": 1.0,
+      "ETH": 1.0,
+      "USDT": 1.0,
+      "XRP": 1.0,
+      "BNB": 1.0,
+      "USDC": -1.0,
+      "SOL": 1.0,
+      "STETH": 1.0,
+      "DOGE": 1.0,
+      "ADA": 1.0
+    },
+    "STETH": {
+      "BTC": 1.0,
+      "ETH": 1.0,
+      "USDT": 1.0,
+      "XRP": 1.0,
+      "BNB": 1.0,
+      "USDC": -1.0,
+      "SOL": 1.0,
+      "STETH": 1.0,
+      "DOGE": 1.0,
+      "ADA": 1.0
+    },
+    "DOGE": {
+      "BTC": 1.0,
+      "ETH": 1.0,
+      "USDT": 1.0,
+      "XRP": 1.0,
+      "BNB": 1.0,
+      "USDC": -1.0,
+      "SOL": 1.0,
+      "STETH": 1.0,
+      "DOGE": 1.0,
+      "ADA": 1.0
+    },
+    "ADA": {
+      "BTC": 1.0,
+      "ETH": 1.0,
+      "USDT": 1.0,
+      "XRP": 1.0,
+      "BNB": 1.0,
+      "USDC": -1.0,
+      "SOL": 1.0,
+      "STETH": 1.0,
+      "DOGE": 1.0,
+      "ADA": 1.0
+    }
+  },
+  "dashboard": "================================================================================\nENHANCED INTEGRATED SIGNAL DASHBOARD\nGenerated: 2026-04-10 14:12:49\nMarket Regime: RANGING\n================================================================================\n\n\ud83c\udfaf STRONG SIGNALS (Confidence > 70%)\n--------------------------------------------------------------------------------\nNo strong signals at this time\n\n\ud83d\udcca ALL ASSETS ANALYSIS\n--------------------------------------------------------------------------------\nSymbol   Signal       Conf%    Score    Tech   Sent   Whale  Mom             Price\n--------------------------------------------------------------------------------\n\ud83d\udfe2BTC     BUY           50.0%   60.0    65    55    60    60  $    73,028.00\n\ud83d\udfe2ETH     BUY           50.0%   60.0    65    55    60    60  $     2,245.57\n\ud83d\udfe2USDT    BUY           53.0%   63.0    45    65    90    50  $         1.00\n\u26aaXRP     NEUTRAL       40.0%   58.5    65    55    60    50  $         1.35\n\u26aaBNB     NEUTRAL       40.0%   58.5    65    55    60    50  $       607.48\n\ud83d\udd34USDC    SELL          55.5%   39.5    35    55    20    50  $         1.00\n\u26aaSOL     NEUTRAL       40.0%   56.0    65    55    50    50  $        84.82\n\u26aaDOGE    NEUTRAL       40.0%   59.8    65    55    65    50  $         0.09\n\u26aaADA     NEUTRAL       40.0%   56.0    65    55    50    50  $         0.25\n\u26aaSTETH   NEUTRAL       40.0%   56.0    65    50    50    60  $     2,243.28\n\n\ud83d\udcc8 SUMMARY STATISTICS\n--------------------------------------------------------------------------------\nTotal Assets Analyzed: 10\nBuy Signals: 3 (30%)\nSell Signals: 1 (10%)\nNeutral Signals: 6 (60%)\nAverage Confidence: 44.9%\n\n\ud83c\udfc6 TOP 3 OPPORTUNITIES\n--------------------------------------------------------------------------------\n1. USDT: BUY (Confidence: 53.0%, Score: 63.0)\n2. BTC: BUY (Confidence: 50.0%, Score: 60.0)\n3. ETH: BUY (Confidence: 50.0%, Score: 60.0)\n\n\u26a0\ufe0f  RISK ASSESSMENT\n--------------------------------------------------------------------------------\n\n\ud83d\udd17 CORRELATION INSIGHTS\n--------------------------------------------------------------------------------\nHighly Correlated Pairs (>0.8):\n  BTC-ETH: 1.00\n  BTC-USDT: 1.00\n  BTC-XRP: 1.00\n  BTC-BNB: 1.00\n  BTC-USDC: -1.00\n\n\u2699\ufe0f  OPTIMIZED WEIGHTS (Regime: RANGING)\n--------------------------------------------------------------------------------\nTechnical Analysis: 30%\nMarket Sentiment:   30%\nWhale Activity:     25%\nPrice Momentum:     15%\n\n================================================================================\nDISCLAIMER: This is for educational purposes only, not financial advice.\n================================================================================"
+}

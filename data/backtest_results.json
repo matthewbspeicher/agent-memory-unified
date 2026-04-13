@@ -1,0 +1,27 @@
+{
+  "timestamp": "2026-04-10T14:17:35.348183",
+  "symbols_tested": [
+    "BTC",
+    "ETH",
+    "SOL"
+  ],
+  "metrics": {
+    "initial_capital": 100000,
+    "final_value": 121465.49974887866,
+    "total_return_pct": 21.46549974887866,
+    "total_trades": 41,
+    "winning_trades": 14,
+    "losing_trades": 0,
+    "win_rate": 34.146341463414636,
+    "max_drawdown": 53.500555938002506,
+    "sharpe_ratio": 1.3515807712190329,
+    "volatility": 14.284955140360955,
+    "avg_trade_return": 16166.01554539439
+  },
+  "optimal_weights": {
+    "technical": 0.3,
+    "sentiment": 0.25,
+    "whale": 0.2,
+    "momentum": 0.25
+  }
+}

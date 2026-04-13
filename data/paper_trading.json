@@ -1,0 +1,23 @@
+{
+  "timestamp": "2026-04-10T14:13:14.203197",
+  "initial_capital": 100000.0,
+  "cash": 89389.4,
+  "positions_value": 10600.0,
+  "total_value": 99989.4,
+  "total_pnl": 0.0,
+  "total_return_pct": -0.010600000000005822,
+  "total_trades": 0,
+  "winning_trades": 0,
+  "losing_trades": 0,
+  "win_rate": 0.0,
+  "open_positions": 1,
+  "positions": {
+    "USDT": {
+      "quantity": 10600.0,
+      "avg_entry": 1.0,
+      "current_price": 1.0,
+      "unrealized_pnl": 0.0,
+      "unrealized_pnl_pct": 0.0
+    }
+  }
+}

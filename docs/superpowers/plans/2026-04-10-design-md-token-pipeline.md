@@ -1,6 +1,6 @@
 # DESIGN.md Token Pipeline — Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Build a build-time DESIGN.md → CSS variables + Tailwind tokens pipeline for `frontend/`, with an Obsidian Neural placeholder, so that when opencode's canonical brand DESIGN.md lands, a single `npm run design:build` re-themes the project's brand-aware surfaces.
 
@@ -59,7 +59,7 @@ At the end of this section, `tailwind.config.js` and `src/index.css` are **uncha
 - Create: `frontend/design/DESIGN.md`
 - Create: `frontend/design/schema.md`
 
-- [ ] **Step 1: Create `frontend/design/DESIGN.md`** with the full Obsidian Neural placeholder content
+- [x] **Step 1: Create `frontend/design/DESIGN.md`** with the full Obsidian Neural placeholder content
 
 ```markdown
 # Obsidian Neural — DESIGN.md
@@ -152,7 +152,7 @@ When asked to build a new page in this project:
 6. Respect the rarity-tier carve-out — do not touch `rarity.css` when re-theming.
 ```
 
-- [ ] **Step 2: Create `frontend/design/schema.md`** documenting the strict parser grammar
+- [x] **Step 2: Create `frontend/design/schema.md`** documenting the strict parser grammar
 
 ```markdown
 # DESIGN.md Parser Schema (strict mode v1)
@@ -234,7 +234,7 @@ All errors include the source line number and a pointer to the failing row:
 Sections 1, 4, 5, 7, 8, 9 (Visual Theme, Component Stylings, Layout, Do's/Don'ts, Responsive, Agent Prompt Guide) are ignored by the parser. They exist for humans and for the `design-bridge` agent.
 ```
 
-- [ ] **Step 3: Verify both files were written correctly**
+- [x] **Step 3: Verify both files were written correctly**
 
 ```bash
 ls -la frontend/design/DESIGN.md frontend/design/schema.md
@@ -244,7 +244,7 @@ grep -c '^##' frontend/design/DESIGN.md    # expect: 9
 
 Expected: both files exist; DESIGN.md has 9 `##` headings.
 
-- [ ] **Step 4: Do not commit yet** — commit happens at the end of Task 8 when the full Commit 1 payload is staged together.
+- [x] **Step 4: Do not commit yet** — commit happens at the end of Task 8 when the full Commit 1 payload is staged together.
 
 ---
 
@@ -255,7 +255,7 @@ Expected: both files exist; DESIGN.md has 9 `##` headings.
 - Create: `frontend/design/build-tokens.test.mjs`
 - Create: `frontend/design/fixtures/minimal-valid.md`
 
-- [ ] **Step 1: Create the minimal-valid fixture** — a DESIGN.md with only the required tables, used by multiple tests
+- [x] **Step 1: Create the minimal-valid fixture** — a DESIGN.md with only the required tables, used by multiple tests
 
 ```markdown
 # Test Fixture
@@ -301,7 +301,7 @@ Expected: both files exist; DESIGN.md has 9 `##` headings.
 | shadow.glow.success | 0 0 20px rgba(16,185,129,0.15)     |
 ```
 
-- [ ] **Step 2: Write the failing test** — create `frontend/design/build-tokens.test.mjs`
+- [x] **Step 2: Write the failing test** — create `frontend/design/build-tokens.test.mjs`
 
 ```js
 import { test } from 'node:test';
@@ -324,7 +324,7 @@ test('parseDesignMd: happy path — returns the 17 color roles with hex values',
 });
 ```
 
-- [ ] **Step 3: Run the test and verify it fails**
+- [x] **Step 3: Run the test and verify it fails**
 
 ```bash
 cd frontend && node --test design/build-tokens.test.mjs
@@ -332,7 +332,7 @@ cd frontend && node --test design/build-tokens.test.mjs
 
 Expected: FAIL with `Cannot find module './build-tokens.mjs'` or similar.
 
-- [ ] **Step 4: Create `frontend/design/build-tokens.mjs`** with the minimal parser to make the happy-path test pass
+- [x] **Step 4: Create `frontend/design/build-tokens.mjs`** with the minimal parser to make the happy-path test pass
 
 ```js
 // frontend/design/build-tokens.mjs
@@ -448,7 +448,7 @@ function escapeRe(str) {
 }
 ```
 
-- [ ] **Step 5: Run the test and verify it passes**
+- [x] **Step 5: Run the test and verify it passes**
 
 ```bash
 cd frontend && node --test design/build-tokens.test.mjs
@@ -456,7 +456,7 @@ cd frontend && node --test design/build-tokens.test.mjs
 
 Expected: PASS (1 test passed).
 
-- [ ] **Step 6: Do not commit yet** — Commit 1 is staged at the end of Task 8.
+- [x] **Step 6: Do not commit yet** — Commit 1 is staged at the end of Task 8.
 
 ---
 
@@ -466,7 +466,7 @@ Expected: PASS (1 test passed).
 - Modify: `frontend/design/build-tokens.mjs`
 - Modify: `frontend/design/build-tokens.test.mjs`
 
-- [ ] **Step 1: Add failing tests for typography and elevation**
+- [x] **Step 1: Add failing tests for typography and elevation**
 
 Append to `frontend/design/build-tokens.test.mjs`:
 
@@ -490,7 +490,7 @@ test('parseDesignMd: elevation — radius, card shadow, 4 glow shadows', async (
 });
 ```
 
-- [ ] **Step 2: Run the tests and verify the new ones fail**
+- [x] **Step 2: Run the tests and verify the new ones fail**
 
 ```bash
 cd frontend && node --test design/build-tokens.test.mjs
@@ -498,7 +498,7 @@ cd frontend && node --test design/build-tokens.test.mjs
 
 Expected: 1 pass (color) + 2 fails (typography, elevation).
 
-- [ ] **Step 3: Implement typography and elevation parsing in `build-tokens.mjs`**
+- [x] **Step 3: Implement typography and elevation parsing in `build-tokens.mjs`**
 
 Add to the top-level constants:
 
@@ -567,7 +567,7 @@ export async function parseDesignMd(path) {
 }
 ```
 
-- [ ] **Step 4: Run the tests and verify all three pass**
+- [x] **Step 4: Run the tests and verify all three pass**
 
 ```bash
 cd frontend && node --test design/build-tokens.test.mjs
@@ -585,7 +585,7 @@ Expected: 3 passes.
 - Create: `frontend/design/fixtures/bad-hex.md`
 - Create: `frontend/design/fixtures/wrong-columns.md`
 
-- [ ] **Step 1: Create the `missing-section.md` fixture** — copy of minimal-valid.md with the Color Palette section removed (delete the `## Color Palette & Roles` heading and its table rows). Start the file with `# Test` and go straight to `## Typography Rules`.
+- [x] **Step 1: Create the `missing-section.md` fixture** — copy of minimal-valid.md with the Color Palette section removed (delete the `## Color Palette & Roles` heading and its table rows). Start the file with `# Test` and go straight to `## Typography Rules`.
 
 ```markdown
 # Test Fixture — missing Color Palette
@@ -609,11 +609,11 @@ Expected: 3 passes.
 | shadow.glow.success | 0 0 20px rgba(16,185,129,0.15)     |
 ```
 
-- [ ] **Step 2: Create the `bad-hex.md` fixture** — copy of `minimal-valid.md` but with one color row set to `| accent.primary   | #XYZ    | t     |`.
+- [x] **Step 2: Create the `bad-hex.md` fixture** — copy of `minimal-valid.md` but with one color row set to `| accent.primary   | #XYZ    | t     |`.
 
 Use the same file structure as `minimal-valid.md` but replace the `accent.primary` row's hex with `#XYZ`.
 
-- [ ] **Step 3: Create the `wrong-columns.md` fixture** — copy of `minimal-valid.md` but delete the `Notes` column from the `## Color Palette & Roles` header and from one data row (leaving 2 columns in the header, 3 in most rows — this will fail on the row that has 3 when the header has 2).
+- [x] **Step 3: Create the `wrong-columns.md` fixture** — copy of `minimal-valid.md` but delete the `Notes` column from the `## Color Palette & Roles` header and from one data row (leaving 2 columns in the header, 3 in most rows — this will fail on the row that has 3 when the header has 2).
 
 Header becomes:
 
@@ -623,7 +623,7 @@ Header becomes:
 | bg.base          | #000000 | t     |
 ```
 
-- [ ] **Step 4: Add failing tests for error cases**
+- [x] **Step 4: Add failing tests for error cases**
 
 Append to `build-tokens.test.mjs`:
 
@@ -654,7 +654,7 @@ test('parseDesignMd: throws on wrong column count', async () => {
 });
 ```
 
-- [ ] **Step 5: Run the tests and verify they pass**
+- [x] **Step 5: Run the tests and verify they pass**
 
 ```bash
 cd frontend && node --test design/build-tokens.test.mjs
@@ -670,7 +670,7 @@ Expected: 6 passes. The error-handling paths in the parser were already implemen
 - Modify: `frontend/design/build-tokens.mjs`
 - Modify: `frontend/design/build-tokens.test.mjs`
 
-- [ ] **Step 1: Add failing tests for the generator functions**
+- [x] **Step 1: Add failing tests for the generator functions**
 
 Append to `build-tokens.test.mjs`:
 
@@ -715,7 +715,7 @@ test('generateTailwindJs: exports designTokens object with semantic + legacy col
 });
 ```
 
-- [ ] **Step 2: Run tests and verify the new ones fail**
+- [x] **Step 2: Run tests and verify the new ones fail**
 
 ```bash
 cd frontend && node --test design/build-tokens.test.mjs
@@ -723,7 +723,7 @@ cd frontend && node --test design/build-tokens.test.mjs
 
 Expected: 6 passes + 2 fails (`generateCss is not a function`, `generateTailwindJs is not a function`).
 
-- [ ] **Step 3: Implement `generateCss` and `generateTailwindJs` in `build-tokens.mjs`**
+- [x] **Step 3: Implement `generateCss` and `generateTailwindJs` in `build-tokens.mjs`**
 
 Add to `build-tokens.mjs`:
 
@@ -805,7 +805,7 @@ export function generateTailwindJs(tokens) {
 }
 ```
 
-- [ ] **Step 4: Run tests and verify all 8 pass**
+- [x] **Step 4: Run tests and verify all 8 pass**
 
 ```bash
 cd frontend && node --test design/build-tokens.test.mjs
@@ -821,7 +821,7 @@ Expected: 8 passes.
 - Modify: `frontend/design/build-tokens.mjs`
 - Modify: `frontend/design/build-tokens.test.mjs`
 
-- [ ] **Step 1: Add failing tests for `buildTokens` (write mode) and `checkTokens` (dry-run mode)**
+- [x] **Step 1: Add failing tests for `buildTokens` (write mode) and `checkTokens` (dry-run mode)**
 
 Append to `build-tokens.test.mjs`:
 
@@ -900,7 +900,7 @@ test('checkTokens: returns {ok: false, diff} when CSS is stale', async () => {
 });
 ```
 
-- [ ] **Step 2: Run tests and verify the new ones fail**
+- [x] **Step 2: Run tests and verify the new ones fail**
 
 ```bash
 cd frontend && node --test design/build-tokens.test.mjs
@@ -908,7 +908,7 @@ cd frontend && node --test design/build-tokens.test.mjs
 
 Expected: 8 passes + 4 fails (`buildTokens is not a function`, etc.).
 
-- [ ] **Step 3: Implement `buildTokens`, `checkTokens`, and the CLI entry point in `build-tokens.mjs`**
+- [x] **Step 3: Implement `buildTokens`, `checkTokens`, and the CLI entry point in `build-tokens.mjs`**
 
 Append to `build-tokens.mjs`:
 
@@ -1005,7 +1005,7 @@ if (isMain) {
 }
 ```
 
-- [ ] **Step 4: Run tests and verify all 12 pass**
+- [x] **Step 4: Run tests and verify all 12 pass**
 
 ```bash
 cd frontend && node --test design/build-tokens.test.mjs
@@ -1013,7 +1013,7 @@ cd frontend && node --test design/build-tokens.test.mjs
 
 Expected: 12 passes.
 
-- [ ] **Step 5: Run the CLI directly against the real placeholder to sanity-check**
+- [x] **Step 5: Run the CLI directly against the real placeholder to sanity-check**
 
 ```bash
 cd frontend && node design/build-tokens.mjs
@@ -1021,7 +1021,7 @@ cd frontend && node design/build-tokens.mjs
 
 Expected: writes `src/styles/tokens.generated.css` and `tailwind.tokens.generated.js` (first run). Prints `design:build wrote tokens.generated.css, tailwind.tokens.generated.js`.
 
-- [ ] **Step 6: Run it a second time — confirm idempotent no-op**
+- [x] **Step 6: Run it a second time — confirm idempotent no-op**
 
 ```bash
 cd frontend && node design/build-tokens.mjs
@@ -1029,7 +1029,7 @@ cd frontend && node design/build-tokens.mjs
 
 Expected: `design:build no-op`.
 
-- [ ] **Step 7: Run `--check` against the fresh state**
+- [x] **Step 7: Run `--check` against the fresh state**
 
 ```bash
 cd frontend && node design/build-tokens.mjs --check
@@ -1046,7 +1046,7 @@ Expected: `design:check ok`, exit 0.
 - Create: `frontend/design/fixtures/all-red.md`
 - Create: `frontend/tests/visual/design-tokens.spec.ts`
 
-- [ ] **Step 1: Create the `all-red.md` fixture** — a DESIGN.md where every color role is a distinct red-family hex, so the swap test can verify tokens rotated through the pipeline correctly
+- [x] **Step 1: Create the `all-red.md` fixture** — a DESIGN.md where every color role is a distinct red-family hex, so the swap test can verify tokens rotated through the pipeline correctly
 
 Copy the `minimal-valid.md` structure, then set every color row:
 
@@ -1072,7 +1072,7 @@ Copy the `minimal-valid.md` structure, then set every color row:
 
 Keep typography and elevation identical to `minimal-valid.md`.
 
-- [ ] **Step 2: Write the swap test**
+- [x] **Step 2: Write the swap test**
 
 ```js
 // frontend/design/build-tokens.swap.test.mjs
@@ -1124,7 +1124,7 @@ test('swap: red fixture produces only red hex values; none of minimal survive', 
 });
 ```
 
-- [ ] **Step 3: Run the swap test and verify it passes**
+- [x] **Step 3: Run the swap test and verify it passes**
 
 ```bash
 cd frontend && node --test design/build-tokens.swap.test.mjs
@@ -1132,7 +1132,7 @@ cd frontend && node --test design/build-tokens.swap.test.mjs
 
 Expected: 1 pass.
 
-- [ ] **Step 4: Run both test files together to verify the combined suite**
+- [x] **Step 4: Run both test files together to verify the combined suite**
 
 ```bash
 cd frontend && node --test design/build-tokens.test.mjs design/build-tokens.swap.test.mjs
@@ -1140,7 +1140,7 @@ cd frontend && node --test design/build-tokens.test.mjs design/build-tokens.swap
 
 Expected: 13 passes total (12 from build-tokens.test.mjs + 1 from swap).
 
-- [ ] **Step 5: Create the Playwright visual baseline spec**
+- [x] **Step 5: Create the Playwright visual baseline spec**
 
 Create `frontend/tests/visual/design-tokens.spec.ts`:
 
@@ -1179,7 +1179,7 @@ for (const { name, path } of ROUTES) {
 }
 ```
 
-- [ ] **Step 6: Start the dev server so Playwright can hit it**
+- [x] **Step 6: Start the dev server so Playwright can hit it**
 
 ```bash
 cd frontend && npm run dev &
@@ -1189,7 +1189,7 @@ curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3000
 
 Expected: `200`.
 
-- [ ] **Step 7: Capture baselines (first run always fails — it's recording)**
+- [x] **Step 7: Capture baselines (first run always fails — it's recording)**
 
 ```bash
 cd frontend && npx playwright test tests/visual/design-tokens.spec.ts --update-snapshots
@@ -1197,7 +1197,7 @@ cd frontend && npx playwright test tests/visual/design-tokens.spec.ts --update-s
 
 Expected: 5 baseline PNGs written under `frontend/tests/visual/design-tokens.spec.ts-snapshots/`.
 
-- [ ] **Step 8: Run the spec a second time to confirm baselines are stable**
+- [x] **Step 8: Run the spec a second time to confirm baselines are stable**
 
 ```bash
 cd frontend && npx playwright test tests/visual/design-tokens.spec.ts
@@ -1205,7 +1205,7 @@ cd frontend && npx playwright test tests/visual/design-tokens.spec.ts
 
 Expected: 5 passes.
 
-- [ ] **Step 9: Stop the dev server**
+- [x] **Step 9: Stop the dev server**
 
 ```bash
 pkill -f 'vite.*3000' || true
@@ -1218,7 +1218,7 @@ pkill -f 'vite.*3000' || true
 **Files:**
 - Create: `frontend/design/README.md`
 
-- [ ] **Step 1: Write `frontend/design/README.md`**
+- [x] **Step 1: Write `frontend/design/README.md`**
 
 ```markdown
 # frontend/design
@@ -1275,7 +1275,7 @@ It is intentionally NOT driven by `DESIGN.md`. Legendary should always feel gold
 and epic should always feel purple regardless of the current brand.
 ```
 
-- [ ] **Step 2: Verify the full set of Commit 1 files is in place**
+- [x] **Step 2: Verify the full set of Commit 1 files is in place**
 
 ```bash
 cd /opt/agent-memory-unified
@@ -1293,7 +1293,7 @@ find frontend/tests/visual/design-tokens.spec.ts-snapshots -type f
 
 Expected: all listed files present; 5 PNG snapshots present.
 
-- [ ] **Step 3: Re-run the full parser test suite one more time**
+- [x] **Step 3: Re-run the full parser test suite one more time**
 
 ```bash
 cd frontend && node --test design/build-tokens.test.mjs design/build-tokens.swap.test.mjs
@@ -1301,7 +1301,7 @@ cd frontend && node --test design/build-tokens.test.mjs design/build-tokens.swap
 
 Expected: 13 passes.
 
-- [ ] **Step 4: Verify site still renders unchanged** — start dev server, visit `/`, confirm no console errors
+- [x] **Step 4: Verify site still renders unchanged** — start dev server, visit `/`, confirm no console errors
 
 ```bash
 cd frontend && npm run dev &
@@ -1312,7 +1312,7 @@ pkill -f 'vite.*3000' || true
 
 Expected: `200`. At this point `tailwind.config.js` and `src/index.css` are still unchanged, so the site is visually identical.
 
-- [ ] **Step 5: Stage and commit**
+- [x] **Step 5: Stage and commit**
 
 ```bash
 cd /opt/agent-memory-unified
@@ -1372,7 +1372,7 @@ At the end of this section, `tailwind.config.js` imports the generated module, `
 **Files:**
 - Modify: `frontend/tailwind.config.js`
 
-- [ ] **Step 1: Read the current file to confirm its exact shape**
+- [x] **Step 1: Read the current file to confirm its exact shape**
 
 ```bash
 cd /opt/agent-memory-unified && cat frontend/tailwind.config.js
@@ -1380,7 +1380,7 @@ cd /opt/agent-memory-unified && cat frontend/tailwind.config.js
 
 Expected: the 22-line config with inline `obsidian`, `indigo-glow`, `rose-glow`, `emerald-glow` color definitions.
 
-- [ ] **Step 2: Rewrite `frontend/tailwind.config.js`**
+- [x] **Step 2: Rewrite `frontend/tailwind.config.js`**
 
 ```js
 /** @type {import('tailwindcss').Config} */
@@ -1403,7 +1403,7 @@ export default {
 };
 ```
 
-- [ ] **Step 3: Sanity-check that Tailwind still picks up the config** — start dev server
+- [x] **Step 3: Sanity-check that Tailwind still picks up the config** — start dev server
 
 ```bash
 cd frontend && npm run dev &
@@ -1413,7 +1413,7 @@ curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3000
 
 Expected: `200`.
 
-- [ ] **Step 4: Smoke test utility resolution** — hit one page that uses `bg-obsidian` (ArenaMatch) and one that uses a legacy glow (`bg-indigo-glow` if any)
+- [x] **Step 4: Smoke test utility resolution** — hit one page that uses `bg-obsidian` (ArenaMatch) and one that uses a legacy glow (`bg-indigo-glow` if any)
 
 ```bash
 curl -s http://localhost:3000/arena | head -50
@@ -1422,7 +1422,7 @@ pkill -f 'vite.*3000' || true
 
 Expected: HTML returned without 500s. The `bg-obsidian` class still resolves because the legacy alias is in the generated Tailwind config.
 
-- [ ] **Step 5: Do not commit yet** — commit is at Task 13.
+- [x] **Step 5: Do not commit yet** — commit is at Task 13.
 
 ---
 
@@ -1432,7 +1432,7 @@ Expected: HTML returned without 500s. The `bg-obsidian` class still resolves bec
 - Create: `frontend/src/styles/rarity.css`
 - Modify: `frontend/src/index.css`
 
-- [ ] **Step 1: Read the current `src/index.css` to locate the rarity animations**
+- [x] **Step 1: Read the current `src/index.css` to locate the rarity animations**
 
 ```bash
 cd /opt/agent-memory-unified && cat frontend/src/index.css
@@ -1440,7 +1440,7 @@ cd /opt/agent-memory-unified && cat frontend/src/index.css
 
 Look for `@keyframes legendary-glow` and `@keyframes epic-pulse` in the `@layer utilities` block.
 
-- [ ] **Step 2: Create `frontend/src/styles/rarity.css`** with the extracted animations
+- [x] **Step 2: Create `frontend/src/styles/rarity.css`** with the extracted animations
 
 ```css
 /*
@@ -1488,7 +1488,7 @@ Look for `@keyframes legendary-glow` and `@keyframes epic-pulse` in the `@layer 
 }
 ```
 
-- [ ] **Step 3: Remove the rarity animations from `src/index.css`** and add the new imports at the top. After the edit, the `@layer utilities` block in `index.css` is gone entirely.
+- [x] **Step 3: Remove the rarity animations from `src/index.css`** and add the new imports at the top. After the edit, the `@layer utilities` block in `index.css` is gone entirely.
 
 Replace the entire contents of `frontend/src/index.css` with:
 
@@ -1567,7 +1567,7 @@ Notes on this edit:
 - The three old `.neural-card-indigo/rose/emerald` classes are **deleted**. Their call sites are migrated in Task 11.
 - The old `@layer utilities` block with rarity animations is **gone** — lives in `rarity.css` now.
 
-- [ ] **Step 4: Start the dev server and verify no console errors and no build errors**
+- [x] **Step 4: Start the dev server and verify no console errors and no build errors**
 
 ```bash
 cd frontend && npm run dev &
@@ -1588,7 +1588,7 @@ If Tailwind warns "unknown class `bg-bg-base`," the generated config was not pic
 - Modify: `frontend/src/pages/ArenaGym.tsx`
 - Modify: `frontend/src/pages/ArenaEscapeRoom.tsx`
 
-- [ ] **Step 1: Read `ArenaGym.tsx:61`** and confirm the exact class usage
+- [x] **Step 1: Read `ArenaGym.tsx:61`** and confirm the exact class usage
 
 ```bash
 cd /opt/agent-memory-unified && sed -n '58,65p' frontend/src/pages/ArenaGym.tsx
@@ -1596,7 +1596,7 @@ cd /opt/agent-memory-unified && sed -n '58,65p' frontend/src/pages/ArenaGym.tsx
 
 Expected output includes: `className="neural-card-indigo group !p-8 transition-all duration-500"`.
 
-- [ ] **Step 2: Migrate ArenaGym.tsx**
+- [x] **Step 2: Migrate ArenaGym.tsx**
 
 In `frontend/src/pages/ArenaGym.tsx` line 61, replace:
 
@@ -1610,7 +1610,7 @@ with:
 className="neural-card-accent group !p-8 transition-all duration-500" data-accent="primary">
 ```
 
-- [ ] **Step 3: Read `ArenaEscapeRoom.tsx:259`** and confirm the exact class usage
+- [x] **Step 3: Read `ArenaEscapeRoom.tsx:259`** and confirm the exact class usage
 
 ```bash
 cd /opt/agent-memory-unified && sed -n '256,262p' frontend/src/pages/ArenaEscapeRoom.tsx
@@ -1618,7 +1618,7 @@ cd /opt/agent-memory-unified && sed -n '256,262p' frontend/src/pages/ArenaEscape
 
 Expected output includes: `className="neural-card-indigo group !p-6 cursor-pointer"`.
 
-- [ ] **Step 4: Migrate ArenaEscapeRoom.tsx**
+- [x] **Step 4: Migrate ArenaEscapeRoom.tsx**
 
 In `frontend/src/pages/ArenaEscapeRoom.tsx` line 259, replace:
 
@@ -1632,7 +1632,7 @@ with:
 className="neural-card-accent group !p-6 cursor-pointer" data-accent="primary"
 ```
 
-- [ ] **Step 5: Confirm no `neural-card-indigo/rose/emerald` usages remain**
+- [x] **Step 5: Confirm no `neural-card-indigo/rose/emerald` usages remain**
 
 ```bash
 cd /opt/agent-memory-unified
@@ -1641,7 +1641,7 @@ grep -rn 'neural-card-\(indigo\|rose\|emerald\)' frontend/src/ || echo "none rem
 
 Expected: `none remaining`.
 
-- [ ] **Step 6: Sanity-render ArenaGym and ArenaEscapeRoom in dev**
+- [x] **Step 6: Sanity-render ArenaGym and ArenaEscapeRoom in dev**
 
 ```bash
 cd frontend && npm run dev &
@@ -1660,7 +1660,7 @@ Expected: `200` on both. If either route is parameterized differently, adjust th
 **Files:**
 - Modify: `frontend/tests/visual/design-tokens.spec.ts-snapshots/*.png` (updates for pages containing primary/danger buttons)
 
-- [ ] **Step 1: Start the dev server**
+- [x] **Step 1: Start the dev server**
 
 ```bash
 cd frontend && npm run dev &
@@ -1670,7 +1670,7 @@ curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3000
 
 Expected: `200`.
 
-- [ ] **Step 2: Run visual regression — expect diffs on button-containing pages**
+- [x] **Step 2: Run visual regression — expect diffs on button-containing pages**
 
 ```bash
 cd frontend && npx playwright test tests/visual/design-tokens.spec.ts
@@ -1695,13 +1695,13 @@ For each failing page, confirm the only visible change is:
 
 **If you see unexpected changes** (elements missing, colors other than buttons shifted, layout breakage): STOP. Do not update baselines. Debug — something in `index.css` rewrote incorrectly.
 
-- [ ] **Step 3: Once diffs are confirmed to only be the accepted button shift, update baselines**
+- [x] **Step 3: Once diffs are confirmed to only be the accepted button shift, update baselines**
 
 ```bash
 cd frontend && npx playwright test tests/visual/design-tokens.spec.ts --update-snapshots
 ```
 
-- [ ] **Step 4: Re-run the suite to confirm all 5 pass**
+- [x] **Step 4: Re-run the suite to confirm all 5 pass**
 
 ```bash
 cd frontend && npx playwright test tests/visual/design-tokens.spec.ts
@@ -1709,7 +1709,7 @@ cd frontend && npx playwright test tests/visual/design-tokens.spec.ts
 
 Expected: 5 passes.
 
-- [ ] **Step 5: Stop the dev server**
+- [x] **Step 5: Stop the dev server**
 
 ```bash
 pkill -f 'vite.*3000' || true
@@ -1719,7 +1719,7 @@ pkill -f 'vite.*3000' || true
 
 ### Task 13: Land Commit 2
 
-- [ ] **Step 1: Re-run the parser + swap tests**
+- [x] **Step 1: Re-run the parser + swap tests**
 
 ```bash
 cd frontend && node --test design/build-tokens.test.mjs design/build-tokens.swap.test.mjs
@@ -1727,7 +1727,7 @@ cd frontend && node --test design/build-tokens.test.mjs design/build-tokens.swap
 
 Expected: 13 passes.
 
-- [ ] **Step 2: Re-run `design:check`** to confirm generated files still match DESIGN.md
+- [x] **Step 2: Re-run `design:check`** to confirm generated files still match DESIGN.md
 
 ```bash
 cd frontend && node design/build-tokens.mjs --check
@@ -1735,7 +1735,7 @@ cd frontend && node design/build-tokens.mjs --check
 
 Expected: `design:check ok`.
 
-- [ ] **Step 3: Stage and commit**
+- [x] **Step 3: Stage and commit**
 
 ```bash
 cd /opt/agent-memory-unified
@@ -1797,13 +1797,13 @@ At the end of this section, CI rejects stale generated files, `npm run dev`/`bui
 **Files:**
 - Modify: `frontend/package.json`
 
-- [ ] **Step 1: Read the current scripts block**
+- [x] **Step 1: Read the current scripts block**
 
 ```bash
 cd /opt/agent-memory-unified && cat frontend/package.json
 ```
 
-- [ ] **Step 2: Replace the `scripts` block** with the expanded set. Only the `scripts` block changes — leave `dependencies` and `devDependencies` alone.
+- [x] **Step 2: Replace the `scripts` block** with the expanded set. Only the `scripts` block changes — leave `dependencies` and `devDependencies` alone.
 
 Replace:
 
@@ -1834,7 +1834,7 @@ with:
   },
 ```
 
-- [ ] **Step 3: Verify JSON is valid**
+- [x] **Step 3: Verify JSON is valid**
 
 ```bash
 cd frontend && node -e 'JSON.parse(require("node:fs").readFileSync("package.json", "utf8")); console.log("ok")'
@@ -1842,7 +1842,7 @@ cd frontend && node -e 'JSON.parse(require("node:fs").readFileSync("package.json
 
 Expected: `ok`.
 
-- [ ] **Step 4: Smoke test each new script**
+- [x] **Step 4: Smoke test each new script**
 
 ```bash
 cd frontend && npm run design:build
@@ -1855,7 +1855,7 @@ Expected:
 - `design:check` → `design:check ok`
 - `test:design` → 13 passes
 
-- [ ] **Step 5: Confirm `npm run dev` still works** (runs design:build automatically)
+- [x] **Step 5: Confirm `npm run dev` still works** (runs design:build automatically)
 
 ```bash
 cd frontend && npm run dev &
@@ -1873,7 +1873,7 @@ Expected: `200`.
 **Files:**
 - Create: `.github/workflows/design-tokens-stale.yml`
 
-- [ ] **Step 1: Create the workflow file**
+- [x] **Step 1: Create the workflow file**
 
 ```yaml
 name: design-tokens-stale
@@ -1912,7 +1912,7 @@ jobs:
         run: npm run test:design
 ```
 
-- [ ] **Step 2: Verify the YAML parses**
+- [x] **Step 2: Verify the YAML parses**
 
 ```bash
 cd /opt/agent-memory-unified && python3 -c 'import yaml, sys; yaml.safe_load(open(".github/workflows/design-tokens-stale.yml")); print("ok")'
@@ -1928,7 +1928,7 @@ Expected: `ok`. (If `python3` isn't available, use `node -e 'require("js-yaml")'
 - Modify: `CLAUDE.md`
 - Create: `docs/design/design-bridge-workflow.md`
 
-- [ ] **Step 1: Locate a good insertion point in `CLAUDE.md`**
+- [x] **Step 1: Locate a good insertion point in `CLAUDE.md`**
 
 ```bash
 cd /opt/agent-memory-unified && grep -n '^## ' CLAUDE.md
@@ -1936,7 +1936,7 @@ cd /opt/agent-memory-unified && grep -n '^## ' CLAUDE.md
 
 Look for a natural spot. A good choice is right before `## Common Tasks` (the last section).
 
-- [ ] **Step 2: Insert the new section in `CLAUDE.md`** immediately before the `## Common Tasks` heading
+- [x] **Step 2: Insert the new section in `CLAUDE.md`** immediately before the `## Common Tasks` heading
 
 ```markdown
 ## Design System
@@ -1960,7 +1960,7 @@ Rarity-tier animations (`legendary-glow`, `epic-pulse`) live in
 
 ```
 
-- [ ] **Step 3: Create `docs/design/design-bridge-workflow.md`**
+- [x] **Step 3: Create `docs/design/design-bridge-workflow.md`**
 
 ```bash
 mkdir -p /opt/agent-memory-unified/docs/design
@@ -2079,7 +2079,7 @@ generated files match the new DESIGN.md.
   follow-up in the spec.
 ```
 
-- [ ] **Step 4: Verify files exist**
+- [x] **Step 4: Verify files exist**
 
 ```bash
 grep -c '^## Design System' CLAUDE.md         # expect: 1
@@ -2090,7 +2090,7 @@ ls docs/design/design-bridge-workflow.md
 
 ### Task 17: Final verification + land Commit 3
 
-- [ ] **Step 1: Run the full test suite**
+- [x] **Step 1: Run the full test suite**
 
 ```bash
 cd /opt/agent-memory-unified/frontend
@@ -2100,7 +2100,7 @@ npm run design:check
 
 Expected: tests pass, check passes.
 
-- [ ] **Step 2: Simulate what CI will do** (the same commands in `.github/workflows/design-tokens-stale.yml`)
+- [x] **Step 2: Simulate what CI will do** (the same commands in `.github/workflows/design-tokens-stale.yml`)
 
 ```bash
 cd /opt/agent-memory-unified/frontend
@@ -2110,7 +2110,7 @@ npm run test:design
 
 Expected: both succeed.
 
-- [ ] **Step 3: Do a full local build**
+- [x] **Step 3: Do a full local build**
 
 ```bash
 cd frontend && npm run build
@@ -2118,7 +2118,7 @@ cd frontend && npm run build
 
 Expected: Vite build succeeds. `design:check` runs first (part of the new `build` script), then `vite build`.
 
-- [ ] **Step 4: Stage and commit**
+- [x] **Step 4: Stage and commit**
 
 ```bash
 cd /opt/agent-memory-unified
@@ -2154,7 +2154,7 @@ git log --oneline -4
 
 Expected: four recent commits visible, ending with the three new ones (`feat(frontend): add DESIGN.md token pipeline`, `refactor(frontend): consume design tokens`, `ci(frontend): enforce design tokens are not stale`) on top of the existing HEAD.
 
-- [ ] **Step 5: Push and open a PR** (only if the user explicitly asks you to push)
+- [x] **Step 5: Push and open a PR** (only if the user explicitly asks you to push)
 
 Do not `git push` without explicit user instruction — per `CLAUDE.md` working boundaries. If the user asks, use:
 

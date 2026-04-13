@@ -1,0 +1,60 @@
+{
+  "fear_greed_index": {
+    "value": 16,
+    "classification": "Extreme Fear",
+    "timestamp": "2026-04-09T20:00:00"
+  },
+  "market_data": {
+    "total_market_cap": 2553411215700.7583,
+    "total_volume": 95738252480.5368,
+    "btc_dominance": 57.285496389570966,
+    "eth_dominance": 10.620383975504039,
+    "market_cap_change_24h": 0.7091002631814456
+  },
+  "bitcoin_data": {
+    "price": 73110,
+    "price_change_24h": 1.06914,
+    "price_change_7d": 9.11956,
+    "price_change_30d": 4.05716,
+    "market_cap": 1463198477794,
+    "volume_24h": 38592442992,
+    "ath": 126080,
+    "ath_change_percentage": -42.01302,
+    "social_stats": {
+      "twitter_followers": 0,
+      "reddit_subscribers": 0
+    }
+  },
+  "composite_sentiment": {
+    "composite_score": 56.4,
+    "level": "Greed",
+    "action": "Market is bullish - ride the trend with caution",
+    "factors": [
+      {
+        "name": "Fear & Greed Index",
+        "value": 16,
+        "weight": 0.4,
+        "contribution": 6.4
+      },
+      {
+        "name": "Price Momentum",
+        "value": 100,
+        "weight": 0.3,
+        "contribution": 30.0
+      },
+      {
+        "name": "Market Cap Change",
+        "value": 57.09100263181446,
+        "weight": 0.2,
+        "contribution": 11.418200526362893
+      },
+      {
+        "name": "BTC Dominance Stability",
+        "value": 85.42900722085807,
+        "weight": 0.1,
+        "contribution": 8.542900722085808
+      }
+    ],
+    "timestamp": "2026-04-10T14:00:26.606225"
+  }
+}

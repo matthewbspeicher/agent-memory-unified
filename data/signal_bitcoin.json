@@ -1,0 +1,63 @@
+{
+  "symbol": "bitcoin",
+  "current_price": 73114.08825107274,
+  "direction": "STRONG_SELL",
+  "confidence": 0.8,
+  "score": -3,
+  "signals": [
+    {
+      "indicator": "RSI",
+      "signal": "OVERBOUGHT",
+      "value": 77.99108414045284,
+      "weight": -2
+    },
+    {
+      "indicator": "MA_CROSS",
+      "signal": "DEATH_CROSS",
+      "value": 0.9986589591916979,
+      "weight": -2
+    },
+    {
+      "indicator": "PRICE_VS_SMA20",
+      "signal": "ABOVE",
+      "value": 1.0611915226646915,
+      "weight": 1
+    },
+    {
+      "indicator": "MACD",
+      "signal": "BULLISH",
+      "value": 47.896337561729865,
+      "weight": 1
+    },
+    {
+      "indicator": "BOLLINGER",
+      "signal": "UPPER_BAND",
+      "value": 0.9909765290067719,
+      "weight": -1
+    }
+  ],
+  "indicators": {
+    "rsi": 77.99108414045284,
+    "macd": {
+      "macd": 478.9633756172989,
+      "signal": 431.067038055569,
+      "histogram": 47.896337561729865
+    },
+    "bollinger": {
+      "upper": 73191.57214752818,
+      "middle": 68898.10810727223,
+      "lower": 64604.644067016285,
+      "percent_b": 0.9909765290067719
+    },
+    "sma_20": 68898.10810727223,
+    "sma_50": 68990.62735394423,
+    "ema_12": 70053.91376040496,
+    "ema_26": 69574.95038478766
+  },
+  "levels": {
+    "stop_loss": 69458.3838385191,
+    "take_profit": 84081.20148873364,
+    "risk_reward": 3.0
+  },
+  "timestamp": "2026-04-10T14:00:50.932720"
+}

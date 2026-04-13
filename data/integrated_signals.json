@@ -1,0 +1,113 @@
+[
+  {
+    "symbol": "BTC",
+    "signal": "NEUTRAL",
+    "composite_score": -15.749999999999996,
+    "confidence": 23.624999999999993,
+    "recommendation": "Neutral - conflicting signals, wait for clarity",
+    "entry_price": 73123.0,
+    "stop_loss": null,
+    "take_profit": null,
+    "components": [
+      {
+        "name": "Technical Analysis",
+        "score": -85,
+        "weight": 0.35,
+        "interpretation": "RSI overbought (78); Death Cross detected; At upper Bollinger Band; MACD bearish crossover"
+      },
+      {
+        "name": "Market Sentiment",
+        "score": 80,
+        "weight": 0.25,
+        "interpretation": "Extreme Fear (16) - Strong contrarian BUY"
+      },
+      {
+        "name": "Whale Activity",
+        "score": -30,
+        "weight": 0.2,
+        "interpretation": "Mild distribution ($25M net inflow)"
+      },
+      {
+        "name": "Price Momentum",
+        "score": 0,
+        "weight": 0.2,
+        "interpretation": "Neutral momentum"
+      }
+    ],
+    "timestamp": "2026-04-10T14:07:50.627193"
+  },
+  {
+    "symbol": "ETH",
+    "signal": "NEUTRAL",
+    "composite_score": 7.0,
+    "confidence": 10.5,
+    "recommendation": "Neutral - conflicting signals, wait for clarity",
+    "entry_price": 2248.0,
+    "stop_loss": null,
+    "take_profit": null,
+    "components": [
+      {
+        "name": "Technical Analysis",
+        "score": -20,
+        "weight": 0.35,
+        "interpretation": "RSI overbought (73); Golden Cross detected; At upper Bollinger Band"
+      },
+      {
+        "name": "Market Sentiment",
+        "score": 80,
+        "weight": 0.25,
+        "interpretation": "Extreme Fear (16) - Strong contrarian BUY"
+      },
+      {
+        "name": "Whale Activity",
+        "score": -30,
+        "weight": 0.2,
+        "interpretation": "Mild distribution ($15M net inflow)"
+      },
+      {
+        "name": "Price Momentum",
+        "score": 0,
+        "weight": 0.2,
+        "interpretation": "Neutral momentum"
+      }
+    ],
+    "timestamp": "2026-04-10T14:07:50.627290"
+  },
+  {
+    "symbol": "SOL",
+    "signal": "NEUTRAL",
+    "composite_score": 11.25,
+    "confidence": 16.875,
+    "recommendation": "Neutral - conflicting signals, wait for clarity",
+    "entry_price": 84.87,
+    "stop_loss": null,
+    "take_profit": null,
+    "components": [
+      {
+        "name": "Technical Analysis",
+        "score": -25,
+        "weight": 0.35,
+        "interpretation": "Death Cross detected"
+      },
+      {
+        "name": "Market Sentiment",
+        "score": 80,
+        "weight": 0.25,
+        "interpretation": "Extreme Fear (16) - Strong contrarian BUY"
+      },
+      {
+        "name": "Whale Activity",
+        "score": 0,
+        "weight": 0.2,
+        "interpretation": "Balanced whale activity"
+      },
+      {
+        "name": "Price Momentum",
+        "score": 0,
+        "weight": 0.2,
+        "interpretation": "Neutral momentum"
+      }
+    ],
+    "timestamp": "2026-04-10T14:07:50.627354"
+  }
+]
