@@ -1023,10 +1023,7 @@ async def lifespan(app: FastAPI):
         # --- Knowledge Graph ---
         from storage.knowledge_graph import TradingKnowledgeGraph
 
-        _kg = TradingKnowledgeGraph(
-            db=db,
-            schema="kg" if config.database_url else None
-        )
+        _kg = TradingKnowledgeGraph(db=db, schema="kg" if config.database_url else None)
         await _kg.connect()
         app.state.knowledge_graph = _kg
         _log.info("TradingKnowledgeGraph initialized (shared db)")
@@ -1392,8 +1389,7 @@ async def lifespan(app: FastAPI):
         # Local SQLite prompt store — authoritative for all prompt state.
         # Optional remembr mirror can be added later but must fail open to local-only.
         prompt_store = SqlPromptStore(
-            db,
-            journal_indexer=getattr(app.state, "journal_indexer", None)
+            db, journal_indexer=getattr(app.state, "journal_indexer", None)
         )
 
         # Learning API routes
@@ -2054,7 +2050,7 @@ def create_app(
     )
 
     app.add_middleware(CorrelationIdMiddleware)
-    
+
     # Rate Limiting
     if getattr(config or load_config(), "rate_limit_enabled", False):
         from slowapi import _rate_limit_exceeded_handler
@@ -2100,6 +2096,9 @@ def create_app(
     app.state.enable_agent_framework = enable_agent_framework
     app.state.config = config or load_config()
 
+    from api.landing import router as landing_router
+
+    app.include_router(landing_router)
     app.include_router(health.router)
     app.include_router(accounts.router)
     app.include_router(market_data.router)
@@ -2163,6 +2162,10 @@ def create_app(
     from api.routes import achievements as achievements_route
 
     app.include_router(achievements_route.router)
+
+    from api.routes import llm as llm_route
+
+    app.include_router(llm_route.router)
 
     from api.startup.error_handlers import register_error_handlers
 
