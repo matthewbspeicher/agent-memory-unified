@@ -51,6 +51,7 @@ Three-tier rules distilled from past incidents and project memory. Adapted from 
 - **Run `cd trading && python -m pytest tests/unit/ -v --tb=short --timeout=30`** before committing changes under `trading/`.
 - **Use `wsl.exe -d Ubuntu -- bash -c "..."` for WSL commands** when Git Bash mangles paths (`/app/foo` → `C:/Program Files/Git/app/foo`).
 - **Reconstruct stale recommendations against current code before recommending them** — memory entries naming a function/file/flag are claims about a point in time. Grep before suggesting.
+- **Use `require_scope(...)` for new write endpoints** — never layer auth via `verify_api_key` on new routes. The old dependency stays for back-compat but is deprecated for new code.
 
 ### Ask first
 
@@ -62,6 +63,7 @@ Three-tier rules distilled from past incidents and project memory. Adapted from 
 - **Editing files inside `taoshi-vanta/`** — mounted read-only, separate venv (`bittensor==9.12.1`), upstream-tracked. Patches go in our bridge code, not theirs.
 - **Marking tests with `@pytest.mark.skip` or removing failing tests** — surface the failure first.
 - **Changing `STA_*` env-var names** — config loader strips the prefix; renames cascade.
+- **Adding a new scope** — the vocabulary in `conductor/tracks/agent_identity/spec.md` §3.C is load-bearing. New scopes need a spec update first.
 
 ### Never do
 
@@ -137,6 +139,33 @@ STA_TAOSHI_VALIDATOR_ROOT=/app/taoshi-vanta
 - Hotkey: `5DkVM4wyv4ZXGvb9ZmYafPiySbmWS4s2i5W37CNHuh4ggAha` (UID 144 on Subnet 8)
 - Wallet reconstructed from `B64_COLDKEY_PUB` and `B64_HOTKEY` env vars in `trading/.env`
 - Docker entrypoint (`trading/docker-entrypoint.sh`) auto-reconstructs wallet on container start
+
+## Agent Identity
+
+Pre-registered tokens with hash-based verification, scope-tagged authorization, and rate limiter integration.
+
+### Key Components
+
+- `trading/api/identity/store.py` — PostgreSQL-backed `IdentityStore` (agents table)
+- `trading/api/identity/tokens.py` — SHA-256 token hashing + verification
+- `trading/api/identity/dependencies.py` — `resolve_identity()`, `require_scope()` FastAPI dependencies
+- `trading/api/middleware/limiter.py` — Rate limiter bucket key uses verified agent name
+
+### Scopes
+
+| Scope | Description |
+|-------|-------------|
+| `write:orders` | Create, modify, cancel orders |
+| `risk:halt` | Toggle kill-switch |
+| `control:agents` | Start, stop, scan, evolve agents |
+| `admin` | Full access (wildcard) |
+
+### Routes Using Scopes
+
+Routes decorated with `require_scope(...)` enforce identity verification:
+- `POST/PATCH/DELETE /api/v1/orders` → `write:orders`
+- `POST /api/v1/risk/kill-switch/*` → `risk:halt`
+- `POST /api/v1/agents/{name}/start|stop|scan|evolve` → `control:agents`
 
 ## Trading Engine
 

@@ -17,6 +17,7 @@ T = TypeVar("T", bound=Callable[..., Any])
 
 SENSITIVE_KEYS = {"api_key", "token", "secret", "password", "private_key"}
 
+
 def sanitize_payload(payload: Any) -> Any:
     """Recursively redact sensitive keys from a payload."""
     if isinstance(payload, dict):
@@ -28,26 +29,27 @@ def sanitize_payload(payload: Any) -> Any:
         return [sanitize_payload(item) for item in payload]
     return payload
 
+
 def audit_event(action_name: str):
     """
     Decorator for auditing high-risk actions (routes or business logic).
-    
+
     Emits a structured log event and persists to the audit_logs table.
+    Uses verified identity from resolve_identity for accurate actor attribution.
     """
+
     def decorator(func: T) -> T:
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
             start_time = time.perf_counter()
             request_id = correlation_id.get() or str(uuid.uuid4())
-            
-            # Identify actor and context
+
             actor_id = "system"
             actor_type = "system"
             resource_id = None
             client_ip = None
             payload = {}
-            
-            # Extract context from FastAPI Request if present in args/kwargs
+
             request = None
             for arg in args:
                 if isinstance(arg, Request):
@@ -55,41 +57,67 @@ def audit_event(action_name: str):
                     break
             if not request:
                 request = kwargs.get("request")
-            
+
             if request and isinstance(request, Request):
                 client_ip = request.client.host if request.client else None
-                # Check for headers added by our auth dependencies
-                actor_id = request.headers.get("X-Agent-Token") or request.headers.get("X-API-Key", "anonymous")
-                actor_type = "agent" if request.headers.get("X-Agent-Token") else "master"
-                if actor_id == "anonymous":
-                    actor_type = "anonymous"
-                
-                # Capture path params or body if possible (simplified for Phase A)
+
+                try:
+                    from api.identity.dependencies import resolve_identity
+
+                    identity = await resolve_identity(
+                        x_api_key=request.headers.get("X-API-Key"),
+                        x_agent_token=request.headers.get("X-Agent-Token"),
+                    )
+                    actor_id = identity.name
+                    actor_type = (
+                        "agent"
+                        if identity.agent_id
+                        else ("master" if identity.tier == "premium" else "anonymous")
+                    )
+                except Exception:
+                    actor_id = request.headers.get(
+                        "X-Agent-Token"
+                    ) or request.headers.get("X-API-Key", "anonymous")
+                    actor_type = (
+                        "agent" if request.headers.get("X-Agent-Token") else "master"
+                    )
+                    if actor_id == "anonymous":
+                        actor_type = "anonymous"
+
                 payload = {
                     "method": request.method,
                     "url": str(request.url),
                     "path_params": request.path_params,
-                    "query_params": dict(request.query_params)
+                    "query_params": dict(request.query_params),
                 }
-                
-                # Heuristic for resource_id
-                resource_id = request.path_params.get("name") or request.path_params.get("symbol") or request.path_params.get("id")
+
+                resource_id = (
+                    request.path_params.get("name")
+                    or request.path_params.get("symbol")
+                    or request.path_params.get("id")
+                )
 
             # Fallback resource_id from kwargs
             if not resource_id:
-                resource_id = kwargs.get("symbol") or kwargs.get("agent_name") or kwargs.get("ticker")
+                resource_id = (
+                    kwargs.get("symbol")
+                    or kwargs.get("agent_name")
+                    or kwargs.get("ticker")
+                )
 
             # Initial log
             log_event(
-                logger, logging.INFO, f"{action_name}.initiated",
+                logger,
+                logging.INFO,
+                f"{action_name}.initiated",
                 f"Initiating {action_name} for {resource_id or 'global'}",
-                data={"request_id": request_id, "actor_id": actor_id}
+                data={"request_id": request_id, "actor_id": actor_id},
             )
 
             status = "success"
             error_detail = None
             result = None
-            
+
             try:
                 if asyncio.iscoroutinefunction(func):
                     result = await func(*args, **kwargs)
@@ -100,33 +128,37 @@ def audit_event(action_name: str):
                 status = "failed"
                 error_detail = str(e)
                 log_event(
-                    logger, logging.ERROR, f"{action_name}.failed",
+                    logger,
+                    logging.ERROR,
+                    f"{action_name}.failed",
                     f"Failed {action_name}: {error_detail}",
-                    data={"request_id": request_id, "error": error_detail}
+                    data={"request_id": request_id, "error": error_detail},
                 )
                 raise
             finally:
                 duration_ms = int((time.perf_counter() - start_time) * 1000)
-                
+
                 # Final structured log
                 log_event(
-                    logger, logging.INFO, f"{action_name}.{status}",
+                    logger,
+                    logging.INFO,
+                    f"{action_name}.{status}",
                     f"Completed {action_name} in {duration_ms}ms",
                     data={
                         "request_id": request_id,
                         "status": status,
                         "duration_ms": duration_ms,
-                        "resource_id": resource_id
-                    }
+                        "resource_id": resource_id,
+                    },
                 )
-                
+
                 # Persistence (Best-effort)
                 try:
                     # Attempt to get DB from app state if available via request
                     db = None
                     if request and hasattr(request.app.state, "db"):
                         db = request.app.state.db
-                    
+
                     if db:
                         sanitized = sanitize_payload(payload)
                         await db.execute(
@@ -145,18 +177,21 @@ def audit_event(action_name: str):
                                 request_id,
                                 json.dumps(sanitized),
                                 error_detail,
-                                client_ip
-                            )
+                                client_ip,
+                            ),
                         )
-                        # We don't call commit() here because PostgresDB auto-commits 
-                        # and aiosqlite connection is usually managed elsewhere, 
-                        # but for safety in this decorator we might need a local commit 
+                        # We don't call commit() here because PostgresDB auto-commits
+                        # and aiosqlite connection is usually managed elsewhere,
+                        # but for safety in this decorator we might need a local commit
                         # if it's aiosqlite.
                         if hasattr(db, "commit"):
                             await db.commit()
                 except Exception as audit_exc:
                     # Critical failure: could not persist audit log
-                    logger.error(f"AUDIT PERSISTENCE FAILURE for {action_name}: {audit_exc}")
+                    logger.error(
+                        f"AUDIT PERSISTENCE FAILURE for {action_name}: {audit_exc}"
+                    )
 
         return cast(T, wrapper)
+
     return decorator
