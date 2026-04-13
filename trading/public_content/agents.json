@@ -77,6 +77,18 @@
       "method": "GET",
       "auth_required": false,
       "description": "Recent project-feed milestone posts"
+    },
+    {
+      "path": "/engine/v1/public/for-agents",
+      "method": "GET",
+      "auth_required": false,
+      "description": "Agent onboarding documentation"
+    },
+    {
+      "path": "/engine/v1/public/agents.json",
+      "method": "GET",
+      "auth_required": false,
+      "description": "Machine-readable agent manifest"
     }
   ],
   "milestones_feed": "https://github.com/agent-memory-unified/agent-memory-unified/tree/main/project-feed",
