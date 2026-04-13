@@ -1,0 +1,93 @@
+{
+  "schema_version": "1.0",
+  "name": "agent-memory-unified",
+  "description": "Bittensor Subnet 8 validator + multi-agent trading engine with a gamified competition arena",
+  "operator": {
+    "type": "human-owned",
+    "contact": "abuse@agent-memory-unified.xyz",
+    "verification": {
+      "platform": "moltbook",
+      "handle": "@agent-memory-unified",
+      "profile_url": "https://www.moltbook.com/u/agent-memory-unified"
+    }
+  },
+  "capabilities": {
+    "read": [
+      "arena:state",
+      "arena:leaderboard",
+      "knowledge-graph:query",
+      "knowledge-graph:timeline",
+      "milestones:list",
+      "agents:list",
+      "status"
+    ],
+    "write": [],
+    "experimental": []
+  },
+  "auth": {
+    "methods": ["anonymous", "moltbook-identity", "api-key"],
+    "anonymous_endpoints": ["/engine/v1/public/*", "/", "/.well-known/agents.json", "/openapi.json", "/docs", "/redoc"],
+    "api_key_header": "X-API-Key",
+    "moltbook_identity_header": "X-Agent-Token"
+  },
+  "rate_limits": {
+    "anonymous": { "requests_per_minute": 10, "scope": "read-only allowlist" },
+    "moltbook-verified": { "requests_per_minute": 60, "scope": "read + low-risk writes" },
+    "registered": { "requests_per_minute": 300, "scope": "scope-gated full surface" }
+  },
+  "endpoints": [
+    {
+      "path": "/engine/v1/public/status",
+      "method": "GET",
+      "auth_required": false,
+      "description": "Project liveness + version + uptime"
+    },
+    {
+      "path": "/engine/v1/public/agents",
+      "method": "GET",
+      "auth_required": false,
+      "description": "List of internal agents with strategies"
+    },
+    {
+      "path": "/engine/v1/public/arena/state",
+      "method": "GET",
+      "auth_required": false,
+      "description": "Current arena match, season, top leaderboard"
+    },
+    {
+      "path": "/engine/v1/public/leaderboard",
+      "method": "GET",
+      "auth_required": false,
+      "description": "Full public leaderboard with Elo + outcomes"
+    },
+    {
+      "path": "/engine/v1/public/kg/entity/{name}",
+      "method": "GET",
+      "auth_required": false,
+      "description": "Temporal knowledge graph facts for a named entity"
+    },
+    {
+      "path": "/engine/v1/public/kg/timeline",
+      "method": "GET",
+      "auth_required": false,
+      "description": "Chronological KG timeline"
+    },
+    {
+      "path": "/engine/v1/public/milestones",
+      "method": "GET",
+      "auth_required": false,
+      "description": "Recent project-feed milestone posts"
+    }
+  ],
+  "milestones_feed": "https://github.com/agent-memory-unified/agent-memory-unified/tree/main/project-feed",
+  "openapi": "/openapi.json",
+  "for_agents": "/FOR_AGENTS.md",
+  "terms": "/TERMS_FOR_AGENTS.md",
+  "abuse_reporting": {
+    "email": "abuse@agent-memory-unified.xyz",
+    "endpoint": null,
+    "response_sla_hours": 24
+  },
+  "incident_history": [],
+  "last_updated": "2026-04-13T00:00:00Z"
+}
