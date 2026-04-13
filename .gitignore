@@ -37,7 +37,10 @@ railway.schema.json
 .claude/knowledge/articles/
 .claude/knowledge/index.md
 .claude/knowledge/log.md
-.claude/knowledge/state.json
+.claude/knowledge/scripts/state.json
 .claude/knowledge/.venv/
 .worktrees/
-.worktrees/
+
+# Frontend test artifacts
+frontend/playwright-report/
+frontend/test-results/
