@@ -244,6 +244,24 @@ class LLMClient:
         self._disabled: dict[str, bool] = {}
         self._max_fails = 5
 
+    def for_agent(self, agent_name: str) -> "LLMClient":
+        """Return a lightweight view that records cost under a different agent name.
+
+        Shares the same registry, chain, circuit breakers, and cost_ledger
+        as the parent — only _agent_name differs.
+        """
+        proxy = object.__new__(LLMClient)
+        proxy._chain = self._chain
+        proxy._agent_name = agent_name
+        proxy._cost_ledger = self._cost_ledger
+        proxy._notifier = self._notifier
+        proxy._fired_alerts = self._fired_alerts
+        proxy.registry = self.registry
+        proxy._fail_counts = self._fail_counts
+        proxy._disabled = self._disabled
+        proxy._max_fails = self._max_fails
+        return proxy
+
     def _is_disabled(self, provider: str) -> bool:
         return self._disabled.get(provider, False)
 

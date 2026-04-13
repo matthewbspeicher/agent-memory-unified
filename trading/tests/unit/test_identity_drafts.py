@@ -3,11 +3,23 @@ import pytest
 import json
 from unittest.mock import AsyncMock, MagicMock
 
-# Mock asyncpg before importing IdentityStore
+# Mock asyncpg for import, then restore so later tests aren't polluted
+_orig_asyncpg = sys.modules.get("asyncpg")
+_orig_asyncpg_exc = sys.modules.get("asyncpg.exceptions")
 sys.modules["asyncpg"] = MagicMock()
 sys.modules["asyncpg.exceptions"] = MagicMock()
 
-from api.identity.store import IdentityStore
+from api.identity.store import IdentityStore  # noqa: E402
+
+# Restore originals (None means delete the mock entry)
+if _orig_asyncpg is not None:
+    sys.modules["asyncpg"] = _orig_asyncpg
+else:
+    sys.modules.pop("asyncpg", None)
+if _orig_asyncpg_exc is not None:
+    sys.modules["asyncpg.exceptions"] = _orig_asyncpg_exc
+else:
+    sys.modules.pop("asyncpg.exceptions", None)
 
 
 @pytest.fixture

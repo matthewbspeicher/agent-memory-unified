@@ -617,6 +617,7 @@ async def _load_and_start_agent_configs(
     runner,
     logger: logging.Logger,
     preloaded_data: dict | None = None,
+    llm_client=None,
 ):
     from agents.config import load_agents_config, register_strategy
     from strategies.exit_monitor import ExitMonitorAgent as ExitMonitorAgent
@@ -645,6 +646,9 @@ async def _load_and_start_agent_configs(
     for agent in agent_configs:
         if agent is None:
             continue
+        # Inject per-agent LLM client for cost attribution
+        if llm_client and hasattr(agent, "_llm_client"):
+            agent._llm_client = llm_client.for_agent(agent.name)
         runner.register(agent)
         if agent.config.schedule in ("continuous", "cron"):
             await runner.start_agent(agent.name)
@@ -1943,6 +1947,7 @@ async def lifespan(app: FastAPI):
             runner=runner,
             logger=_log,
             preloaded_data=_agents_data,
+            llm_client=llm_client,
         )
 
         await _setup_meta_agent(

@@ -490,3 +490,43 @@ async def test_full_chain_anthropic_to_groq_to_rules():
     # Rule-based fallback produced a valid result
     assert isinstance(result, ScoredHeadline)
     assert result.sentiment == "bullish_yes"  # "surge" + "boom"
+
+
+# ---------------------------------------------------------------------------
+# for_agent() proxy tests
+# ---------------------------------------------------------------------------
+
+
+class TestForAgent:
+    def test_proxy_has_different_agent_name(self):
+        client = LLMClient(chain=["rule-based"], agent_name="unknown")
+        proxy = client.for_agent("react_analyst")
+        assert proxy._agent_name == "react_analyst"
+        assert client._agent_name == "unknown"
+
+    def test_proxy_shares_registry(self):
+        client = LLMClient(groq_key="gsk-test", chain=["groq", "rule-based"])
+        proxy = client.for_agent("test_agent")
+        assert proxy.registry is client.registry
+
+    def test_proxy_shares_circuit_breakers(self):
+        client = LLMClient(chain=["rule-based"])
+        proxy = client.for_agent("test_agent")
+        client._record_failure("groq")
+        assert proxy._fail_counts.get("groq") == 1
+
+    def test_proxy_shares_cost_ledger(self):
+        from unittest.mock import MagicMock
+
+        mock_ledger = MagicMock()
+        client = LLMClient(chain=["rule-based"], cost_ledger=mock_ledger)
+        proxy = client.for_agent("test_agent")
+        assert proxy._cost_ledger is mock_ledger
+
+    @pytest.mark.asyncio
+    async def test_proxy_resolves_same_chain(self):
+        client = LLMClient(chain=["ollama", "rule-based"])
+        proxy = client.for_agent("test_agent")
+        parent_chain = await client._resolve_chain()
+        proxy_chain = await proxy._resolve_chain()
+        assert parent_chain == proxy_chain
