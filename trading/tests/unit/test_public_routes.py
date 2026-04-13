@@ -82,3 +82,22 @@ def test_public_milestones_returns_posted_entries():
     data = resp.json()
     assert "milestones" in data
     assert isinstance(data["milestones"], list)
+
+
+def test_for_agents_markdown_endpoint():
+    app = create_app()
+    client = TestClient(app)
+    resp = client.get("/engine/v1/public/for-agents")
+    assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith("text/markdown")
+    assert "agent-memory-unified" in resp.text
+
+
+def test_agents_json_endpoint_serves_manifest():
+    app = create_app()
+    client = TestClient(app)
+    resp = client.get("/engine/v1/public/agents.json")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["schema_version"] == "1.0"
+    assert data["name"] == "agent-memory-unified"

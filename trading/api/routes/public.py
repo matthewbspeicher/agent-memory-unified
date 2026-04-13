@@ -171,6 +171,31 @@ async def public_milestones():
     return {**_base_response(), "milestones": posted}
 
 
+@router.get("/for-agents", include_in_schema=True)
+async def public_for_agents():
+    from fastapi.responses import Response
+
+    md_path = Path(__file__).parent.parent.parent / "public_content" / "FOR_AGENTS.md"
+    if not md_path.exists():
+        return Response(
+            content="# FOR_AGENTS.md not found\n",
+            media_type="text/markdown",
+            status_code=404,
+        )
+    return Response(content=md_path.read_text(), media_type="text/markdown")
+
+
+@router.get("/agents.json", include_in_schema=True)
+async def public_agents_json():
+    import json
+    from fastapi.responses import JSONResponse
+
+    json_path = Path(__file__).parent.parent.parent / "public_content" / "agents.json"
+    if not json_path.exists():
+        return JSONResponse(content={"error": "agents.json not found"}, status_code=404)
+    return JSONResponse(content=json.loads(json_path.read_text()))
+
+
 @router.get("/status")
 async def public_status():
     return {
