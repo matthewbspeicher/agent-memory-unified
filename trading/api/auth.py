@@ -4,13 +4,8 @@ import hmac
 import logging
 
 import fastapi
-from fastapi import HTTPException, Security, Request
-
-# Explicit name assignment to bypass any weird import-time NameErrors
-Depends = fastapi.Depends
-
-print(f"DEBUG: auth.py loading. fastapi version: {fastapi.__version__}")
-print(f"DEBUG: Depends availability: {Depends is not None}")
+from fastapi import Depends, HTTPException, Security, Request
+from fastapi.security import APIKeyHeader
 
 from config import Config, load_config
 
