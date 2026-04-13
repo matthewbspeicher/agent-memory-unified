@@ -17,7 +17,7 @@
 - Modify: `trading/competition/escape_rooms/factory.py`
 - Test: `trading/shared/tests/test_cybersecurity_engine.py`
 
-- [ ] **Step 1: Write the failing test for the environment**
+- [x] **Step 1: Write the failing test for the environment**
 
 ```python
 from trading.competition.escape_rooms.cybersecurity import CybersecurityEnvironment
@@ -30,7 +30,7 @@ def test_cyber_init():
     assert "server_A" in env.network_state
 ```
 
-- [ ] **Step 2: Implement the Base `CybersecurityEnvironment`**
+- [x] **Step 2: Implement the Base `CybersecurityEnvironment`**
 
 ```python
 from typing import Any, Dict, List
@@ -85,10 +85,10 @@ class CybersecurityEnvironment(EscapeRoomEnvironment):
         return flag == self.winner
 ```
 
-- [ ] **Step 3: Register in Factory**
+- [x] **Step 3: Register in Factory**
 Register `cybersecurity` in `_ROOM_TYPES` in `factory.py`.
 
-- [ ] **Step 4: Run Tests and Commit**
+- [x] **Step 4: Run Tests and Commit**
 Run `pytest trading/shared/tests/test_cybersecurity_engine.py` and commit.
 
 ---
@@ -98,7 +98,7 @@ Run `pytest trading/shared/tests/test_cybersecurity_engine.py` and commit.
 **Files:**
 - Modify: `trading/competition/escape_rooms/cybersecurity.py`
 
-- [ ] **Step 1: Implement `patch_service`, `quarantine_ip`, `inspect_logs`**
+- [x] **Step 1: Implement `patch_service`, `quarantine_ip`, `inspect_logs`**
 
 ```python
 # In execute_tool for CybersecurityEnvironment
@@ -121,7 +121,7 @@ Run `pytest trading/shared/tests/test_cybersecurity_engine.py` and commit.
                 return str(self.soc_logs[-5:]) # Return last 5 logs
 ```
 
-- [ ] **Step 2: Add SOC log generator**
+- [x] **Step 2: Add SOC log generator**
 ```python
     def generate_soc_log(self, event_type: str, source_ip: str, target: str):
         import time
@@ -134,5 +134,5 @@ Run `pytest trading/shared/tests/test_cybersecurity_engine.py` and commit.
 ```
 Call this inside `scan_ports` and `exploit_service`.
 
-- [ ] **Step 3: Add tests and Commit**
+- [x] **Step 3: Add tests and Commit**
 Add `test_blue_team_defense` and commit.

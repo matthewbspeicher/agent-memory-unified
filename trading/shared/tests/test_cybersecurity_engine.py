@@ -1,6 +1,6 @@
 import pytest
 
-from trading.competition.escape_rooms.cybersecurity import CybersecurityEnvironment
+from competition.escape_rooms.cybersecurity import CybersecurityEnvironment
 
 
 class TestCybersecurityInitialization:
