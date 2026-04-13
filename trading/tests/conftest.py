@@ -116,4 +116,11 @@ def client(mock_broker):
     from api.app import create_app
 
     app = create_app(mock_broker)
+    # Provide mock Redis so kill-switch and other Redis-dependent deps don't 500
+    mock_redis = AsyncMock()
+    mock_redis.get = AsyncMock(return_value=None)
+    mock_redis.set = AsyncMock()
+    mock_redis.setex = AsyncMock()
+    mock_redis.delete = AsyncMock()
+    app.state.redis = mock_redis
     return TestClient(app)

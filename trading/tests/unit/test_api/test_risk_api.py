@@ -1,5 +1,5 @@
 # tests/unit/test_api/test_risk_api.py
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi.testclient import TestClient
 
@@ -22,6 +22,13 @@ def risk_client(mock_broker):
     engine.kill_switch = ks
     engine.rules = [MaxPositionSize(max_dollars=5000, max_shares=500)]
     app.state.risk_engine = engine
+    # Mock Redis for kill-switch routes
+    mock_redis = AsyncMock()
+    mock_redis.get = AsyncMock(return_value=None)
+    mock_redis.set = AsyncMock()
+    mock_redis.setex = AsyncMock()
+    mock_redis.delete = AsyncMock()
+    app.state.redis = mock_redis
     return TestClient(app)
 
 

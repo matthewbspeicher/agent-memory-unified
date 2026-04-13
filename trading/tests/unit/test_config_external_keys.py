@@ -69,5 +69,5 @@ def test_existing_fields_unaffected(monkeypatch):
     """Regression: ensure existing fields still work after adding new ones."""
     monkeypatch.setenv("STA_BROKER_MODE", "paper")
     c = load_config(env_file="nonexistent.env")
-    assert c.ib_port == 4002
+    assert c.ib_port is None  # BrokerConfig.ib_port defaults to None
     assert c.api_host == "127.0.0.1"

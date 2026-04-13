@@ -130,6 +130,13 @@ class Config(BaseModel):
             return object.__getattribute__(self, name)
         except AttributeError:
             pass
+        # Check Pydantic extra fields (model_config extra="allow")
+        try:
+            extra = object.__getattribute__(self, "__pydantic_extra__")
+            if extra is not None and name in extra:
+                return extra[name]
+        except AttributeError:
+            pass
         # Access class attributes via type(self) to avoid recursion
         cls = type(self)
         # Try broker fields first (most common flat access pattern)
@@ -170,17 +177,18 @@ class Config(BaseModel):
     tradier_streaming: bool | None = None
     tradier_token: str | None = None
     tradier_sandbox: bool | None = None
-    journal_index_enabled: bool | None = None
+    journal_index_enabled: bool = False
     journal_index_persist_interval: int | None = None
-    journal_index_model: str | None = None
-    journal_index_path: str | None = None
-    journal_index_space: str | None = None
-    journal_index_ef_construction: int | None = None
-    journal_index_m: int | None = None
-    journal_index_ef_search: int | None = None
-    journal_index_max_elements: int | None = None
+    journal_index_model: str = "all-MiniLM-L6-v2"
+    journal_index_path: str = "data/journal_index"
+    journal_index_space: str = "cosine"
+    journal_index_ef_construction: int = 200
+    journal_index_m: int = 16
+    journal_index_ef_search: int = 50
+    journal_index_max_elements: int = 100_000
     gpu_enabled: bool | None = None
     supabase_url: str | None = None
+    supabase_anon_key: str | None = None
     supabase_service_key: str | None = None
     kalshi_demo: bool | None = None
     polymarket_private_key: str | None = None
@@ -192,19 +200,15 @@ class Config(BaseModel):
     polymarket_dry_run: bool | None = None
     polymarket_relayer_api_key: str | None = None
     polymarket_relayer_address: str | None = None
-    bittensor_mock: bool | None = None
-    bittensor_enabled: bool | None = None
-    bittensor_network: str | None = None
-    bittensor_endpoint: str | None = None
-    bittensor_wallet_name: str | None = None
-    bittensor_hotkey_path: str | None = None
-    bittensor_hotkey: str | None = None
-    bittensor_subnet_uid: int | None = None
-    bittensor_selection_policy: str | None = None
-    bittensor_selection_metric: str | None = None
-    bittensor_top_miners: int | None = None
-    bittensor_derivation_version: str | None = None
-    bittensor_streams: list[str] | None = None
+    # External API keys (not nested under a prefix)
+    metaculus_token: str | None = None
+    manifold_markets_key: str | None = None
+    newsapi_key: str | None = None
+    alpha_vantage_key: str | None = None
+    coingecko_api_key: str | None = None
+    tradercongress_api_key: str | None = None
+    quiverquant_api_key: str | None = None
+
     agents_config: str | None = None
     redis_url: str | None = None
     broker_routing: dict[str, str] | None = None
@@ -338,11 +342,6 @@ def load_config(env_file: str = ".env") -> Any:
                 processed_data[k] = v
         elif k not in _flat_fields:
             processed_data[k] = v
-
-    # Mirror bittensor.mock to flat bittensor_mock for app.py compatibility
-    bt_nested = processed_data.get("bittensor", {})
-    if isinstance(bt_nested, dict) and bt_nested.get("mock"):
-        processed_data["bittensor_mock"] = bt_nested["mock"]
 
     # LLM fallback chain: parse from nested or flat
     llm_nested = processed_data.get("llm", {})

@@ -60,9 +60,7 @@ class TestOpportunitiesAPI:
         assert resp.json()["id"] == "opp-1"
 
     def test_get_missing_opportunity(self, opp_client):
-        from api.deps import get_opportunity_store
-
-        get_opportunity_store().get = AsyncMock(return_value=None)
+        opp_client.app.state.opportunity_store.get = AsyncMock(return_value=None)
         resp = opp_client.get(
             "/opportunities/missing", headers={"X-API-Key": "test-key"}
         )

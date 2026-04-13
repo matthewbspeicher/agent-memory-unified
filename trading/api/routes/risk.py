@@ -17,8 +17,10 @@ class KillSwitchRequest(BaseModel):
 
 
 @router.get("/status")
-async def risk_status(_: str = Depends(verify_api_key)):
-    engine = get_risk_engine()
+async def risk_status(
+    _: str = Depends(verify_api_key),
+    engine=Depends(get_risk_engine),
+):
     return {
         "kill_switch": engine.kill_switch.is_enabled,
         "kill_switch_reason": engine.kill_switch.reason,
@@ -69,7 +71,7 @@ async def confirm_kill_switch(
     reason = data["reason"]
     
     # 1. Update In-memory engine
-    engine = get_risk_engine()
+    engine = get_risk_engine(request)
     engine.kill_switch.toggle(enabled, reason)
     
     # 2. Update Redis global state (Phase A Requirement)
@@ -95,7 +97,7 @@ async def toggle_kill_switch(
     """Legacy endpoint — now requires confirmation for enabling."""
     # If disabling, allow immediate. If enabling, force two-step or allow with warning.
     # For Phase A, we still allow legacy for now but emit a warning.
-    engine = get_risk_engine()
+    engine = get_risk_engine(request)
     engine.kill_switch.toggle(req.enabled, req.reason)
     await redis.set("kill_switch:active", "true" if req.enabled else "false")
     return {
@@ -106,13 +108,16 @@ async def toggle_kill_switch(
 
 
 @router.get("/analytics")
-async def risk_analytics(_: str = Depends(verify_api_key)):
+async def risk_analytics(
+    request: Request,
+    _: str = Depends(verify_api_key),
+):
     """Get real-time portfolio risk metrics (VaR, drawdown, leverage, exposure)."""
-    risk_analytics = get_risk_analytics()
-    if not risk_analytics:
+    analytics = get_risk_analytics(request)
+    if not analytics:
         raise HTTPException(status_code=503, detail="RiskAnalytics not initialized")
 
-    broker = get_broker()
+    broker = get_broker(request)
     positions = broker.get_positions() if hasattr(broker, "get_positions") else []
 
     # Build price map
@@ -121,8 +126,8 @@ async def risk_analytics(_: str = Depends(verify_api_key)):
         if "symbol" in pos and "current_price" in pos:
             prices[pos["symbol"]] = Decimal(str(pos["current_price"]))
 
-    portfolio_risk = risk_analytics.calculate_portfolio_risk(positions, prices)
-    violations = risk_analytics.check_limits(portfolio_risk)
+    portfolio_risk = analytics.calculate_portfolio_risk(positions, prices)
+    violations = analytics.check_limits(portfolio_risk)
 
     return {
         "timestamp": portfolio_risk.timestamp.isoformat(),

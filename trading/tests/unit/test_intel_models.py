@@ -84,6 +84,7 @@ def test_intelligence_config_defaults():
         "regime": 0.10,
         "risk_audit": 0.05,
         "derivatives": 0.12,
+        "knowledge_graph": 0.15,
     }
     assert cfg.max_adjustment_pct == 0.30
 

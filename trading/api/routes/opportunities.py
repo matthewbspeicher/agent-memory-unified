@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import hmac as hmac_mod
 import time
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from agents.models import OpportunityStatus
 from api.auth import verify_api_key, _get_settings
@@ -36,16 +36,19 @@ async def list_opportunities(
     signal: str | None = None,
     limit: int = 50,
     _: str = Depends(verify_api_key),
+    store=Depends(get_opportunity_store),
 ):
-    store = get_opportunity_store()
     return await store.list(
         agent_name=agent_name, symbol=symbol, signal=signal, limit=limit
     )
 
 
 @router.get("/{opportunity_id}")
-async def get_opportunity(opportunity_id: str, _: str = Depends(verify_api_key)):
-    store = get_opportunity_store()
+async def get_opportunity(
+    opportunity_id: str,
+    _: str = Depends(verify_api_key),
+    store=Depends(get_opportunity_store),
+):
     opp = await store.get(opportunity_id)
     if not opp:
         raise HTTPException(status_code=404, detail="Opportunity not found")
@@ -55,6 +58,7 @@ async def get_opportunity(opportunity_id: str, _: str = Depends(verify_api_key))
 @router.post("/{opportunity_id}/approve")
 async def approve_opportunity(
     opportunity_id: str,
+    request: Request,
     ts: str | None = Query(default=None),
     sig: str | None = Query(default=None),
 ):
@@ -64,7 +68,7 @@ async def approve_opportunity(
     if not _verify_signature(settings.api_key, opportunity_id, "approve", ts, sig):
         raise HTTPException(status_code=403, detail="Invalid or expired signature")
 
-    store = get_opportunity_store()
+    store = get_opportunity_store(request)
     opp = await store.get(opportunity_id)
     if not opp:
         raise HTTPException(status_code=404, detail="Opportunity not found")
@@ -75,6 +79,7 @@ async def approve_opportunity(
 @router.post("/{opportunity_id}/reject")
 async def reject_opportunity(
     opportunity_id: str,
+    request: Request,
     ts: str | None = Query(default=None),
     sig: str | None = Query(default=None),
 ):
@@ -85,7 +90,7 @@ async def reject_opportunity(
     else:
         raise HTTPException(status_code=403, detail="Signature required")
 
-    store = get_opportunity_store()
+    store = get_opportunity_store(request)
     opp = await store.get(opportunity_id)
     if not opp:
         raise HTTPException(status_code=404, detail="Opportunity not found")
@@ -94,8 +99,10 @@ async def reject_opportunity(
 
 
 @router.post("/{opportunity_id}/approve-auth", dependencies=[Depends(verify_api_key)])
-async def approve_opportunity_authenticated(opportunity_id: str):
-    store = get_opportunity_store()
+async def approve_opportunity_authenticated(
+    opportunity_id: str,
+    store=Depends(get_opportunity_store),
+):
     opp = await store.get(opportunity_id)
     if not opp:
         raise HTTPException(status_code=404, detail="Opportunity not found")
@@ -104,8 +111,10 @@ async def approve_opportunity_authenticated(opportunity_id: str):
 
 
 @router.post("/{opportunity_id}/reject-auth", dependencies=[Depends(verify_api_key)])
-async def reject_opportunity_authenticated(opportunity_id: str):
-    store = get_opportunity_store()
+async def reject_opportunity_authenticated(
+    opportunity_id: str,
+    store=Depends(get_opportunity_store),
+):
     opp = await store.get(opportunity_id)
     if not opp:
         raise HTTPException(status_code=404, detail="Opportunity not found")
@@ -115,9 +124,10 @@ async def reject_opportunity_authenticated(opportunity_id: str):
 
 @router.get("/{opportunity_id}/snapshot")
 async def get_opportunity_snapshot(
-    opportunity_id: str, _: str = Depends(verify_api_key)
+    opportunity_id: str,
+    _: str = Depends(verify_api_key),
+    store=Depends(get_opportunity_store),
 ):
-    store = get_opportunity_store()
     snapshot = await store.get_snapshot(opportunity_id)
     if not snapshot:
         raise HTTPException(status_code=404, detail="Snapshot not found")
@@ -126,9 +136,10 @@ async def get_opportunity_snapshot(
 
 @router.get("/{opportunity_id}/consensus")
 async def get_opportunity_consensus(
-    opportunity_id: str, _: str = Depends(verify_api_key)
+    opportunity_id: str,
+    _: str = Depends(verify_api_key),
+    store=Depends(get_opportunity_store),
 ):
-    store = get_opportunity_store()
     opp = await store.get(opportunity_id)
     if not opp:
         raise HTTPException(status_code=404, detail="Opportunity not found")
