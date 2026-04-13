@@ -107,6 +107,11 @@ class RegimeProvider(BaseIntelProvider):
         self.memory_manager = memory_manager
         self._knowledge_graph = knowledge_graph
         self._last_regime: dict[str, str] = {}  # symbol -> last detected regime
+        self._exchange_client = None
+
+    async def close(self) -> None:
+        if self._exchange_client:
+            await self._exchange_client.close()
 
     @property
     def name(self) -> str:
@@ -211,34 +216,40 @@ class RegimeProvider(BaseIntelProvider):
     async def _fetch_bars(self, symbol: str) -> list:
         """Fetch recent price bars. Override in tests."""
         try:
-            import ccxt.async_support as ccxt
+            if not self._exchange_client:
+                from data.exchange_client import ExchangeClient
+                self._exchange_client = ExchangeClient(primary="binance")
 
-            exchange = ccxt.binance()
-            try:
-                from broker.models import Bar, Symbol as SymbolModel, AssetType
-                from decimal import Decimal
+            from broker.models import Bar, Symbol as SymbolModel, AssetType
+            from decimal import Decimal
 
-                ticker_map = {"BTCUSD": "BTC/USDT", "ETHUSD": "ETH/USDT"}
-                ccxt_symbol = ticker_map.get(symbol, symbol.replace("USD", "/USDT"))
-                ohlcv = await exchange.fetch_ohlcv(ccxt_symbol, "1h", limit=120)
+            ticker_map = {"BTCUSD": "BTC/USDT", "ETHUSD": "ETH/USDT"}
+            ccxt_symbol = ticker_map.get(symbol, symbol.replace("USD", "/USDT"))
+            
+            exchange = next(iter(self._exchange_client._exchanges.values()), None)
+            if not exchange:
+                return []
+                
+            ohlcv = await exchange.fetch_ohlcv(ccxt_symbol, "1h", limit=120)
 
-                bars = []
-                for candle in ohlcv:
-                    ts = datetime.fromtimestamp(candle[0] / 1000, tz=timezone.utc)
-                    bars.append(
-                        Bar(
-                            symbol=SymbolModel(
-                                ticker=symbol, asset_type=AssetType.CRYPTO
-                            ),
-                            timestamp=ts,
-                            close=Decimal(str(candle[4])),
-                        )
+            bars = []
+            for candle in ohlcv:
+                ts = datetime.fromtimestamp(candle[0] / 1000, tz=timezone.utc)
+                bars.append(
+                    Bar(
+                        symbol=SymbolModel(
+                            ticker=symbol, asset_type=AssetType.CRYPTO
+                        ),
+                        timestamp=ts,
+                        close=Decimal(str(candle[4])),
                     )
-                return bars
-            finally:
-                await exchange.close()
+                )
+            return bars
         except ImportError:
             raise NotImplementedError("Install ccxt: pip install ccxt")
+        except Exception as e:
+            logger.debug("RegimeProvider fetch_bars failed for %s: %s", symbol, e)
+            return []
 
     @staticmethod
     def _calc_volatility(bars: list) -> float:

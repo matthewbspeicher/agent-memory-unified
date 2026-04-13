@@ -91,6 +91,8 @@ class IntelligenceLayer:
             await self._order_flow.close()
         if hasattr(self._derivatives, "close"):
             await self._derivatives.close()
+        if hasattr(self._regime, "close"):
+            await self._regime.close()
 
     async def _handle_consensus(self, signal: AgentSignal) -> None:
         if signal.signal_type != "bittensor_consensus":
