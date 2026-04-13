@@ -116,7 +116,8 @@ export default function Lab() {
   if (!draft) return null;
 
   const results = draft.backtest_results;
-  const canDeploy = draft.status === 'tested' && results && results.sharpe_ratio >= 1.0;
+  const isScaffold = results?.status === 'scaffold';
+  const canDeploy = draft.status === 'tested' && results && results.sharpe_ratio >= 1.0 && !isScaffold;
 
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-6 animate-in fade-in duration-500">
@@ -180,11 +181,11 @@ export default function Lab() {
                      disabled:opacity-50 disabled:cursor-not-allowed
                      hover:bg-violet-400 transition"
           >
-            {backtesting ? 'Simulating...' : 'Run Sync Backtest'}
+            {backtesting ? 'Running Backtest...' : 'Run Backtest'}
           </button>
 
           <p className="text-xs text-gray-500 text-center">
-            Synthetic metrics for UI validation. Real backtest integration pending.
+            Runs the BacktestEngine against simulated market data.
           </p>
         </GlassCard>
 
@@ -257,7 +258,7 @@ export default function Lab() {
                        disabled:opacity-50 disabled:cursor-not-allowed
                        hover:bg-emerald-400 transition"
             >
-              {deploying ? 'Deploying...' : canDeploy ? 'Deploy Agent' : 'Sharpe must be >= 1.0 to deploy'}
+              {deploying ? 'Deploying...' : canDeploy ? 'Deploy to Roster' : isScaffold ? 'Run real backtest to deploy' : 'Sharpe must be >= 1.0 to deploy'}
             </button>
           </GlassCard>
         )}

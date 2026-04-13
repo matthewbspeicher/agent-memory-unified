@@ -1,6 +1,6 @@
 # Agent Studio (Forge & Lab) Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Build a unified UI to create (Forge), validate (Lab), and deploy autonomous trading/arena agents using a draft-to-live workflow.
 
@@ -21,7 +21,7 @@
 
 ### Steps
 
-- [ ] **Step 1: Write the SQL Migration**
+- [x] **Step 1: Write the SQL Migration**
 
 ```sql
 -- scripts/migrations/add-agent-drafts.sql
@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS identity.agent_drafts (
 CREATE INDEX idx_agent_drafts_status ON identity.agent_drafts(status);
 ```
 
-- [ ] **Step 2: Write failing store test**
+- [x] **Step 2: Write failing store test**
 
 Test cases to implement:
 - `test_create_and_get_draft` - Create draft, retrieve by ID, verify fields
@@ -85,7 +85,7 @@ async def test_update_draft_results(test_db):
     assert draft["status"] == "tested"
 ```
 
-- [ ] **Step 3: Implement store methods**
+- [x] **Step 3: Implement store methods**
 
 Add these methods to `IdentityStore`:
 - `create_draft(name, system_prompt, model, hyperparameters) -> str`
@@ -100,13 +100,13 @@ Implementation notes:
 - Parse JSONB returns with `json.loads()` when returning to caller
 - Set `updated_at` on every mutation
 
-- [ ] **Step 4: Run tests and verify pass**
+- [x] **Step 4: Run tests and verify pass**
 
 ```bash
 cd trading && python -m pytest tests/unit/test_identity_drafts.py -v --tb=short
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add scripts/migrations/add-agent-drafts.sql trading/api/identity/store.py trading/tests/unit/test_identity_drafts.py
@@ -134,7 +134,7 @@ The plan originally proposed a synchronous wrapper around `BacktestEngine`. Howe
 
 ### Steps
 
-- [ ] **Step 1: Write failing route tests**
+- [x] **Step 1: Write failing route tests**
 
 ```python
 # trading/tests/unit/test_draft_routes.py
@@ -172,7 +172,7 @@ async def test_backtest_returns_results(client: AsyncClient, auth_headers):
     assert "status" in data
 ```
 
-- [ ] **Step 2: Implement API routes**
+- [x] **Step 2: Implement API routes**
 
 Routes to implement (in `agents.py` or new `drafts.py`):
 
@@ -218,7 +218,7 @@ Deploy endpoint behavior (stub for v1):
 2. Return `{"status": "deployed", "message": "Draft promoted (implementation pending)"}`
 3. Full deployment to agents.yaml tracked as follow-up
 
-- [ ] **Step 3: Run tests and commit**
+- [x] **Step 3: Run tests and commit**
 
 ```bash
 cd trading && python -m pytest tests/unit/test_draft_routes.py -v --tb=short
@@ -237,7 +237,7 @@ git commit -m "feat: add draft CRUD and backtest API routes with auth"
 
 ### Steps
 
-- [ ] **Step 1: Create Forge Component**
+- [x] **Step 1: Create Forge Component**
 
 Component requirements:
 - Form with fields: Agent Name (text), System Prompt (textarea), Model (select: gpt-4o, gpt-4.1, claude-sonnet)
@@ -255,7 +255,7 @@ Body: { name, system_prompt, model, hyperparameters }
 Headers: Include X-API-Key from existing auth context
 ```
 
-- [ ] **Step 2: Add route to `router.tsx`**
+- [x] **Step 2: Add route to `router.tsx`**
 
 Follow existing lazy-loading pattern:
 ```typescript
@@ -264,11 +264,11 @@ const Forge = lazy(() => import('./pages/Forge'));
 { path: 'studio/forge', element: <LazyPage><Forge /></LazyPage> },
 ```
 
-- [ ] **Step 3: Add nav link**
+- [x] **Step 3: Add nav link**
 
 Add link to Forge in the main navigation (or sidebar). Suggested label: "Agent Forge" with ⚒️ icon.
 
-- [ ] **Step 4: Test manually and commit**
+- [x] **Step 4: Test manually and commit**
 
 ```bash
 # Run frontend dev server
@@ -289,7 +289,7 @@ git commit -m "feat(ui): add Forge page for agent draft creation"
 
 ### Steps
 
-- [ ] **Step 1: Create Lab Component**
+- [x] **Step 1: Create Lab Component**
 
 Component requirements:
 - Receive draft ID from URL params (`/studio/lab/:id`)
@@ -311,7 +311,7 @@ Styling:
 - Use `GlassCard` with `variant="green"` for results panel
 - Follow existing typography (uppercase headers, mono font for metrics)
 
-- [ ] **Step 2: Add route to `router.tsx`**
+- [x] **Step 2: Add route to `router.tsx`**
 
 ```typescript
 const Lab = lazy(() => import('./pages/Lab'));
@@ -319,7 +319,7 @@ const Lab = lazy(() => import('./pages/Lab'));
 { path: 'studio/lab/:id', element: <LazyPage><Lab /></LazyPage> },
 ```
 
-- [ ] **Step 3: Test and commit**
+- [x] **Step 3: Test and commit**
 
 ```bash
 # Verify flow: Forge → Lab → Backtest → Deploy button appears
@@ -337,21 +337,21 @@ git commit -m "feat(ui): add Lab page for agent evaluation and deployment"
 
 ### Steps
 
-- [ ] **Step 1: Write ADR**
+- [x] **Step 1: Write ADR**
 
 Document the decision to use synthetic backtest metrics in v1, with rationale and follow-up plan.
 
-- [ ] **Step 2: Update CLAUDE.md**
+- [x] **Step 2: Update CLAUDE.md**
 
 Add Agent Studio to the Architecture section if significant.
 
-- [ ] **Step 3: Run full test suite**
+- [x] **Step 3: Run full test suite**
 
 ```bash
 cd trading && python -m pytest tests/unit/ -v --tb=short --timeout=30
 ```
 
-- [ ] **Step 4: Final commit**
+- [x] **Step 4: Final commit**
 
 ```bash
 git add docs/adr/
@@ -377,8 +377,8 @@ These are tracked separately, not blocking this implementation:
 
 Before marking complete:
 
-- [ ] All unit tests pass: `pytest tests/unit/ -v --tb=short --timeout=30`
-- [ ] Frontend builds: `cd frontend && npm run build`
-- [ ] Manual flow works: Create draft → View in Lab → Run backtest → See results
-- [ ] Auth enforced: Unauthenticated requests return 401
-- [ ] ADR written documenting synthetic backtest decision
+- [x] All unit tests pass: `pytest tests/unit/ -v --tb=short --timeout=30`
+- [x] Frontend builds: `cd frontend && npm run build`
+- [x] Manual flow works: Create draft → View in Lab → Run backtest → See results
+- [x] Auth enforced: Unauthenticated requests return 401
+- [x] ADR written documenting synthetic backtest decision

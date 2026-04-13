@@ -1,8 +1,8 @@
-# ADR-0009: Agent Studio Synthetic Backtest Approach
+# ADR-0009: Agent Studio Backtest and Deployment
 
 ## Status
 
-Accepted
+Accepted (Updated 2026-04-13: follow-ups implemented)
 
 ## Context
 
@@ -16,47 +16,47 @@ Three issues prevented direct integration:
 
 ## Decision
 
-**Use synthetic (randomized) metrics for v1, with a clear "scaffold" status indicator.**
+**Refactor the backtest logic into an importable library module (`trading/backtest/engine.py`) and run it via `run_in_executor` to avoid blocking the event loop.**
 
-The backtest endpoint returns realistic-looking metrics with `status: "scaffold"` to signal that results are not from real backtesting. The frontend displays a "SCAFFOLD" badge when this status is present.
+The backtest endpoint calls the real `run_backtest()` function in a thread pool executor. Results carry `status: "real"` to distinguish from the earlier scaffold implementation. The frontend deploy button is gated on real results (scaffold results cannot be deployed).
 
-This unblocks UI development and provides a working demo flow without pretending to have real backtesting capabilities.
+For deployment, the deploy endpoint writes the agent entry directly to `agents.yaml` with `trust_level: "monitored"` and `schedule: "on_demand"`. A trading engine restart is required to activate the new agent.
 
 ## Consequences
 
 ### Positive
 
-- Frontend can be developed and tested end-to-end
-- API contract is established and can be iterated upon
-- Clear communication to users that results are synthetic
-- No blocking I/O or fragile imports
+- Real backtest metrics (Sharpe, win rate, drawdown, equity curve) from actual engine logic
+- No blocking of the event loop — backtest runs in thread pool
+- Clean importable library (`backtest.engine`) with no `sys.path` hacks
+- Deploy writes directly to `agents.yaml` — agent appears in roster after restart
+- Duplicate agent name detection prevents accidental overwrites
 
 ### Negative
 
-- Users may deploy agents based on fake metrics if they ignore the "scaffold" indicator
-- Does not validate actual agent performance
+- Backtest still uses simulated market data (same random walk as the CLI tool), not historical exchange data
+- Agent framework reload requires trading engine restart (no hot-reload yet)
 
 ### Neutral
 
-- The backtest endpoint contract (`POST /api/v1/drafts/{id}/backtest`) is real and will work when wired to actual backtesting
-- The "scaffold" status can be removed when real backtesting is integrated
+- The `run_backtest()` function can later be swapped with a version that pulls real historical data without changing the API contract
+- `trust_level: "monitored"` ensures deployed agents start in safe mode
 
-## Follow-up
+## File Map
 
-Track these separately as future work:
-
-1. **Real Backtest Integration** (Issue #TBD)
-   - Refactor `BacktestEngine` into importable library
-   - Run via background task (Celery/ARQ) or subprocess
-   - Return actual metrics with `status: "real"`
-
-2. **Agent Deployment** (Issue #TBD)
-   - Write approved draft to `agents.yaml`
-   - Trigger agent framework reload
-   - Return deployment confirmation with agent name
+| File | Action | Description |
+|------|--------|-------------|
+| `trading/backtest/__init__.py` | New | Package init |
+| `trading/backtest/engine.py` | New | Importable `run_backtest()` function |
+| `trading/api/routes/drafts.py` | Modified | Real backtest via executor, deploy to agents.yaml |
+| `frontend/src/pages/Lab.tsx` | Modified | Scaffold vs real gating, updated button text |
+| `frontend/src/pages/Forge.tsx` | Modified | Fixed API response handling |
+| `trading/tests/unit/test_backtest_engine.py` | New | 10 tests for backtest engine |
+| `trading/tests/unit/test_draft_routes.py` | Modified | Deploy and backtest integration tests |
 
 ## References
 
 - Original plan: `docs/superpowers/plans/2026-04-13-agent-studio-implementation.md`
-- BacktestEngine location: `scripts/backtest_system.py`
+- BacktestEngine source: `scripts/backtest_system.py` (CLI version, preserved)
+- Importable library: `trading/backtest/engine.py`
 - Draft API routes: `trading/api/routes/drafts.py`

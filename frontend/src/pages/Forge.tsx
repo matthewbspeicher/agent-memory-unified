@@ -43,8 +43,9 @@ export default function Forge() {
         throw new Error(data.detail || 'Failed to create draft');
       }
 
-      const { data } = await res.json();
-      navigate(`/studio/lab/${data.id}`);
+      const result = await res.json();
+      const draft = result.data || result;
+      navigate(`/studio/lab/${draft.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
