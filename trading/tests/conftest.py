@@ -124,3 +124,11 @@ def client(mock_broker):
     mock_redis.delete = AsyncMock()
     app.state.redis = mock_redis
     return TestClient(app)
+
+
+@pytest.fixture
+def postgres_dsn():
+    """PostgreSQL DSN for integration tests."""
+    return os.environ.get(
+        "STA_DATABASE_URL", "postgresql://postgres:secret@localhost:5432/agent_memory"
+    )
