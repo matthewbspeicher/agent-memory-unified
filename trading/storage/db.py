@@ -877,6 +877,23 @@ async def init_db_postgres(db) -> None:
         await db.executescript(_INIT_DDL)
     except Exception as e:
         logger.warning("Postgres DDL init (non-fatal): %s", e)
+        
+    try:
+        await db.execute("""
+        CREATE TABLE IF NOT EXISTS thought_records (
+            id TEXT PRIMARY KEY,
+            timestamp TEXT NOT NULL,
+            agent_name TEXT NOT NULL,
+            symbol TEXT NOT NULL,
+            action TEXT NOT NULL,
+            conviction_score REAL NOT NULL,
+            rule_evaluations TEXT,
+            memory_context TEXT
+        );
+        """)
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_thought_records_agent ON thought_records(agent_name);")
+    except Exception as e:
+        logger.warning("Thought records DDL init (non-fatal): %s", e)
 
     # Column migrations — safe to retry (postgres raises "already exists")
     _migrations = [
