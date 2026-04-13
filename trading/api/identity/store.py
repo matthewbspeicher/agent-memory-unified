@@ -84,6 +84,19 @@ class IdentityStore:
             )
         return self._row_to_record(row) if row else None
 
+    async def list_active(self) -> list[AgentRecord]:
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT id, name, token_hash, scopes, tier, created_at, revoked_at,
+                       contact_email, moltbook_handle, metadata
+                FROM identity.agents
+                WHERE revoked_at IS NULL
+                ORDER BY created_at DESC
+                """,
+            )
+        return [self._row_to_record(r) for r in rows]
+
     async def revoke(self, *, name: str, reason: str, actor: str) -> None:
         async with self._pool.acquire() as conn:
             await conn.execute(

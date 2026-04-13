@@ -1020,6 +1020,11 @@ async def lifespan(app: FastAPI):
         app.state.db = db
         app.state.learning_config = _learning_cfg
 
+        from api.identity.store import IdentityStore
+
+        app.state.identity_store = IdentityStore(pool=db)
+        _log.info("IdentityStore initialized")
+
         # --- Knowledge Graph ---
         from storage.knowledge_graph import TradingKnowledgeGraph
 
