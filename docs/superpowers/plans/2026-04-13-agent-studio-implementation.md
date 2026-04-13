@@ -4,18 +4,22 @@
 
 **Goal:** Build a unified UI to create (Forge), validate (Lab), and deploy autonomous trading/arena agents using a draft-to-live workflow.
 
-**Architecture:** A new `identity.agent_drafts` PostgreSQL table backs the draft system. A synchronous FastAPI endpoint wraps the existing `BacktestEngine` to return JSON metrics. The React 19 frontend provides the builder UI and equity curve visualizations.
+**Architecture:** A new `identity.agent_drafts` PostgreSQL table backs the draft system. The React 19 frontend provides the builder UI with backtest result visualizations. Drafts can be promoted to live agents in the existing `agents.yaml` roster.
 
-**Tech Stack:** Python 3.14, asyncpg, FastAPI, React 19, Recharts.
+**Tech Stack:** Python 3.13, asyncpg, FastAPI, React 19.
+
+**Known Limitation:** The initial backtest implementation uses synthetic metrics for UI validation. Real backtest integration with the `BacktestEngine` is tracked as a follow-up (see Task 2 notes).
 
 ---
 
-### Task 1: Draft Data Model & Migration
+## Task 1: Draft Data Model & Migration
 
 **Files:**
 - Create: `scripts/migrations/add-agent-drafts.sql`
 - Modify: `trading/api/identity/store.py`
 - Test: `trading/tests/unit/test_identity_drafts.py`
+
+### Steps
 
 - [ ] **Step 1: Write the SQL Migration**
 
@@ -32,11 +36,22 @@ CREATE TABLE IF NOT EXISTS identity.agent_drafts (
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Index for listing drafts by status
+CREATE INDEX idx_agent_drafts_status ON identity.agent_drafts(status);
 ```
 
 - [ ] **Step 2: Write failing store test**
 
+Test cases to implement:
+- `test_create_and_get_draft` - Create draft, retrieve by ID, verify fields
+- `test_update_draft_status` - Change status from draft → tested → deployed
+- `test_update_draft_results` - Store backtest results JSON
+- `test_list_drafts` - List drafts filtered by status
+- `test_delete_draft` - Remove a draft
+
 ```python
+# trading/tests/unit/test_identity_drafts.py
 import pytest
 from api.identity.store import IdentityStore
 
@@ -45,7 +60,7 @@ async def test_create_and_get_draft(test_db):
     store = IdentityStore(test_db)
     draft_id = await store.create_draft(
         name="TestDraft",
-        system_prompt="You are a test.",
+        system_prompt="You are a test agent.",
         model="gpt-4o",
         hyperparameters={"temperature": 0.5}
     )
@@ -54,38 +69,45 @@ async def test_create_and_get_draft(test_db):
     draft = await store.get_draft(draft_id)
     assert draft["name"] == "TestDraft"
     assert draft["status"] == "draft"
+    assert draft["model"] == "gpt-4o"
+    assert draft["hyperparameters"]["temperature"] == 0.5
+
+@pytest.mark.asyncio
+async def test_update_draft_results(test_db):
+    store = IdentityStore(test_db)
+    draft_id = await store.create_draft(name="Test", system_prompt="Test", model="gpt-4o")
+    
+    results = {"sharpe_ratio": 1.5, "win_rate": 0.62, "equity_curve": [...]}
+    await store.update_draft_results(draft_id, results)
+    
+    draft = await store.get_draft(draft_id)
+    assert draft["backtest_results"]["sharpe_ratio"] == 1.5
+    assert draft["status"] == "tested"
 ```
 
 - [ ] **Step 3: Implement store methods**
 
-```python
-# In trading/api/identity/store.py
-    async def create_draft(self, name: str, system_prompt: str, model: str, hyperparameters: dict) -> str:
-        import json
-        query = """
-            INSERT INTO identity.agent_drafts (name, system_prompt, model, hyperparameters)
-            VALUES ($1, $2, $3, $4)
-            RETURNING id
-        """
-        result = await self.pool.fetchval(query, name, system_prompt, model, json.dumps(hyperparameters))
-        return str(result)
-        
-    async def get_draft(self, draft_id: str) -> dict | None:
-        query = "SELECT * FROM identity.agent_drafts WHERE id = $1"
-        row = await self.pool.fetchrow(query, draft_id)
-        if row:
-            import json
-            res = dict(row)
-            res["id"] = str(res["id"])
-            res["hyperparameters"] = json.loads(res["hyperparameters"]) if isinstance(res["hyperparameters"], str) else res["hyperparameters"]
-            return res
-        return None
-```
+Add these methods to `IdentityStore`:
+- `create_draft(name, system_prompt, model, hyperparameters) -> str`
+- `get_draft(draft_id) -> dict | None`
+- `update_draft_results(draft_id, results) -> None` - Sets backtest_results JSONB and status to "tested"
+- `update_draft_status(draft_id, status) -> None`
+- `list_drafts(status: str | None = None) -> list[dict]`
+- `delete_draft(draft_id) -> bool`
+
+Implementation notes:
+- Use `json.dumps()` for JSONB parameters
+- Parse JSONB returns with `json.loads()` when returning to caller
+- Set `updated_at` on every mutation
 
 - [ ] **Step 4: Run tests and verify pass**
-Run: `pytest trading/tests/unit/test_identity_drafts.py -v`
+
+```bash
+cd trading && python -m pytest tests/unit/test_identity_drafts.py -v --tb=short
+```
 
 - [ ] **Step 5: Commit**
+
 ```bash
 git add scripts/migrations/add-agent-drafts.sql trading/api/identity/store.py trading/tests/unit/test_identity_drafts.py
 git commit -m "feat: add agent_drafts schema and store methods"
@@ -93,271 +115,270 @@ git commit -m "feat: add agent_drafts schema and store methods"
 
 ---
 
-### Task 2: Hybrid Backtest Engine API
+## Task 2: Draft API Routes
 
 **Files:**
-- Create: `trading/evaluation/engine.py`
-- Modify: `trading/api/routes/agents.py`
-- Test: `trading/tests/unit/test_evaluation_engine.py`
+- Modify: `trading/api/routes/agents.py` (or create new `trading/api/routes/drafts.py`)
+- Test: `trading/tests/unit/test_draft_routes.py`
 
-- [ ] **Step 1: Write failing evaluation test**
+### Notes on Backtest Engine
+
+The plan originally proposed a synchronous wrapper around `BacktestEngine`. However:
+1. The existing `BacktestEngine` in `scripts/backtest_system.py` is designed for CLI use, not import
+2. Running real backtests synchronously would block the event loop
+3. The `sys.path.append` hack is fragile
+
+**Approach for v1:** Return synthetic metrics with clear `"status": "scaffold"` marker. The frontend should display a "Real backtest pending" indicator. This unblocks UI development without pretending to have real data.
+
+**Follow-up:** Wire to real backtest via a background task (Celery/ARQ) or synchronous subprocess call. Track separately.
+
+### Steps
+
+- [ ] **Step 1: Write failing route tests**
 
 ```python
+# trading/tests/unit/test_draft_routes.py
 import pytest
-from evaluation.engine import run_synchronous_backtest
+from httpx import AsyncClient
 
 @pytest.mark.asyncio
-async def test_sync_backtest():
-    results = await run_synchronous_backtest(
-        agent_config={"name": "test", "prompt": "test"},
-        sim_type="trading",
-        days=1
+async def test_create_draft_requires_auth(client: AsyncClient):
+    """POST /api/v1/drafts without auth should return 401"""
+    res = await client.post("/api/v1/drafts", json={"name": "Test", "system_prompt": "Test"})
+    assert res.status_code in (401, 403)
+
+@pytest.mark.asyncio
+async def test_create_draft_with_auth(client: AsyncClient, auth_headers):
+    res = await client.post(
+        "/api/v1/drafts",
+        json={"name": "TestAgent", "system_prompt": "You are a trader.", "model": "gpt-4o"},
+        headers=auth_headers
     )
-    assert "sharpe_ratio" in results
-    assert "equity_curve" in results
-    assert len(results["equity_curve"]) > 0
+    assert res.status_code == 200
+    assert "id" in res.json()["data"]
+
+@pytest.mark.asyncio
+async def test_backtest_returns_results(client: AsyncClient, auth_headers):
+    # Create draft first
+    create_res = await client.post("/api/v1/drafts", json={...}, headers=auth_headers)
+    draft_id = create_res.json()["data"]["id"]
+    
+    # Run backtest
+    res = await client.post(f"/api/v1/drafts/{draft_id}/backtest", headers=auth_headers)
+    assert res.status_code == 200
+    data = res.json()["data"]
+    assert "sharpe_ratio" in data
+    assert "equity_curve" in data
+    assert "status" in data
 ```
 
-- [ ] **Step 2: Implement evaluation wrapper**
+- [ ] **Step 2: Implement API routes**
 
+Routes to implement (in `agents.py` or new `drafts.py`):
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/api/v1/drafts` | `write:orders` | Create new draft |
+| GET | `/api/v1/drafts` | `write:orders` | List drafts (optional `?status=` filter) |
+| GET | `/api/v1/drafts/{id}` | `write:orders` | Get draft by ID |
+| POST | `/api/v1/drafts/{id}/backtest` | `write:orders` | Run backtest, store results |
+| POST | `/api/v1/drafts/{id}/deploy` | `control:agents` | Promote draft to live agent |
+| DELETE | `/api/v1/drafts/{id}` | `control:agents` | Delete draft |
+
+Authentication: Use `require_scope(...)` dependency (existing pattern). All draft routes need `write:orders` at minimum. Deploy/delete need `control:agents`.
+
+Request/Response models:
 ```python
-# trading/evaluation/engine.py
-import sys
-import os
-import json
-from typing import Dict, Any
+class DraftCreateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=64)
+    system_prompt: str = Field(min_length=1)
+    model: str = "gpt-4o"
+    hyperparameters: dict = {}
 
-async def run_synchronous_backtest(agent_config: Dict[str, Any], sim_type: str = "trading", days: int = 30) -> Dict[str, Any]:
-    # Import the existing backtest script
-    sys.path.append(os.path.join(os.path.dirname(__file__), '../../scripts'))
-    try:
-        from backtest_system import BacktestEngine
-        
-        # We run a fast mocked version of the backtest logic to ensure synchronous completion < 5s
-        engine = BacktestEngine(initial_capital=100000)
-        # Mock 10 trades
-        import random
-        from datetime import datetime, timedelta
-        
-        now = datetime.now()
-        for i in range(10):
-            engine.capital += random.uniform(-500, 1000)
-            engine.equity_curve.append({
-                "timestamp": (now - timedelta(days=days-i)).isoformat(),
-                "equity": engine.capital
-            })
-            
-        return {
-            "sharpe_ratio": random.uniform(0.5, 3.5),
-            "win_rate": random.uniform(0.4, 0.7),
-            "max_drawdown": random.uniform(-0.05, -0.25),
-            "equity_curve": engine.equity_curve,
-            "status": "tested"
-        }
-    except ImportError:
-        return {"error": "Backtest script not found"}
-```
-
-- [ ] **Step 3: Add API route**
-
-```python
-# In trading/api/routes/agents.py
-from fastapi import APIRouter, Depends, Request
-from pydantic import BaseModel
-from typing import Dict, Any
-
-class DraftRequest(BaseModel):
+class DraftResponse(BaseModel):
+    id: str
     name: str
     system_prompt: str
-    model: str = "gpt-4o"
-    hyperparameters: Dict[str, Any] = {}
-
-@router.post("/drafts")
-async def create_draft(req: DraftRequest, request: Request):
-    store = getattr(request.app.state, "identity_store", None)
-    draft_id = await store.create_draft(**req.dict())
-    return {"data": {"id": draft_id}}
-
-@router.post("/drafts/{draft_id}/backtest")
-async def backtest_draft(draft_id: str, request: Request):
-    store = getattr(request.app.state, "identity_store", None)
-    draft = await store.get_draft(draft_id)
-    if not draft: return {"error": "not found"}
-    
-    from evaluation.engine import run_synchronous_backtest
-    results = await run_synchronous_backtest(agent_config=draft)
-    
-    # Store results (implementation requires adding update_draft_results to store)
-    return {"data": results}
+    model: str
+    hyperparameters: dict
+    status: str
+    backtest_results: dict | None
+    created_at: str
+    updated_at: str
 ```
 
-- [ ] **Step 4: Run tests and Commit**
-Run: `pytest trading/tests/unit/test_evaluation_engine.py -v`
+Backtest endpoint behavior:
+1. Get draft from store
+2. Generate synthetic metrics (status="scaffold")
+3. Call `store.update_draft_results(draft_id, results)`
+4. Return results
+
+Deploy endpoint behavior (stub for v1):
+1. Validate draft status is "tested"
+2. Return `{"status": "deployed", "message": "Draft promoted (implementation pending)"}`
+3. Full deployment to agents.yaml tracked as follow-up
+
+- [ ] **Step 3: Run tests and commit**
+
 ```bash
-git add trading/evaluation/engine.py trading/api/routes/agents.py trading/tests/unit/test_evaluation_engine.py
-git commit -m "feat: implement synchronous evaluation engine and draft API routes"
+cd trading && python -m pytest tests/unit/test_draft_routes.py -v --tb=short
+git add trading/api/routes/agents.py trading/tests/unit/test_draft_routes.py
+git commit -m "feat: add draft CRUD and backtest API routes with auth"
 ```
 
 ---
 
-### Task 3: Forge UI (Creation)
+## Task 3: Forge UI (Creation)
 
 **Files:**
 - Create: `frontend/src/pages/Forge.tsx`
+- Create: `frontend/src/pages/Forge.css` (optional, or use Tailwind)
 - Modify: `frontend/src/router.tsx`
+
+### Steps
 
 - [ ] **Step 1: Create Forge Component**
 
-```tsx
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { GlassCard } from '../components/GlassCard';
+Component requirements:
+- Form with fields: Agent Name (text), System Prompt (textarea), Model (select: gpt-4o, gpt-4.1, claude-sonnet)
+- Hyperparameters section: Temperature (slider 0-2), Top-P (slider 0-1) - collapsible
+- "Save Draft" button - disabled until name + prompt filled
+- On success: Navigate to `/studio/lab/{id}`
+- Use existing `GlassCard` component with `variant="cyan"`
+- Loading state during save
+- Error toast on failure
 
-export default function Forge() {
-  const [name, setName] = useState('');
-  const [prompt, setPrompt] = useState('');
-  const navigate = useNavigate();
-
-  const handleSave = async () => {
-    const res = await fetch('/api/v1/agents/drafts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, system_prompt: prompt, hyperparameters: { temperature: 0.7 } })
-    });
-    if (res.ok) {
-      const { data } = await res.json();
-      navigate(`/studio/lab/${data.id}`);
-    }
-  };
-
-  return (
-    <div className="p-8 max-w-4xl mx-auto">
-      <h1 className="text-3xl font-black text-cyan-400 mb-8 uppercase">The Forge</h1>
-      <GlassCard variant="cyan">
-        <div className="flex flex-col gap-4">
-          <input 
-            value={name} 
-            onChange={e => setName(e.target.value)} 
-            placeholder="Agent Name"
-            className="p-2 bg-slate-900 border border-cyan-500/50 text-white rounded"
-          />
-          <textarea 
-            value={prompt} 
-            onChange={e => setPrompt(e.target.value)} 
-            placeholder="System Prompt..."
-            rows={10}
-            className="p-2 bg-slate-900 border border-cyan-500/50 text-white rounded"
-          />
-          <button 
-            onClick={handleSave}
-            disabled={!name || !prompt}
-            className="p-2 bg-cyan-500 text-slate-900 font-bold uppercase rounded disabled:opacity-50"
-          >
-            Save Draft & Continue to Lab
-          </button>
-        </div>
-      </GlassCard>
-    </div>
-  );
-}
+API call:
+```typescript
+POST /api/v1/drafts
+Body: { name, system_prompt, model, hyperparameters }
+Headers: Include X-API-Key from existing auth context
 ```
 
 - [ ] **Step 2: Add route to `router.tsx`**
-```tsx
+
+Follow existing lazy-loading pattern:
+```typescript
 const Forge = lazy(() => import('./pages/Forge'));
-// ... inside children array:
+// In children array:
 { path: 'studio/forge', element: <LazyPage><Forge /></LazyPage> },
 ```
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 3: Add nav link**
+
+Add link to Forge in the main navigation (or sidebar). Suggested label: "Agent Forge" with ⚒️ icon.
+
+- [ ] **Step 4: Test manually and commit**
+
 ```bash
+# Run frontend dev server
+cd frontend && npx vite --host 0.0.0.0 --port 3000
+
+# Verify: Navigate to /studio/forge, create draft, redirect to lab
 git add frontend/src/pages/Forge.tsx frontend/src/router.tsx
-git commit -m "feat(ui): build the Forge draft creation interface"
+git commit -m "feat(ui): add Forge page for agent draft creation"
 ```
 
 ---
 
-### Task 4: Lab UI (Evaluation & Deployment)
+## Task 4: Lab UI (Evaluation & Deployment)
 
 **Files:**
 - Create: `frontend/src/pages/Lab.tsx`
 - Modify: `frontend/src/router.tsx`
 
+### Steps
+
 - [ ] **Step 1: Create Lab Component**
 
-```tsx
-import React, { useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { GlassCard } from '../components/GlassCard';
+Component requirements:
+- Receive draft ID from URL params (`/studio/lab/:id`)
+- Fetch draft details on mount: `GET /api/v1/drafts/{id}`
+- Display draft configuration (name, model, hyperparameters) in read-only view
+- "Run Backtest" button → `POST /api/v1/drafts/{id}/backtest`
+- Results display:
+  - Sharpe Ratio, Win Rate, Max Drawdown as stat cards
+  - Equity curve as simple line chart (use inline SVG or recharts if already installed)
+  - Status indicator: show "Scaffold" badge if results.status === "scaffold"
+- "Deploy Agent" button - enabled only if sharpe_ratio > 1.0 and status !== "scaffold"
+  - On click: `POST /api/v1/drafts/{id}/deploy`
+  - Show success toast, navigate to agents dashboard
+- Loading states for backtest and deploy operations
+- Error handling with toast notifications
 
-export default function Lab() {
-  const { id } = useParams();
-  const [results, setResults] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
-
-  const runBacktest = async () => {
-    setLoading(true);
-    const res = await fetch(`/api/v1/agents/drafts/${id}/backtest`, { method: 'POST' });
-    if (res.ok) {
-      const { data } = await res.json();
-      setResults(data);
-    }
-    setLoading(false);
-  };
-
-  const deployAgent = async () => {
-    // Call deployment endpoint (implementation omitted for brevity)
-    alert("Agent Deployed to Live Roster!");
-  };
-
-  return (
-    <div className="p-8 max-w-4xl mx-auto">
-      <h1 className="text-3xl font-black text-violet-400 mb-8 uppercase">The Lab</h1>
-      
-      <div className="grid grid-cols-2 gap-8">
-        <GlassCard variant="violet">
-          <h2 className="text-xl font-bold text-white mb-4">Configuration</h2>
-          <button 
-            onClick={runBacktest}
-            disabled={loading}
-            className="w-full p-2 bg-violet-500 text-white font-bold uppercase rounded disabled:opacity-50"
-          >
-            {loading ? 'Simulating...' : 'Run Sync Backtest'}
-          </button>
-        </GlassCard>
-
-        {results && (
-          <GlassCard variant="green">
-            <h2 className="text-xl font-bold text-white mb-4">Results</h2>
-            <div className="font-mono text-sm space-y-2 mb-6">
-              <p>Sharpe Ratio: <span className="text-emerald-400">{results.sharpe_ratio.toFixed(2)}</span></p>
-              <p>Win Rate: <span className="text-emerald-400">{(results.win_rate * 100).toFixed(1)}%</span></p>
-            </div>
-            
-            <button 
-              onClick={deployAgent}
-              disabled={results.sharpe_ratio < 1.0}
-              className="w-full p-2 bg-emerald-500 text-slate-900 font-bold uppercase rounded disabled:opacity-50"
-            >
-              Deploy Agent
-            </button>
-          </GlassCard>
-        )}
-      </div>
-    </div>
-  );
-}
-```
+Styling:
+- Use `GlassCard` with `variant="violet"` for config panel
+- Use `GlassCard` with `variant="green"` for results panel
+- Follow existing typography (uppercase headers, mono font for metrics)
 
 - [ ] **Step 2: Add route to `router.tsx`**
-```tsx
+
+```typescript
 const Lab = lazy(() => import('./pages/Lab'));
-// ... inside children array:
+// In children array:
 { path: 'studio/lab/:id', element: <LazyPage><Lab /></LazyPage> },
 ```
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 3: Test and commit**
+
 ```bash
+# Verify flow: Forge → Lab → Backtest → Deploy button appears
 git add frontend/src/pages/Lab.tsx frontend/src/router.tsx
-git commit -m "feat(ui): build the Lab evaluation and deployment interface"
+git commit -m "feat(ui): add Lab page for agent evaluation and deployment"
 ```
+
+---
+
+## Task 5: Integration & Cleanup
+
+**Files:**
+- Modify: Various (as needed)
+- Create: `docs/adr/XXXX-agent-studio.md` (ADR for this feature)
+
+### Steps
+
+- [ ] **Step 1: Write ADR**
+
+Document the decision to use synthetic backtest metrics in v1, with rationale and follow-up plan.
+
+- [ ] **Step 2: Update CLAUDE.md**
+
+Add Agent Studio to the Architecture section if significant.
+
+- [ ] **Step 3: Run full test suite**
+
+```bash
+cd trading && python -m pytest tests/unit/ -v --tb=short --timeout=30
+```
+
+- [ ] **Step 4: Final commit**
+
+```bash
+git add docs/adr/
+git commit -m "docs: add ADR for Agent Studio synthetic backtest approach"
+```
+
+---
+
+## Follow-up Items (Not in Scope)
+
+These are tracked separately, not blocking this implementation:
+
+1. **Real Backtest Integration** - Wire to actual `BacktestEngine` via background task
+2. **Agent Deployment** - Write draft config to `agents.yaml`, restart agent framework
+3. **Draft Listing Page** - Browse/manage existing drafts at `/studio`
+4. **Equity Curve Visualization** - Add Recharts if not already installed, or use lightweight SVG chart
+5. **Draft Duplication** - "Clone Draft" functionality
+6. **Model Selection Expansion** - Add more LLM options with capability descriptions
+
+---
+
+## Verification Checklist
+
+Before marking complete:
+
+- [ ] All unit tests pass: `pytest tests/unit/ -v --tb=short --timeout=30`
+- [ ] Frontend builds: `cd frontend && npm run build`
+- [ ] Manual flow works: Create draft → View in Lab → Run backtest → See results
+- [ ] Auth enforced: Unauthenticated requests return 401
+- [ ] ADR written documenting synthetic backtest decision
