@@ -11,11 +11,14 @@ import hashlib
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import aiosqlite
 
 from utils.logging import log_event
+
+if TYPE_CHECKING:
+    from storage.postgres import PostgresDB
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +29,7 @@ class TradingKnowledgeGraph:
     def __init__(
         self,
         db_path: str | None = "data/knowledge_graph.sqlite3",
-        db: aiosqlite.Connection | PostgresDB | None = None,
+        db: aiosqlite.Connection | "PostgresDB" | None = None,
         schema: str | None = None,
     ):
         self._db_path = db_path
@@ -59,9 +62,12 @@ class TradingKnowledgeGraph:
             raise RuntimeError("Not connected - call connect() first")
 
         # Create schema if using Postgres and schema is specified
-        if self._schema and hasattr(self._db, "pool"):
-            schema_name = self._schema.rstrip(".")
-            await self._db.execute(f"CREATE SCHEMA IF NOT EXISTS {schema_name}")
+        if self._schema:
+            from storage.postgres import PostgresDB
+
+            if isinstance(self._db, PostgresDB):
+                schema_name = self._schema.rstrip(".")
+                await self._db.execute(f"CREATE SCHEMA IF NOT EXISTS {schema_name}")
 
         await self._db.executescript(f"""
             CREATE TABLE IF NOT EXISTS {self._schema}kg_entities (
