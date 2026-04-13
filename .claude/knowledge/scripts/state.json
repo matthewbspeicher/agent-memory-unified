@@ -4,9 +4,14 @@
       "hash": "c284bfaadd280c52",
       "compiled_at": "2026-04-09T17:00:30-04:00",
       "cost_usd": 0.0
+    },
+    "2026-04-13.md": {
+      "hash": "manual_compiled",
+      "compiled_at": "2026-04-13T16:30:00-04:00",
+      "cost_usd": 0.0
     }
   },
   "query_count": 0,
-  "last_lint": null,
+  "last_lint": "2026-04-13T16:25:00-04:00",
   "total_cost": 0.0
 }

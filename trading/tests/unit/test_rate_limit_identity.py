@@ -91,18 +91,20 @@ async def test_rotation_resets_to_ip_bucket():
 @pytest.mark.asyncio
 async def test_verified_agent_buckets_consistently():
     """Same verified agent with same token should always get same bucket."""
-    from api.identity.tokens import hash_token
+    from api.identity.tokens import hash_token, generate_token
     from api.middleware.limiter import agent_identity_key_func
 
-    real_token = "my-real-token"
+    # Generate a properly formatted agent token
+    agent_token = generate_token("consistent-agent")
     mock_store = AsyncMock()
     mock_agent = MagicMock()
     mock_agent.name = "consistent-agent"
-    mock_agent.token_hash = hash_token(real_token)
-    mock_store.list_active = AsyncMock(return_value=[mock_agent])
+    mock_agent.token_hash = hash_token(agent_token)
+    mock_agent.revoked_at = None
+    mock_store.get_by_name = AsyncMock(return_value=mock_agent)
 
     mock_request = MagicMock()
-    mock_request.headers = {"X-Agent-Token": real_token}
+    mock_request.headers = {"X-Agent-Token": agent_token}
     mock_request.app.state.identity_store = mock_store
 
     key1 = await agent_identity_key_func(mock_request)

@@ -174,17 +174,37 @@ async def public_milestones():
 @router.get("/for-agents", include_in_schema=True)
 async def public_for_agents(request: Request):
     from fastapi.responses import Response
-    
-    content = getattr(request.app.state, "public_for_agents_md", "# FOR_AGENTS.md not found\n")
+
+    content = getattr(request.app.state, "public_for_agents_md", None)
+    if content is None:
+        for_agents_md_path = (
+            Path(__file__).parent.parent.parent / "public_content" / "FOR_AGENTS.md"
+        )
+        content = (
+            for_agents_md_path.read_text()
+            if for_agents_md_path.exists()
+            else "# FOR_AGENTS.md not found\n"
+        )
     status_code = 404 if content == "# FOR_AGENTS.md not found\n" else 200
-    return Response(content=content, media_type="text/markdown", status_code=status_code)
+    return Response(
+        content=content, media_type="text/markdown", status_code=status_code
+    )
 
 
 @router.get("/agents.json", include_in_schema=True)
 async def public_agents_json(request: Request):
     from fastapi.responses import JSONResponse
+    import json
 
-    content = getattr(request.app.state, "public_agents_json", {"error": "agents.json not found"})
+    content = getattr(request.app.state, "public_agents_json", None)
+    if content is None:
+        agents_json_path = (
+            Path(__file__).parent.parent.parent / "public_content" / "agents.json"
+        )
+        if agents_json_path.exists():
+            content = json.loads(agents_json_path.read_text())
+        else:
+            content = {"error": "agents.json not found"}
     status_code = 404 if "error" in content else 200
     return JSONResponse(content=content, status_code=status_code)
 
