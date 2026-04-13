@@ -155,7 +155,7 @@ class RiskAnalytics:
 
         # Equity history for drawdown
         self._equity_history: list[tuple[datetime, Decimal]] = []
-        self._peak_equity: Decimal = initial_equity or Decimal("100000")
+        self._peak_equity: Decimal = initial_equity or Decimal("0")
 
         # Daily P&L for VaR
         self._daily_pnl_history: list[float] = []

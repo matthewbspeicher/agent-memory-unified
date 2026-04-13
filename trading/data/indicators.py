@@ -162,14 +162,41 @@ def compute_relative_volume(bars: list[Bar], period: int = 20) -> float:
 
 
 def add_technical_indicators(df: Any) -> Any:
-    """Add 50+ standard technical indicators to OHLCV DataFrame using pandas_ta."""
+    """Add standard technical indicators to OHLCV DataFrame using pandas.
 
-    # We append basic ones explicitly, or can use df.ta.strategy("all")
-    df.ta.rsi(length=14, append=True)
-    df.ta.macd(fast=12, slow=26, signal=9, append=True)
-    df.ta.bbands(append=True)
-    df.ta.ema(length=50, append=True)
-    df.ta.ema(length=200, append=True)
+    Adds RSI(14), MACD(12,26,9), Bollinger Bands(20,2), EMA(50), EMA(200).
+    """
+    import pandas as pd
+
+    close = df["close"]
+
+    # RSI(14)
+    delta = close.diff()
+    gain = delta.clip(lower=0)
+    loss = -delta.clip(upper=0)
+    avg_gain = gain.ewm(alpha=1 / 14, min_periods=14, adjust=False).mean()
+    avg_loss = loss.ewm(alpha=1 / 14, min_periods=14, adjust=False).mean()
+    rs = avg_gain / avg_loss
+    df["RSI_14"] = 100 - (100 / (1 + rs))
+
+    # MACD(12, 26, 9)
+    ema12 = close.ewm(span=12, adjust=False).mean()
+    ema26 = close.ewm(span=26, adjust=False).mean()
+    df["MACD_12_26_9"] = ema12 - ema26
+    df["MACDs_12_26_9"] = df["MACD_12_26_9"].ewm(span=9, adjust=False).mean()
+    df["MACDh_12_26_9"] = df["MACD_12_26_9"] - df["MACDs_12_26_9"]
+
+    # Bollinger Bands(20, 2)
+    sma20 = close.rolling(20).mean()
+    std20 = close.rolling(20).std()
+    df["BBL_20_2.0"] = sma20 - 2 * std20
+    df["BBM_20_2.0"] = sma20
+    df["BBU_20_2.0"] = sma20 + 2 * std20
+
+    # EMA(50) and EMA(200)
+    df["EMA_50"] = close.ewm(span=50, adjust=False).mean()
+    df["EMA_200"] = close.ewm(span=200, adjust=False).mean()
+
     return df
 
 

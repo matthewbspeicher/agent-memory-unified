@@ -50,7 +50,9 @@ _TEST_DDL = [
         profit_factor REAL, total_trades INTEGER DEFAULT 0,
         open_positions INTEGER DEFAULT 0,
         consecutive_losses INTEGER DEFAULT 0,
+        max_consecutive_losses INTEGER DEFAULT 0,
         consecutive_wins INTEGER DEFAULT 0,
+        max_consecutive_wins INTEGER DEFAULT 0,
         created_at TEXT NOT NULL DEFAULT (datetime('now'))
     )""",
     """CREATE TABLE IF NOT EXISTS tracked_positions (

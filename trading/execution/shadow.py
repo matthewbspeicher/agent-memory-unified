@@ -49,9 +49,10 @@ def _isoformat(value: datetime) -> str:
 
 
 def _naive_utc(dt: datetime) -> datetime:
+    """Ensure *dt* is a UTC-aware datetime for consistent comparisons."""
     if dt.tzinfo is None:
-        return dt
-    return dt.replace(tzinfo=None)
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
 
 
 def _decimal_str(value: Decimal | None) -> str | None:

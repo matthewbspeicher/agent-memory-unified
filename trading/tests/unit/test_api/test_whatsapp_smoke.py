@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock
 from httpx import ASGITransport, AsyncClient
 from fastapi import FastAPI
 from api.routes.test import create_test_router
+from api.auth import verify_api_key
 
 
 @pytest.fixture
@@ -17,6 +18,7 @@ def app(mock_wa_client):
     app = FastAPI()
     router = create_test_router(wa_client=mock_wa_client, allowed_numbers="15551234567")
     app.include_router(router)
+    app.dependency_overrides[verify_api_key] = lambda: "test-key"
     return app
 
 
@@ -38,6 +40,7 @@ async def test_whatsapp_smoke_no_client():
     app = FastAPI()
     router = create_test_router(wa_client=None, allowed_numbers=None)
     app.include_router(router)
+    app.dependency_overrides[verify_api_key] = lambda: "test-key"
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
     ) as client:

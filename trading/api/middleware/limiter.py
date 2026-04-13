@@ -56,6 +56,9 @@ def get_tier_limit(request: Request) -> str:
 def get_limiter(redis_url: str | None = None) -> Limiter:
     """
     Initialize and return the slowapi Limiter.
+
+    Uses get_tier_limit as the dynamic default so each identity tier
+    (anonymous / agent / master) gets its own rate ceiling.
     """
     storage_uri = redis_url if redis_url else "memory://"
     if storage_uri.startswith("redis://") and not storage_uri.startswith("async+redis://"):
@@ -65,7 +68,7 @@ def get_limiter(redis_url: str | None = None) -> Limiter:
         key_func=agent_identity_key_func,
         storage_uri=storage_uri,
         strategy="moving-window",
-        default_limits=["10/minute"], # Default strictly for anon
+        default_limits=[get_tier_limit],
     )
 
 async def anon_read_only_guard(request: Request):

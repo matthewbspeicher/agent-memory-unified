@@ -14,21 +14,22 @@ async def test_agent_records_thought():
         db=AsyncMock()
     )
     runner._record_thought = AsyncMock()
-    
-    # Mock Agent
+
+    # Mock Agent — set scan_timeout to None so asyncio.wait_for gets a real float
     mock_agent = AsyncMock()
     mock_agent.name = "test_agent"
     mock_agent.universe = ["BTC/USD"]
     mock_agent.config.broker = "mock_broker"
+    mock_agent.config.scan_timeout = None
     mock_agent.action_level = "notify"
-    
-    # Mock opp
+
+    # Mock opp — symbol needs a .ticker attribute (runner accesses opp.symbol.ticker)
     mock_opp = Mock(spec=Opportunity)
-    mock_opp.symbol = "BTC/USD"
+    mock_opp.symbol = Mock(ticker="BTC/USD")
     mock_opp.signal = "buy"
     mock_opp.confidence = 0.95
     mock_opp.broker_id = None
-    
+
     mock_agent.scan = AsyncMock(return_value=[mock_opp])
     
     # Run _execute_scan

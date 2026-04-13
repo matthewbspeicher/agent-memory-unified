@@ -2103,9 +2103,11 @@ def create_app(
 
     from api.landing import router as landing_router
     from api.routes.public import router as public_router
+    from api.routes.identity import router as identity_router
 
     app.include_router(landing_router)
     app.include_router(public_router)
+    app.include_router(identity_router)
     app.include_router(health.router)
     app.include_router(accounts.router)
     app.include_router(market_data.router)

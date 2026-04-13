@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, List
 
 import aiosqlite
@@ -126,8 +126,11 @@ class ShadowExecutionStore:
     async def list_due_for_resolution(
         self, now: str | datetime, limit: int
     ) -> List[dict[str, Any]]:
-        if isinstance(now, datetime) and now.tzinfo is not None:
-            now = now.replace(tzinfo=None)
+        # Normalize to ISO-8601 string matching the stored format (T separator, +00:00 tz)
+        if isinstance(now, datetime):
+            if now.tzinfo is None:
+                now = now.replace(tzinfo=timezone.utc)
+            now = now.isoformat()
         cursor = await self._db.execute(
             """
             SELECT *

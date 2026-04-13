@@ -763,6 +763,24 @@ CREATE TABLE IF NOT EXISTS bittensor_processed_positions (
 );
 CREATE INDEX IF NOT EXISTS idx_bt_processed_hotkey ON bittensor_processed_positions(miner_hotkey);
 
+-- Audit logs (defensive perimeter — persists high-risk action audit trail)
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id VARCHAR(36) PRIMARY KEY,
+    timestamp TIMESTAMP NOT NULL DEFAULT NOW(),
+    action_name VARCHAR(255) NOT NULL,
+    actor_id VARCHAR(255) NOT NULL,
+    actor_type VARCHAR(50) NOT NULL,
+    resource_id VARCHAR(255),
+    status VARCHAR(50) NOT NULL,
+    duration_ms INTEGER,
+    request_id VARCHAR(36),
+    payload JSONB,
+    error_detail TEXT,
+    client_ip VARCHAR(45)
+);
+CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_logs(timestamp);
+CREATE INDEX IF NOT EXISTS idx_audit_actor ON audit_logs(actor_id);
+
 -- Agent context cache (used by prompt_store for LLM agent prompts)
 CREATE TABLE IF NOT EXISTS agent_context_cache (
     agent_name TEXT PRIMARY KEY,

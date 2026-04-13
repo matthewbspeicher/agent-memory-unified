@@ -11,6 +11,9 @@ from typing import Any, ClassVar
 from intelligence.config import IntelligenceConfig
 
 
+_KNOWN_BROKERS = {"ibkr", "alpaca", "tradier", "paper"}
+
+
 class BrokerConfig(BaseModel):
     ib_host: str = "127.0.0.1"
     ib_port: int | None = None
@@ -361,4 +364,20 @@ def load_config(env_file: str = ".env") -> Any:
     if "HOST" in os.environ:
         processed_data["api_host"] = os.environ["HOST"]
 
-    return Config.model_validate(processed_data)
+    config = Config.model_validate(processed_data)
+
+    # Validate broker names
+    if config.primary_broker and config.primary_broker not in _KNOWN_BROKERS:
+        raise ValueError(
+            f"Unknown primary_broker '{config.primary_broker}'. "
+            f"Valid brokers: {sorted(_KNOWN_BROKERS)}"
+        )
+    if config.broker_routing:
+        for asset_class, broker_name in config.broker_routing.items():
+            if broker_name not in _KNOWN_BROKERS:
+                raise ValueError(
+                    f"Unknown broker '{broker_name}' in broker_routing['{asset_class}']. "
+                    f"Valid brokers: {sorted(_KNOWN_BROKERS)}"
+                )
+
+    return config

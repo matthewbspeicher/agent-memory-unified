@@ -28,14 +28,14 @@ def test_memory_list_returns_503_when_not_configured():
     """When memory system is not configured, endpoint returns 503."""
     app = create_app()
     client = TestClient(app)
-    response = client.get("/api/memory/momentum_agent", headers=AUTH_HEADERS)
+    response = client.get("/engine/v1/memory/momentum_agent", headers=AUTH_HEADERS)
     assert response.status_code == 503
 
 
 def test_market_observations_returns_503_when_not_configured():
     app = create_app()
     client = TestClient(app)
-    response = client.get("/api/memory/market/observations", headers=AUTH_HEADERS)
+    response = client.get("/engine/v1/memory/market/observations", headers=AUTH_HEADERS)
     assert response.status_code == 503
 
 
@@ -43,6 +43,6 @@ def test_search_returns_503_when_not_configured():
     app = create_app()
     client = TestClient(app)
     response = client.get(
-        "/api/memory/search?agent=momentum_agent&q=AAPL", headers=AUTH_HEADERS
+        "/engine/v1/memory/search?agent=momentum_agent&q=AAPL", headers=AUTH_HEADERS
     )
     assert response.status_code == 503
