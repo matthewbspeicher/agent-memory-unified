@@ -4,6 +4,7 @@ from typing import Annotated, Any
 
 from api.auth import verify_api_key
 from api.dependencies import get_broker, check_kill_switch
+from api.identity.dependencies import require_scope, Identity
 from api.schemas import OrderRequestSchema, OrderResultSchema
 from broker.interfaces import Broker
 from broker.models import (
@@ -91,15 +92,14 @@ def _build_order(req: OrderRequestSchema) -> OrderBase:
 
 
 @router.post(
-    "", 
+    "",
     response_model=OrderResultSchema,
-    dependencies=[Depends(check_kill_switch)]
+    dependencies=[Depends(check_kill_switch), Depends(require_scope("write:orders"))],
 )
 @audit_event("orders.place")
 async def place_order(
     req: OrderRequestSchema,
     request: Request,
-    _: Annotated[str, Depends(verify_api_key)],
     broker: Annotated[Broker, Depends(get_broker)],
 ):
     order = _build_order(req)
@@ -126,31 +126,29 @@ async def place_order(
 
 
 @router.patch(
-    "/{order_id}", 
+    "/{order_id}",
     response_model=OrderResultSchema,
-    dependencies=[Depends(check_kill_switch)]
+    dependencies=[Depends(check_kill_switch), Depends(require_scope("write:orders"))],
 )
 @audit_event("orders.modify")
 async def modify_order(
     order_id: str,
     changes: dict[str, Any],
     request: Request,
-    _: Annotated[str, Depends(verify_api_key)],
     broker: Annotated[Broker, Depends(get_broker)],
 ):
     return await broker.orders.modify_order(order_id, changes)
 
 
 @router.delete(
-    "/{order_id}", 
+    "/{order_id}",
     response_model=OrderResultSchema,
-    dependencies=[Depends(check_kill_switch)]
+    dependencies=[Depends(check_kill_switch), Depends(require_scope("write:orders"))],
 )
 @audit_event("orders.cancel")
 async def cancel_order(
     order_id: str,
     request: Request,
-    _: Annotated[str, Depends(verify_api_key)],
     broker: Annotated[Broker, Depends(get_broker)],
 ):
     return await broker.orders.cancel_order(order_id)

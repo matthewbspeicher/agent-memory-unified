@@ -8,6 +8,7 @@ from agents.models import AgentInfo, Opportunity, AgentStatus
 from agents.config import _STRATEGY_REGISTRY, _ensure_strategies_registered
 from api.deps import get_agent_runner, check_kill_switch
 from api.auth import verify_api_key, _get_settings
+from api.identity.dependencies import require_scope
 from utils.audit import audit_event
 
 logger = logging.getLogger(__name__)
@@ -115,35 +116,42 @@ async def get_agent_graph(request: Request):
     if not kg:
         # Fallback to empty graph if no KG
         return {"nodes": [], "links": []}
-    
+
     try:
         # Get up to 500 recent facts to build the graph
         triples = await kg.timeline(limit=500)
-        
+
         nodes_dict = {}
         links = []
-        
+
         for t in triples:
             sub = t["subject"]
             obj = t["object"]
             rel = t["predicate"]
-            
+
             if sub not in nodes_dict:
-                nodes_dict[sub] = {"id": sub, "summary": sub.replace("_", " ").title(), "type": "agent"}
+                nodes_dict[sub] = {
+                    "id": sub,
+                    "summary": sub.replace("_", " ").title(),
+                    "type": "agent",
+                }
             if obj not in nodes_dict:
-                nodes_dict[obj] = {"id": obj, "summary": obj.replace("_", " ").title(), "type": "memory"}
-                
-            links.append({
-                "source": sub,
-                "target": obj,
-                "relation": rel,
-                "metadata": t.get("properties", {})
-            })
-            
-        return {
-            "nodes": list(nodes_dict.values()),
-            "links": links
-        }
+                nodes_dict[obj] = {
+                    "id": obj,
+                    "summary": obj.replace("_", " ").title(),
+                    "type": "memory",
+                }
+
+            links.append(
+                {
+                    "source": sub,
+                    "target": obj,
+                    "relation": rel,
+                    "metadata": t.get("properties", {}),
+                }
+            )
+
+        return {"nodes": list(nodes_dict.values()), "links": links}
     except Exception as e:
         logger.error(f"Failed to fetch 3D graph: {e}")
         return {"nodes": [], "links": []}
@@ -180,12 +188,13 @@ async def update_agent(name: str, payload: dict, request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/{name}/start", dependencies=[Depends(check_kill_switch)])
+@router.post(
+    "/{name}/start",
+    dependencies=[Depends(check_kill_switch), Depends(require_scope("control:agents"))],
+)
 @audit_event("agents.start")
 async def start_agent(
-    name: str, 
-    request: Request,
-    runner: AgentRunner = Depends(get_agent_runner)
+    name: str, request: Request, runner: AgentRunner = Depends(get_agent_runner)
 ):
     try:
         await runner.start_agent(name)
@@ -194,12 +203,13 @@ async def start_agent(
         raise HTTPException(status_code=404, detail=str(e))
 
 
-@router.post("/{name}/stop", dependencies=[Depends(check_kill_switch)])
+@router.post(
+    "/{name}/stop",
+    dependencies=[Depends(check_kill_switch), Depends(require_scope("control:agents"))],
+)
 @audit_event("agents.stop")
 async def stop_agent(
-    name: str, 
-    request: Request,
-    runner: AgentRunner = Depends(get_agent_runner)
+    name: str, request: Request, runner: AgentRunner = Depends(get_agent_runner)
 ):
     try:
         await runner.stop_agent(name)
@@ -209,15 +219,13 @@ async def stop_agent(
 
 
 @router.post(
-    "/{name}/scan", 
+    "/{name}/scan",
     response_model=list[Opportunity],
-    dependencies=[Depends(check_kill_switch)]
+    dependencies=[Depends(check_kill_switch), Depends(require_scope("control:agents"))],
 )
 @audit_event("agents.scan")
 async def scan_agent(
-    name: str, 
-    request: Request,
-    runner: AgentRunner = Depends(get_agent_runner)
+    name: str, request: Request, runner: AgentRunner = Depends(get_agent_runner)
 ):
     try:
         return await runner.run_once(name)
@@ -225,7 +233,7 @@ async def scan_agent(
         raise HTTPException(status_code=404, detail=str(e))
 
 
-@router.post("/{name}/evolve")
+@router.post("/{name}/evolve", dependencies=[Depends(require_scope("control:agents"))])
 async def evolve_agent(
     name: str, request: Request, runner: AgentRunner = Depends(get_agent_runner)
 ):
