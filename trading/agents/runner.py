@@ -65,14 +65,16 @@ class AgentRunner:
                 """
                 await self._db.execute(
                     query,
-                    str(record.id),
-                    record.timestamp,
-                    record.agent_name,
-                    record.symbol,
-                    record.action.value,
-                    record.conviction_score,
-                    json.dumps(record.rule_evaluations),
-                    json.dumps(record.memory_context),
+                    (
+                        str(record.id),
+                        record.timestamp,
+                        record.agent_name,
+                        record.symbol,
+                        record.action.value,
+                        record.conviction_score,
+                        json.dumps(record.rule_evaluations),
+                        json.dumps(record.memory_context),
+                    ),
                 )
         except Exception as e:
             logger.error(f"Failed to record thought for {agent_name}: {e}")

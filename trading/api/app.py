@@ -865,6 +865,12 @@ async def _shutdown_app_state(*, app: FastAPI, runner, logger: logging.Logger):
     adapter_runner = getattr(app.state, "adapter_runner", None)
     if adapter_runner:
         await adapter_runner.stop()
+
+    intel_layer = getattr(app.state, "intelligence_layer", None)
+    if intel_layer:
+        await intel_layer.stop()
+        logger.info("IntelligenceLayer stopped")
+
     if runner:
         logger.info("Stopping agent runner...")
         await runner.stop_all()
