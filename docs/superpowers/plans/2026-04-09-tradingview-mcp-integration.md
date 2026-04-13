@@ -1,6 +1,6 @@
 # TradingView MCP Integration Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Build a Node.js companion app to extract live chart state from TradingView Desktop via CDP, stream it to Redis, and enable trading agents to incorporate this manual chart context into their decision-making.
 
@@ -17,17 +17,17 @@
 - Create: `companion-app/index.js`
 - Create: `companion-app/.env.example`
 
-- [ ] **Step 1: Initialize the Node.js project**
+- [x] **Step 1: Initialize the Node.js project**
 
 Run: `mkdir -p companion-app && cd companion-app && npm init -y`
 Expected: `package.json` is created.
 
-- [ ] **Step 2: Install dependencies**
+- [x] **Step 2: Install dependencies**
 
 Run: `cd companion-app && npm install puppeteer-core ioredis dotenv`
 Expected: Dependencies installed and `package-lock.json` created.
 
-- [ ] **Step 3: Create base application file**
+- [x] **Step 3: Create base application file**
 
 ```javascript
 // companion-app/index.js
@@ -48,14 +48,14 @@ if (require.main === module) {
 }
 ```
 
-- [ ] **Step 4: Create `.env.example`**
+- [x] **Step 4: Create `.env.example`**
 
 ```env
 REDIS_URL=redis://localhost:6379
 TRADINGVIEW_DEBUG_PORT=9222
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add companion-app/
@@ -69,7 +69,7 @@ git commit -m "feat(companion): initialize Node.js TradingView companion app"
 **Files:**
 - Modify: `companion-app/index.js`
 
-- [ ] **Step 1: Implement CDP connection and polling logic**
+- [x] **Step 1: Implement CDP connection and polling logic**
 
 Update `companion-app/index.js`:
 
@@ -136,12 +136,12 @@ if (require.main === module) {
 }
 ```
 
-- [ ] **Step 2: Verify code syntax**
+- [x] **Step 2: Verify code syntax**
 
 Run: `node -c companion-app/index.js`
 Expected: No output (syntax is valid).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add companion-app/index.js
@@ -156,7 +156,7 @@ git commit -m "feat(companion): implement CDP connection and Redis streaming"
 - Create: `trading/data/tradingview.py`
 - Modify: `trading/agents/runner.py`
 
-- [ ] **Step 1: Write the TradingView Context Fetcher**
+- [x] **Step 1: Write the TradingView Context Fetcher**
 
 ```python
 # trading/data/tradingview.py
@@ -188,12 +188,12 @@ class TradingViewContextFetcher:
             return None
 ```
 
-- [ ] **Step 2: Add `tradingview_fetcher` to `AgentRunner`**
+- [x] **Step 2: Add `tradingview_fetcher` to `AgentRunner`**
 
 In `trading/agents/runner.py`, update `__init__`:
 Add `tradingview_fetcher: Any | None = None` to the signature and `self._tv_fetcher = tradingview_fetcher` to the body.
 
-- [ ] **Step 3: Inject TV context into agent evaluation**
+- [x] **Step 3: Inject TV context into agent evaluation**
 
 In `trading/agents/runner.py`, inside `_execute_scan` before `agent.scan(self._data_bus)`:
 
@@ -215,7 +215,7 @@ In `trading/agents/runner.py`, inside `_execute_scan` before `agent.scan(self._d
                         logger.warning(f"TradingView context injection failed for {agent.name}: {tv_exc}")
 ```
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add trading/data/tradingview.py trading/agents/runner.py
@@ -229,7 +229,7 @@ git commit -m "feat(engine): integrate TradingView chart context into AgentRunne
 **Files:**
 - Modify: `trading/api/app.py`
 
-- [ ] **Step 1: Instantiate TradingViewContextFetcher and pass to AgentRunner**
+- [x] **Step 1: Instantiate TradingViewContextFetcher and pass to AgentRunner**
 
 In `trading/api/app.py`, under `_setup_agent_runtime`, initialize the fetcher using the redis client:
 
@@ -243,7 +243,7 @@ In `trading/api/app.py`, under `_setup_agent_runtime`, initialize the fetcher us
 
 Add `tradingview_fetcher=tv_fetcher` to the `AgentRunner` instantiation.
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add trading/api/app.py

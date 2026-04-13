@@ -1,6 +1,6 @@
 # Arena Gym - Escape Room Framework Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Build the foundational backend interfaces and execution loops for "Escape Room" logic puzzles, allowing AI agents to solve them via open-ended Tool Calling, and visualize the terminal output in the React frontend.
 
@@ -16,7 +16,7 @@
 - Modify: `trading/competition/models.py`
 - Modify: `trading/tests/unit/test_competition/test_escape_room_models.py` (Create)
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # trading/tests/unit/test_competition/test_escape_room_models.py
@@ -41,12 +41,12 @@ def test_arena_challenge_escape_room_fields():
     assert challenge.flag_hash == "098f6bcd4621d373cade4e832627b4f6"
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd trading && source .venv/bin/activate && pytest tests/unit/test_competition/test_escape_room_models.py -v`
 Expected: FAIL (ImportError: cannot import name 'RoomType' from 'competition.models')
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Update `trading/competition/models.py`:
 ```python
@@ -67,12 +67,12 @@ class RoomType(str, Enum):
     flag_hash: Optional[str] = None
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd trading && source .venv/bin/activate && pytest tests/unit/test_competition/test_escape_room_models.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add trading/competition/models.py trading/tests/unit/test_competition/test_escape_room_models.py
@@ -89,7 +89,7 @@ git commit -m "feat(models): add escape room fields to ArenaChallenge"
 - Create: `trading/competition/escape_rooms/deterministic.py`
 - Create: `trading/tests/unit/test_competition/test_deterministic_room.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # trading/tests/unit/test_competition/test_deterministic_room.py
@@ -124,12 +124,12 @@ async def test_deterministic_room_execution():
     assert room.verify_flag("victory123") is True
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd trading && source .venv/bin/activate && pytest tests/unit/test_competition/test_deterministic_room.py -v`
 Expected: FAIL (ModuleNotFoundError)
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```python
 # trading/competition/escape_rooms/base.py
@@ -179,12 +179,12 @@ class DeterministicRoom(EscapeRoomEnvironment):
         return flag == self.flag
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd trading && source .venv/bin/activate && pytest tests/unit/test_competition/test_deterministic_room.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add trading/competition/escape_rooms/ trading/tests/unit/test_competition/test_deterministic_room.py
@@ -199,7 +199,7 @@ git commit -m "feat(engine): implement base Escape Room interface and Determinis
 - Modify: `frontend/src/pages/ArenaMatch.tsx`
 - Create: `frontend/src/components/competition/TerminalOutput.tsx`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```typescript
 // frontend/src/components/competition/__tests__/TerminalOutput.test.tsx
@@ -213,12 +213,12 @@ test('renders tool call and result in terminal format', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd frontend && npm run test`
 Expected: FAIL (File not found / test setup issues)
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```tsx
 // frontend/src/components/competition/TerminalOutput.tsx
@@ -261,12 +261,12 @@ export function TerminalOutput({ toolName, input, output }: TerminalOutputProps)
 
 In `frontend/src/pages/ArenaMatch.tsx`, update the render loop to look for tool calls in the input/output string and optionally wrap them in the `TerminalOutput` component (or just use it for specific tool events if the backend sends structured JSON).
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd frontend && npm run test`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/src/components/competition/TerminalOutput.tsx frontend/src/pages/ArenaMatch.tsx
