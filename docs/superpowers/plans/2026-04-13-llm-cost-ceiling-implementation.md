@@ -28,11 +28,11 @@
 
 ### Acceptance Criteria
 
-- [ ] Unit tests pass for cost calculation
-- [ ] Redis pipeline atomicity verified
-- [ ] In-memory fallback works when Redis=None
-- [ ] Override JSON merges correctly
-- [ ] Grace period logic correct (set once, read correctly)
+- [x] Unit tests pass for cost calculation
+- [x] Redis pipeline atomicity verified
+- [x] In-memory fallback works when Redis=None
+- [x] Override JSON merges correctly
+- [x] Grace period logic correct (set once, read correctly)
 
 ---
 
@@ -108,11 +108,11 @@
 
 ### Acceptance Criteria
 
-- [ ] Constructor accepts agent_name and cost_ledger
-- [ ] `_resolve_chain()` filters paid providers when over budget
-- [ ] Cost recorded after successful LLM call
-- [ ] Alerts fire at correct thresholds
-- [ ] Existing tests still pass (backward compat)
+- [x] Constructor accepts agent_name and cost_ledger
+- [x] `_resolve_chain()` filters paid providers when over budget
+- [x] Cost recorded after successful LLM call
+- [x] Alerts fire at correct thresholds
+- [x] Existing tests still pass (backward compat)
 
 ---
 
@@ -129,9 +129,9 @@
 
 ### Acceptance Criteria
 
-- [ ] Structured log emitted with correct event_type
-- [ ] Notification sent if notifier configured
-- [ ] Message format readable in Slack/Discord
+- [x] Structured log emitted with correct event_type
+- [x] Notification sent if notifier configured
+- [x] Message format readable in Slack/Discord
 
 ---
 
@@ -151,9 +151,9 @@
 
 ### Acceptance Criteria
 
-- [ ] Env vars work: `STA_LLM_DAILY_BUDGET_CENTS`, etc.
-- [ ] Flat accessor works: `config.daily_budget_cents`
-- [ ] Default values match spec
+- [x] Env vars work: `STA_LLM_DAILY_BUDGET_CENTS`, etc.
+- [x] Flat accessor works: `config.daily_budget_cents`
+- [x] Default values match spec
 
 ---
 
@@ -174,9 +174,9 @@
 
 ### Acceptance Criteria
 
-- [ ] CostLedger initialized with Redis connection
-- [ ] LLMClient instances receive cost_ledger
-- [ ] Agent names passed correctly
+- [x] CostLedger initialized with Redis connection
+- [x] LLMClient instances receive cost_ledger
+- [x] Agent names passed correctly
 
 ---
 
@@ -288,8 +288,8 @@ If issues arise:
 
 After implementation:
 
-- [ ] `cd trading && python -m pytest tests/unit/test_llm/ -v --tb=short`
-- [ ] Manual test: set budget to $0.01, trigger LLM call, verify rule-based fallback
-- [ ] Check Redis keys: `redis-cli keys "llm:cost:*"` after LLM calls
-- [ ] Verify alert fires: set budget low, watch logs for `cost.warning` event
-- [ ] Verify TTL: `redis-cli ttl llm:cost:global` should be ~86400
+- [x] `cd trading && python -m pytest tests/unit/test_llm/ -v --tb=short`
+- [x] Manual test: set budget to $0.01, trigger LLM call, verify rule-based fallback
+- [x] Check Redis keys: `redis-cli keys "llm:cost:*"` after LLM calls
+- [x] Verify alert fires: set budget low, watch logs for `cost.warning` event
+- [x] Verify TTL: `redis-cli ttl llm:cost:global` should be ~86400
