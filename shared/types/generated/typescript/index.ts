@@ -91,47 +91,114 @@ export enum Source {
 }
 
 /**
- * Knowledge record stored by an agent
+ * Knowledge record stored by an agent (MemClaw-compatible)
  */
 export interface Memory {
     agent_id:    string;
     created_at?: Date;
     /**
+     * Auto-computed based on memory_type: fact=120, episode=45, decision=180, preference=365,
+     * task=30, semantic=120, intention=60, plan=60, commitment=120, action=30, outcome=90,
+     * cancellation=14, rule=365
+     */
+    decay_days?: number;
+    /**
      * 1536-dim vector (optional in DTOs)
      */
-    embedding?:  number[];
+    embedding?: number[];
+    /**
+     * Computed from created_at + decay_days
+     */
+    expires_at?: Date | null;
     id:          string;
+    /**
+     * Legacy importance (deprecated, use weight)
+     */
     importance?: number;
+    /**
+     * Memory classification (MemClaw 13-type taxonomy)
+     */
+    memory_type?: MemoryType;
+    /**
+     * Arbitrary key-value metadata
+     */
+    metadata?: { [key: string]: any };
+    /**
+     * Memory lifecycle status
+     */
+    status?: MemoryStatus;
     /**
      * Short summary for quick scanning
      */
-    summary?: string;
-    tags?:    string[];
-    /**
-     * Memory classification
-     */
-    type?: Type;
+    summary?:    string;
+    tags?:       string[];
+    updated_at?: Date;
     /**
      * Memory content
      */
-    value:      string;
+    value: string;
+    /**
+     * Legacy visibility (deprecated, use visibility_scope)
+     */
     visibility: Visibility;
+    /**
+     * Visibility scope: agent-only, team-shared, org-wide
+     */
+    visibility_scope?: VisibilityScope;
+    /**
+     * Importance weight (0-1), replaces legacy importance field
+     */
+    weight?: number;
 }
 
 /**
- * Memory classification
+ * Memory classification (MemClaw 13-type taxonomy)
  */
-export enum Type {
+export enum MemoryType {
+    Action = "action",
+    Cancellation = "cancellation",
+    Commitment = "commitment",
+    Decision = "decision",
+    Episode = "episode",
     Fact = "fact",
-    Lesson = "lesson",
-    Note = "note",
+    Intention = "intention",
+    Outcome = "outcome",
+    Plan = "plan",
     Preference = "preference",
-    Procedure = "procedure",
+    Rule = "rule",
+    Semantic = "semantic",
+    Task = "task",
 }
 
+/**
+ * Memory lifecycle status
+ */
+export enum MemoryStatus {
+    Active = "active",
+    Archived = "archived",
+    Cancelled = "cancelled",
+    Confirmed = "confirmed",
+    Conflicted = "conflicted",
+    Deleted = "deleted",
+    Outdated = "outdated",
+    Pending = "pending",
+}
+
+/**
+ * Legacy visibility (deprecated, use visibility_scope)
+ */
 export enum Visibility {
     Private = "private",
     Public = "public",
+}
+
+/**
+ * Visibility scope: agent-only, team-shared, org-wide
+ */
+export enum VisibilityScope {
+    ScopeAgent = "scope_agent",
+    ScopeOrg = "scope_org",
+    ScopeTeam = "scope_team",
 }
 
 /**
@@ -189,7 +256,7 @@ export interface Trade {
      */
     pnl_percent?: number | null;
     side:         Side;
-    status:       Status;
+    status:       TradeStatus;
     /**
      * Strategy that generated this trade
      */
@@ -205,7 +272,7 @@ export enum Side {
     Short = "short",
 }
 
-export enum Status {
+export enum TradeStatus {
     Cancelled = "cancelled",
     Closed = "closed",
     Open = "open",

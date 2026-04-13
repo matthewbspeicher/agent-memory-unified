@@ -22,8 +22,4 @@ npx quicktype \
   --lang typescript \
   --just-types
 
-# PHP: Generate DTOs
-echo "  → PHP (DTOs)..."
-php scripts/generate-php-types.php
-
 echo "✅ Types synchronized"

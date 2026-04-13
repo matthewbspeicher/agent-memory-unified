@@ -4,22 +4,48 @@
 from __future__ import annotations
 
 from enum import StrEnum
+from typing import Any
 from uuid import UUID
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
 
-class Type(StrEnum):
-    note = 'note'
-    lesson = 'lesson'
-    preference = 'preference'
+class MemoryType(StrEnum):
     fact = 'fact'
-    procedure = 'procedure'
+    episode = 'episode'
+    decision = 'decision'
+    preference = 'preference'
+    task = 'task'
+    semantic = 'semantic'
+    intention = 'intention'
+    plan = 'plan'
+    commitment = 'commitment'
+    action = 'action'
+    outcome = 'outcome'
+    cancellation = 'cancellation'
+    rule = 'rule'
+
+
+class Status(StrEnum):
+    active = 'active'
+    pending = 'pending'
+    confirmed = 'confirmed'
+    cancelled = 'cancelled'
+    outdated = 'outdated'
+    conflicted = 'conflicted'
+    archived = 'archived'
+    deleted = 'deleted'
 
 
 class Visibility(StrEnum):
     private = 'private'
     public = 'public'
+
+
+class VisibilityScope(StrEnum):
+    scope_agent = 'scope_agent'
+    scope_team = 'scope_team'
+    scope_org = 'scope_org'
 
 
 class Memory(BaseModel):
@@ -31,13 +57,37 @@ class Memory(BaseModel):
     value: str = Field(
         ..., description='Memory content', max_length=50000, min_length=1
     )
-    type: Type | None = Field(None, description='Memory classification')
+    memory_type: MemoryType | None = Field(
+        None, description='Memory classification (MemClaw 13-type taxonomy)'
+    )
+    status: Status | None = Field('active', description='Memory lifecycle status')
     summary: str | None = Field(
         None, description='Short summary for quick scanning', max_length=500
     )
     tags: list[str] | None = None
-    visibility: Visibility
-    importance: int | None = Field(5, ge=1, le=10)
+    visibility: Visibility = Field(
+        ..., description='Legacy visibility (deprecated, use visibility_scope)'
+    )
+    visibility_scope: VisibilityScope | None = Field(
+        'scope_agent', description='Visibility scope: agent-only, team-shared, org-wide'
+    )
+    weight: float | None = Field(
+        0.5,
+        description='Importance weight (0-1), replaces legacy importance field',
+        ge=0.0,
+        le=1.0,
+    )
+    importance: int | None = Field(
+        5, description='Legacy importance (deprecated, use weight)', ge=1, le=10
+    )
+    decay_days: int | None = Field(
+        None,
+        description='Auto-computed based on memory_type: fact=120, episode=45, decision=180, preference=365, task=30, semantic=120, intention=60, plan=60, commitment=120, action=30, outcome=90, cancellation=14, rule=365',
+        ge=1,
+    )
+    metadata: dict[str, Any] | None = Field(
+        None, description='Arbitrary key-value metadata'
+    )
     embedding: list[float] | None = Field(
         None,
         description='1536-dim vector (optional in DTOs)',
@@ -45,3 +95,7 @@ class Memory(BaseModel):
         min_length=1536,
     )
     created_at: AwareDatetime | None = None
+    updated_at: AwareDatetime | None = None
+    expires_at: AwareDatetime | None = Field(
+        None, description='Computed from created_at + decay_days'
+    )
