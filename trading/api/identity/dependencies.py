@@ -46,9 +46,18 @@ async def resolve_identity(
     x_agent_token: Annotated[str | None, Header()] = None,
 ) -> Identity:
     if x_agent_token:
+        if not x_agent_token.startswith("amu_") or "." not in x_agent_token:
+            raise HTTPException(status_code=401, detail="invalid X-Agent-Token format")
+        
+        try:
+            agent_name = x_agent_token[4:].split(".", 1)[0]
+        except ValueError:
+            raise HTTPException(status_code=401, detail="invalid X-Agent-Token format")
+
         store = _get_store(request)
-        agents = await store.list_active()
-        for agent in agents:
+        agent = await store.get_by_name(agent_name)
+        
+        if agent and not agent.revoked_at:
             if verify_token(x_agent_token, agent.token_hash):
                 return Identity(
                     name=agent.name,

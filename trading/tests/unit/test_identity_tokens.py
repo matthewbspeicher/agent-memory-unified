@@ -3,10 +3,10 @@ from api.identity.tokens import generate_token, hash_token, verify_token, TOKEN_
 
 
 def test_generate_token_has_prefix_and_sufficient_entropy():
-    t = generate_token()
+    t = generate_token("test_agent")
     assert t.startswith(TOKEN_PREFIX)
     assert len(t) >= 40
-    assert generate_token() != generate_token()
+    assert generate_token("test_agent") != generate_token("test_agent")
 
 
 def test_hash_token_produces_salted_output():
@@ -18,13 +18,13 @@ def test_hash_token_produces_salted_output():
 
 
 def test_verify_token_correct_returns_true():
-    token = generate_token()
+    token = generate_token("test_agent")
     stored = hash_token(token)
     assert verify_token(token, stored) is True
 
 
 def test_verify_token_wrong_returns_false():
-    token = generate_token()
+    token = generate_token("test_agent")
     stored = hash_token(token)
     assert verify_token(token + "x", stored) is False
     assert verify_token("completely_different", stored) is False

@@ -28,13 +28,17 @@ async def agent_identity_key_func(request: Request) -> str:
     3. Anonymous/Unverified: No valid auth → bucket by IP
     """
     agent_token = request.headers.get("X-Agent-Token")
-    if agent_token:
-        store = getattr(request.app.state, "identity_store", None)
-        if store:
-            agents = await store.list_active()
-            for agent in agents:
-                if verify_token(agent_token, agent.token_hash):
-                    return f"tier:agent:{agent.name}"
+    if agent_token and agent_token.startswith("amu_") and "." in agent_token:
+        try:
+            agent_name = agent_token[4:].split(".", 1)[0]
+            store = getattr(request.app.state, "identity_store", None)
+            if store:
+                agent = await store.get_by_name(agent_name)
+                if agent and not agent.revoked_at:
+                    if verify_token(agent_token, agent.token_hash):
+                        return f"tier:agent:{agent.name}"
+        except ValueError:
+            pass
 
     api_key = request.headers.get("X-API-Key")
     if api_key:
@@ -49,13 +53,17 @@ async def agent_identity_key_func(request: Request) -> str:
 
 async def get_tier_limit(request: Request) -> str:
     agent_token = request.headers.get("X-Agent-Token")
-    if agent_token:
-        store = getattr(request.app.state, "identity_store", None)
-        if store:
-            agents = await store.list_active()
-            for agent in agents:
-                if verify_token(agent_token, agent.token_hash):
-                    return "60/minute"
+    if agent_token and agent_token.startswith("amu_") and "." in agent_token:
+        try:
+            agent_name = agent_token[4:].split(".", 1)[0]
+            store = getattr(request.app.state, "identity_store", None)
+            if store:
+                agent = await store.get_by_name(agent_name)
+                if agent and not agent.revoked_at:
+                    if verify_token(agent_token, agent.token_hash):
+                        return "60/minute"
+        except ValueError:
+            pass
         return "10/minute"
 
     api_key = request.headers.get("X-API-Key")

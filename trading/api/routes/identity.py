@@ -31,7 +31,7 @@ async def register_agent(
     identity: Identity = Depends(require_scope("admin")),
 ):
     store = _get_store(request)
-    token = generate_token()
+    token = generate_token(req.name)
     token_hash = hash_token(token)
 
     try:
@@ -110,7 +110,7 @@ async def rotate_token(
     if agent is None:
         raise HTTPException(status_code=404, detail=f"Agent '{agent_name}' not found")
 
-    new_token = generate_token()
+    new_token = generate_token(agent_name)
     new_hash = hash_token(new_token)
     await store.update_token_hash(name=agent_name, token_hash=new_hash)
     await store.audit(

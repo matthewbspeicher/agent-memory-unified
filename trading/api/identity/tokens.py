@@ -10,11 +10,11 @@ import base64
 TOKEN_PREFIX = "amu_"
 
 
-def generate_token() -> str:
-    """Generate a new agent token with prefix and sufficient entropy."""
+def generate_token(agent_name: str) -> str:
+    """Generate a new agent token with prefix, name, and sufficient entropy."""
     random_bytes = secrets.token_bytes(32)
     encoded = base64.urlsafe_b64encode(random_bytes).rstrip(b"=").decode("ascii")
-    return f"{TOKEN_PREFIX}{encoded}"
+    return f"{TOKEN_PREFIX}{agent_name}.{encoded}"
 
 
 def hash_token(token: str) -> str:

@@ -65,6 +65,7 @@ def audit_event(action_name: str):
                     from api.identity.dependencies import resolve_identity
 
                     identity = await resolve_identity(
+                        request,
                         x_api_key=request.headers.get("X-API-Key"),
                         x_agent_token=request.headers.get("X-Agent-Token"),
                     )

@@ -21,6 +21,12 @@ def mock_store():
         async def list_active(self):
             return self.agents
 
+        async def get_by_name(self, name: str):
+            for agent in self.agents:
+                if agent.name == name:
+                    return agent
+            return None
+
         async def create(self, **kwargs):
             from api.identity.store import AgentRecord
             from datetime import datetime

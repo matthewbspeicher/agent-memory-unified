@@ -2030,6 +2030,16 @@ async def lifespan(app: FastAPI):
         llm_client=llm_client,
     )
 
+    # Load public static files into state
+    import json
+    import pathlib
+    
+    public_content_dir = pathlib.Path(__file__).parent.parent / "public_content"
+    agents_json_path = public_content_dir / "agents.json"
+    for_agents_md_path = public_content_dir / "FOR_AGENTS.md"
+    app.state.public_agents_json = json.loads(agents_json_path.read_text()) if agents_json_path.exists() else {"error": "agents.json not found"}
+    app.state.public_for_agents_md = for_agents_md_path.read_text() if for_agents_md_path.exists() else "# FOR_AGENTS.md not found\n"
+
     yield
 
     await _shutdown_app_state(app=app, runner=runner, logger=_log)
