@@ -104,6 +104,7 @@ class AgentRunner:
         self._session_bias_generator = session_bias_generator
         self._db = db
         self._tv_fetcher = tradingview_fetcher
+        self._redis = getattr(event_bus, "_redis", None) if event_bus else None
         self._reflectors: dict[str, TradeReflector] = {}
         if self._event_bus:
             self._signal_bus.subscribe(self._forward_signal_to_events)
@@ -650,6 +651,8 @@ class AgentRunner:
                 )
 
                 agent = factory(agent_config)
+                if agent is None:
+                    continue
                 self.register(agent)
                 self._registry_configs[name] = config_fingerprint
 
