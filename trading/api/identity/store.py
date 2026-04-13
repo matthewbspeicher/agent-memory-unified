@@ -10,6 +10,14 @@ from typing import Any
 import asyncpg
 
 
+class DuplicateAgentError(Exception):
+    """Raised when attempting to create an agent with a duplicate name."""
+
+    def __init__(self, name: str):
+        self.name = name
+        super().__init__(f"Agent '{name}' already exists")
+
+
 @dataclass(frozen=True)
 class AgentRecord:
     id: str
@@ -39,23 +47,26 @@ class IdentityStore:
         contact_email: str | None = None,
         moltbook_handle: str | None = None,
     ) -> AgentRecord:
-        async with self._pool.acquire() as conn:
-            row = await conn.fetchrow(
-                """
-                INSERT INTO identity.agents
-                    (name, token_hash, scopes, tier, created_by, contact_email, moltbook_handle)
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
-                RETURNING id, name, token_hash, scopes, tier, created_at, revoked_at,
-                          contact_email, moltbook_handle, metadata
-                """,
-                name,
-                token_hash,
-                scopes,
-                tier,
-                created_by,
-                contact_email,
-                moltbook_handle,
-            )
+        try:
+            async with self._pool.acquire() as conn:
+                row = await conn.fetchrow(
+                    """
+                    INSERT INTO identity.agents
+                        (name, token_hash, scopes, tier, created_by, contact_email, moltbook_handle)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7)
+                    RETURNING id, name, token_hash, scopes, tier, created_at, revoked_at,
+                              contact_email, moltbook_handle, metadata
+                    """,
+                    name,
+                    token_hash,
+                    scopes,
+                    tier,
+                    created_by,
+                    contact_email,
+                    moltbook_handle,
+                )
+        except asyncpg.exceptions.UniqueViolationError:
+            raise DuplicateAgentError(name)
         return self._row_to_record(row)
 
     async def get_by_name(self, name: str) -> AgentRecord | None:

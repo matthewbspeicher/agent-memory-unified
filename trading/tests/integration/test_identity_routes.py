@@ -1,49 +1,82 @@
 import pytest
-from fastapi.testclient import TestClient
-
+import os
+import asyncpg
+import httpx
+from fastapi import FastAPI
 from api.identity.tokens import generate_token, hash_token
+from api.identity.store import IdentityStore
 
 
 @pytest.fixture
-def client_with_master_key():
-    from api.app import create_app
+def master_api_key():
+    return "test-master-key-12345"
 
-    app = create_app()
-    client = TestClient(app)
-    client.headers["X-API-Key"] = "local-validator-dev"
-    return client
+
+async def _create_app_with_identity(master_api_key, postgres_dsn):
+    pool = await asyncpg.create_pool(postgres_dsn, min_size=1, max_size=5)
+    async with pool.acquire() as conn:
+        await conn.execute("TRUNCATE identity.agents, identity.audit_log CASCADE")
+
+    store = IdentityStore(pool)
+
+    app = FastAPI()
+    app.state.identity_store = store
+    app.state.config = type("Config", (), {"api_key": master_api_key})()
+
+    from api.routes.identity import router as identity_router
+
+    app.include_router(identity_router)
+
+    return app, store, pool
 
 
 @pytest.fixture
-def anonymous_client():
-    from api.app import create_app
+async def identity_client(master_api_key, postgres_dsn):
+    app, store, pool = await _create_app_with_identity(master_api_key, postgres_dsn)
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        client.headers["X-API-Key"] = master_api_key
+        yield client
+    await pool.close()
 
-    app = create_app()
-    return TestClient(app)
+
+@pytest.fixture
+async def anonymous_identity_client(master_api_key, postgres_dsn):
+    app, store, pool = await _create_app_with_identity(master_api_key, postgres_dsn)
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        yield client
+    await pool.close()
 
 
-def test_me_endpoint_returns_anonymous_when_no_auth(anonymous_client):
-    resp = anonymous_client.get("/api/v1/identity/me")
+@pytest.fixture
+async def anonymous_identity_client(master_api_key, postgres_dsn):
+    app, store, pool = await _create_app_with_identity(master_api_key, postgres_dsn)
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        yield client
+    await pool.close()
+
+
+@pytest.mark.asyncio
+async def test_me_endpoint_returns_anonymous_when_no_auth(anonymous_identity_client):
+    resp = await anonymous_identity_client.get("/api/v1/identity/me")
     assert resp.status_code == 200
     assert resp.json()["name"] == "anonymous"
 
 
-def test_me_endpoint_with_master_key():
-    from api.app import create_app
-
-    app = create_app()
-    client = TestClient(app)
-    resp = client.get(
-        "/api/v1/identity/me", headers={"X-API-Key": "local-validator-dev"}
-    )
+@pytest.mark.asyncio
+async def test_me_endpoint_with_master_key(identity_client):
+    resp = await identity_client.get("/api/v1/identity/me")
     assert resp.status_code == 200
     data = resp.json()
     assert data["name"] == "master"
     assert "admin" in data["scopes"]
 
 
-def test_register_agent_returns_token_once(client_with_master_key):
-    resp = client_with_master_key.post(
+@pytest.mark.asyncio
+async def test_register_agent_returns_token_once(identity_client):
+    resp = await identity_client.post(
         "/api/v1/identity/agents",
         json={"name": "test-agent-1", "tier": "verified", "scopes": ["read:arena"]},
     )
@@ -54,20 +87,22 @@ def test_register_agent_returns_token_once(client_with_master_key):
     assert "warning" in data
 
 
-def test_register_agent_rejects_duplicate_name(client_with_master_key):
-    client_with_master_key.post(
+@pytest.mark.asyncio
+async def test_register_agent_rejects_duplicate_name(identity_client):
+    await identity_client.post(
         "/api/v1/identity/agents",
         json={"name": "unique-agent", "tier": "verified"},
     )
-    resp = client_with_master_key.post(
+    resp = await identity_client.post(
         "/api/v1/identity/agents",
         json={"name": "unique-agent", "tier": "verified"},
     )
     assert resp.status_code == 400 or resp.status_code == 500
 
 
-def test_revoke_agent_requires_admin(anonymous_client):
-    resp = anonymous_client.post(
+@pytest.mark.asyncio
+async def test_revoke_agent_requires_admin(anonymous_identity_client):
+    resp = await anonymous_identity_client.post(
         "/api/v1/identity/agents/some-agent/revoke",
         json={"reason": "test"},
     )

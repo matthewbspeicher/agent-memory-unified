@@ -12,7 +12,7 @@ from api.identity.schemas import (
     RevocationRequest,
 )
 from api.identity.tokens import generate_token, hash_token
-from api.identity.store import IdentityStore
+from api.identity.store import IdentityStore, DuplicateAgentError
 
 router = APIRouter(prefix="/api/v1/identity", tags=["identity"])
 
@@ -34,15 +34,21 @@ async def register_agent(
     token = generate_token()
     token_hash = hash_token(token)
 
-    agent = await store.create(
-        name=req.name,
-        token_hash=token_hash,
-        scopes=req.scopes or [],
-        tier=req.tier,
-        created_by=identity.name,
-        contact_email=req.contact_email,
-        moltbook_handle=req.moltbook_handle,
-    )
+    try:
+        agent = await store.create(
+            name=req.name,
+            token_hash=token_hash,
+            scopes=req.scopes or [],
+            tier=req.tier,
+            created_by=identity.name,
+            contact_email=req.contact_email,
+            moltbook_handle=req.moltbook_handle,
+        )
+    except DuplicateAgentError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Agent '{req.name}' already exists",
+        )
 
     await store.audit(
         event="created",
