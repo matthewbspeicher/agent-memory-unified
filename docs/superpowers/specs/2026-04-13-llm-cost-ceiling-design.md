@@ -13,6 +13,8 @@ The production fallback chain is `groq -> ollama -> anthropic -> rule-based`, so
 - Future config changes that put paid providers first
 - Misconfigured agents in tight loops
 
+**Forward compatibility:** Any future agents added to `agents.yaml` that enable LLM features will automatically inherit this protection via the LLMClient-level guard.
+
 ## Design Overview
 
 **Approach:** LLMClient-level guard (Approach A). Enforcement happens in `LLMClient._resolve_chain()` — the single chokepoint all agents pass through. When over budget, the chain is filtered to free providers only. Zero agent code changes required.
@@ -65,14 +67,16 @@ DEFAULT_COST_TABLE = {
 }
 ```
 
-Lookup: `table[provider].get(model) or table[provider]["*"]`. Unknown providers default to `{"input": 0.0, "output": 0.0}`.
+Lookup: `table.get(provider, {}).get(model) or table.get(provider, {}).get("*")`. Unknown providers default to `{"input": 0.0, "output": 0.0}` (safe fail-open).
 
-Free providers derived from the table, not hardcoded:
+Free providers derived dynamically from merged table (handles overrides):
 ```python
-_FREE_PROVIDERS = {
-    name for name, models in COST_TABLE.items()
-    if all(p["input"] == 0.0 and p["output"] == 0.0 for p in models.values())
-}
+@staticmethod
+def _derive_free_providers(cost_table: dict) -> set[str]:
+    return {
+        name for name, models in cost_table.items()
+        if all(p["input"] == 0.0 and p["output"] == 0.0 for p in models.values())
+    }
 ```
 
 ### Interface
@@ -83,7 +87,9 @@ class CostLedger:
         self._redis = redis          # None = in-memory fallback
         self._local: dict[str, float] = {}  # Fallback when Redis unavailable
         self._config = config
-        self._cost_table = ...       # Merged DEFAULT + override
+        self._cost_table = self._merge_cost_table(DEFAULT_COST_TABLE, config.cost_table_override)
+        # Derive free providers from merged table (handles overrides)
+        self._free_providers = self._derive_free_providers(self._cost_table)
 
     async def record(self, agent_name: str, provider: str, model: str,
                      input_tokens: int, output_tokens: int) -> float:
@@ -97,7 +103,12 @@ class CostLedger:
         """Per-agent spend in current 24h window (cents)."""
 
     def get_cost(self, provider: str, model: str) -> dict[str, float]:
-        """Look up per-1M-token cost for a provider/model pair."""
+        """Look up per-1M-token cost for a provider/model pair.
+        Returns {"input": 0.0, "output": 0.0} for unknown providers."""
+
+    async def get_breakdown(self) -> tuple[str, float, dict[str, float]]:
+        """Returns (top_agent_name, top_agent_spend, provider_spend_dict).
+        Scans llm:cost:agent:* keys for top agent, aggregates provider costs."""
 
     async def should_block_paid(self) -> bool:
         """True if paid providers should be filtered from chain.
@@ -105,7 +116,22 @@ class CostLedger:
 
     async def check_thresholds(self) -> str | None:
         """Returns event type if a threshold was crossed, None otherwise.
-        Handles 80% warning, 100% ceiling, grace expiry."""
+        Handles 80% warning, 100% ceiling, grace expiry.
+        Also sets grace deadline on first ceiling hit."""
+
+    async def _get_grace_deadline(self) -> datetime | None:
+        """Returns grace deadline datetime, or None if not set."""
+
+    async def _maybe_set_grace_deadline(self, spend: float, budget: float) -> None:
+        """Set grace deadline when ceiling is first hit (idempotent)."""
+
+    @staticmethod
+    def _derive_free_providers(cost_table: dict) -> set[str]:
+        """Derive free providers from cost table (all costs = 0)."""
+
+    @staticmethod
+    def _merge_cost_table(base: dict, override_json: str | None) -> dict:
+        """Merge DEFAULT_COST_TABLE with optional JSON override."""
 ```
 
 ### In-Memory Fallback
@@ -116,7 +142,7 @@ No sync on Redis reconnect — the in-memory accumulator is conservative enough 
 
 ### Atomicity
 
-Record uses Redis pipeline with `INCRBYFLOAT`:
+Record uses Redis pipeline with `INCRBYFLOAT`. Grace deadline is set idempotently on first ceiling hit:
 ```python
 async def record(self, agent_name, provider, model, input_tokens, output_tokens):
     cost = self._calculate_cost(provider, model, input_tokens, output_tokens)
@@ -126,33 +152,105 @@ async def record(self, agent_name, provider, model, input_tokens, output_tokens)
         pipe = self._redis.pipeline()
         pipe.incrbyfloat("llm:cost:global", cost)
         pipe.incrbyfloat(f"llm:cost:agent:{agent_name}", cost)
-        # Set TTL only if key is new (first write in window)
-        # INCRBYFLOAT creates key if missing; expire only if TTL not set
         await pipe.execute()
-        # Ensure TTL on both keys (idempotent)
+        # Ensure TTL on both keys (idempotent, race is benign)
         for key in ["llm:cost:global", f"llm:cost:agent:{agent_name}"]:
             if await self._redis.ttl(key) == -1:
                 await self._redis.expire(key, 86400)
+        # Set grace deadline on first ceiling hit
+        await self._maybe_set_grace_deadline(
+            await self.get_global_spend(), self._config.daily_budget_cents
+        )
     else:
         self._local["global"] = self._local.get("global", 0.0) + cost
         self._local[agent_name] = self._local.get(agent_name, 0.0) + cost
     return cost
+
+async def _maybe_set_grace_deadline(self, spend: float, budget: float) -> None:
+    """Set grace deadline when ceiling is first hit (idempotent)."""
+    if spend < budget:
+        return
+    deadline_key = "llm:cost:grace_deadline"
+    if await self._redis.ttl(deadline_key) == -1:
+        deadline = datetime.now(timezone.utc) + timedelta(
+            minutes=self._config.grace_period_minutes
+        )
+        await self._redis.setex(deadline_key, 86400, deadline.isoformat())
+```
+
+### Threshold Checking
+
+```python
+async def check_thresholds(self) -> str | None:
+    spend = await self.get_global_spend()
+    budget = self._config.daily_budget_cents
+    pct = spend / budget if budget > 0 else 0.0
+
+    if pct < self._config.warning_threshold_pct:
+        return None
+
+    if pct >= 1.0:
+        deadline = await self._get_grace_deadline()
+        if deadline and datetime.now(timezone.utc) > deadline:
+            return "cost.paid_blocked"
+        return "cost.ceiling_hit"
+
+    return "cost.warning"
+
+async def _get_grace_deadline(self) -> datetime | None:
+    if not self._redis:
+        return None
+    raw = await self._redis.get("llm:cost:grace_deadline")
+    if raw:
+        return datetime.fromisoformat(raw)
+    return None
+```
+
+### Breakdown Query
+
+```python
+async def get_breakdown(self) -> tuple[str, float, dict[str, float]]:
+    """Returns (top_agent_name, top_agent_spend, provider_spend_dict)."""
+    if not self._redis:
+        top_agent = max(
+            (k for k in self._local if k != "global"),
+            key=lambda k: self._local.get(k, 0.0),
+            default="unknown"
+        )
+        return top_agent, self._local.get(top_agent, 0.0), {}
+
+    # Scan agent keys
+    top_agent, top_spend = "unknown", 0.0
+    cursor = 0
+    while True:
+        cursor, keys = await self._redis.scan(cursor, "llm:cost:agent:*", count=100)
+        for key in keys:
+            val = float(await self._redis.get(key) or 0.0)
+            agent = key.split(":")[-1]
+            if val > top_spend:
+                top_agent, top_spend = agent, val
+        if cursor == 0:
+            break
+
+    # Provider breakdown requires tracking; store separately or approximate from stats
+    # For v1, return empty provider dict (can be enhanced with llm:cost:provider:{name} keys)
+    return top_agent, top_spend, {}
 ```
 
 ## Component 2: LLMClient Integration
 
 ### Chain Filtering
 
-Enforcement in `_resolve_chain()`:
+Enforcement in `_resolve_chain()` — **must become async** since `should_block_paid()` requires Redis call:
 
 ```python
-def _resolve_chain(self) -> list[str]:
+async def _resolve_chain(self) -> list[str]:
     # Step 1: Remove disabled providers (circuit breaker)
     chain = [p for p in self._chain if not self._is_disabled(p)]
 
     # Step 2: Remove paid providers if over budget (respects grace period)
-    if self._cost_ledger and self._cost_ledger.should_block_paid():
-        chain = [p for p in chain if p in _FREE_PROVIDERS]
+    if self._cost_ledger and await self._cost_ledger.should_block_paid():
+        chain = [p for p in chain if p in self._cost_ledger._free_providers]
 
     # Step 3: Always have at least rule-based
     return chain or ["rule-based"]
@@ -218,6 +316,8 @@ Environment variables (via `STA_` prefix + nested accessor):
 - `STA_LLM_WARNING_THRESHOLD_PCT=0.80`
 - `STA_LLM_GRACE_PERIOD_MINUTES=15`
 - `STA_LLM_COST_TABLE_OVERRIDE='{"anthropic":{"*":{"input":1.0,"output":5.0}}}'`
+
+> **Note:** Use single quotes around JSON values in shell to avoid escaping issues. In `.env` files, double-quote the value: `STA_LLM_COST_TABLE_OVERRIDE="{\"anthropic\":{\"*\":{\"input\":1.0,\"output\":5.0}}}"`
 
 ## Component 4: Alerting
 
