@@ -12,15 +12,25 @@ test.describe('Fleet Gamification & Roster Journey', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
+        headers: { 
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+          'Access-Control-Allow-Headers': '*'
+        },
         body: JSON.stringify({ data: { id: 'admin1', name: 'Admin Coach' } }),
       });
     });
 
     // Mock the fleet/agents list
-    await page.route('**/api/v1/agents', async route => {
+    await page.route('**/api/v1/agents/directory', async route => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
+        headers: { 
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+          'Access-Control-Allow-Headers': '*'
+        },
         body: JSON.stringify({ data: [
           { name: 'AlphaScout', status: 'active' },
           { name: 'OmegaGrid', status: 'active' }
@@ -39,6 +49,11 @@ test.describe('Fleet Gamification & Roster Journey', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
+        headers: { 
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+          'Access-Control-Allow-Headers': '*'
+        },
         body: JSON.stringify({
           competitor_id: `${name}-id`,
           name: name,
@@ -74,7 +89,7 @@ test.describe('Fleet Gamification & Roster Journey', () => {
     await expect(page.locator('text=Manage your fleet')).toBeVisible();
 
     // Verify AlphaScout card renders with specific gamified elements
-    const alphaCard = page.locator('.group', { hasText: 'AlphaScout' }).first();
+    const alphaCard = page.locator('.cursor-pointer', { hasText: 'AlphaScout' }).first();
     await expect(alphaCard).toBeVisible();
     
     // Check level badge and XP
@@ -101,7 +116,7 @@ test.describe('Fleet Gamification & Roster Journey', () => {
     await page.goto('/roster');
 
     // Wait for the card to be visible
-    const alphaCard = page.locator('.group', { hasText: 'AlphaScout' }).first();
+    const alphaCard = page.locator('.cursor-pointer', { hasText: 'AlphaScout' }).first();
     await expect(alphaCard).toBeVisible();
 
     // Click the card
