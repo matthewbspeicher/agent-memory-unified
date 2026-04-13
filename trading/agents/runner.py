@@ -67,7 +67,7 @@ class AgentRunner:
                     query,
                     (
                         str(record.id),
-                        record.timestamp,
+                        record.timestamp.isoformat(),
                         record.agent_name,
                         record.symbol,
                         record.action.value,
