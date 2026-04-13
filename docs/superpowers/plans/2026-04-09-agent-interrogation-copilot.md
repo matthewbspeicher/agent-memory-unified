@@ -1,6 +1,6 @@
 # Agent Interrogation Copilot Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Build a Copilot sidebar allowing users to inspect real-time agent `ThoughtRecords` and interrogate/steer the agent via an LLM chat interface.
 
@@ -18,7 +18,7 @@
 - Modify: `trading/alembic/env.py` (if needed to ensure the new model is registered)
 - Create: `trading/tests/unit/test_models/test_thought_record.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 import pytest
@@ -42,12 +42,12 @@ def test_thought_record_creation():
     assert len(record.rule_evaluations) == 1
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `pytest trading/tests/unit/test_models/test_thought_record.py -v`
 Expected: FAIL with "ModuleNotFoundError: No module named 'models.thought'"
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```python
 # trading/models/thought.py
@@ -79,17 +79,17 @@ class ThoughtRecord(SQLModel, table=True):
 
 Update `trading/models/__init__.py` to import `ThoughtRecord` and `ActionType`.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `pytest trading/tests/unit/test_models/test_thought_record.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Create Alembic Migration**
+- [x] **Step 5: Create Alembic Migration**
 
 Run: `cd trading && alembic revision --autogenerate -m "add thought_records table"`
 Run: `cd trading && alembic upgrade head`
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add trading/models/thought.py trading/models/__init__.py trading/alembic/ trading/tests/unit/test_models/test_thought_record.py
@@ -105,7 +105,7 @@ git commit -m "feat(db): add ThoughtRecord schema and migration"
 - Modify: `trading/api/main.py` (to include the new router)
 - Create: `trading/tests/unit/test_api/test_copilot_api.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 import pytest
@@ -126,12 +126,12 @@ def test_copilot_chat(client: TestClient):
     assert "response" in response.json()
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `pytest trading/tests/unit/test_api/test_copilot_api.py -v`
 Expected: FAIL (404 Not Found)
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```python
 # trading/api/routes/copilot.py
@@ -175,12 +175,12 @@ from api.routes import copilot
 app.include_router(copilot.router, prefix="/api/v1", tags=["copilot"])
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `pytest trading/tests/unit/test_api/test_copilot_api.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add trading/api/routes/copilot.py trading/api/main.py trading/tests/unit/test_api/test_copilot_api.py
@@ -195,7 +195,7 @@ git commit -m "feat(api): add copilot endpoints for thoughts, chat, and inject"
 - Modify: `trading/agents/runner.py` (or where the agent loop evaluates rules)
 - Create: `trading/tests/unit/test_agents/test_thought_recording.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 import pytest
@@ -210,12 +210,12 @@ async def test_agent_records_thought():
     runner._record_thought.assert_called_once()
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `pytest trading/tests/unit/test_agents/test_thought_recording.py -v`
 Expected: FAIL
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Update the agent loop to gather `rule_evaluations` and `memory_context`, instantiate a `ThoughtRecord`, and save it to the database asynchronously.
 
@@ -239,12 +239,12 @@ async def _record_thought(self, agent_name: str, symbol: str, action: ActionType
 ```
 Call `await self._record_thought(...)` at the end of the tick evaluation.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `pytest trading/tests/unit/test_agents/test_thought_recording.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add trading/agents/runner.py trading/tests/unit/test_agents/test_thought_recording.py
@@ -260,7 +260,7 @@ git commit -m "feat(engine): agents commit ThoughtRecords on decision ticks"
 - Create: `frontend/src/components/copilot/ThoughtCard.tsx`
 - Modify: `frontend/src/Pages/Dashboard.tsx` (to include the sidebar)
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```typescript
 import { render, screen } from '@testing-library/react';
@@ -272,12 +272,12 @@ test('renders Copilot Sidebar', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd frontend && npm run test`
 Expected: FAIL
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```tsx
 // frontend/src/components/copilot/ThoughtCard.tsx
@@ -318,12 +318,12 @@ export const CopilotSidebar = ({ agentName }) => {
 };
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd frontend && npm run test`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/src/components/copilot/ frontend/src/Pages/Dashboard.tsx
@@ -338,7 +338,7 @@ git commit -m "feat(ui): add CopilotSidebar and ThoughtCard components"
 - Modify: `frontend/src/components/copilot/CopilotSidebar.tsx`
 - Create: `frontend/src/components/copilot/ChatInput.tsx`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```typescript
 import { render, screen, fireEvent } from '@testing-library/react';
@@ -354,12 +354,12 @@ test('submits chat message', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd frontend && npm run test`
 Expected: FAIL
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```tsx
 // frontend/src/components/copilot/ChatInput.tsx
@@ -386,12 +386,12 @@ export const ChatInput = ({ onSend }) => {
 ```
 Integrate `ChatInput` at the bottom of `CopilotSidebar.tsx`. Add a dummy state to display user and copilot messages above the input.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd frontend && npm run test`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/src/components/copilot/
