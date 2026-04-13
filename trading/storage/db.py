@@ -804,6 +804,18 @@ _INIT_DDL = """
         );
         CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_logs(timestamp);
         CREATE INDEX IF NOT EXISTS idx_audit_actor ON audit_logs(actor_id);
+
+        CREATE TABLE IF NOT EXISTS thought_records (
+            id TEXT PRIMARY KEY,
+            timestamp TEXT NOT NULL,
+            agent_name TEXT NOT NULL,
+            symbol TEXT NOT NULL,
+            action TEXT NOT NULL,
+            conviction_score REAL NOT NULL,
+            rule_evaluations TEXT,
+            memory_context TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_thought_records_agent ON thought_records(agent_name);
 """
 
 
