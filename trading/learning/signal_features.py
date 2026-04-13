@@ -63,6 +63,9 @@ class SignalFeatureCapture:
             )
             # Store a minimal failed row so the opportunity is traceable
             try:
+                opp_ts = opportunity.timestamp
+                if not opp_ts.tzinfo:
+                    opp_ts = opp_ts.replace(tzinfo=timezone.utc)
                 await self._store.upsert(
                     str(opportunity.id),
                     agent_name=opportunity.agent_name,
@@ -71,7 +74,7 @@ class SignalFeatureCapture:
                     asset_type=opportunity.symbol.asset_type.value,
                     broker_id=opportunity.broker_id,
                     confidence=float(opportunity.confidence),
-                    opportunity_timestamp=opportunity.timestamp,
+                    opportunity_timestamp=opp_ts,
                     captured_at=datetime.now(timezone.utc),
                     feature_version=FEATURE_VERSION,
                     feature_payload="{}",
@@ -106,13 +109,12 @@ class SignalFeatureCapture:
             "asset_type": opportunity.symbol.asset_type.value,
             "broker_id": opportunity.broker_id,
             "confidence": float(opportunity.confidence),
-            "opportunity_timestamp": opp_ts.isoformat(),
-            "captured_at": captured_at.isoformat(),
+            "opportunity_timestamp": opp_ts,
+            "captured_at": captured_at,
             "capture_delay_ms": round(capture_delay_ms, 2),
             "feature_version": FEATURE_VERSION,
             "capture_status": "captured",
         }
-
         partial = False
 
         # --- Quote features ---
