@@ -189,3 +189,105 @@ class IdentityStore:
             if isinstance(row["metadata"], dict)
             else json.loads(row["metadata"]),
         )
+
+    async def create_draft(
+        self,
+        name: str,
+        system_prompt: str,
+        model: str = "gpt-4o",
+        hyperparameters: dict | None = None,
+    ) -> str:
+        query = """
+            INSERT INTO identity.agent_drafts (name, system_prompt, model, hyperparameters)
+            VALUES ($1, $2, $3, $4)
+            RETURNING id
+        """
+        async with self._pool.acquire() as conn:
+            result = await conn.fetchval(
+                query, name, system_prompt, model, json.dumps(hyperparameters or {})
+            )
+        return str(result)
+
+    async def get_draft(self, draft_id: str) -> dict | None:
+        query = """
+            SELECT id, name, system_prompt, model, hyperparameters,
+                   status, backtest_results, created_at, updated_at
+            FROM identity.agent_drafts
+            WHERE id = $1
+        """
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow(query, draft_id)
+        if not row:
+            return None
+        return self._row_to_draft(row)
+
+    async def update_draft_results(self, draft_id: str, results: dict) -> None:
+        query = """
+            UPDATE identity.agent_drafts
+            SET backtest_results = $2, status = 'tested', updated_at = NOW()
+            WHERE id = $1
+        """
+        async with self._pool.acquire() as conn:
+            await conn.execute(query, draft_id, json.dumps(results))
+
+    async def update_draft_status(self, draft_id: str, status: str) -> None:
+        query = """
+            UPDATE identity.agent_drafts
+            SET status = $2, updated_at = NOW()
+            WHERE id = $1
+        """
+        async with self._pool.acquire() as conn:
+            await conn.execute(query, draft_id, status)
+
+    async def list_drafts(self, status: str | None = None) -> list[dict]:
+        if status:
+            query = """
+                SELECT id, name, system_prompt, model, hyperparameters,
+                       status, backtest_results, created_at, updated_at
+                FROM identity.agent_drafts
+                WHERE status = $1
+                ORDER BY created_at DESC
+            """
+            params = (status,)
+        else:
+            query = """
+                SELECT id, name, system_prompt, model, hyperparameters,
+                       status, backtest_results, created_at, updated_at
+                FROM identity.agent_drafts
+                ORDER BY created_at DESC
+            """
+            params = ()
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(query, *params)
+        return [self._row_to_draft(r) for r in rows]
+
+    async def delete_draft(self, draft_id: str) -> bool:
+        query = "DELETE FROM identity.agent_drafts WHERE id = $1"
+        async with self._pool.acquire() as conn:
+            result = await conn.execute(query, draft_id)
+        return result == "DELETE 1"
+
+    def _row_to_draft(self, row) -> dict:
+        return {
+            "id": str(row["id"]),
+            "name": row["name"],
+            "system_prompt": row["system_prompt"],
+            "model": row["model"],
+            "hyperparameters": (
+                row["hyperparameters"]
+                if isinstance(row["hyperparameters"], dict)
+                else json.loads(row["hyperparameters"])
+            ),
+            "status": row["status"],
+            "backtest_results": (
+                row["backtest_results"]
+                if isinstance(row["backtest_results"], dict)
+                else (
+                    json.loads(row["backtest_results"])
+                    if row["backtest_results"]
+                    else None
+                )
+            ),
+            "created_at": row["created_at"].isoformat() if row["created_at"] else None,
+            "updated_at": row["updated_at"].isoformat() if row["updated_at"] else None,
+        }
