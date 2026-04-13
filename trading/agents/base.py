@@ -84,37 +84,14 @@ class StructuredAgent(Agent):
         system_prompt: str,
         prompt: str,
         schema: dict[str, Any],
-        llm_client: Any | None = None,
+        llm_client: Any,
     ) -> dict[str, Any] | None:
-        """Structured output via LLMClient with fallback chain."""
         self.increment_llm_call_count()
-        # If LLMClient provided, use it for fallback support
-        if llm_client is not None:
-            return await llm_client.structured_complete(
-                prompt=prompt,
-                schema=schema,
-                system=system_prompt,
-            )
-
-        # Fallback: direct Anthropic call (legacy, no fallback)
-        import anthropic
-        import json
-
-        client = anthropic.AsyncAnthropic()
-        response = await client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=1024,
+        return await llm_client.structured_complete(
+            prompt=prompt,
+            schema=schema,
             system=system_prompt,
-            messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_schema", "json_schema": schema},
         )
-        content = response.content[0]
-        if hasattr(content, "text"):
-            try:
-                return json.loads(content.text)
-            except json.JSONDecodeError:
-                return None
-        return None
 
 
 class LLMAgent(Agent):
@@ -151,34 +128,12 @@ class LLMAgent(Agent):
         system_prompt: str,
         prompt: str,
         schema: dict[str, Any],
-        llm_client: Any | None = None,
+        llm_client: Any,
     ) -> dict[str, Any] | None:
-        """Structured output via LLMClient with fallback chain."""
         self.increment_llm_call_count()
-        # If LLMClient provided, use it for fallback support
-        if llm_client is not None:
-            return await llm_client.structured_complete(
-                prompt=prompt,
-                schema=schema,
-                system=system_prompt,
-            )
-
-        # Fallback: direct Anthropic call (legacy, no fallback)
-        import anthropic
-        import json
-
-        client = anthropic.AsyncAnthropic()
-        response = await client.messages.create(
-            model=self.model,
-            max_tokens=1024,
+        return await llm_client.structured_complete(
+            prompt=prompt,
+            schema=schema,
             system=system_prompt,
-            messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_schema", "json_schema": schema},
         )
-        content = response.content[0]
-        if hasattr(content, "text"):
-            try:
-                return json.loads(content.text)
-            except json.JSONDecodeError:
-                return None
         return None

@@ -90,7 +90,8 @@
       "Bash(wsl.exe -d Ubuntu -- bash -c \"zcat /opt/agent-memory-unified/taoshi-vanta/validation/perf_ledgers.json.gz 2>/dev/null | python3 -c ''import sys,json; d=json.load\\(sys.stdin\\); print\\(f\"\"Miners with perf data: {len\\(d\\)}\"\"\\); k=list\\(d.keys\\(\\)\\)[0]; print\\(f\"\"Sample key: {k[:40]}...\"\"\\); v=d[k]; print\\(f\"\"Fields: {list\\(v.keys\\(\\)\\) if isinstance\\(v,dict\\) else type\\(v\\)}\"\"\\)'' 2>&1\")",
       "Bash(grep -E \"\\\\.py$\")",
       "Bash(rm -f /opt/agent-memory-unified/.claude/knowledge/scripts/search.db)",
-      "Bash(uv run:*)"
+      "Bash(uv run:*)",
+      "Bash(git log:*)"
     ]
   }
 }

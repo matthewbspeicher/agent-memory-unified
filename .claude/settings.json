@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cd /c/Users/matth && uv run --project //wsl.localhost/Ubuntu/opt/agent-memory-unified/.claude/knowledge python //wsl.localhost/Ubuntu/opt/agent-memory-unified/.claude/knowledge/hooks/session-start.py",
+            "command": "uv run --project /opt/agent-memory-unified/.claude/knowledge python /opt/agent-memory-unified/.claude/knowledge/hooks/session-start.py",
             "timeout": 15
           }
         ]
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cd /c/Users/matth && uv run --project //wsl.localhost/Ubuntu/opt/agent-memory-unified/.claude/knowledge python //wsl.localhost/Ubuntu/opt/agent-memory-unified/.claude/knowledge/hooks/session-end.py",
+            "command": "uv run --project /opt/agent-memory-unified/.claude/knowledge python /opt/agent-memory-unified/.claude/knowledge/hooks/session-end.py",
             "timeout": 10
           }
         ]
@@ -30,7 +30,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cd /c/Users/matth && uv run --project //wsl.localhost/Ubuntu/opt/agent-memory-unified/.claude/knowledge python //wsl.localhost/Ubuntu/opt/agent-memory-unified/.claude/knowledge/hooks/pre-compact.py",
+            "command": "uv run --project /opt/agent-memory-unified/.claude/knowledge python /opt/agent-memory-unified/.claude/knowledge/hooks/pre-compact.py",
             "timeout": 10
           }
         ]

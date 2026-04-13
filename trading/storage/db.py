@@ -916,6 +916,8 @@ async def init_db_postgres(db) -> None:
         ("performance_snapshots", "consecutive_wins", "INTEGER DEFAULT 0"),
         ("performance_snapshots", "max_consecutive_wins", "INTEGER DEFAULT 0"),
         ("bittensor_derived_views", "evaluation_status", "TEXT DEFAULT 'pending'"),
+        ("elo_rating_history", "timestamp", "TEXT DEFAULT NOW()"),
+        ("tournament_audit_log", "timestamp", "TEXT DEFAULT NOW()"),
     ]
     for table, col, col_def in _migrations:
         try:

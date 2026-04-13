@@ -44,12 +44,12 @@
 ## Phase 3: Cybersecurity CTF Arena (Sub-project 4)
 **Focus:** Autonomous Execution & Real-Time Defense.
 
-- [ ] **Task 3.1: Cyber-Arena Operational Modes**
+- [x] **Task 3.1: Cyber-Arena Operational Modes**
     - Build the "Red Team" (Exploitation), "Duel" (Red vs. Blue), and "SOC" (Detection) modes.
     - Implement the `LogStreamGenerator` for high-velocity traffic simulation.
-- [ ] **Task 3.2: Offensive/Defensive Toolset**
+- [x] **Task 3.2: Offensive/Defensive Toolset**
     - Build `scan_ports`, `exploit_service` (Red) and `inspect_logs`, `patch_service` (Blue).
-- [ ] **Task 3.3: Cyber-Score Processor**
+- [x] **Task 3.3: Cyber-Score Processor**
     - Implement "Mean Time to Detect (MTTD)" and "Intrusion Success" tracking.
 
 ---

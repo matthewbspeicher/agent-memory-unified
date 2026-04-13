@@ -1043,7 +1043,7 @@ async def lifespan(app: FastAPI):
             grace_period_minutes=config.llm.grace_period_minutes,
             cost_table_override=config.llm.cost_table_override,
         )
-        cost_ledger = CostLedger(redis=redis_client, config=llm_cost_config)
+        cost_ledger = CostLedger(redis=app.state.redis, config=llm_cost_config)
         app.state.cost_ledger = cost_ledger
 
         llm_client = LLMClient(
@@ -2033,12 +2033,20 @@ async def lifespan(app: FastAPI):
     # Load public static files into state
     import json
     import pathlib
-    
+
     public_content_dir = pathlib.Path(__file__).parent.parent / "public_content"
     agents_json_path = public_content_dir / "agents.json"
     for_agents_md_path = public_content_dir / "FOR_AGENTS.md"
-    app.state.public_agents_json = json.loads(agents_json_path.read_text()) if agents_json_path.exists() else {"error": "agents.json not found"}
-    app.state.public_for_agents_md = for_agents_md_path.read_text() if for_agents_md_path.exists() else "# FOR_AGENTS.md not found\n"
+    app.state.public_agents_json = (
+        json.loads(agents_json_path.read_text())
+        if agents_json_path.exists()
+        else {"error": "agents.json not found"}
+    )
+    app.state.public_for_agents_md = (
+        for_agents_md_path.read_text()
+        if for_agents_md_path.exists()
+        else "# FOR_AGENTS.md not found\n"
+    )
 
     yield
 
