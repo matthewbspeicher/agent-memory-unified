@@ -17,6 +17,7 @@ from api.routes import (
     orders,
     trades,
     agents,
+    drafts,
     opportunities,
     risk,
     ws,
@@ -2144,6 +2145,7 @@ def create_app(
     app.include_router(orders.router)
     app.include_router(trades.router)
     app.include_router(agents.router)
+    app.include_router(drafts.router, prefix="/api/v1")
     app.include_router(opportunities.router)
     app.include_router(risk.router)
     app.include_router(ws.router)

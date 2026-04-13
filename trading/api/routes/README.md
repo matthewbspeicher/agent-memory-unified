@@ -37,6 +37,7 @@ All routes are registered in the `create_app()` function at the end of `app.py` 
 | 25 | `shadow_route.router` | `api.routes.shadow` | - |
 | 26 | `intelligence_route.router` | `api.routes.intelligence` | `/intelligence` |
 | 27 | `achievements_route.router` | `api.routes.achievements` | `/achievements` |
+| 28 | `drafts.router` | `api.routes.drafts` | `/api/v1/drafts` |
 
 ## How to Add a New Route
 
