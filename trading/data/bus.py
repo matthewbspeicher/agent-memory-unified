@@ -414,3 +414,37 @@ class DataBus:
             fallback = BrokerSource(self._broker)
             return await getattr(fallback, method)(*args)
         raise RuntimeError(f"No source available for {method}")
+
+    async def close(self) -> None:
+        """Close all underlying data sources and release resources."""
+        import inspect
+
+        for source in self._sources:
+            if hasattr(source, "close"):
+                try:
+                    if inspect.iscoroutinefunction(source.close):
+                        await source.close()
+                    else:
+                        source.close()
+                except Exception as e:
+                    logger.warning("Failed to close data source %s: %s", getattr(source, "name", "unknown"), e)
+
+        if hasattr(self, "_massive_source") and self._massive_source:
+            if hasattr(self._massive_source, "close"):
+                try:
+                    if inspect.iscoroutinefunction(self._massive_source.close):
+                        await self._massive_source.close()
+                    else:
+                        self._massive_source.close()
+                except Exception as e:
+                    logger.warning("Failed to close massive source: %s", e)
+
+        if hasattr(self, "_kalshi_source") and self._kalshi_source:
+            if hasattr(self._kalshi_source, "close"):
+                try:
+                    if inspect.iscoroutinefunction(self._kalshi_source.close):
+                        await self._kalshi_source.close()
+                    else:
+                        self._kalshi_source.close()
+                except Exception as e:
+                    logger.warning("Failed to close kalshi source: %s", e)

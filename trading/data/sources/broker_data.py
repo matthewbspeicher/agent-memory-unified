@@ -94,6 +94,10 @@ class BrokerHistoricalSource(DataSource):
         """
         ticker = symbol.ticker
 
+        if symbol.asset_type.value == "CRYPTO" or ("USD" in ticker and len(ticker) > 3):
+            if ticker.endswith("USD") and "-" not in ticker:
+                ticker = ticker[:-3] + "-USD"
+
         # Example: IBKR uses 'BRK B', yfinance uses 'BRK-B'
         if " " in ticker:
             ticker = ticker.replace(" ", "-")

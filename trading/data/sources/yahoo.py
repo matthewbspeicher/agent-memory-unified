@@ -17,9 +17,21 @@ class YahooFinanceSource(DataSource):
     supports_options = False
     supports_fundamentals = False
 
+    def _format_ticker(self, symbol: Symbol) -> str:
+        ticker = symbol.ticker
+        if symbol.asset_type.value == "CRYPTO" or ("USD" in ticker and len(ticker) > 3):
+            if ticker.endswith("USD") and "-" not in ticker:
+                ticker = ticker[:-3] + "-USD"
+        if " " in ticker:
+            ticker = ticker.replace(" ", "-")
+        if symbol.asset_type.value == "STOCK" and ticker in ["SPX", "NDX", "RUT"]:
+            ticker = f"^{ticker}"
+        return ticker
+
     async def get_quote(self, symbol: Symbol) -> Quote:
         def _fetch():
-            t = yf.Ticker(symbol.ticker)
+            ticker = self._format_ticker(symbol)
+            t = yf.Ticker(ticker)
             info = t.fast_info
             return Quote(
                 symbol=symbol,
@@ -44,7 +56,7 @@ class YahooFinanceSource(DataSource):
                     return value.iloc[0]
                 return value
 
-            ticker = symbol.ticker
+            ticker = self._format_ticker(symbol)
             df = yf.download(
                 ticker,
                 period=period,

@@ -162,7 +162,11 @@ class ExchangeClient:
             data = await exchange.fetch_funding_rate(self._format_perp(symbol))
             return data.get("fundingRate", 0.0)
         except Exception as e:
-            logger.warning("fetch_funding_rate failed: %s", e)
+            msg = str(e)
+            if "451" in msg or "restricted location" in msg:
+                logger.debug("fetch_funding_rate skipped due to geo-restriction: %s", msg)
+            else:
+                logger.warning("fetch_funding_rate failed: %s", e)
             return 0.0
 
     async def _fetch_ohlcv(self, exchange: Any, symbol: str) -> list[dict[str, Any]]:
