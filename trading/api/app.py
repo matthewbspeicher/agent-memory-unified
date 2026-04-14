@@ -1135,7 +1135,7 @@ async def lifespan(app: FastAPI):
             enabled=getattr(config, "arb_auto_execute", False),
         )
         app.state.arb_executor = arb_executor
-        bg_tasks.create_task(arb_executor.run(), name="arb_executor")
+        task_mgr.create_task(arb_executor.run(), name="arb_executor")
         _log.info("ArbExecutor started (enabled=%s)", arb_executor._enabled)
 
         # Data sources (Yahoo always available, broker source optional)
@@ -2254,10 +2254,12 @@ def create_app(
     from api.landing import router as landing_router
     from api.routes.public import router as public_router
     from api.routes.identity import router as identity_router
+    from api.auth import users as auth_users
 
     app.include_router(landing_router)
     app.include_router(public_router)
     app.include_router(identity_router)
+    app.include_router(auth_users.router, prefix="/api/v1/auth", tags=["auth"])
     app.include_router(health.router)
     app.include_router(accounts.router)
     app.include_router(market_data.router)

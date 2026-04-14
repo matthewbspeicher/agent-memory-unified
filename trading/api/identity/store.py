@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import bcrypt
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -10,7 +11,7 @@ from uuid import UUID
 
 import asyncpg
 
-from models.user import User, PlatformTier
+from trading.models.user import User, PlatformTier
 
 
 class DuplicateAgentError(Exception):
@@ -284,6 +285,28 @@ class IdentityStore:
             row = await conn.fetchrow(query, email)
         if not row:
             return None
+        return User(
+            id=row["id"],
+            email=row["email"],
+            hashed_password=row["hashed_password"],
+            tier=PlatformTier(row["tier"]),
+            stripe_customer_id=row["stripe_customer_id"],
+            stripe_subscription_id=row["stripe_subscription_id"],
+            created_at=row["created_at"],
+        )
+
+    async def create_user(self, email: str, password: str) -> User:
+        hashed_password = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode(
+            "utf-8"
+        )
+        query = """
+            INSERT INTO users (email, hashed_password, tier)
+            VALUES ($1, $2, $3)
+            RETURNING id, email, hashed_password, tier, stripe_customer_id, stripe_subscription_id, created_at
+        """
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow(query, email, hashed_password, PlatformTier.EXPLORER.value)
+        
         return User(
             id=row["id"],
             email=row["email"],
