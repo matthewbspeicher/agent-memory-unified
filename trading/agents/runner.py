@@ -102,16 +102,13 @@ class AgentRunner:
         self._signal_bus = signal_bus or SignalBus()
         self._health_engine = health_engine
         self._trade_reflector_factory = trade_reflector_factory
-        self._agent_memory: Any | None = None
-
-    def set_agent_memory(self, agent_memory: Any) -> None:
-        self._agent_memory = agent_memory
         self._agent_store = agent_store
         self._session_bias_generator = session_bias_generator
         self._db = db
         self._tv_fetcher = tradingview_fetcher
         self._redis = getattr(event_bus, "_redis", None) if event_bus else None
         self._reflectors: dict[str, TradeReflector] = {}
+        self._agent_memory: Any | None = None
         if self._event_bus:
             self._signal_bus.subscribe(self._forward_signal_to_events)
         self._agents: dict[str, Agent] = {}
@@ -126,6 +123,12 @@ class AgentRunner:
         self._registry_configs: dict[str, dict] = {}
         self._scan_semaphore = asyncio.Semaphore(max_concurrent_scans)
         self._default_scan_timeout = default_scan_timeout
+
+    def set_agent_memory(self, agent_memory: Any) -> None:
+        """Inject unified AgentMemory into the runner and all registered agents."""
+        self._agent_memory = agent_memory
+        for agent in self._agents.values():
+            agent.agent_memory = agent_memory
 
     def register(self, agent: Agent) -> None:
         self._agents[agent.name] = agent

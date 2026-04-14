@@ -1994,6 +1994,23 @@ async def lifespan(app: FastAPI):
             llm_client=llm_client,
         )
 
+        # Wire unified AgentMemory into runner (best-effort if backends unavailable)
+        try:
+            from learning.agent_memory import AgentMemory
+            from api.services.memory_registry import memory_registry
+
+            shared_client = memory_registry.get_shared_client()
+            agent_memory = AgentMemory(
+                trade_reflector=_global_reflector,
+                memory_client=shared_client,
+                prompt_store=prompt_store,
+            )
+            runner.set_agent_memory(agent_memory)
+            app.state.agent_memory = agent_memory
+            _log.info("AgentMemory wired into runner")
+        except Exception as _am_exc:
+            _log.warning("AgentMemory setup skipped (continuing without): %s", _am_exc)
+
         await _setup_meta_agent(
             app=app,
             runner=runner,
@@ -2097,6 +2114,26 @@ async def lifespan(app: FastAPI):
         if for_agents_md_path.exists()
         else "# FOR_AGENTS.md not found\n"
     )
+
+    # MCP tool server (optional — mounts /mcp endpoint if fastmcp is installed)
+    try:
+        from mcp_server import create_mcp_server
+        from data.signal_types import registry as signal_registry
+
+        mcp = create_mcp_server(
+            signal_bus=signal_bus,
+            agent_runner=runner,
+            broker=broker,
+            regime_manager=getattr(regime_filter, "_regime_manager", None),
+        )
+        mcp_app = mcp.http_app(path="/mcp")
+        app.mount("/mcp", mcp_app)
+        signal_bus._registry = signal_registry
+        _log.info("MCP tool server mounted at /mcp (signal_registry wired)")
+    except ImportError:
+        _log.info("MCP server skipped (fastmcp not installed)")
+    except Exception as _mcp_exc:
+        _log.warning("MCP server mount failed (continuing without): %s", _mcp_exc)
 
     yield
 

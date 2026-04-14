@@ -32,7 +32,7 @@ class SignalPayload(BaseModel):
     """Base for all typed signal payloads.  Every concrete payload must
     inherit from this and add its own fields."""
 
-    model_config = {"extra": "forbid"}  # reject unknown fields
+    model_config = {"extra": "allow"}  # allow unknown fields for extensibility
 
 
 # ---------------------------------------------------------------------------
@@ -139,7 +139,7 @@ class VolumeAnomalyPayload(SignalPayload):
     magnitude: float = Field(gt=0)
     volume: float = Field(ge=0)
     avg_volume: float = Field(ge=0)
-    direction: Literal["up", "down", "neutral"]
+    direction: Literal["bullish", "bearish", "neutral"]
     source: str = ""
 
 
@@ -153,7 +153,7 @@ class PriceDislocationPayload(SignalPayload):
     move_pct: float
     prev_price: float = Field(ge=0)
     current_price: float = Field(ge=0)
-    direction: Literal["up", "down", "neutral"]
+    direction: Literal["bullish", "bearish", "neutral"]
     source: str = ""
 
 
