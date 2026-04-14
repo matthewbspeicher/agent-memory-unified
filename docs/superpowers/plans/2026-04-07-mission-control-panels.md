@@ -1,6 +1,6 @@
 # Mission Control Agent & Trading Panels Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Implement the Agent Activity Panel (with WS integration), Validator Panel, and Open Trades Panel for the Mission Control dashboard.
 
@@ -17,19 +17,19 @@
 - Create: `frontend/src/pages/mission-control/panels/AgentActivityPanel.tsx`
 - Create: `frontend/src/pages/mission-control/drawers/AgentDrawer.tsx`
 
-- [ ] **Step 1: Implement `useAgentActivity` hook**
+- [x] **Step 1: Implement `useAgentActivity` hook**
 Create a custom hook that attempts a WebSocket connection for real-time agent events, and falls back to polling `/api/agents/activity` via TanStack Query.
 
-- [ ] **Step 2: Build Agent Activity Panel (Collapsed)**
+- [x] **Step 2: Build Agent Activity Panel (Collapsed)**
 Implement the live scrolling feed of agent events, showing timestamp, agent name, and action summary.
 
-- [ ] **Step 3: Build Agent Drawer (Expanded)**
+- [x] **Step 3: Build Agent Drawer (Expanded)**
 Implement the full event log with filtering, and the 13-agent grid showing status cards.
 
-- [ ] **Step 4: Integrate into Page**
+- [x] **Step 4: Integrate into Page**
 Add the Agent Activity Panel to the `MissionControlPage`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 ```bash
 git add frontend/src/hooks/useAgentActivity.ts frontend/src/pages/mission-control/panels/AgentActivityPanel.tsx frontend/src/pages/mission-control/drawers/AgentDrawer.tsx
 git commit -m "feat(ui): implement agent activity panel and drawer"
@@ -41,16 +41,16 @@ git commit -m "feat(ui): implement agent activity panel and drawer"
 - Create: `frontend/src/pages/mission-control/panels/ValidatorPanel.tsx`
 - Create: `frontend/src/pages/mission-control/drawers/ValidatorDrawer.tsx`
 
-- [ ] **Step 1: Build Validator Panel (Collapsed)**
+- [x] **Step 1: Build Validator Panel (Collapsed)**
 Implement the compact 2x2 metric grid (hash pass rate, total weight sets, top miner score, response rate).
 
-- [ ] **Step 2: Build Validator Drawer (Expanded)**
+- [x] **Step 2: Build Validator Drawer (Expanded)**
 Reuse existing `BittensorNode` page components to show full validator details when the drawer is open.
 
-- [ ] **Step 3: Integrate into Page**
+- [x] **Step 3: Integrate into Page**
 Add the Validator Panel to the `MissionControlPage`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 ```bash
 git add frontend/src/pages/mission-control/panels/ValidatorPanel.tsx frontend/src/pages/mission-control/drawers/ValidatorDrawer.tsx
 git commit -m "feat(ui): implement validator panel and drawer"
@@ -62,16 +62,16 @@ git commit -m "feat(ui): implement validator panel and drawer"
 - Create: `frontend/src/pages/mission-control/panels/TradesPanel.tsx`
 - Create: `frontend/src/pages/mission-control/drawers/TradesDrawer.tsx`
 
-- [ ] **Step 1: Build Trades Panel (Collapsed)**
+- [x] **Step 1: Build Trades Panel (Collapsed)**
 Implement the list of open positions (ticker, direction, unrealized P&L).
 
-- [ ] **Step 2: Build Trades Drawer (Expanded)**
+- [x] **Step 2: Build Trades Drawer (Expanded)**
 Implement the full trade table, reusing logic from the existing `TradeList` component.
 
-- [ ] **Step 3: Integrate into Page**
+- [x] **Step 3: Integrate into Page**
 Add the Trades Panel to the `MissionControlPage`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 ```bash
 git add frontend/src/pages/mission-control/panels/TradesPanel.tsx frontend/src/pages/mission-control/drawers/TradesDrawer.tsx
 git commit -m "feat(ui): implement open trades panel and drawer"

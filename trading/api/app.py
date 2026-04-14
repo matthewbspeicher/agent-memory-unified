@@ -11,6 +11,7 @@ from api.routes import (
     trades,
     agents,
     drafts,
+    mission_control,
     opportunities,
     risk,
     ws,
@@ -1356,6 +1357,7 @@ async def lifespan(app: FastAPI):
 
         # Learning system
         pnl_store = TrackedPositionStore(db)
+        app.state.pnl_store = pnl_store
         perf_store = PerformanceStore(db)
         agent_store = AgentStore(db)
         app.state.agent_store = agent_store
@@ -2149,6 +2151,7 @@ def create_app(
     app.include_router(trades.router)
     app.include_router(agents.router)
     app.include_router(drafts.router, prefix="/api/v1")
+    app.include_router(mission_control.router)
     app.include_router(opportunities.router)
     app.include_router(risk.router)
     app.include_router(ws.router)
