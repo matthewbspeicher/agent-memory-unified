@@ -118,9 +118,10 @@ class BitGetAccount(AccountProvider):
                             asset_type=AssetType.STOCK,
                         ),
                         quantity=qty,
-                        avg_price=Decimal("0"),
-                        current_price=Decimal("0"),
-                        side="long",
+                        avg_cost=Decimal("0"),
+                        market_value=Decimal("0"),
+                        unrealized_pnl=Decimal("0"),
+                        realized_pnl=Decimal("0"),
                     )
                 )
         except Exception as e:
@@ -130,8 +131,8 @@ class BitGetAccount(AccountProvider):
     async def get_order_history(
         self, account_id: str, filters: OrderHistoryFilter | None = None
     ) -> list[OrderResult]:
-        symbol = filters.symbol if filters else None
-        limit = filters.limit if filters else 50
+        symbol = filters.symbol.ticker if filters and filters.symbol else None
+        limit = 50
 
         results = []
         try:
