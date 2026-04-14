@@ -1,7 +1,10 @@
 import asyncio
 import hmac
 import json
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
+import jwt
+from trading.api.identity.store import IdentityStore
+from trading.models.user import PlatformTier
 from api.auth import _get_settings
 from api.deps import get_event_bus
 
@@ -51,14 +54,38 @@ async def public_websocket_endpoint(websocket: WebSocket):
 
 
 @router.websocket("")
-async def websocket_endpoint(websocket: WebSocket):
+async def websocket_endpoint(websocket: WebSocket, token: str | None = Query(default=None)):
     await websocket.accept()
-    if not await _authenticate_ws(websocket):
+    
+    if not token:
+        await websocket.close(code=4001, reason="Not authenticated")
+        return
+        
+    settings = _get_settings()
+    secret_key = settings.api_key or "secret"
+    
+    try:
+        payload = jwt.decode(token, secret_key, algorithms=["HS256"])
+        email: str = payload.get("sub")
+        if email is None:
+            await websocket.close(code=4001, reason="Invalid token")
+            return
+    except jwt.PyJWTError:
+        await websocket.close(code=4001, reason="Invalid token")
+        return
+        
+    store = IdentityStore(websocket.app.state.db)
+    user = await store.get_user_by_email(email)
+    if user is None:
+        await websocket.close(code=4001, reason="User not found")
         return
 
     event_bus = get_event_bus()
     try:
         async for event in event_bus.subscribe():
+            event_type = event.get("event_type", "") or event.get("topic", "")
+            if user.tier == PlatformTier.EXPLORER and event_type == "signals:pro":
+                continue
             payload = json.dumps(event, cls=CustomJSONEncoder)
             await websocket.send_text(payload)
     except WebSocketDisconnect:
