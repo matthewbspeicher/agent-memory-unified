@@ -295,7 +295,44 @@ Then: `signal-api-12` (compliance gate) + `phase-0-gtm` (waitlist, pricing valid
 
 ### Reconciled Subtask Breakdown (authoritative)
 
+**Top priority (2026-04-14 pivot): Track T — Personal Capital Proving Ground.** Eat our own dogfood on the user's personal brokerage + live TAO validator *before* productizing. Track T gates the others — A-F slide right. Rationale in Dogfood Pivot note below. Everything else runs after Track T demonstrates edge (or is killed by it).
+
 The existing `.tmp/tasks/signal-api/` and `.tmp/tasks/agent-auth-api/` trees are kept for reference but need rebaselining. The breakdown below **supersedes those trees** — when regenerating JSON subtasks for `coder-agent`, use this as the source. Every subtask has: dependencies, parallel flag, effort hint, and acceptance criteria drawn from the unified spec.
+
+#### Track T: Personal Capital Proving Ground (top priority — gates paid launch)
+
+Capital context: live Taoshi validator on Subnet 8 (UID 144) + $11k USD in user's personal brokerage, of which $2-3k is the planned experimental sleeve. No external funding. Objective: build a 60-90 day audited live P&L curve that validates whether the 13-agent ensemble + arb executor have real edge net of costs. If yes, that curve becomes Track E's strongest marketing asset. If no, we find out on $500 instead of failing in public — and the roadmap pivots.
+
+| Seq | Title | Depends on | Parallel | Effort |
+|-----|-------|------------|----------|--------|
+| T.1 | Validator score optimization — measure baseline rank/emissions on Subnet 8, tune scoring thresholds in `evaluator.py`, DO NOT touch `weight_setter.py` submission logic | — | Yes | 12-20h |
+| T.2 | Arb cost model — `CostModel` class accounting for per-venue fees + gas + slippage; backtest runner replays `SpreadStore` history; Sharpe report drives kill-or-go on arb track | — | Yes | 10-16h |
+| T.3 | Strategy ensemble review — backtest all 13 agents through T.2 cost model, rank by risk-adjusted return, drop/reweight losers, updated `agents.yaml` with performance-justified allocations | T.2 | No | 8-12h |
+| T.4 | Kill-switch + position-sizing tightening — per-agent `max_position_usd` caps, per-hour loss circuit breakers, integration test that kill-switch actually halts orders | T.3 | No | 8-12h |
+| T.5 | Paper → live promotion criteria — written gates in `docs/trading/live-promotion-criteria.md` (e.g., 30 trading days paper, Sharpe > 1.0, max DD < 10%, 100+ trades); first-promotion runbook naming exact agent + broker + size | T.3, T.4 | No | 4-8h |
+
+**T.2 acceptance details** (this is the unblocker — runnable this week):
+- `trading/execution/cost_model.py` — `CostModel.expected_profit_bps(venue_a, venue_b, notional_usd, orderbook_snapshot) -> Decimal`
+- Fees sourced from existing broker adapter configs; slippage modeled from top-of-book depth in recent `SpreadStore` samples
+- `scripts/backtest_arb.py` replays at least 30 days of `SpreadStore` history; simulates order fills using cost model; outputs trades CSV + summary (Sharpe, Sortino, max DD, win rate, avg net bps)
+- Report written to `docs/backtests/arb-YYYY-MM-DD.md`
+- **Kill-or-go criterion**: if cost-adjusted Sharpe < 1.0 on 30-day backtest, arb track is killed for personal capital — no live sleeve, roadmap's Track 1.4 exchange-add also killed.
+
+**T.5 acceptance details** (the gate that actually lets real dollars move):
+- Promotion criteria doc includes both *quantitative* gates (Sharpe, DD, trade count, paper duration) and *operational* gates (structured logs clean, kill-switch verified, alerts firing)
+- First-promotion runbook is specific: "deploy agent `<name>` via `<broker>` adapter, initial position $500, `max_position_usd=$100`, hard stop on -$50 daily loss"
+- Runbook includes rollback: how to unwind if performance diverges from paper by >2σ in first 2 weeks
+
+**Track T total: 42-68h** over ~2 weeks of focused work. Then 4-8 weeks of paper trading (clock time, not effort) before T.5 triggers live promotion. Real revenue track for personal accounts doesn't begin until week 6-10; Signal API conversations (Track E.02) get the resulting P&L curve as marketing around week 12-16.
+
+**What happens after Track T:**
+- **If edge is real** (Sharpe ≥ 1.0 on cost-adjusted backtest AND paper trading): proceed to Tracks A-E with a strong fact pattern for Track E.02 pricing conversations and Track E.05 compliance memo.
+- **If edge is marginal** (Sharpe 0.5-1.0): narrow the deployed strategy set to the top 1-2 performers; Tracks C/D still viable but compete harder on marketing, not on claimed performance.
+- **If edge is absent** (Sharpe < 0.5): kill the arb track and monetization-via-signals direction. Pivot the roadmap to Agent Auth API (Track D) as the primary revenue surface — identity-as-a-service doesn't depend on having tradeable edge.
+
+---
+
+
 
 #### Track A: Platform Foundation (shared prereq — blocks all paid work)
 
@@ -476,13 +513,14 @@ E.01..E.05 run in parallel with Tracks A-D; E.02 + E.05 gate C.12 and launch.
 
 | Track | Effort |
 |-------|--------|
+| **T. Personal Capital Proving Ground (top priority — gates everything else)** | **42-68h** |
 | A. Platform Foundation | 6-12h |
 | B. Shared Billing | 26-38h |
 | C. Signal API | 76-124h |
 | D. Agent Auth API | 66-106h |
 | E. Phase 0 GTM | 24-34h (ours) |
 | F. Crypto Tipping (optional perk, non-blocking) | 56-90h |
-| **Total (A-E required for revenue)** | **198-314h** |
-| **Total incl. F** | **254-404h** |
+| **Total (T + A-E required for revenue)** | **240-382h** |
+| **Total incl. F** | **296-472h** |
 
 The old `.tmp/tasks/signal-api/` and `.tmp/tasks/agent-auth-api/` JSON trees are retained for reference but **out-of-date**. When regenerating JSON subtasks for `coder-agent`, derive them from the tables above, not from the original trees.

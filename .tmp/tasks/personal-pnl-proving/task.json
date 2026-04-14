@@ -1,0 +1,31 @@
+{
+  "id": "personal-pnl-proving",
+  "name": "Personal Capital Proving Ground",
+  "status": "active",
+  "objective": "Build a 60-90 day audited live P&L curve on user's personal brokerage + TAO validator to prove (or disprove) that the 13-agent ensemble and arb executor have real edge net of costs. Kill-or-go gate for the entire paid-product roadmap. Top priority per 2026-04-14 dogfood pivot.",
+  "context_files": [
+    "docs/plans/revenue-roadmap.md"
+  ],
+  "reference_files": [
+    "trading/execution/arb_executor.py",
+    "trading/execution/arbitrage.py",
+    "trading/storage/spreads.py",
+    "trading/integrations/bittensor/evaluator.py",
+    "trading/integrations/bittensor/weight_setter.py",
+    "trading/agents/",
+    "trading/agents.yaml"
+  ],
+  "priority_note": "Gates Tracks A-F of the revenue roadmap. Do not start Tracks A-E until T.5 either promotes a strategy to live (edge confirmed) or formally kills the arb track (edge absent).",
+  "exit_criteria": [
+    "T.1: Validator baseline measured; scoring optimized; rank improvement documented over 7+ days",
+    "T.2: CostModel shipped; 30-day backtest report at docs/backtests/arb-YYYY-MM-DD.md; kill-or-go decision recorded",
+    "T.3: 13-agent ensemble reviewed through cost model; agents.yaml updated with performance-justified allocations",
+    "T.4: Per-agent position caps + per-hour loss circuit breakers in place; kill-switch integration test passing",
+    "T.5: Promotion criteria written; first-live runbook specifies exact agent/broker/size/stop",
+    "First live $500 sleeve deployed OR arb track formally killed in docs/decisions/"
+  ],
+  "subtask_count": 5,
+  "completed_count": 0,
+  "created_at": "2026-04-14T00:00:00Z",
+  "completed_at": null
+}

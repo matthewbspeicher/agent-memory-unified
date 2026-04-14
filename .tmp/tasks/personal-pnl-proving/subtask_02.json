@@ -1,0 +1,63 @@
+{
+  "id": "personal-pnl-proving-02",
+  "seq": "02",
+  "title": "Arb cost model + 30-day backtest runner",
+  "status": "pending",
+  "depends_on": [],
+  "parallel": true,
+  "estimated_effort_hours": "10-16",
+  "delegatable_to": "opencode",
+  "context_files": [
+    "docs/plans/revenue-roadmap.md"
+  ],
+  "reference_files": [
+    "trading/execution/arb_executor.py",
+    "trading/execution/arbitrage.py",
+    "trading/execution/costs.py",
+    "trading/storage/spreads.py",
+    "trading/adapters/bitget/",
+    "trading/adapters/bitget/__init__.py",
+    "trading/adapters/kalshi/",
+    "trading/strategies/cross_platform_arb.py",
+    "trading/strategies/funding_rate_arb.py"
+  ],
+  "acceptance_criteria": [
+    "Create trading/execution/cost_model.py with a CostModel class",
+    "CostModel.expected_profit_bps(venue_a, venue_b, notional_usd, orderbook_snapshot_a, orderbook_snapshot_b) -> Decimal returns the net expected profit in basis points after all costs",
+    "CostModel components: taker_fee_bps per venue (sourced from existing broker adapter configs; do NOT hardcode — grep trading/adapters/ for fee constants), gas_cost_bps (for DEX legs only; 0 for CEX-only), slippage_bps (modeled from top-of-book depth vs notional in the orderbook snapshots)",
+    "Fallback for missing orderbook: if snapshot is None, use a configurable conservative default (e.g., slippage_bps=15) AND flag the trade as 'estimated' in the output",
+    "Unit tests in trading/tests/unit/test_cost_model.py covering: two-CEX path, CEX-DEX path with gas, thin-book slippage blow-up, missing-orderbook fallback, fee config missing error",
+    "Integrate into ArbExecutor: replace current min_profit_bps hardcoded check with cost_model.expected_profit_bps(...) > configurable threshold; existing min_profit_bps env var becomes the threshold on the NET number",
+    "Existing ArbExecutor tests still pass (grep tests for arb_executor; run cd trading && python -m pytest tests/unit/ -k arb_executor -v --tb=short --timeout=30)",
+    "Create scripts/backtest_arb.py that: loads at least 30 days of SpreadStore history via existing storage API, replays spread events, simulates execution using CostModel, writes trades to CSV at docs/backtests/trades-YYYY-MM-DD.csv",
+    "Script outputs summary metrics: total trades, win rate, avg net bps/trade, cumulative P&L, Sharpe ratio (daily returns), Sortino ratio, max drawdown, longest losing streak",
+    "Script writes markdown report to docs/backtests/arb-YYYY-MM-DD.md with: summary metrics table, equity curve reference (trades CSV is the source), monthly breakdown, per-venue-pair breakdown, kill-or-go recommendation",
+    "Kill-or-go criterion explicit in report: 'cost-adjusted Sharpe >= 1.0 AND max DD <= 15%' = go; else = kill. Recommendation line must be the final paragraph.",
+    "Script is idempotent and reproducible: given the same SpreadStore snapshot, two runs produce identical output",
+    "No mocked data in the backtest — if SpreadStore history is insufficient for 30 days, script exits 1 with a message explaining the shortfall (do not fabricate)",
+    "Structured log events in CostModel: cost_model.estimate with venues, notional, net_bps; cost_model.fallback when snapshot missing",
+    "LSP diagnostics clean on all changed files"
+  ],
+  "deliverables": [
+    "trading/execution/cost_model.py (CostModel class)",
+    "trading/execution/arb_executor.py (updated to use CostModel)",
+    "trading/tests/unit/test_cost_model.py (unit tests)",
+    "scripts/backtest_arb.py (backtest runner)",
+    "docs/backtests/arb-YYYY-MM-DD.md (report — YYYY-MM-DD replaced with actual run date)",
+    "docs/backtests/trades-YYYY-MM-DD.csv (trades ledger)"
+  ],
+  "non_goals": [
+    "Live execution changes beyond integrating CostModel into ArbExecutor's should-execute decision",
+    "Strategy ensemble review across all 13 agents (that is T.3; this task focuses on arb strategies only)",
+    "Hyperparameter tuning of min_profit_bps threshold (T.3/T.5 territory)",
+    "UI changes — backtest results are markdown + CSV only"
+  ],
+  "verification_checklist": [
+    "Run: cd trading && python -m pytest tests/unit/test_cost_model.py -v --tb=short --timeout=30 → all pass",
+    "Run: cd trading && python -m pytest tests/unit/ -k arb_executor -v --tb=short --timeout=30 → all pass (no regressions)",
+    "Run: python scripts/backtest_arb.py → exits 0, writes both markdown report and CSV",
+    "Inspect the report manually: Sharpe / max DD / kill-or-go line all present and defensible",
+    "git diff --stat shows only expected files changed"
+  ],
+  "operator_notes": "This is the unblocker for the entire dogfood proving ground. If edge is absent (Sharpe < 1.0), the arb track is killed and the roadmap pivots to Agent Auth API as primary revenue surface. If edge is real, T.3/T.4/T.5 follow to gate a small live sleeve. Do NOT skip the kill-or-go recommendation — it is the point of the task."
+}
