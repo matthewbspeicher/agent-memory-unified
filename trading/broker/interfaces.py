@@ -63,7 +63,7 @@ class MarketDataProvider(ABC):
     async def get_quotes(self, symbols: list[Symbol]) -> list[Quote]: ...
 
     async def get_order_book(self, symbol: Symbol, limit: int = 20) -> dict:
-        """Get order book. Default returns empty; override for exchange-backed providers."""
+        """Get order book. Optional for all providers — default returns empty; override for exchange-backed providers."""
         return {"bids": [], "asks": []}
 
     @abstractmethod

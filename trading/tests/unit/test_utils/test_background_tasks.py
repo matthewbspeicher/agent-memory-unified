@@ -35,7 +35,8 @@ class TestBackgroundTaskManager:
             await task
         except ValueError:
             pass
-        await asyncio.sleep(0.01)
+        # Wait a bit longer for log to propagate
+        await asyncio.sleep(0.1)
         assert "boom" in caplog.text
         assert "bad" not in mgr.active_tasks
 
