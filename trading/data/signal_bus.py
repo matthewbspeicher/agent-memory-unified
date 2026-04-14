@@ -1,7 +1,9 @@
 from datetime import datetime, timezone
 import logging
 from typing import Callable, Awaitable
+
 from agents.models import AgentSignal
+from data.signal_types import registry as default_registry, SignalTypeRegistry
 from utils.logging import log_event
 
 logger = logging.getLogger(__name__)
@@ -10,15 +12,19 @@ MAX_SIGNALS = 1000
 
 
 class SignalBus:
-    def __init__(self):
+    def __init__(self, signal_registry: SignalTypeRegistry | None = None):
         self._signals: list[AgentSignal] = []
         self._subscribers: list[Callable[[AgentSignal], Awaitable[None]]] = []
+        self._registry = signal_registry or default_registry
 
     def _prune_expired(self) -> None:
         now = datetime.now(timezone.utc)
         self._signals = [s for s in self._signals if s.expires_at > now]
 
     async def publish(self, signal: AgentSignal) -> None:
+        validated = signal.validate_payload(self._registry)
+        signal.payload = validated
+
         self._prune_expired()
         self._signals.append(signal)
         if len(self._signals) > MAX_SIGNALS:

@@ -44,16 +44,16 @@ class BitGetClient:
 
     def _sign(self, timestamp: str, method: str, path: str, body: str = "") -> str:
         """Generate HMAC-SHA256 signature for BitGet API."""
+        import base64
+
         message = f"{timestamp}{method}{path}{body}"
-        return (
+        return base64.b64encode(
             hmac.new(
                 self.secret_key.encode("utf-8"),
                 message.encode("utf-8"),
                 hashlib.sha256,
-            )
-            .digest()
-            .decode("base64")
-        )
+            ).digest()
+        ).decode("utf-8")
 
     def _headers(self, method: str, path: str, body: str = "") -> dict[str, str]:
         """Build request headers with authentication."""

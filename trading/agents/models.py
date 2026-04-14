@@ -44,7 +44,14 @@ class AgentSignal(BaseModel):
     timestamp: datetime = PydanticField(
         default_factory=lambda: datetime.now(timezone.utc)
     )
-    confidence: float | None = None  # 0.0 to 1.0, optional
+    confidence: float | None = None
+
+    def validate_payload(self, registry: Any | None = None) -> dict:
+        if registry is None:
+            from data.signal_types import registry as _default_registry
+
+            registry = _default_registry
+        return registry.validate(self.signal_type, self.payload)
 
 
 @dataclass

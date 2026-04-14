@@ -108,7 +108,37 @@ class BitGetAccount(AccountProvider):
     async def get_order_history(
         self, account_id: str, filters: OrderHistoryFilter | None = None
     ) -> list[OrderResult]:
-        return []
+        symbol = filters.symbol if filters else None
+        limit = filters.limit if filters else 50
+
+        results = []
+        try:
+            if symbol:
+                orders = await self.client.get_order_history(symbol, limit)
+            else:
+                orders = await self.client.get_open_orders()
+
+            for order in orders:
+                status_map = {
+                    "new": OrderStatus.SUBMITTED,
+                    "partially_filled": OrderStatus.PARTIAL,
+                    "filled": OrderStatus.FILLED,
+                    "canceled": OrderStatus.CANCELLED,
+                    "expired": OrderStatus.CANCELLED,
+                }
+                status_str = order.get("status", "new").lower()
+                results.append(
+                    OrderResult(
+                        order_id=order.get("orderId", ""),
+                        status=status_map.get(status_str, OrderStatus.REJECTED),
+                        filled_quantity=Decimal(order.get("fillQty", "0")),
+                        avg_fill_price=Decimal(order.get("fillPrice", "0")),
+                    )
+                )
+        except Exception as e:
+            logger.error("BitGet: Failed to get order history: %s", e)
+
+        return results
 
 
 class BitGetMarketData(MarketDataProvider):
@@ -227,6 +257,7 @@ class BitGetOrderManager(OrderManager):
         self.client = client
         self.dry_run = dry_run
         self._order_update_callback: Callable[[OrderResult], Any] | None = None
+        self._order_symbols: dict[str, str] = {}
 
     def on_order_update(self, callback: Callable[[OrderResult], Any]) -> None:
         self._order_update_callback = callback
@@ -273,6 +304,7 @@ class BitGetOrderManager(OrderManager):
                 price=price,
             )
             order_id = result.get("orderId", "unknown")
+            self._order_symbols[order_id] = symbol
             return OrderResult(
                 order_id=order_id,
                 status=OrderStatus.SUBMITTED,
@@ -310,7 +342,9 @@ class BitGetOrderManager(OrderManager):
                 avg_fill_price=Decimal("0"),
             )
         try:
-            await self.client.cancel_order("BTCUSDT", order_id)
+            symbol = self._order_symbols.get(order_id, "BTCUSDT")
+            await self.client.cancel_order(symbol, order_id)
+            self._order_symbols.pop(order_id, None)
             return OrderResult(
                 order_id=order_id,
                 status=OrderStatus.CANCELLED,

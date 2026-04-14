@@ -7,17 +7,17 @@ from agents.models import ActionLevel, AgentConfig, Opportunity
 if TYPE_CHECKING:
     from data.bus import DataBus
     from data.signal_bus import SignalBus
+    from learning.agent_memory import AgentMemory
     from learning.trade_reflector import TradeReflector
 
 
 class Agent(ABC):
-    # Gemini design §2.1: Strategy parameter schema for Hermes composition
-    # Subclasses should override with their specific parameters
     PARAMETER_SCHEMA: dict[str, dict[str, Any]] = {}
 
     def __init__(self, config: AgentConfig) -> None:
         self._config = config
         self.memory: TradeReflector | None = None  # injected by AgentRunner
+        self.agent_memory: AgentMemory | None = None  # injected by AgentRunner
         self.signal_bus: SignalBus | None = None  # injected by AgentRunner
         self._session_bias: Any | None = (
             None  # injected by AgentRunner (SessionBiasReport)

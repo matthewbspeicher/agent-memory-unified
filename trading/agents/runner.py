@@ -102,6 +102,10 @@ class AgentRunner:
         self._signal_bus = signal_bus or SignalBus()
         self._health_engine = health_engine
         self._trade_reflector_factory = trade_reflector_factory
+        self._agent_memory: Any | None = None
+
+    def set_agent_memory(self, agent_memory: Any) -> None:
+        self._agent_memory = agent_memory
         self._agent_store = agent_store
         self._session_bias_generator = session_bias_generator
         self._db = db
@@ -378,12 +382,14 @@ class AgentRunner:
                         )
 
                 agent.reset_llm_call_count()
-                
+
                 # Check global kill-switch in Redis (Phase A Requirement)
                 if self._redis:
                     is_active = await self._redis.get("kill_switch:active")
                     if is_active == b"true" or is_active == "true":
-                        logger.warning(f"Scan skipped for {agent.name} - global kill-switch is active")
+                        logger.warning(
+                            f"Scan skipped for {agent.name} - global kill-switch is active"
+                        )
                         return
 
                 async with self._scan_semaphore:
