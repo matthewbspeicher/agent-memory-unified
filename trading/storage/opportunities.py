@@ -78,6 +78,7 @@ class OpportunityStore:
         signal: str | None = None,
         status: str | None = None,
         limit: int = 50,
+        min_age_hours: int | None = None,
     ) -> list[dict[str, Any]]:
         query = "SELECT * FROM opportunities WHERE 1=1"
         params: list[Any] = []
@@ -93,6 +94,8 @@ class OpportunityStore:
         if status:
             query += " AND status = ?"
             params.append(status)
+        if min_age_hours is not None:
+            query += f" AND created_at <= datetime('now', '-{min_age_hours} hours')"
         query += " ORDER BY created_at DESC LIMIT ?"
         params.append(limit)
         cursor = await self._db.execute(query, params)

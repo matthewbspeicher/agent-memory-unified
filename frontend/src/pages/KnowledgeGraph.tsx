@@ -3,8 +3,9 @@ import { useQuery } from '@tanstack/react-query';
 import ForceGraph3D from '3d-force-graph';
 import { agentApi } from '../lib/api/agent';
 import { GlassCard } from '../components/GlassCard';
+import { Tier } from '../components/TierGate';
 
-export default function KnowledgeGraph() {
+export default function KnowledgeGraph({ userTier = 'explorer' }: { userTier?: Tier }) {
   const graphRef = useRef<HTMLDivElement>(null);
   const graphInstance = useRef<any>(null);
   const [scanText, setScanText] = useState('COMPUTING TOPOLOGY...');
@@ -138,7 +139,7 @@ export default function KnowledgeGraph() {
             Initializing 3D Projection...
           </div>
         ) : (
-          <div ref={graphRef} className="w-full h-full"></div>
+          <div ref={graphRef} className="w-full h-full" style={{ filter: userTier === 'explorer' ? 'blur(4px)' : 'none' }}></div>
         )}
       </div>
 

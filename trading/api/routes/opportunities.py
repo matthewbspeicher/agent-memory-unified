@@ -6,7 +6,8 @@ import time
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from agents.models import OpportunityStatus
-from api.auth import verify_api_key, _get_settings
+from api.auth import verify_api_key, _get_settings, get_current_user
+from trading.models.user import User, PlatformTier
 from api.deps import get_opportunity_store
 
 router = APIRouter(prefix="/opportunities", tags=["opportunities"])
@@ -35,11 +36,12 @@ async def list_opportunities(
     symbol: str | None = None,
     signal: str | None = None,
     limit: int = 50,
-    _: str = Depends(verify_api_key),
+    user: User = Depends(get_current_user),
     store=Depends(get_opportunity_store),
 ):
+    min_age_hours = 1 if user.tier == PlatformTier.EXPLORER else None
     return await store.list(
-        agent_name=agent_name, symbol=symbol, signal=signal, limit=limit
+        agent_name=agent_name, symbol=symbol, signal=signal, limit=limit, min_age_hours=min_age_hours
     )
 
 
