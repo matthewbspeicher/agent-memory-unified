@@ -7,11 +7,12 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
+from execution.cost_model import CostModel
+
 if TYPE_CHECKING:
     from data.events import EventBus
     from storage.spreads import SpreadStore
     from execution.arbitrage import ArbCoordinator
-    from execution.cost_model import CostModel
     from broker.models import Symbol
 
 logger = logging.getLogger(__name__)
