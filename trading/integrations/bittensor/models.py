@@ -138,8 +138,13 @@ class MinerRankingInput:
     direction_accuracy: float = 0.0  # [0, 1] from rollup
     mean_magnitude_error: float = 0.0  # [0, ∞) from rollup
     mean_path_correlation: float | None = None  # [-1, 1] or None if insufficient data
-    raw_incentive_score: float = 0.0 # raw value from metagraph; normalized inside compute_rankings()
+    raw_incentive_score: float = (
+        0.0  # raw value from metagraph; normalized inside compute_rankings()
+    )
     max_drawdown: float = 0.0  # Max magnitude_error across windows (proxy for drawdown)
+    accuracy_std: float | None = (
+        None  # Standard deviation of direction_accuracy across windows (for erratic penalty)
+    )
 
 
 @dataclass

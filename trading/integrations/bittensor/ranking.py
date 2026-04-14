@@ -16,6 +16,39 @@ DIRECTION_HEAVY = RankingWeights(direction=0.60, magnitude=0.25, path=0.15)
 RETURN_SENSITIVE = RankingWeights(direction=0.45, magnitude=0.35, path=0.20)
 
 
+def _compute_streak_bonus(
+    direction_accuracy: float,
+    windows_evaluated: int,
+    max_streak_bonus: float = 0.15,
+) -> float:
+    """Compute bonus for consistent performers.
+
+    Miners with >70% direction accuracy over 10+ windows get a bonus
+    that increases with accuracy, capping at max_streak_bonus.
+    """
+    if windows_evaluated < 10 or direction_accuracy < 0.70:
+        return 0.0
+    excess_accuracy = direction_accuracy - 0.70
+    scale = min(1.0, excess_accuracy / 0.30)  # 70%→0%, 100%→100%
+    return max_streak_bonus * scale
+
+
+def _compute_erratic_penalty(
+    accuracy_std: float | None,
+    windows_evaluated: int,
+) -> float:
+    """Penalty for miners with highly variable accuracy.
+
+    High standard deviation in accuracy indicates erratic predictions.
+    Penalty scales with std dev, starting at 10+ windows.
+    """
+    if windows_evaluated < 10 or accuracy_std is None:
+        return 0.0
+    # std > 0.30 is considered very erratic, max penalty 10%
+    penalty = min(0.10, accuracy_std * 0.25)
+    return penalty
+
+
 def compute_rankings(
     inputs: list[MinerRankingInput],
     weights: RankingWeights,
@@ -45,8 +78,24 @@ def compute_rankings(
             mean_path_correlation=inp.mean_path_correlation,
             weights=weights,
         )
+
+        # Apply streak bonus for consistent performers
+        streak_bonus = _compute_streak_bonus(
+            direction_accuracy=inp.direction_accuracy,
+            windows_evaluated=inp.windows_evaluated,
+        )
+
+        # Apply penalty for erratic miners (high variance in accuracy)
+        erratic_penalty = _compute_erratic_penalty(
+            accuracy_std=inp.accuracy_std if hasattr(inp, "accuracy_std") else None,
+            windows_evaluated=inp.windows_evaluated,
+        )
+
+        # Combine: internal + streak_bonus - erratic_penalty
+        adjusted_internal = max(0.0, internal + streak_bonus - erratic_penalty)
+
         alpha = _compute_alpha(inp.windows_evaluated, config)
-        hybrid = alpha * norm_incentives[i] + (1.0 - alpha) * internal
+        hybrid = alpha * norm_incentives[i] + (1.0 - alpha) * adjusted_internal
 
         results.append(
             MinerRanking(
