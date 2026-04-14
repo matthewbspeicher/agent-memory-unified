@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from data.events import EventBus
     from storage.spreads import SpreadStore
     from execution.arbitrage import ArbCoordinator
+    from execution.cost_model import CostModel
     from broker.models import Symbol
 
 logger = logging.getLogger(__name__)
@@ -24,6 +25,7 @@ class ArbExecutor:
         spread_store: SpreadStore,
         arb_coordinator: ArbCoordinator,
         event_bus: EventBus,
+        cost_model: CostModel | None = None,
         min_profit_bps: float = 5.0,
         max_position_usd: float = 100.0,
         enabled: bool = False,
@@ -31,6 +33,7 @@ class ArbExecutor:
         self._store = spread_store
         self._coordinator = arb_coordinator
         self._bus = event_bus
+        self._cost_model = cost_model or CostModel()
         self._min_profit_bps = min_profit_bps
         self._max_position_usd = max_position_usd
         self._enabled = enabled
@@ -39,9 +42,10 @@ class ArbExecutor:
     async def run(self) -> None:
         """Subscribe to spread events and execute when profitable."""
         logger.info(
-            "ArbExecutor: Starting (enabled=%s, min_profit_bps=%.1f)",
+            "ArbExecutor: Starting (enabled=%s, min_profit_bps=%.1f, min_gap=%.1f cents)",
             self._enabled,
             self._min_profit_bps,
+            self._cost_model.min_gap_cents(),
         )
         async for event in self._bus.subscribe():
             if event.get("topic") != "arb.spread":
@@ -60,7 +64,10 @@ class ArbExecutor:
         kalshi_ticker = data.get("kalshi_ticker", "")
         poly_ticker = data.get("poly_ticker", "")
 
-        if not observation_id or gap_cents < self._min_profit_bps:
+        if not observation_id:
+            return
+
+        if not self._cost_model.should_execute(gap_cents, self._min_profit_bps):
             return
 
         # Skip if already trading this pair
