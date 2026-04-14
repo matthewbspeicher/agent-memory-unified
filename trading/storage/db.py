@@ -897,7 +897,6 @@ async def init_db_postgres(db) -> None:
 
     # Column migrations — safe to retry (postgres raises "already exists")
     _migrations = [
-        ("trades", "agent_name", "TEXT"),
         ("tracked_positions", "expires_at", "TEXT"),
         ("tracked_positions", "broker_id", "TEXT"),
         ("tracked_positions", "account_id", "TEXT"),

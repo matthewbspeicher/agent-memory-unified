@@ -1,6 +1,15 @@
 -- =============================================================================
 -- PostgreSQL CREATE TABLE script for trading service
--- Generated from Laravel migrations (2026_04_05_000001/2/3)
+--
+-- NOT AUTHORITATIVE AT RUNTIME. This file is a manual bootstrap snapshot.
+-- The runtime source of truth is `trading/storage/db.py` — specifically
+-- the `_INIT_DDL` string plus the `_migrations` ALTER list inside
+-- `init_db_postgres()`. Those run on every container start against the
+-- STA_DATABASE_URL Postgres.
+--
+-- When you edit this file, also update `trading/storage/db.py` (and vice
+-- versa). `tests/unit/test_storage/test_schema_parity.py` will fail if
+-- they drift.
 -- =============================================================================
 
 -- Core Trading Tables
@@ -103,6 +112,9 @@ CREATE INDEX IF NOT EXISTS idx_risk_events_type_created ON risk_events (event_ty
 CREATE TABLE IF NOT EXISTS performance_snapshots (
     id BIGSERIAL PRIMARY KEY,
     agent_name VARCHAR(255) NOT NULL,
+    -- `timestamp` is queried by storage/performance.py / TournamentEngine.
+    -- Without it, every cron tick 500s (prior prod bug, 2026-04-13).
+    timestamp TIMESTAMP NOT NULL DEFAULT NOW(),
     opportunities_generated INTEGER NOT NULL,
     opportunities_executed INTEGER NOT NULL,
     win_rate DECIMAL(5,4) NOT NULL,
@@ -116,6 +128,10 @@ CREATE TABLE IF NOT EXISTS performance_snapshots (
     profit_factor DECIMAL(8,4) NULL,
     total_trades INTEGER NULL,
     open_positions INTEGER NULL,
+    consecutive_losses INTEGER NOT NULL DEFAULT 0,
+    max_consecutive_losses INTEGER NOT NULL DEFAULT 0,
+    consecutive_wins INTEGER NOT NULL DEFAULT 0,
+    max_consecutive_wins INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMP NULL,
     updated_at TIMESTAMP NULL
 );
@@ -291,6 +307,7 @@ CREATE TABLE IF NOT EXISTS trust_events (
     old_level VARCHAR(255) NOT NULL,
     new_level VARCHAR(255) NOT NULL,
     changed_by VARCHAR(255) NOT NULL,
+    changed_at TIMESTAMP NOT NULL DEFAULT NOW(),
     created_at TIMESTAMP NULL,
     updated_at TIMESTAMP NULL
 );
@@ -374,6 +391,7 @@ CREATE TABLE IF NOT EXISTS tournament_audit_log (
     reason TEXT NOT NULL,
     ai_analysis TEXT NOT NULL DEFAULT '',
     ai_recommendation TEXT NOT NULL DEFAULT '',
+    timestamp TIMESTAMP NOT NULL DEFAULT NOW(),
     overridden_by VARCHAR(255) NULL,
     created_at TIMESTAMP NULL,
     updated_at TIMESTAMP NULL
@@ -681,6 +699,7 @@ CREATE TABLE IF NOT EXISTS arb_spread_observations (
     gap_cents INTEGER NOT NULL,
     kalshi_volume DECIMAL(20,8) NOT NULL DEFAULT 0,
     poly_volume DECIMAL(20,8) NOT NULL DEFAULT 0,
+    observed_at TIMESTAMP NOT NULL DEFAULT NOW(),
     is_claimed BOOLEAN NOT NULL DEFAULT false,
     claimed_at TIMESTAMP NULL,
     claimed_by VARCHAR(255) NULL,
@@ -747,15 +766,6 @@ CREATE TABLE IF NOT EXISTS paper_orders (
     created_at TEXT NOT NULL DEFAULT (NOW()::TEXT)
 );
 
-CREATE TABLE IF NOT EXISTS correlation_matrix (
-    symbol_a VARCHAR(255) NOT NULL,
-    symbol_b VARCHAR(255) NOT NULL,
-    correlation DECIMAL(8,6) NOT NULL,
-    window_days INTEGER NOT NULL DEFAULT 30,
-    computed_at TIMESTAMP NOT NULL,
-    PRIMARY KEY (symbol_a, symbol_b, window_days)
-);
-
 CREATE TABLE IF NOT EXISTS bittensor_processed_positions (
     position_uuid VARCHAR(255) PRIMARY KEY,
     miner_hotkey VARCHAR(255) NOT NULL,
@@ -789,4 +799,17 @@ CREATE TABLE IF NOT EXISTS agent_context_cache (
     generated_at TEXT NOT NULL,
     trade_count INTEGER DEFAULT 0
 );
+
+-- Thought records (LLM reasoning trace per agent decision)
+CREATE TABLE IF NOT EXISTS thought_records (
+    id TEXT PRIMARY KEY,
+    timestamp TEXT NOT NULL,
+    agent_name TEXT NOT NULL,
+    symbol TEXT NOT NULL,
+    action TEXT NOT NULL,
+    conviction_score REAL NOT NULL,
+    rule_evaluations TEXT,
+    memory_context TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_thought_records_agent ON thought_records(agent_name);
 
