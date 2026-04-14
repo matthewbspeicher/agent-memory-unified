@@ -2339,6 +2339,10 @@ def create_app(
 
     app.include_router(tax_route.router)
 
+    from api.routes.billing import webhooks as billing_webhooks
+
+    app.include_router(billing_webhooks.router)
+
     from api.startup.error_handlers import register_error_handlers
 
     register_error_handlers(app)

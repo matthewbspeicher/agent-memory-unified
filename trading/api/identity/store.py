@@ -295,6 +295,15 @@ class IdentityStore:
             created_at=row["created_at"],
         )
 
+    async def update_user_tier(self, user_id: UUID, tier: PlatformTier) -> None:
+        query = """
+            UPDATE users
+            SET tier = $2
+            WHERE id = $1
+        """
+        async with self._pool.acquire() as conn:
+            await conn.execute(query, user_id, tier.value)
+
     async def create_user(self, email: str, password: str) -> User:
         hashed_password = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode(
             "utf-8"
