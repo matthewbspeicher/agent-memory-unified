@@ -189,7 +189,13 @@ git commit -m "test(auth): add invite code feature tests for gated registration"
 - Modify: `trading/integrations/bittensor/evaluator.py:173-207`
 - Modify: `trading/api/routes/bittensor.py:202-210`
 
-- [ ] **Step 1: Update BittensorMetrics dataclass**
+> **Status 2026-04-13:** Implemented with current evaluator's actual skip paths
+> (no_bar_data, insufficient_bars) instead of the plan's CoinGecko-era paths.
+> Evaluator now accepts a shared `BittensorMetrics` instance from startup
+> (integrations.py) and instruments both skip paths. Metrics endpoint
+> exposes evaluator block with `windows_skipped`, `last_skip_reason`, etc.
+
+- [x] **Step 1: Update BittensorMetrics dataclass**
 
 In `trading/integrations/bittensor/models.py`, replace `windows_skipped_no_data` and add `last_skip_reason`:
 
@@ -201,7 +207,7 @@ In `trading/integrations/bittensor/models.py`, replace `windows_skipped_no_data`
     last_skip_reason: str | None = None
 ```
 
-- [ ] **Step 2: Instrument all three skip paths in evaluator**
+- [x] **Step 2: Instrument all three skip paths in evaluator**
 
 In `trading/integrations/bittensor/evaluator.py`, replace the first skip path (lines 176-184):
 
@@ -268,7 +274,7 @@ Replace the third skip path (lines 199-207 — insufficient candles):
             return
 ```
 
-- [ ] **Step 3: Update metrics endpoint to use renamed field**
+- [x] **Step 3: Update metrics endpoint to use renamed field**
 
 In `trading/api/routes/bittensor.py`, update the evaluator metrics block (lines 205-209):
 
@@ -282,12 +288,12 @@ In `trading/api/routes/bittensor.py`, update the evaluator metrics block (lines 
         }
 ```
 
-- [ ] **Step 4: Verify syntax**
+- [x] **Step 4: Verify syntax**
 
 Run: `python3 -c "import ast; [ast.parse(open(f).read()) for f in ['integrations/bittensor/models.py', 'integrations/bittensor/evaluator.py', 'api/routes/bittensor.py']]; print('OK')"` from the `trading/` directory.
 Expected: `OK`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add trading/integrations/bittensor/models.py trading/integrations/bittensor/evaluator.py trading/api/routes/bittensor.py

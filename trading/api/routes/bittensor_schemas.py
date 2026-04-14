@@ -83,9 +83,18 @@ class SchedulerMetrics(BaseModel):
     consecutive_failures: int
 
 
+class EvaluatorMetrics(BaseModel):
+    windows_evaluated: int
+    windows_expired: int
+    windows_skipped: int
+    last_skip_reason: str | None = None
+    last_evaluation_duration_secs: float
+
+
 class BittensorMetricsResponse(BaseModel):
     enabled: bool
     scheduler: SchedulerMetrics | None = None
+    evaluator: EvaluatorMetrics | None = None
 
 
 # --- /api/bittensor/rankings ---

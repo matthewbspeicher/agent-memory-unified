@@ -12,6 +12,7 @@ from broker.models import Symbol, AssetType
 from data.bus import DataBus
 from integrations.bittensor.models import (
     BittensorEvaluationWindow,
+    BittensorMetrics,
     MinerAccuracyRecord,
     RawMinerForecast,
     RealizedWindowSnapshot,
@@ -33,11 +34,13 @@ class MinerEvaluator:
         data_bus: DataBus,
         knowledge_graph: Any | None = None,
         kg_enabled: bool = False,
+        metrics: BittensorMetrics | None = None,
     ):
         self.store = store
         self.data_bus = data_bus
         self._knowledge_graph = knowledge_graph
         self._kg_enabled = kg_enabled
+        self.metrics = metrics or BittensorMetrics()
 
     async def evaluate_pending_windows(self, now: datetime | None = None) -> int:
         """Fetch unevaluated windows and realize their outcomes."""
@@ -91,6 +94,8 @@ class MinerEvaluator:
         )
 
         if not bars:
+            self.metrics.windows_skipped += 1
+            self.metrics.last_skip_reason = "no_bar_data"
             logger.warning(
                 "No bar data for %s, skipping window %s",
                 window.symbol,
@@ -102,6 +107,8 @@ class MinerEvaluator:
         # Find bars that match the prediction window
         window_bars = [b for b in bars if b.timestamp >= window.collected_at]
         if len(window_bars) < window.prediction_size:
+            self.metrics.windows_skipped += 1
+            self.metrics.last_skip_reason = "insufficient_bars"
             logger.debug(
                 "Not enough bars yet for window %s (%d/%d)",
                 window.window_id,

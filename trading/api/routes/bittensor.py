@@ -197,6 +197,17 @@ async def bittensor_metrics(
             "consecutive_failures": m.consecutive_failures,
         }
 
+    evaluator = getattr(request.app.state, "bittensor_evaluator", None)
+    if evaluator and hasattr(evaluator, "metrics"):
+        em = evaluator.metrics
+        result["evaluator"] = {
+            "windows_evaluated": em.windows_evaluated,
+            "windows_expired": em.windows_expired,
+            "windows_skipped": em.windows_skipped,
+            "last_skip_reason": em.last_skip_reason,
+            "last_evaluation_duration_secs": round(em.last_evaluation_duration_secs, 2),
+        }
+
     return result
 
 

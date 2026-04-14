@@ -183,6 +183,7 @@ async def setup_bittensor(
             data_bus=data_bus,
             knowledge_graph=knowledge_graph,
             kg_enabled=config.knowledge_graph_enabled,
+            metrics=_bt_metrics,
         )
 
         logger.info(
