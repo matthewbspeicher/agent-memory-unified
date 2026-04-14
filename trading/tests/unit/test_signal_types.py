@@ -99,16 +99,16 @@ class TestBittensorMinerPositionPayload:
         with pytest.raises(ValidationError):
             BittensorMinerPositionPayload.model_validate(payload)
 
-    def test_extra_fields_rejected(self):
-        """Reject payload with extra unknown fields."""
+    def test_extra_fields_allowed(self):
+        """Allow payload with extra unknown fields for extensibility."""
         payload = {
             "miner_hotkey": "5D2bwSZYA6Lxhi76VaT52av6VDYU1fYYSFjzsPmPmM8J7Aqe",
             "symbol": "BTC/USD",
             "direction": "long",
-            "unknown_field": "should_fail",
+            "unknown_field": "should_work",
         }
-        with pytest.raises(ValidationError):
-            BittensorMinerPositionPayload.model_validate(payload)
+        result = BittensorMinerPositionPayload.model_validate(payload)
+        assert result.miner_hotkey == "5D2bwSZYA6Lxhi76VaT52av6VDYU1fYYSFjzsPmPmM8J7Aqe"
 
     def test_wrong_type_leverage(self):
         """Reject non-numeric leverage."""
@@ -284,14 +284,14 @@ class TestRegimeUpdatePayload:
         model = RegimeUpdatePayload.model_validate(payload)
         assert model.market_phase == "expansion"
 
-    def test_extra_fields_rejected(self):
-        """Reject extra fields."""
+    def test_extra_fields_allowed(self):
+        """Allow extra fields for extensibility."""
         payload = {
             "market_phase": "expansion",
-            "extra_field": "should_fail",
+            "extra_field": "should_work",
         }
-        with pytest.raises(ValidationError):
-            RegimeUpdatePayload.model_validate(payload)
+        result = RegimeUpdatePayload.model_validate(payload)
+        assert result.market_phase == "expansion"
 
 
 class TestNewsEventPayload:
