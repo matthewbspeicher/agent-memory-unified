@@ -68,62 +68,27 @@ async def check_kill_switch(request: Request):
         raise HTTPException(503, "Trading is currently halted via global kill-switch")
 
 
-# Backward compatibility setters - DEPRECATED
+# Legacy no-op setters — kept for ServiceContainer compatibility (api/container.py).
+# Live app uses app.state directly (see api/app.py lifespan).
 def set_broker(broker: Broker) -> None:
-    import warnings
-
-    warnings.warn(
-        "set_broker is deprecated. Set broker directly on app.state in startup.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
+    pass
 
 
 def set_agent_runner(runner: AgentRunner) -> None:
-    import warnings
-
-    warnings.warn(
-        "set_agent_runner is deprecated. Set runner directly on app.state in startup.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
+    pass
 
 
 def set_opportunity_store(store) -> None:
-    import warnings
-
-    warnings.warn(
-        "set_opportunity_store is deprecated. Set store directly on app.state in startup.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
+    pass
 
 
 def set_risk_engine(engine) -> None:
-    import warnings
-
-    warnings.warn(
-        "set_risk_engine is deprecated. Set engine directly on app.state in startup.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
+    pass
 
 
 def set_event_bus(bus: EventBus) -> None:
-    import warnings
-
-    warnings.warn(
-        "set_event_bus is deprecated. Set bus directly on app.state in startup.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
+    pass
 
 
 def set_trade_store(store: TradeStore) -> None:
-    import warnings
-
-    warnings.warn(
-        "set_trade_store is deprecated. Set store directly on app.state in startup.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
+    pass

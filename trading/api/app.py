@@ -3,13 +3,6 @@ import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
-from api.deps import (
-    set_broker,
-    set_agent_runner,
-    set_opportunity_store,
-    set_risk_engine,
-    set_event_bus,
-)
 from api.routes import (
     health,
     accounts,
@@ -254,7 +247,6 @@ def _setup_agent_runtime(
         db=db,
         tradingview_fetcher=tv_fetcher,
     )
-    set_agent_runner(runner)
     app.state.agent_runner = runner
 
     base_router = router._target if hasattr(router, "_target") else router
@@ -942,8 +934,6 @@ async def _shutdown_app_state(*, app: FastAPI, runner, logger: logging.Logger):
 async def lifespan(app: FastAPI):
     broker = getattr(app.state, "broker", None)
     config = getattr(app.state, "config", load_config())
-    if broker:
-        set_broker(broker)
 
     # --- Structured logging setup (before anything else) ---
     from utils.logging import setup_logging
@@ -1004,7 +994,6 @@ async def lifespan(app: FastAPI):
 
         event_bus = EventBus()
         signal_bus = SignalBus()
-        set_event_bus(event_bus)
         app.state.event_bus = event_bus
         app.state.signal_bus = signal_bus
 
@@ -1089,17 +1078,12 @@ async def lifespan(app: FastAPI):
             broker=broker,
         )
         if broker:
-            set_broker(broker)
             app.state.broker = broker
 
         # Data sources (Yahoo always available, broker source optional)
         opp_store = OpportunityStore(db)
-        set_opportunity_store(opp_store)
         app.state.opportunity_store = opp_store
         trade_store = TradeStore(db)
-        from api.deps import set_trade_store
-
-        set_trade_store(trade_store)
         app.state.trade_store = trade_store
 
         # --- Competition System ---
@@ -1700,7 +1684,6 @@ async def lifespan(app: FastAPI):
 
             task_mgr.create_task(_governor_refresh(), name="governor_refresh")
 
-        set_risk_engine(risk_engine)
         app.state.risk_engine = risk_engine
 
         # --- Risk Analytics Setup ---
@@ -2148,8 +2131,6 @@ def create_app(
         )
         _log.info("Sentry initialized")
 
-    if broker:
-        set_broker(broker)
     app.state.broker = broker
     app.state.enable_agent_framework = enable_agent_framework
     app.state.config = config or load_config()
