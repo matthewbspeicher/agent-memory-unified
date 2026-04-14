@@ -2,11 +2,18 @@ import json
 import logging
 from typing import Any, Dict
 
+from llm.client import LLMClient
+
 logger = logging.getLogger(__name__)
 
 
 class MemoryConsolidator:
-    def __init__(self, llm_client, redis_client: Any, stream_name: str = "events"):
+    def __init__(
+        self,
+        llm_client: LLMClient,
+        redis_client: Any,
+        stream_name: str = "events",
+    ):
         self.llm = llm_client
         self.redis = redis_client
         self.stream_name = stream_name
@@ -51,23 +58,18 @@ class MemoryConsolidator:
         )
 
         try:
-            # We assume self.llm has an async generate or similar method.
-            # We'll use a generic __call__ or generate pattern, but let's carefully try to use what exists.
-            # Usually it's an instance of an LLM client (e.g. litellm or langchain or internal wrapper)
-            if hasattr(self.llm, "agenerate_text"):
-                consolidated_value = await self.llm.agenerate_text(prompt)
-            elif hasattr(self.llm, "__call__"):
-                # fallback for raw call
-                consolidated_value = await self.llm(prompt)
-            else:
-                # Mock response if LLM client is a mock or interface is unknown
+            result = await self.llm.complete(prompt, max_tokens=400)
+            consolidated_value = (result.text or "").strip()
+            if not consolidated_value:
                 logger.warning(
-                    "LLM client interface not fully mapped, using default summarization."
+                    "LLM consolidation returned empty text for agent %s — "
+                    "skipping event publication",
+                    agent_id,
                 )
-                consolidated_value = f"Consolidated {len(memories)} memories into a general strategic outline."
+                return
         except Exception as e:
             logger.error(f"LLM consolidation failed: {e}")
-            consolidated_value = f"Consolidation of {len(memories)} memories completed with partial strategic insights due to generation error."
+            return
 
         logger.info(f"Generated consolidated memory for Agent {agent_id}.")
 
