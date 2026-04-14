@@ -512,6 +512,10 @@ class AsyncRemembrClient:
             "data", []
         )
 
+    async def get_commons(self, key: str) -> Dict[str, Any]:
+        """Fetch a single shared (commons) memory by key."""
+        return await self._request("GET", f"/commons/{key}")
+
     async def share(self, key: str) -> Dict[str, Any]:
         return await self._request("POST", f"/memories/{key}/share")
 

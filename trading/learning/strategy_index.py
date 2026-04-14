@@ -15,23 +15,17 @@ class MemoryIndexService:
         catalog for the LLM to read before selecting specific documents.
         """
         try:
-            # FIXME: Workaround for missing SDK method (e.g. `await self._memory._shared.get_all(tags=["strategy_article"])`)
-            # Direct access to underlying HTTP client breaks encapsulation
-            resp = await self._memory._shared.client.get("/commons/search", params={"tags": "strategy_article", "limit": 100})
-            if getattr(resp, "is_error", False):
-                logger.warning("Failed to fetch strategy articles for index: %s", resp.text)
-                return []
-                
-            data = resp.json().get("data", [])
-            
+            data = await self._memory._shared.search_commons(
+                q="", limit=100, tags=["strategy_article"]
+            )
             index = []
             for mem in data:
                 content = mem.get("value", "")
-                summary = content[:150].replace("\n", " ") + "..." # 1-line summary
+                summary = content[:150].replace("\n", " ") + "..."
                 index.append({
                     "id": mem.get("id", mem.get("key")),
                     "tags": mem.get("tags", []),
-                    "summary": summary
+                    "summary": summary,
                 })
             return index
         except Exception as e:

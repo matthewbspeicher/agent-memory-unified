@@ -88,15 +88,11 @@ class TradingMemoryClient:
         return await index_service.get_compressed_index()
 
     async def search_by_keys(self, keys: list[str]) -> list[dict]:
-        """Fetch specific memories by their IDs/keys."""
+        """Fetch specific shared memories by their IDs/keys."""
         results = []
         for key in keys:
             try:
-                # FIXME: Workaround for missing SDK method (e.g. `await self._shared.get_memory(key)`)
-                # Direct access to underlying HTTP client breaks encapsulation
-                resp = await self._shared.client.get(f"/commons/{key}")
-                if not getattr(resp, "is_error", True):
-                    results.append(resp.json())
+                results.append(await self._shared.get_commons(key))
             except Exception as e:
                 logger.warning("Failed to fetch memory key %s: %s", key, e)
         return results
