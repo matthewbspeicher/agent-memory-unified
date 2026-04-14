@@ -1034,6 +1034,7 @@ async def lifespan(app: FastAPI):
 
         # --- Knowledge Graph ---
         from storage.knowledge_graph import TradingKnowledgeGraph
+        from agents.models import AgentSignal
 
         _kg = TradingKnowledgeGraph(db=db, schema="kg" if config.database_url else None)
         await _kg.connect()
@@ -2184,6 +2185,19 @@ def create_app(
     app.state.broker = broker
     app.state.enable_agent_framework = enable_agent_framework
     app.state.config = config or load_config()
+
+    try:
+        from risk.config import load_risk_config
+        import os
+
+        risk_config_path = os.path.join(os.path.dirname(__file__), "..", "risk.yaml")
+        app.state.risk_engine = load_risk_config(risk_config_path)
+        _log.info("RiskEngine loaded with %d rules", len(app.state.risk_engine._rules))
+    except Exception as exc:
+        _log.warning("RiskEngine init failed (rules disabled): %s", exc)
+        from risk.engine import RiskEngine
+
+        app.state.risk_engine = RiskEngine(rules=[], kill_switch=None)
 
     from api.landing import router as landing_router
     from api.routes.public import router as public_router
