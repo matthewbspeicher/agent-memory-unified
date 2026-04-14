@@ -80,6 +80,36 @@ def get_runner_status(runner: AgentRunner = Depends(get_agent_runner)):
     }
 
 
+@router.get("/activity")
+async def get_agents_activity(
+    request: Request,
+    agent: str | None = None,
+    limit: int = 50,
+):
+    """Recent agent activity feed for Mission Control dashboards.
+
+    Reads from the opportunities store (agent proposals + their statuses).
+    Returns an empty list when the store isn't configured rather than 500ing,
+    so the dashboard renders cleanly during startup.
+    """
+    store = getattr(request.app.state, "opportunity_store", None)
+    if store is None:
+        return {"events": [], "total": 0}
+
+    if limit < 1:
+        limit = 1
+    if limit > 500:
+        limit = 500
+
+    try:
+        rows = await store.list(agent_name=agent, limit=limit)
+    except Exception as exc:
+        logger.warning("Failed to fetch agent activity: %s", exc)
+        return {"events": [], "total": 0}
+
+    return {"events": rows, "total": len(rows)}
+
+
 @router.post("/sync")
 async def sync_agents(runner: AgentRunner = Depends(get_agent_runner)):
     """Manually trigger reconciliation of running agents against the registry."""

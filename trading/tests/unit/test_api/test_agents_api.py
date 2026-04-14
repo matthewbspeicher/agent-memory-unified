@@ -84,6 +84,63 @@ class TestAgentsAPI:
         assert resp.json() == []
 
 
+class TestAgentActivity:
+    def test_activity_endpoint_returns_events(self, agent_client):
+        """GET /agents/activity returns an events list."""
+        # Provide an opportunity store that returns some rows
+        mock_store = MagicMock()
+        mock_store.list = AsyncMock(
+            return_value=[
+                {
+                    "id": "opp-1",
+                    "agent_name": "rsi_scanner",
+                    "symbol": "AAPL",
+                    "signal": "buy",
+                    "confidence": 0.75,
+                    "status": "pending",
+                    "created_at": "2026-04-13T12:00:00",
+                    "reasoning": "RSI below 30",
+                },
+            ]
+        )
+        agent_client.app.state.opportunity_store = mock_store
+
+        resp = agent_client.get("/agents/activity", headers={"X-API-Key": "test-key"})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "events" in data
+        assert "total" in data
+        assert len(data["events"]) == 1
+        assert data["events"][0]["agent_name"] == "rsi_scanner"
+
+    def test_activity_endpoint_filters_by_agent(self, agent_client):
+        mock_store = MagicMock()
+        mock_store.list = AsyncMock(return_value=[])
+        agent_client.app.state.opportunity_store = mock_store
+
+        resp = agent_client.get(
+            "/agents/activity?agent=rsi_scanner&limit=10",
+            headers={"X-API-Key": "test-key"},
+        )
+        assert resp.status_code == 200
+        # Verify the filter was passed to store.list()
+        mock_store.list.assert_called_once()
+        call_kwargs = mock_store.list.call_args.kwargs
+        assert call_kwargs.get("agent_name") == "rsi_scanner"
+        assert call_kwargs.get("limit") == 10
+
+    def test_activity_returns_empty_when_store_missing(self, agent_client):
+        """If no opportunity_store is configured, return empty result (not 500)."""
+        if hasattr(agent_client.app.state, "opportunity_store"):
+            delattr(agent_client.app.state, "opportunity_store")
+
+        resp = agent_client.get("/agents/activity", headers={"X-API-Key": "test-key"})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["events"] == []
+        assert data["total"] == 0
+
+
 class TestStrategiesEndpoint:
     def test_list_strategies_returns_available(self, agent_client):
         """GET /agents/strategies returns list of strategies with parameter schemas."""

@@ -253,6 +253,26 @@ async def readiness_probe(request: Request):
     )
 
 
+@router.get("/health/services")
+async def get_services_health(request: Request):
+    """Aggregate status for the trading engine and external services.
+
+    Reads from ``app.state.health_cache`` (populated by a background task)
+    so the endpoint never blocks on an outbound HTTP call.
+    """
+    services: list[dict] = [{"name": "trading_engine", "status": "healthy"}]
+
+    health_cache = getattr(request.app.state, "health_cache", None)
+    if health_cache is not None:
+        for name, status in health_cache.all_statuses().items():
+            entry = dict(status)
+            entry["name"] = name
+            services.append(entry)
+
+    overall = "healthy" if all(s.get("status") != "unhealthy" for s in services) else "degraded"
+    return {"status": overall, "services": services}
+
+
 @router.get("/health/connectivity")
 async def health_connectivity(request: Request):
     """

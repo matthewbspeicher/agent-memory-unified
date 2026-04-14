@@ -1,6 +1,6 @@
 # Mission Control Backend Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Implement the new backend API endpoints needed for the Mission Control dashboard.
 
@@ -16,7 +16,7 @@
 - Create: `trading/utils/health_cache.py`
 - Create: `trading/tests/unit/test_health_cache.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 import pytest
@@ -39,12 +39,12 @@ async def test_health_cache_updates_external_services():
         assert status["deploy_status"] == "active"
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd trading && pytest tests/unit/test_health_cache.py -v`
 Expected: FAIL with `ModuleNotFoundError`
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Create `trading/utils/health_cache.py`:
 ```python
@@ -72,12 +72,12 @@ class HealthCacheManager:
         return self._cache.get(service_name)
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd trading && pytest tests/unit/test_health_cache.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add trading/utils/health_cache.py trading/tests/unit/test_health_cache.py
@@ -91,7 +91,7 @@ git commit -m "feat(api): add background health cache manager for external servi
 - Modify: `trading/api/app.py`
 - Modify: `trading/tests/unit/test_api/test_health.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 In `trading/tests/unit/test_api/test_health.py`:
 ```python
@@ -111,12 +111,12 @@ async def test_health_services_endpoint(async_client, app):
     assert railway["status"] == "healthy"
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd trading && pytest tests/unit/test_api/test_health.py::test_health_services_endpoint -v`
 Expected: FAIL (404 Not Found)
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 In `trading/api/routes/health.py`:
 ```python
@@ -148,12 +148,12 @@ In `trading/api/app.py`, instantiate the cache in the lifespan:
         app.state.health_cache = HealthCacheManager()
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd trading && pytest tests/unit/test_api/test_health.py::test_health_services_endpoint -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add trading/api/routes/health.py trading/api/app.py trading/tests/unit/test_api/test_health.py
@@ -166,7 +166,7 @@ git commit -m "feat(api): implement /api/health/services endpoint with caching"
 - Modify: `trading/api/routes/agents.py`
 - Modify: `trading/tests/unit/test_api/test_agents_api.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 In `trading/tests/unit/test_api/test_agents_api.py`:
 ```python
@@ -183,12 +183,12 @@ async def test_get_agents_status(async_client):
     assert "agents" in response.json()
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd trading && pytest tests/unit/test_api/test_agents_api.py -v -k "activity or status"`
 Expected: FAIL
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 In `trading/api/routes/agents.py`:
 ```python
@@ -209,12 +209,12 @@ async def get_agents_status(request: Request):
     }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd trading && pytest tests/unit/test_api/test_agents_api.py -v -k "activity or status"`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add trading/api/routes/agents.py trading/tests/unit/test_api/test_agents_api.py

@@ -1063,6 +1063,23 @@ async def lifespan(app: FastAPI):
         )
         app.state.llm_client = llm_client
 
+        # --- Health Cache (external service status for Mission Control) ---
+        from utils.health_cache import HealthCacheManager
+
+        health_cache = HealthCacheManager()
+        app.state.health_cache = health_cache
+
+        async def _refresh_health_cache():
+            import asyncio as _asyncio
+            while True:
+                try:
+                    await health_cache.update_external_health()
+                except Exception as exc:
+                    _log.warning("Health cache refresh failed: %s", exc)
+                await _asyncio.sleep(60)
+
+        app.state._health_cache_task = asyncio.create_task(_refresh_health_cache())
+
         # --- Broker Setup ---
         from api.startup.brokers import setup_brokers
 
