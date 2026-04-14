@@ -71,6 +71,37 @@ def test_mission_control_aggregates_open_trades(client):
     assert data["kpis"]["open_trades"] == 1
 
 
+def test_mission_control_agent_status_is_clean_lowercase(client, mock_broker):
+    """AgentStatus should serialize as 'running' not 'AgentStatus.RUNNING'."""
+    from unittest.mock import MagicMock
+    from agents.models import AgentInfo, AgentConfig, AgentStatus, ActionLevel
+
+    runner = MagicMock()
+    runner.list_agents.return_value = [
+        AgentInfo(
+            name="test_agent",
+            description="Test",
+            status=AgentStatus.RUNNING,
+            config=AgentConfig(
+                name="test_agent",
+                strategy="rsi",
+                schedule="continuous",
+                action_level=ActionLevel.NOTIFY,
+            ),
+        ),
+    ]
+    client.app.state.agent_runner = runner
+
+    resp = client.get(
+        "/engine/v1/mission-control/status", headers={"X-API-Key": "test-key"}
+    )
+    data = resp.json()
+    assert data["agents"]["total"] == 1
+    assert data["agents"]["running"] == 1
+    assert data["agents"]["agents"][0]["status"] == "running"
+    assert "AgentStatus" not in data["agents"]["agents"][0]["status"]
+
+
 def test_mission_control_handles_failing_store(client):
     """Endpoint returns empty result rather than 500 when a store fails."""
     mock_store = MagicMock()

@@ -27,6 +27,15 @@ router = APIRouter(
 )
 
 
+def _status_value(status) -> str:
+    """Return the lowercase string form of an AgentStatus enum (or "unknown")."""
+    if status is None:
+        return "unknown"
+    if hasattr(status, "value"):
+        return str(status.value)
+    return str(status)
+
+
 async def _agent_summary(request: Request) -> dict:
     """Aggregate agent roster status."""
     runner = getattr(request.app.state, "agent_runner", None)
@@ -39,22 +48,22 @@ async def _agent_summary(request: Request) -> dict:
         logger.warning("agent_runner.list_agents() failed: %s", exc)
         return {"total": 0, "running": 0, "stopped": 0, "error": 0, "agents": []}
 
-    running = sum(1 for a in agents if getattr(a, "status", None) == "running")
-    stopped = sum(1 for a in agents if getattr(a, "status", None) == "stopped")
-    errored = sum(1 for a in agents if getattr(a, "status", None) == "error")
+    statuses = [_status_value(getattr(a, "status", None)) for a in agents]
 
     return {
         "total": len(agents),
-        "running": running,
-        "stopped": stopped,
-        "error": errored,
+        "running": sum(1 for s in statuses if s == "running"),
+        "stopped": sum(1 for s in statuses if s == "stopped"),
+        "error": sum(1 for s in statuses if s == "error"),
         "agents": [
             {
                 "name": a.name,
-                "status": str(getattr(a, "status", "unknown")),
-                "shadow_mode": bool(getattr(getattr(a, "config", None), "shadow_mode", False)),
+                "status": s,
+                "shadow_mode": bool(
+                    getattr(getattr(a, "config", None), "shadow_mode", False)
+                ),
             }
-            for a in agents
+            for a, s in zip(agents, statuses)
         ],
     }
 
