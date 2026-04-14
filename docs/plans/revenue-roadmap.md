@@ -117,6 +117,25 @@ Pricing, tiers, and Stripe integration: per unified spec. **Do not ship with cry
 
 **Unpark condition:** Compliance memo returns a workable structure (e.g., signals-only with customer-executed trades, or regulated entity partnership).
 
+### 2.5 ~~Cross-Platform Arbitrage (Kalshi ↔ Polymarket)~~ — **PARKED** (2026-04-14)
+
+Parked during Track T dogfood investigation. Live-system inspection revealed the strategy is **blocked at the data-fetch layer**, not the matcher. Specifics:
+
+- **Kalshi `get_markets(category=...)` filter is ignored.** With `kalshi_categories=["economics","politics","climate"]` configured, live scan returns 1500 markets that are all sports-prop aggregates (ticker pattern `KXMVESPORTS*`/`KXMVECROSSCATEGORY*`) with `category=''` (empty string).
+- **Polymarket `get_markets(tag=...)` filter is ignored and data is stale.** With `polymarket_tags=["politics","crypto","climate"]`, live scan returns 3000 markets that are all 2023-dated NCAAB/NBA games (titles like `'NCAAB: Arizona State Sun Devils vs. Nevada Wolf Pack 2023-03-15'`) with `category='All'`.
+- With both sides returning `"other"` after `normalize_category()`, the +0.10 category bonus never fires, and Jaccard on disjoint-domain text is ~0 across all 4.5M potential pairs — `candidates=0` at `min_similarity=0.20`.
+- Threshold tuning and matcher changes cannot fix this; both data adapters need work first.
+
+**Scope to unpark:**
+- Fix `trading/adapters/kalshi/` `get_markets` category filter — currently returning full universe regardless of filter.
+- Fix `trading/adapters/polymarket/` `get_markets` tag filter AND source of stale 2023 data (likely a cache / wrong endpoint / test-fixture leak).
+- Verify against live API responses that the filter actually narrows.
+- Budget: 2-5 days of adapter work, uncertain payoff.
+
+**Unpark condition:** Both adapter bugs fixed AND a one-scan test where `kalshi_categories=["politics"]` returns <50 Kalshi markets all tagged with politics-domain tickers/titles, and same for Polymarket side. Only then is it worth re-running `match_markets()` to see if candidates appear.
+
+**Preserved:** `agents.yaml` `min_match_similarity: 0.20` (seed value, more permissive than the original 0.35; inert against current DB state but correct for any future fresh install). A lightweight count-log remains in `cross_platform_arb.py` (`kalshi=N poly=N candidates=N`) for future diagnosis. Title-dump debug log removed. DB `agent_registry.parameters` row for `cross_platform_arb` left at `0.20` (doesn't matter while parked).
+
 ---
 
 ## Phase 3: Platform Play (Month 3+)

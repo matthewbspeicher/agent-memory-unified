@@ -63,6 +63,15 @@ class CrossPlatformArbAgent(StructuredAgent):
 
         candidates = match_markets(k_markets, p_markets, min_score=self.min_similarity)
 
+        logger.info(
+            "cross_platform_arb.scan: kalshi=%d poly=%d candidates=%d "
+            "(min_similarity=%.2f)",
+            len(k_markets),
+            len(p_markets),
+            len(candidates),
+            self.min_similarity,
+        )
+
         k_lookup = {m.ticker: m for m in k_markets}
         p_lookup = {m.ticker: m for m in p_markets}
 

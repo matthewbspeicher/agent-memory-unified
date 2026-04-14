@@ -96,7 +96,7 @@ agents:
     action_level: suggest_trade
     parameters:
       threshold_cents: 8
-      min_match_similarity: 0.35
+      min_match_similarity: 0.20
       alert_on_spread: true
       kalshi_categories: ["economics", "politics", "climate"]
       polymarket_tags: ["politics", "crypto", "climate"]
