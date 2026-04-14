@@ -233,7 +233,7 @@ class MinerEvaluator:
         return "active"
 
     async def refresh_rankings(self):
-        """Aggregate accuracy records and update miner rankings in the store."""
+        """Aggregate accuracy records and update miner rankings per symbol."""
         config = RankingConfig(
             min_windows_for_ranking=5,
             alpha_decay_per_window=0.05,
@@ -245,44 +245,73 @@ class MinerEvaluator:
         if not hotkeys:
             return
 
-        rollups = await self.store.get_accuracy_rollup(hotkeys, config.lookback_windows)
+        symbols = await self.store.get_distinct_symbols()
+        # Include "aggregate" as a virtual symbol
+        all_ranking_targets = symbols + ["aggregate"]
+
         incentive_map = await self.store.get_latest_incentive_scores(hotkeys)
-        drawdown_map = await self.store.get_miner_max_drawdowns(hotkeys)
+        now = datetime.now(timezone.utc)
 
-        for hotkey, r in rollups.items():
-            incentive = incentive_map.get(hotkey, 0.0)
-            inp = MinerRankingInput(
-                miner_hotkey=hotkey,
-                windows_evaluated=r["windows_evaluated"],
-                direction_accuracy=r["direction_accuracy"],
-                mean_magnitude_error=r["mean_magnitude_error"],
-                mean_path_correlation=r["mean_path_correlation"],
-                raw_incentive_score=incentive,
-                max_drawdown=drawdown_map.get(hotkey, 0.0),
+        total_rankings_updated = 0
+
+        for symbol in all_ranking_targets:
+            rollups = await self.store.get_accuracy_rollup(
+                hotkeys, config.lookback_windows, symbol=symbol
             )
-            lifecycle = self._determine_lifecycle_status(inp)
-            if lifecycle != "active":
-                logger.warning(
-                    "Miner %s lifecycle: %s (drawdown=%.2f, accuracy=%.2f, windows=%d)",
-                    hotkey[:12],
-                    lifecycle,
-                    inp.max_drawdown,
-                    inp.direction_accuracy,
-                    inp.windows_evaluated,
+            if not rollups:
+                continue
+
+            drawdown_map = await self.store.get_miner_max_drawdowns(
+                hotkeys, symbol=symbol
+            )
+            
+            inputs = []
+            for hotkey, r in rollups.items():
+                incentive = incentive_map.get(hotkey, 0.0)
+                inp = MinerRankingInput(
+                    miner_hotkey=hotkey,
+                    symbol=symbol,
+                    windows_evaluated=r["windows_evaluated"],
+                    direction_accuracy=r["direction_accuracy"],
+                    mean_magnitude_error=r["mean_magnitude_error"],
+                    mean_path_correlation=r["mean_path_correlation"],
+                    raw_incentive_score=incentive,
+                    max_drawdown=drawdown_map.get(hotkey, 0.0),
                 )
-            inputs.append(inp)
+                
+                # Lifecycle tracking only makes sense for aggregate or specific symbols?
+                # For now, let's just log if they are failing the rules on this symbol.
+                lifecycle = self._determine_lifecycle_status(inp)
+                if lifecycle != "active":
+                    logger.debug(
+                        "Miner %s lifecycle on %s: %s (drawdown=%.2f, accuracy=%.2f, windows=%d)",
+                        hotkey[:12],
+                        symbol,
+                        lifecycle,
+                        inp.max_drawdown,
+                        inp.direction_accuracy,
+                        inp.windows_evaluated,
+                    )
+                inputs.append(inp)
 
-        rankings = compute_rankings(
-            inputs=inputs,
-            weights=DIRECTION_HEAVY,
-            config=config,
-            now=datetime.now(timezone.utc),
-        )
+            if not inputs:
+                continue
 
-        for rank in rankings:
-            await self.store.update_miner_ranking(rank)
+            rankings = compute_rankings(
+                inputs=inputs,
+                weights=DIRECTION_HEAVY,
+                config=config,
+                now=now,
+            )
 
-        logger.info("Refreshed rankings for %d miners", len(rankings))
+            for rank in rankings:
+                rank.symbol = symbol  # Ensure symbol is set correctly
+                await self.store.update_miner_ranking(rank)
+            
+            total_rankings_updated += len(rankings)
+            logger.info("Refreshed rankings for symbol %s (%d miners)", symbol, len(rankings))
+
+        logger.info("Total rankings updated: %d", total_rankings_updated)
 
     async def run(self, interval_seconds: float = 300.0):
         """Run the periodic evaluation loop."""

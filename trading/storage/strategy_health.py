@@ -63,6 +63,10 @@ class StrategyHealthStore:
         trigger_reason: str | None = None,
         cooldown_until: str | None = None,
         manual_override: str | None = None,
+        consecutive_losses: int = 0,
+        max_consecutive_losses: int = 0,
+        consecutive_wins: int = 0,
+        max_consecutive_wins: int = 0,
     ) -> None:
         """INSERT OR REPLACE the current health state row for agent_name."""
         updated_at = datetime.now(timezone.utc).isoformat()
@@ -73,8 +77,11 @@ class StrategyHealthStore:
                 rolling_expectancy, rolling_net_pnl, rolling_drawdown,
                 rolling_win_rate, rolling_trade_count,
                 throttle_multiplier, trigger_reason,
-                cooldown_until, manual_override, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                cooldown_until, manual_override,
+                consecutive_losses, max_consecutive_losses,
+                consecutive_wins, max_consecutive_wins,
+                updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(agent_name) DO UPDATE SET
                 status = excluded.status,
                 health_score = excluded.health_score,
@@ -87,6 +94,10 @@ class StrategyHealthStore:
                 trigger_reason = excluded.trigger_reason,
                 cooldown_until = excluded.cooldown_until,
                 manual_override = excluded.manual_override,
+                consecutive_losses = excluded.consecutive_losses,
+                max_consecutive_losses = excluded.max_consecutive_losses,
+                consecutive_wins = excluded.consecutive_wins,
+                max_consecutive_wins = excluded.max_consecutive_wins,
                 updated_at = excluded.updated_at
             """,
             (
@@ -102,6 +113,10 @@ class StrategyHealthStore:
                 trigger_reason,
                 cooldown_until,
                 manual_override,
+                consecutive_losses,
+                max_consecutive_losses,
+                consecutive_wins,
+                max_consecutive_wins,
                 updated_at,
             ),
         )

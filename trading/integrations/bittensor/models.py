@@ -94,15 +94,16 @@ class MinerAccuracyRecord:
 @dataclass
 class MinerRanking:
     miner_hotkey: str
-    windows_evaluated: int
-    direction_accuracy: float
-    mean_magnitude_error: float
-    mean_path_correlation: float | None
-    internal_score: float
-    latest_incentive_score: float | None
-    hybrid_score: float
-    alpha_used: float
-    updated_at: datetime
+    symbol: str = "aggregate"  # Default for backward compatibility
+    windows_evaluated: int = 0
+    direction_accuracy: float = 0.0
+    mean_magnitude_error: float = 0.0
+    mean_path_correlation: float | None = None
+    internal_score: float = 0.0
+    latest_incentive_score: float | None = None
+    hybrid_score: float = 0.0
+    alpha_used: float = 1.0
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 @dataclass
@@ -132,13 +133,12 @@ class MinerRankingInput:
     """Pre-loaded input for the pure ranking function. No store/metagraph dependencies."""
 
     miner_hotkey: str
-    windows_evaluated: int
-    direction_accuracy: float  # [0, 1] from rollup
-    mean_magnitude_error: float  # [0, ∞) from rollup
-    mean_path_correlation: float | None  # [-1, 1] or None if insufficient data
-    raw_incentive_score: (
-        float  # raw value from metagraph; normalized inside compute_rankings()
-    )
+    symbol: str = "aggregate"
+    windows_evaluated: int = 0
+    direction_accuracy: float = 0.0  # [0, 1] from rollup
+    mean_magnitude_error: float = 0.0  # [0, ∞) from rollup
+    mean_path_correlation: float | None = None  # [-1, 1] or None if insufficient data
+    raw_incentive_score: float = 0.0 # raw value from metagraph; normalized inside compute_rankings()
     max_drawdown: float = 0.0  # Max magnitude_error across windows (proxy for drawdown)
 
 
@@ -184,7 +184,11 @@ class BittensorMetrics:
     # Weight setter metrics
     weight_sets_total: int = 0
     weight_sets_failed: int = 0
+    weight_sets_skipped: int = 0
+    last_weight_skip_reason: str | None = None
     last_weight_set_block: int | None = None
+    last_weight_set_at: datetime | None = None
+    last_weight_set_uid_count: int | None = None
 
     # Connection health
     connection_failures: int = 0

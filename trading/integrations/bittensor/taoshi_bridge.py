@@ -50,6 +50,7 @@ class TaoshiBridge:
         poll_interval: float = 30.0,
         knowledge_graph: Any | None = None,
         kg_enabled: bool = False,
+        stale_threshold_seconds: float = 3600.0,
     ):
         self._root = Path(taoshi_root)
         self._miners_dir = self._root / "validation" / "miners"
@@ -59,6 +60,7 @@ class TaoshiBridge:
         self._poll_interval = poll_interval
         self._knowledge_graph = knowledge_graph
         self._kg_enabled = kg_enabled
+        self._stale_threshold = timedelta(seconds=stale_threshold_seconds)
         self._running = False
         self._initialized_from_store: set[str] = set()
 
@@ -70,11 +72,20 @@ class TaoshiBridge:
         self._position_context: dict[str, tuple[str, str]] = {}
         self._last_scan_at: datetime | None = None
 
+        # Per-miner churn tracking — last_seen timestamp per hotkey and the
+        # set of hotkeys observed on the previous poll. Lets us surface
+        # "miner went silent" before their ranking tanks.
+        self._miner_last_seen: dict[str, datetime] = {}
+        self._prev_poll_miners: set[str] = set()
+
         # Stats
         self.miners_tracked: int = 0
         self.open_positions: int = 0
         self.signals_emitted: int = 0
         self.updates_detected: int = 0
+        # Churn stats (updated on each poll)
+        self.miners_new_last_poll: int = 0
+        self.miners_disappeared_last_poll: int = 0
 
     async def run(self) -> None:
         """Main polling loop."""
@@ -117,6 +128,7 @@ class TaoshiBridge:
             logger.debug("Miners dir not found: %s", self._miners_dir)
             return
 
+        now = datetime.now(timezone.utc)
         miners = [d for d in self._miners_dir.iterdir() if d.is_dir()]
         self.miners_tracked = len(miners)
 
@@ -124,9 +136,13 @@ class TaoshiBridge:
         new_signals = 0
 
         current_uuids: set[str] = set()
+        current_poll_miners: set[str] = set()
 
         for miner_dir in miners:
             hotkey = miner_dir.name
+            current_poll_miners.add(hotkey)
+            self._miner_last_seen[hotkey] = now
+            
             positions_dir = miner_dir / "positions"
             if not positions_dir.exists():
                 continue
@@ -192,6 +208,22 @@ class TaoshiBridge:
                                 new_signals += 1
                                 self.updates_detected += 1
 
+        # Churn detection
+        if self._prev_poll_miners:
+            new_miners = current_poll_miners - self._prev_poll_miners
+            disappeared_miners = self._prev_poll_miners - current_poll_miners
+            self.miners_new_last_poll = len(new_miners)
+            self.miners_disappeared_last_poll = len(disappeared_miners)
+            
+            if new_miners or disappeared_miners:
+                logger.info(
+                    "TaoshiBridge churn: +%d new, -%d disappeared miners",
+                    len(new_miners),
+                    len(disappeared_miners),
+                )
+        
+        self._prev_poll_miners = current_poll_miners
+
         # Clean up positions no longer on disk (moved to closed/)
         stale_uuids = set(self._seen_positions.keys()) - current_uuids
         for uuid in stale_uuids:
@@ -218,7 +250,7 @@ class TaoshiBridge:
             )
 
         self.open_positions = total_open
-        self._last_scan_at = datetime.now(timezone.utc)
+        self._last_scan_at = now
 
         if new_signals > 0:
             log_event(
@@ -380,10 +412,19 @@ class TaoshiBridge:
 
     def get_status(self) -> dict[str, Any]:
         """Return bridge status for API/dashboard."""
+        now = datetime.now(timezone.utc)
+        stale_miners = [
+            hk for hk, last_seen in self._miner_last_seen.items()
+            if now - last_seen > self._stale_threshold
+        ]
+        
         return {
             "running": self._running,
             "taoshi_root": str(self._root),
             "miners_tracked": self.miners_tracked,
+            "miners_new_last_poll": self.miners_new_last_poll,
+            "miners_disappeared_last_poll": self.miners_disappeared_last_poll,
+            "stale_miners_count": len(stale_miners),
             "open_positions": self.open_positions,
             "signals_emitted": self.signals_emitted,
             "last_scan_at": (
@@ -392,6 +433,20 @@ class TaoshiBridge:
             "seen_positions": len(self._seen_positions),
             "updates_detected": self.updates_detected,
         }
+
+    def get_stale_miners(self) -> list[dict[str, Any]]:
+        """Return a list of miners that haven't been seen recently."""
+        now = datetime.now(timezone.utc)
+        stale = []
+        for hk, last_seen in self._miner_last_seen.items():
+            delta = now - last_seen
+            if delta > self._stale_threshold:
+                stale.append({
+                    "hotkey": hk,
+                    "last_seen": last_seen.isoformat(),
+                    "seconds_since_seen": delta.total_seconds()
+                })
+        return sorted(stale, key=lambda x: x["seconds_since_seen"], reverse=True)
 
     async def get_miner_summary(self) -> list[dict[str, Any]]:
         """Get a summary of all tracked miners and their open positions."""

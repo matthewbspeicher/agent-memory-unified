@@ -559,7 +559,8 @@ _INIT_DDL = """
         CREATE INDEX IF NOT EXISTS idx_bt_acc_symbol ON bittensor_accuracy_records(symbol, timeframe, evaluated_at);
 
         CREATE TABLE IF NOT EXISTS bittensor_miner_rankings (
-            miner_hotkey TEXT PRIMARY KEY,
+            miner_hotkey TEXT NOT NULL,
+            symbol TEXT NOT NULL DEFAULT 'aggregate',
             windows_evaluated INTEGER NOT NULL,
             direction_accuracy REAL NOT NULL,
             mean_magnitude_error REAL NOT NULL,
@@ -568,9 +569,11 @@ _INIT_DDL = """
             latest_incentive_score REAL,
             hybrid_score REAL NOT NULL,
             alpha_used REAL NOT NULL,
-            updated_at TEXT NOT NULL
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY (miner_hotkey, symbol)
         );
         CREATE INDEX IF NOT EXISTS idx_bt_rank_hybrid ON bittensor_miner_rankings(hybrid_score DESC);
+        CREATE INDEX IF NOT EXISTS idx_bt_rank_symbol_hybrid ON bittensor_miner_rankings(symbol, hybrid_score DESC);
         CREATE INDEX IF NOT EXISTS idx_bt_rank_internal ON bittensor_miner_rankings(internal_score DESC);
 
         CREATE TABLE IF NOT EXISTS execution_cost_events (
@@ -698,6 +701,10 @@ _INIT_DDL = """
             trigger_reason TEXT,
             cooldown_until TEXT,
             manual_override TEXT,
+            consecutive_losses INTEGER NOT NULL DEFAULT 0,
+            max_consecutive_losses INTEGER NOT NULL DEFAULT 0,
+            consecutive_wins INTEGER NOT NULL DEFAULT 0,
+            max_consecutive_wins INTEGER NOT NULL DEFAULT 0,
             updated_at TEXT NOT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_strategy_health_status
@@ -816,6 +823,31 @@ _INIT_DDL = """
             memory_context TEXT
         );
         CREATE INDEX IF NOT EXISTS idx_thought_records_agent ON thought_records(agent_name);
+
+        CREATE TABLE IF NOT EXISTS agent_achievements (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            agent_name TEXT NOT NULL,
+            achievement_id TEXT NOT NULL,
+            unlocked_at TEXT NOT NULL DEFAULT (datetime('now')),
+            context TEXT NOT NULL DEFAULT '{}',
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            UNIQUE(agent_name, achievement_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_agent_achievements_agent ON agent_achievements(agent_name);
+        CREATE INDEX IF NOT EXISTS idx_agent_achievements_unlocked ON agent_achievements(achievement_id, unlocked_at DESC);
+
+        CREATE TABLE IF NOT EXISTS bittensor_weight_set_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            attempted_at TEXT NOT NULL,
+            status TEXT NOT NULL,
+            skip_reason TEXT,
+            uid_count INTEGER NOT NULL DEFAULT 0,
+            weights_payload TEXT,
+            block INTEGER,
+            error_detail TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_bt_wsl_time ON bittensor_weight_set_log(attempted_at);
+        CREATE INDEX IF NOT EXISTS idx_bt_wsl_status ON bittensor_weight_set_log(status, attempted_at);
 """
 
 
@@ -877,7 +909,7 @@ async def init_db_postgres(db) -> None:
         await db.executescript(_INIT_DDL)
     except Exception as e:
         logger.warning("Postgres DDL init (non-fatal): %s", e)
-        
+
     try:
         await db.execute("""
         CREATE TABLE IF NOT EXISTS thought_records (
@@ -891,9 +923,32 @@ async def init_db_postgres(db) -> None:
             memory_context TEXT
         );
         """)
-        await db.execute("CREATE INDEX IF NOT EXISTS idx_thought_records_agent ON thought_records(agent_name);")
+        await db.execute(
+            "CREATE INDEX IF NOT EXISTS idx_thought_records_agent ON thought_records(agent_name);"
+        )
     except Exception as e:
         logger.warning("Thought records DDL init (non-fatal): %s", e)
+
+    try:
+        await db.execute("""
+        CREATE TABLE IF NOT EXISTS agent_achievements (
+            id SERIAL PRIMARY KEY,
+            agent_name TEXT NOT NULL,
+            achievement_id TEXT NOT NULL,
+            unlocked_at TEXT NOT NULL DEFAULT NOW()::TEXT,
+            context TEXT NOT NULL DEFAULT '{}',
+            created_at TEXT NOT NULL DEFAULT NOW()::TEXT,
+            UNIQUE(agent_name, achievement_id)
+        );
+        """)
+        await db.execute(
+            "CREATE INDEX IF NOT EXISTS idx_agent_achievements_agent ON agent_achievements(agent_name);"
+        )
+        await db.execute(
+            "CREATE INDEX IF NOT EXISTS idx_agent_achievements_unlocked ON agent_achievements(achievement_id, unlocked_at DESC);"
+        )
+    except Exception as e:
+        logger.warning("Agent achievements DDL init (non-fatal): %s", e)
 
     # Column migrations — safe to retry (postgres raises "already exists")
     _migrations = [
@@ -921,6 +976,10 @@ async def init_db_postgres(db) -> None:
         ("bittensor_derived_views", "evaluation_status", "TEXT DEFAULT 'pending'"),
         ("elo_rating_history", "timestamp", "TEXT DEFAULT NOW()"),
         ("tournament_audit_log", "timestamp", "TEXT DEFAULT NOW()"),
+        ("strategy_health", "consecutive_losses", "INTEGER DEFAULT 0"),
+        ("strategy_health", "max_consecutive_losses", "INTEGER DEFAULT 0"),
+        ("strategy_health", "consecutive_wins", "INTEGER DEFAULT 0"),
+        ("strategy_health", "max_consecutive_wins", "INTEGER DEFAULT 0"),
     ]
     for table, col, col_def in _migrations:
         try:

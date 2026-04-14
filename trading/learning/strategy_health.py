@@ -227,6 +227,7 @@ class StrategyHealthEngine:
                 new_status=StrategyHealthStatus.THROTTLED,
                 reason=f"Circuit breaker: {consecutive_losses} consecutive losses >= {self._cfg.max_consecutive_losses}",
                 metrics=metrics,
+                snapshot=snapshot,
             )
             return StrategyHealthStatus.THROTTLED
 
@@ -264,6 +265,7 @@ class StrategyHealthEngine:
                 new_status=target_status,
                 reason=self._build_reason(target_status, expectancy, max_drawdown),
                 metrics=metrics,
+                snapshot=snapshot,
             )
 
         return target_status
@@ -338,6 +340,7 @@ class StrategyHealthEngine:
         new_status: StrategyHealthStatus,
         reason: str,
         metrics: dict[str, Any],
+        snapshot: Any | None = None,
     ) -> None:
         cooldown_until = (
             datetime.now(timezone.utc) + timedelta(hours=self._cfg.cooldown_hours)
@@ -346,6 +349,12 @@ class StrategyHealthEngine:
         throttle_multiplier: float | None = None
         if new_status == StrategyHealthStatus.THROTTLED:
             throttle_multiplier = self._cfg.throttle_multiplier
+
+        # Extract streak data from snapshot if available
+        consecutive_losses = snapshot.consecutive_losses if snapshot else 0
+        max_consecutive_losses = snapshot.max_consecutive_losses if snapshot else 0
+        consecutive_wins = snapshot.consecutive_wins if snapshot else 0
+        max_consecutive_wins = snapshot.max_consecutive_wins if snapshot else 0
 
         await self._health_store.upsert_status(
             agent_name=agent_name,
@@ -357,6 +366,10 @@ class StrategyHealthEngine:
             throttle_multiplier=throttle_multiplier,
             trigger_reason=reason,
             cooldown_until=cooldown_until,
+            consecutive_losses=consecutive_losses,
+            max_consecutive_losses=max_consecutive_losses,
+            consecutive_wins=consecutive_wins,
+            max_consecutive_wins=max_consecutive_wins,
         )
         await self._health_store.record_event(
             agent_name=agent_name,

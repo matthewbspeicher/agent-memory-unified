@@ -100,13 +100,15 @@ async def spreads_websocket_endpoint(websocket: WebSocket):
                 pass  # No client message, continue streaming
 
             async for event in event_bus.subscribe():
-                event_type = event.get("event_type", "")
+                # Check both event_type and topic (EventBus uses topic)
+                event_type = event.get("event_type", "") or event.get("topic", "")
                 # Filter for spread-related events
                 if event_type not in (
                     "spread.new",
                     "spread.claimed",
                     "spread.released",
                     "spread.update",
+                    "arb.spread",  # Published by SpreadTracker
                 ):
                     continue
 

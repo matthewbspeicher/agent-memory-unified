@@ -511,6 +511,10 @@ CREATE TABLE IF NOT EXISTS strategy_health (
     trigger_reason VARCHAR(255) NULL,
     cooldown_until TIMESTAMP NULL,
     manual_override VARCHAR(255) NULL,
+    consecutive_losses INTEGER NOT NULL DEFAULT 0,
+    max_consecutive_losses INTEGER NOT NULL DEFAULT 0,
+    consecutive_wins INTEGER NOT NULL DEFAULT 0,
+    max_consecutive_wins INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMP NULL,
     updated_at TIMESTAMP NULL
 );
@@ -675,7 +679,8 @@ CREATE TABLE IF NOT EXISTS bittensor_accuracy_records (
 );
 
 CREATE TABLE IF NOT EXISTS bittensor_miner_rankings (
-    miner_hotkey VARCHAR(255) PRIMARY KEY,
+    miner_hotkey VARCHAR(255) NOT NULL,
+    symbol VARCHAR(32) NOT NULL DEFAULT 'aggregate',
     windows_evaluated INTEGER NOT NULL,
     direction_accuracy DECIMAL(5,4) NOT NULL,
     mean_magnitude_error DECIMAL(8,4) NOT NULL,
@@ -685,8 +690,12 @@ CREATE TABLE IF NOT EXISTS bittensor_miner_rankings (
     hybrid_score DECIMAL(8,4) NOT NULL,
     alpha_used DECIMAL(5,4) NOT NULL,
     created_at TIMESTAMP NULL,
-    updated_at TIMESTAMP NULL
+    updated_at TIMESTAMP NULL,
+    PRIMARY KEY (miner_hotkey, symbol)
 );
+CREATE INDEX IF NOT EXISTS idx_bt_rank_hybrid ON bittensor_miner_rankings(hybrid_score DESC);
+CREATE INDEX IF NOT EXISTS idx_bt_rank_symbol_hybrid ON bittensor_miner_rankings(symbol, hybrid_score DESC);
+CREATE INDEX IF NOT EXISTS idx_bt_rank_internal ON bittensor_miner_rankings(internal_score DESC);
 
 -- Arbitrage Tables
 CREATE TABLE IF NOT EXISTS arb_spread_observations (
@@ -812,4 +821,31 @@ CREATE TABLE IF NOT EXISTS thought_records (
     memory_context TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_thought_records_agent ON thought_records(agent_name);
+
+-- Agent achievements (per-agent achievement tracking)
+CREATE TABLE IF NOT EXISTS agent_achievements (
+    id SERIAL PRIMARY KEY,
+    agent_name VARCHAR(255) NOT NULL,
+    achievement_id VARCHAR(100) NOT NULL,
+    unlocked_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    context JSONB NOT NULL DEFAULT '{}',
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    UNIQUE(agent_name, achievement_id)
+);
+CREATE INDEX IF NOT EXISTS idx_agent_achievements_agent ON agent_achievements(agent_name);
+CREATE INDEX IF NOT EXISTS idx_agent_achievements_unlocked ON agent_achievements(achievement_id, unlocked_at DESC);
+
+-- Bittensor weight-set audit log (one row per set_weights() attempt)
+CREATE TABLE IF NOT EXISTS bittensor_weight_set_log (
+    id BIGSERIAL PRIMARY KEY,
+    attempted_at TIMESTAMP NOT NULL,
+    status VARCHAR(16) NOT NULL,
+    skip_reason VARCHAR(64),
+    uid_count INTEGER NOT NULL DEFAULT 0,
+    weights_payload JSONB,
+    block INTEGER,
+    error_detail TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_bt_wsl_time ON bittensor_weight_set_log(attempted_at);
+CREATE INDEX IF NOT EXISTS idx_bt_wsl_status ON bittensor_weight_set_log(status, attempted_at);
 

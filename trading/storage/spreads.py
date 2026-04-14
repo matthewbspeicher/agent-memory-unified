@@ -139,6 +139,35 @@ class SpreadStore:
             logger.warning("SpreadStore.get_top_spreads failed: %s", exc)
             return []
 
+    async def get_observation(self, observation_id: int) -> dict[str, Any] | None:
+        """Fetch a single spread observation by its ID."""
+        try:
+            cursor = await self._db.execute(
+                """SELECT id, kalshi_ticker, poly_ticker, match_score, kalshi_cents,
+                          poly_cents, gap_cents, kalshi_volume, poly_volume, observed_at
+                   FROM arb_spread_observations
+                   WHERE id = ?""",
+                (observation_id,),
+            )
+            row = await cursor.fetchone()
+            if not row:
+                return None
+            return {
+                "id": row[0],
+                "kalshi_ticker": row[1],
+                "poly_ticker": row[2],
+                "match_score": row[3],
+                "kalshi_cents": row[4],
+                "poly_cents": row[5],
+                "gap_cents": row[6],
+                "kalshi_volume": row[7],
+                "poly_volume": row[8],
+                "observed_at": row[9],
+            }
+        except Exception as exc:
+            logger.warning("SpreadStore.get_observation failed: %s", exc)
+            return None
+
     async def claim_spread(self, observation_id: int, claimant: str) -> bool:
         """
         Attempt to atomically claim a spread for arbitrage.

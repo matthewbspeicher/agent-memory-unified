@@ -18,6 +18,7 @@ from api.routes import (
     analytics,
     experiments,
     tuning,
+    arbitrage,
 )
 from broker.interfaces import Broker
 from config import Config, load_config
@@ -1015,6 +1016,16 @@ async def lifespan(app: FastAPI):
         app.state.db = db
         app.state.learning_config = _learning_cfg
 
+        # --- Arbitrage Stores ---
+        from storage.spreads import SpreadStore
+        from storage.arbitrage import ArbStore
+
+        spread_store = SpreadStore(db)
+        arb_store = ArbStore(db)
+        app.state.spread_store = spread_store
+        app.state.arb_store = arb_store
+        _log.info("SpreadStore + ArbStore initialized")
+
         from api.identity.store import IdentityStore
 
         pool = getattr(db, "_pool", db)
@@ -1028,6 +1039,21 @@ async def lifespan(app: FastAPI):
         await _kg.connect()
         app.state.knowledge_graph = _kg
         _log.info("TradingKnowledgeGraph initialized (shared db)")
+
+        async def _kg_signal_listener(signal: AgentSignal) -> None:
+            try:
+                await _kg.add_triple(
+                    subject=signal.source_agent,
+                    predicate=f"emitted_{signal.signal_type}",
+                    obj=signal.target_agent or "market",
+                    properties=signal.payload,
+                    source="signal_bus",
+                )
+            except Exception as exc:
+                _log.warning("KG signal listener error: %s", exc)
+
+        signal_bus.subscribe(_kg_signal_listener)
+        _log.info("KG signal listener attached to SignalBus")
 
         from llm.client import LLMClient
         from llm.cost_ledger import CostLedger, LLMCostConfig
@@ -1061,6 +1087,7 @@ async def lifespan(app: FastAPI):
 
         async def _refresh_health_cache():
             import asyncio as _asyncio
+
             while True:
                 try:
                     await health_cache.update_external_health()
@@ -1080,6 +1107,20 @@ async def lifespan(app: FastAPI):
         )
         if broker:
             app.state.broker = broker
+
+        # --- Arbitrage Coordinator ---
+        from execution.arbitrage import ArbCoordinator
+
+        arb_coordinator = ArbCoordinator(
+            brokers=_all_brokers or {"paper": broker} if broker else {},
+            store=arb_store,
+            config=config,
+            event_bus=event_bus,
+        )
+        app.state.arb_coordinator = arb_coordinator
+        _log.info(
+            "ArbCoordinator initialized with %d broker(s)", len(_all_brokers or {})
+        )
 
         # Data sources (Yahoo always available, broker source optional)
         opp_store = OpportunityStore(db)
@@ -2220,6 +2261,8 @@ def create_app(
     from api.routes import llm as llm_route
 
     app.include_router(llm_route.router)
+
+    app.include_router(arbitrage.router)
 
     from api.startup.error_handlers import register_error_handlers
 

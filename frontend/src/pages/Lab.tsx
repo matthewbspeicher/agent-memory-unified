@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { GlassCard } from '../components/GlassCard';
 
@@ -24,6 +24,22 @@ interface Draft {
   updated_at: string;
 }
 
+interface AgentActivity {
+  agent_name: string;
+  event_type: string;
+  message: string;
+  timestamp: string;
+}
+
+interface AgentStatus {
+  name: string;
+  status: string;
+  last_run: string | null;
+  error_count: number;
+}
+
+type TabId = 'backtest' | 'validation' | 'logs';
+
 export default function Lab() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -32,6 +48,51 @@ export default function Lab() {
   const [backtesting, setBacktesting] = useState(false);
   const [deploying, setDeploying] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<TabId>('backtest');
+  const [agents, setAgents] = useState<AgentStatus[]>([]);
+  const [activity, setActivity] = useState<AgentActivity[]>([]);
+  const [logs, setLogs] = useState<string[]>([]);
+
+  const fetchAgentStatus = useCallback(async () => {
+    try {
+      const res = await fetch('/agents/status');
+      if (res.ok) {
+        const data = await res.json();
+        setAgents(data.agents || []);
+      }
+    } catch {
+      // Silently fail - validation tab will show empty state
+    }
+  }, []);
+
+  const fetchActivity = useCallback(async () => {
+    try {
+      const res = await fetch('/agents/activity?limit=20');
+      if (res.ok) {
+        const data = await res.json();
+        setActivity(data.events || []);
+      }
+    } catch {
+      // Silently fail
+    }
+  }, []);
+
+  const fetchLogs = useCallback(async () => {
+    // For now, use backtest results status as log source
+    // In future, can use SSE streaming endpoint
+    const logEntries: string[] = [];
+    if (draft?.backtest_results) {
+      logEntries.push(`[${new Date().toISOString()}] Backtest completed`);
+      logEntries.push(`  Sharpe: ${draft.backtest_results.sharpe_ratio.toFixed(2)}`);
+      logEntries.push(`  Win Rate: ${(draft.backtest_results.win_rate * 100).toFixed(1)}%`);
+      logEntries.push(`  Max Drawdown: ${(draft.backtest_results.max_drawdown * 100).toFixed(1)}%`);
+      logEntries.push(`  Total Trades: ${draft.backtest_results.total_trades}`);
+    }
+    if (draft?.status === 'deployed') {
+      logEntries.push(`[${new Date().toISOString()}] Agent deployed to roster`);
+    }
+    setLogs(logEntries);
+  }, [draft]);
 
   useEffect(() => {
     const fetchDraft = async () => {
@@ -48,6 +109,15 @@ export default function Lab() {
     };
     fetchDraft();
   }, [id]);
+
+  useEffect(() => {
+    if (activeTab === 'validation') {
+      fetchAgentStatus();
+      fetchActivity();
+    } else if (activeTab === 'logs') {
+      fetchLogs();
+    }
+  }, [activeTab, fetchAgentStatus, fetchActivity, fetchLogs]);
 
   const runBacktest = async () => {
     if (!id) return;
@@ -119,6 +189,12 @@ export default function Lab() {
   const isScaffold = results?.status === 'scaffold';
   const canDeploy = draft.status === 'tested' && results && results.sharpe_ratio >= 1.0 && !isScaffold;
 
+  const tabs: { id: TabId; label: string; icon: string }[] = [
+    { id: 'backtest', label: 'Backtest', icon: '📊' },
+    { id: 'validation', label: 'Validation', icon: '✅' },
+    { id: 'logs', label: 'Logs', icon: '📋' },
+  ];
+
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-6 animate-in fade-in duration-500">
       <div className="flex justify-between items-start">
@@ -148,7 +224,26 @@ export default function Lab() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Tab Navigation */}
+      <div className="flex gap-2">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`px-4 py-2 rounded-lg text-sm font-bold uppercase tracking-wider transition-all ${
+              activeTab === tab.id
+                ? 'bg-violet-500/20 text-violet-400 border border-violet-500/30'
+                : 'bg-gray-800/50 text-gray-500 border border-gray-700/50 hover:text-gray-400'
+            }`}
+          >
+            {tab.icon} {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'backtest' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <GlassCard variant="violet" className="p-6 space-y-4">
           <h2 className="text-xl font-bold text-white">Configuration</h2>
 
@@ -263,6 +358,74 @@ export default function Lab() {
           </GlassCard>
         )}
       </div>
+      )}
+
+      {/* Validation Tab */}
+      {activeTab === 'validation' && (
+        <div className="space-y-6">
+          <GlassCard variant="blue" className="p-6">
+            <h2 className="text-xl font-bold text-white mb-4">Agent Status</h2>
+            {agents.length === 0 ? (
+              <p className="text-gray-400">No agents configured.</p>
+            ) : (
+              <div className="space-y-3">
+                {agents.map((agent) => (
+                  <div key={agent.name} className="flex items-center justify-between p-3 bg-slate-900/50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <span className={`w-2 h-2 rounded-full ${
+                        agent.status === 'running' ? 'bg-green-400' :
+                        agent.status === 'stopped' ? 'bg-gray-400' :
+                        'bg-red-400'
+                      }`} />
+                      <span className="text-white font-medium">{agent.name}</span>
+                    </div>
+                    <div className="text-sm text-gray-400">
+                      {agent.status} • {agent.error_count} errors
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </GlassCard>
+
+          <GlassCard variant="green" className="p-6">
+            <h2 className="text-xl font-bold text-white mb-4">Recent Activity</h2>
+            {activity.length === 0 ? (
+              <p className="text-gray-400">No recent activity.</p>
+            ) : (
+              <div className="space-y-2">
+                {activity.map((event, i) => (
+                  <div key={i} className="flex items-start gap-3 p-2 text-sm">
+                    <span className="text-gray-500 font-mono whitespace-nowrap">
+                      {new Date(event.timestamp).toLocaleTimeString()}
+                    </span>
+                    <span className="text-violet-400 font-medium">{event.agent_name}</span>
+                    <span className="text-gray-300">{event.message}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </GlassCard>
+        </div>
+      )}
+
+      {/* Logs Tab */}
+      {activeTab === 'logs' && (
+        <GlassCard variant="violet" className="p-6">
+          <h2 className="text-xl font-bold text-white mb-4">Execution Logs</h2>
+          {logs.length === 0 ? (
+            <p className="text-gray-400">No logs available. Run a backtest to see results.</p>
+          ) : (
+            <div className="bg-slate-900/50 rounded-lg p-4 font-mono text-sm space-y-1">
+              {logs.map((line, i) => (
+                <div key={i} className={`${line.startsWith('  ') ? 'text-gray-400 pl-4' : 'text-gray-200'}`}>
+                  {line}
+                </div>
+              ))}
+            </div>
+          )}
+        </GlassCard>
+      )}
 
       <div className="flex justify-between pt-4">
         <button

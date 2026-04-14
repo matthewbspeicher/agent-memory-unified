@@ -1,3 +1,4 @@
+import pytest
 from datetime import datetime, timezone
 
 from achievements.registry import (
@@ -51,35 +52,39 @@ class TestAchievementTracker:
         assert isinstance(tracker, AchievementTracker)
         assert tracker._user_id == "default"
 
-    def test_check_and_update_first_trade(self):
+    @pytest.mark.asyncio
+    async def test_check_and_update_first_trade(self):
         tracker = AchievementTracker()
         context = {"total_trades": 1}
-        unlocked = tracker.check_and_update(context)
+        unlocked = await tracker.check_and_update(context)
         assert len(unlocked) >= 1
         assert "first_trade" in [u.id for u in unlocked]
 
-    def test_check_and_update_no_trades(self):
+    @pytest.mark.asyncio
+    async def test_check_and_update_no_trades(self):
         tracker = AchievementTracker()
         context = {"total_trades": 0}
-        unlocked = tracker.check_and_update(context)
+        unlocked = await tracker.check_and_update(context)
         assert len(unlocked) == 0
 
-    def test_check_and_update_ten_trades(self):
+    @pytest.mark.asyncio
+    async def test_check_and_update_ten_trades(self):
         tracker = AchievementTracker()
         context = {"total_trades": 10}
-        unlocked = tracker.check_and_update(context)
+        unlocked = await tracker.check_and_update(context)
         unlocked_ids = [u.id for u in unlocked]
         assert "first_trade" in unlocked_ids
         assert "ten_bagger" in unlocked_ids
 
-    def test_already_unlocked_not_rechecked(self):
+    @pytest.mark.asyncio
+    async def test_already_unlocked_not_rechecked(self):
         tracker = AchievementTracker()
         context = {"total_trades": 1}
-        unlocked1 = tracker.check_and_update(context)
+        unlocked1 = await tracker.check_and_update(context)
         assert len(unlocked1) >= 1
 
         context2 = {"total_trades": 50}
-        unlocked2 = tracker.check_and_update(context2)
+        unlocked2 = await tracker.check_and_update(context2)
         assert "first_trade" not in [u.id for u in unlocked2]
 
     def test_get_progress_not_started(self):
@@ -91,52 +96,59 @@ class TestAchievementTracker:
         assert first_trade_progress is not None
         assert first_trade_progress.unlocked is False
 
-    def test_get_progress_after_unlock(self):
+    @pytest.mark.asyncio
+    async def test_get_progress_after_unlock(self):
         tracker = AchievementTracker()
-        tracker.check_and_update({"total_trades": 1})
+        await tracker.check_and_update({"total_trades": 1})
         progress = tracker.get_progress("first_trade")
         assert progress is not None
         assert progress.unlocked is True
         assert progress.unlocked_at is not None
 
-    def test_get_unlocked_achievements(self):
+    @pytest.mark.asyncio
+    async def test_get_unlocked_achievements(self):
         tracker = AchievementTracker()
-        tracker.check_and_update({"total_trades": 1})
+        await tracker.check_and_update({"total_trades": 1})
         unlocked = tracker.get_unlocked()
         assert len(unlocked) >= 1
 
-    def test_profit_achievements(self):
+    @pytest.mark.asyncio
+    async def test_profit_achievements(self):
         tracker = AchievementTracker()
         context = {"consecutive_profitable_days": 5}
-        unlocked = tracker.check_and_update(context)
+        unlocked = await tracker.check_and_update(context)
         unlocked_ids = [u.id for u in unlocked]
         assert "streak_3" in unlocked_ids
 
-    def test_win_rate_achievements(self):
+    @pytest.mark.asyncio
+    async def test_win_rate_achievements(self):
         tracker = AchievementTracker()
         context = {"win_rate": 0.75}
-        unlocked = tracker.check_and_update(context)
+        unlocked = await tracker.check_and_update(context)
         unlocked_ids = [u.id for u in unlocked]
         assert "win_rate_70" in unlocked_ids
 
-    def test_sharpe_achievement(self):
+    @pytest.mark.asyncio
+    async def test_sharpe_achievement(self):
         tracker = AchievementTracker()
         context = {"is_best_sharpe_this_month": True}
-        unlocked = tracker.check_and_update(context)
+        unlocked = await tracker.check_and_update(context)
         unlocked_ids = [u.id for u in unlocked]
         assert "sharpe_king" in unlocked_ids
 
-    def test_consecutive_wins_achievement(self):
+    @pytest.mark.asyncio
+    async def test_consecutive_wins_achievement(self):
         tracker = AchievementTracker()
         context = {"consecutive_profitable_days": 10}
-        unlocked = tracker.check_and_update(context)
+        unlocked = await tracker.check_and_update(context)
         unlocked_ids = [u.id for u in unlocked]
         assert "streak_10" in unlocked_ids
 
-    def test_hold_duration_achievement(self):
+    @pytest.mark.asyncio
+    async def test_hold_duration_achievement(self):
         tracker = AchievementTracker()
         context = {"held_position_24h_5pct": True}
-        unlocked = tracker.check_and_update(context)
+        unlocked = await tracker.check_and_update(context)
         unlocked_ids = [u.id for u in unlocked]
         assert "diamond_hands" in unlocked_ids
 
@@ -161,3 +173,42 @@ class TestAchievementProgress:
         assert progress.target_value == 0.0
         assert progress.unlocked is False
         assert progress.unlocked_at is None
+
+
+class TestAchievementDBPersistence:
+    @pytest.mark.asyncio
+    async def test_persistence_with_db(self):
+        """Test that achievements persist to DB and reload correctly."""
+        import aiosqlite
+
+        db = await aiosqlite.connect(":memory:")
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS agent_achievements (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                agent_name TEXT NOT NULL,
+                achievement_id TEXT NOT NULL,
+                unlocked_at TEXT NOT NULL DEFAULT (datetime('now')),
+                context TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                UNIQUE(agent_name, achievement_id)
+            )
+        """)
+        await db.commit()
+
+        # Unlock achievement with DB
+        tracker1 = AchievementTracker(user_id="test_agent", db=db)
+        unlocked = await tracker1.check_and_update({"total_trades": 1})
+        assert len(unlocked) >= 1
+        assert tracker1.is_unlocked("first_trade")
+
+        # Create new tracker - should load from DB
+        tracker2 = AchievementTracker(user_id="test_agent", db=db)
+        await tracker2.load()
+        assert tracker2.is_unlocked("first_trade")  # Loaded from DB
+
+        # Different agent should NOT see the achievement
+        tracker3 = AchievementTracker(user_id="other_agent", db=db)
+        await tracker3.load()
+        assert not tracker3.is_unlocked("first_trade")
+
+        await db.close()

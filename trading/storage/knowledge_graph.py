@@ -217,8 +217,16 @@ class TradingKnowledgeGraph:
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                triple_id, sub_id, predicate, obj_id,
-                valid_from, valid_to, confidence, source, props_json, now,
+                triple_id,
+                sub_id,
+                predicate,
+                obj_id,
+                valid_from,
+                valid_to,
+                confidence,
+                source,
+                props_json,
+                now,
             ),
         )
         await self._db.commit()
@@ -437,3 +445,18 @@ class TradingKnowledgeGraph:
                 data={"count": count},
             )
         return count
+
+    async def query_entity_public(
+        self,
+        name: str,
+        as_of: str | None = None,
+        direction: str = "outgoing",
+    ) -> list[dict]:
+        return await self.query_entity(name, as_of=as_of, direction=direction)
+
+    async def timeline_public(
+        self,
+        entity_name: str | None = None,
+        limit: int = 100,
+    ) -> list[dict]:
+        return await self.timeline(entity_name=entity_name, limit=limit)

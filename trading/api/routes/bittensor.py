@@ -141,12 +141,13 @@ async def bittensor_status(
 async def bittensor_rankings(
     request: Request,
     limit: int = 50,
+    symbol: str | None = None,
     _: str = Depends(verify_api_key),
 ):
     store = getattr(request.app.state, "bittensor_store", None)
     if not store:
         return {"rankings": [], "ranking_config": {}}
-    rankings = await store.get_miner_rankings(limit=limit)
+    rankings = await store.get_miner_rankings(limit=limit, symbol=symbol)
     return {
         "rankings": [
             {
@@ -208,7 +209,42 @@ async def bittensor_metrics(
             "last_evaluation_duration_secs": round(em.last_evaluation_duration_secs, 2),
         }
 
+    weight_setter = getattr(request.app.state, "bittensor_weight_setter", None)
+    if weight_setter and hasattr(weight_setter, "metrics"):
+        wm = weight_setter.metrics
+        result["weight_setter"] = {
+            "weight_sets_total": wm.weight_sets_total,
+            "weight_sets_failed": wm.weight_sets_failed,
+            "weight_sets_skipped": wm.weight_sets_skipped,
+            "last_weight_skip_reason": wm.last_weight_skip_reason,
+            "last_weight_set_block": wm.last_weight_set_block,
+            "last_weight_set_at": (
+                wm.last_weight_set_at.isoformat()
+                if wm.last_weight_set_at
+                else None
+            ),
+            "last_weight_set_uid_count": wm.last_weight_set_uid_count,
+        }
+
     return result
+
+
+@router.get("/weight-set-log")
+async def bittensor_weight_set_log(
+    request: Request,
+    limit: int = 50,
+    _: str = Depends(verify_api_key),
+):
+    """Return the most recent weight-set attempts (audit trail).
+
+    Useful for debugging "why didn't we set weights last cycle?" and for
+    retrospective analysis of ranking→weight submissions.
+    """
+    store = getattr(request.app.state, "bittensor_store", None)
+    if not store or not hasattr(store, "get_recent_weight_set_logs"):
+        return {"entries": []}
+    entries = await store.get_recent_weight_set_logs(limit=min(limit, 500))
+    return {"entries": entries, "count": len(entries)}
 
 
 @router.get(

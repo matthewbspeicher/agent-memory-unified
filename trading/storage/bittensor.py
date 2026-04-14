@@ -350,6 +350,7 @@ class BittensorStore:
         self,
         hotkeys: list[str],
         lookback: int,
+        symbol: str | None = None,
     ) -> dict[str, dict]:
         """Return one aggregate record per miner from their most recent accuracy records.
 
@@ -363,6 +364,14 @@ class BittensorStore:
             return {}
 
         placeholders = ", ".join("?" for _ in hotkeys)
+        where_clause = f"WHERE miner_hotkey IN ({placeholders})"
+        params = [*hotkeys]
+        if symbol and symbol != "aggregate":
+            where_clause += " AND symbol = ?"
+            params.append(symbol)
+        
+        params.append(lookback)
+
         cursor = await self._db.execute(
             f"""SELECT miner_hotkey,
                        COUNT(*) AS windows_evaluated,
@@ -374,11 +383,11 @@ class BittensorStore:
                         PARTITION BY miner_hotkey ORDER BY evaluated_at DESC
                     ) AS rn
                     FROM bittensor_accuracy_records
-                    WHERE miner_hotkey IN ({placeholders})
+                    {where_clause}
                 ) sub
                 WHERE rn <= ?
                 GROUP BY miner_hotkey""",
-            (*hotkeys, lookback),
+            tuple(params),
         )
         rows = await cursor.fetchall()
         result: dict[str, dict] = {}
@@ -406,18 +415,27 @@ class BittensorStore:
         rows = await cursor.fetchall()
         return [self._row_to_accuracy_record(row) for row in rows]
 
-    async def get_miner_max_drawdown(self, hotkey: str, limit: int = 50) -> float:
+    async def get_miner_max_drawdown(
+        self, hotkey: str, limit: int = 50, symbol: str | None = None
+    ) -> float:
         """Return the maximum magnitude_error (proxy for drawdown) for a miner."""
+        where_clause = "WHERE miner_hotkey = ?"
+        params = [hotkey]
+        if symbol and symbol != "aggregate":
+            where_clause += " AND symbol = ?"
+            params.append(symbol)
+        params.append(limit)
+
         cursor = await self._db.execute(
-            """SELECT MAX(magnitude_error) AS max_drawdown
+            f"""SELECT MAX(magnitude_error) AS max_drawdown
                FROM (
                    SELECT magnitude_error
                    FROM bittensor_accuracy_records
-                   WHERE miner_hotkey = ?
+                   {where_clause}
                    ORDER BY evaluated_at DESC
                    LIMIT ?
                )""",
-            (hotkey, limit),
+            tuple(params),
         )
         row = await cursor.fetchone()
         if row is None or row[0] is None:
@@ -425,15 +443,23 @@ class BittensorStore:
         return float(row[0])
 
     async def get_miner_max_drawdowns(
-        self, hotkeys: list[str], limit: int = 50
+        self, hotkeys: list[str], limit: int = 50, symbol: str | None = None
     ) -> dict[str, float]:
         """Return max magnitude_error for each hotkey."""
         if not hotkeys:
             return {}
         result = {}
         for hotkey in hotkeys:
-            result[hotkey] = await self.get_miner_max_drawdown(hotkey, limit)
+            result[hotkey] = await self.get_miner_max_drawdown(hotkey, limit, symbol)
         return result
+
+    async def get_distinct_symbols(self) -> list[str]:
+        """Return all symbols present in accuracy records."""
+        cursor = await self._db.execute(
+            "SELECT DISTINCT symbol FROM bittensor_accuracy_records"
+        )
+        rows = await cursor.fetchall()
+        return [row[0] for row in rows]
 
     async def get_recent_views(
         self, symbol: str, timeframe: str, limit: int = 100
@@ -506,14 +532,16 @@ class BittensorStore:
     # ------------------------------------------------------------------
 
     async def update_miner_ranking(self, ranking: MinerRanking) -> None:
+        """Upsert a miner's ranking metrics for a specific symbol."""
         await self._db.execute(
             """INSERT OR REPLACE INTO bittensor_miner_rankings
-               (miner_hotkey, windows_evaluated, direction_accuracy, mean_magnitude_error,
+               (miner_hotkey, symbol, windows_evaluated, direction_accuracy, mean_magnitude_error,
                 mean_path_correlation, internal_score, latest_incentive_score, hybrid_score,
                 alpha_used, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 ranking.miner_hotkey,
+                ranking.symbol,
                 ranking.windows_evaluated,
                 ranking.direction_accuracy,
                 ranking.mean_magnitude_error,
@@ -527,11 +555,22 @@ class BittensorStore:
         )
         await self._db.commit()
 
-    async def get_miner_rankings(self, limit: int = 50) -> list[MinerRanking]:
-        cursor = await self._db.execute(
-            "SELECT * FROM bittensor_miner_rankings ORDER BY hybrid_score DESC LIMIT ?",
-            (limit,),
-        )
+    async def get_miner_rankings(
+        self, limit: int = 50, symbol: str | None = None
+    ) -> list[MinerRanking]:
+        """Fetch top miner rankings, optionally filtered by symbol."""
+        if symbol:
+            cursor = await self._db.execute(
+                """SELECT * FROM bittensor_miner_rankings
+                   WHERE symbol = ?
+                   ORDER BY hybrid_score DESC LIMIT ?""",
+                (symbol, limit),
+            )
+        else:
+            cursor = await self._db.execute(
+                "SELECT * FROM bittensor_miner_rankings ORDER BY hybrid_score DESC LIMIT ?",
+                (limit,),
+            )
         rows = await cursor.fetchall()
         return [self._row_to_miner_ranking(row) for row in rows]
 
@@ -540,6 +579,7 @@ class BittensorStore:
         r = dict(row)
         return MinerRanking(
             miner_hotkey=r["miner_hotkey"],
+            symbol=r.get("symbol", "aggregate"),
             windows_evaluated=r["windows_evaluated"],
             direction_accuracy=r["direction_accuracy"],
             mean_magnitude_error=r["mean_magnitude_error"],
@@ -570,3 +610,72 @@ class BittensorStore:
             (uuid, hotkey),
         )
         await self._db.commit()
+
+    # ------------------------------------------------------------------
+    # Weight-set audit log
+    # ------------------------------------------------------------------
+
+    async def save_weight_set_log(
+        self,
+        *,
+        attempted_at: datetime,
+        status: str,
+        skip_reason: str | None,
+        uid_count: int,
+        weights_payload: list[tuple[int, float]] | None,
+        block: int | None,
+        error_detail: str | None,
+    ) -> None:
+        """Persist a single weight-set attempt.
+
+        status is one of "success", "skipped", "failed". weights_payload is
+        the (uid, weight) list that was submitted (or would have been) —
+        stored as JSON for post-hoc analysis.
+        """
+        payload_json = (
+            json.dumps([[int(u), float(w)] for u, w in weights_payload])
+            if weights_payload
+            else None
+        )
+        await self._db.execute(
+            """INSERT INTO bittensor_weight_set_log
+               (attempted_at, status, skip_reason, uid_count, weights_payload, block, error_detail)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (
+                attempted_at.isoformat(),
+                status,
+                skip_reason,
+                uid_count,
+                payload_json,
+                block,
+                error_detail,
+            ),
+        )
+        await self._db.commit()
+
+    async def get_recent_weight_set_logs(self, limit: int = 50) -> list[dict]:
+        """Return the N most recent weight-set attempts."""
+        cursor = await self._db.execute(
+            """SELECT id, attempted_at, status, skip_reason, uid_count,
+                      weights_payload, block, error_detail
+               FROM bittensor_weight_set_log
+               ORDER BY id DESC
+               LIMIT ?""",
+            (limit,),
+        )
+        rows = await cursor.fetchall()
+        out: list[dict] = []
+        for row in rows:
+            out.append(
+                {
+                    "id": row[0],
+                    "attempted_at": row[1],
+                    "status": row[2],
+                    "skip_reason": row[3],
+                    "uid_count": row[4],
+                    "weights_payload": json.loads(row[5]) if row[5] else None,
+                    "block": row[6],
+                    "error_detail": row[7],
+                }
+            )
+        return out

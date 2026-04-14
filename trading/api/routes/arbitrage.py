@@ -44,17 +44,73 @@ async def execute_arbitrage(req: ExecuteArbRequest, request: Request):
         raise HTTPException(status_code=409, detail="Spread already claimed or expired")
 
     try:
-        # Execution phase: claim succeeded; full dual-leg execution
-        # requires ArbTrade model construction from the observed spread.
-        # Currently returns on claim success — wire execute_arbitrage() for full flow.
-        import logging
+        # 2. Fetch observation data
+        observation = await spread_store.get_observation(req.observation_id)
+        if not observation:
+            await spread_store.release_spread(req.observation_id)
+            raise HTTPException(status_code=404, detail="Observation not found")
 
-        logging.getLogger(__name__).warning(
-            "Arb spread %d claimed by %s but dual-leg execution not wired — returning claim-only.",
-            req.observation_id,
-            req.agent_name,
+        # 3. Build ArbTrade from observation
+        from decimal import Decimal
+        from uuid import uuid4
+        from execution.models import ArbTrade, ArbLeg, SequencingStrategy
+        from broker.models import MarketOrder, OrderSide, Symbol, AssetType
+
+        sequencing = SequencingStrategy(req.sequencing)
+        trade_id = f"arb-{uuid4().hex[:12]}"
+
+        # Determine order sides based on pricing (sell high, buy low)
+        kalshi_cents = observation["kalshi_cents"]
+        poly_cents = observation["poly_cents"]
+
+        # Leg A: Kalshi
+        leg_a = ArbLeg(
+            broker_id="kalshi",
+            order=MarketOrder(
+                symbol=Symbol(
+                    ticker=observation["kalshi_ticker"], asset_type=AssetType.PREDICTION
+                ),
+                side=OrderSide.BUY if kalshi_cents <= poly_cents else OrderSide.SELL,
+                quantity=Decimal("1"),
+                account_id="default",
+            ),
         )
-        return {"status": "claimed", "observation_id": req.observation_id}
+
+        # Leg B: Polymarket
+        leg_b = ArbLeg(
+            broker_id="polymarket",
+            order=MarketOrder(
+                symbol=Symbol(
+                    ticker=observation["poly_ticker"], asset_type=AssetType.PREDICTION
+                ),
+                side=OrderSide.SELL if kalshi_cents <= poly_cents else OrderSide.BUY,
+                quantity=Decimal("1"),
+                account_id="default",
+            ),
+        )
+
+        trade = ArbTrade(
+            id=trade_id,
+            symbol_a=observation["kalshi_ticker"],
+            symbol_b=observation["poly_ticker"],
+            leg_a=leg_a,
+            leg_b=leg_b,
+            expected_profit_bps=observation["gap_cents"],
+            sequencing=sequencing,
+        )
+
+        # 4. Execute the arbitrage
+        success = await arb_coordinator.execute_arbitrage(trade)
+
+        return {
+            "status": "completed" if success else "failed",
+            "trade_id": trade_id,
+            "observation_id": req.observation_id,
+            "symbol_a": trade.symbol_a,
+            "symbol_b": trade.symbol_b,
+            "expected_profit_bps": trade.expected_profit_bps,
+            "state": trade.state.value,
+        }
     except Exception as e:
         await spread_store.release_spread(req.observation_id)
         raise HTTPException(status_code=500, detail=str(e))
