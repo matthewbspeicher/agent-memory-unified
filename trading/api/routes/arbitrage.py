@@ -187,3 +187,37 @@ async def get_governor_status(request: Request):
         )
 
     return {"agents": results, "timestamp": gov._cache.timestamp}
+
+
+@router.post("/arb/executor/enable")
+async def enable_arb_executor(request: Request):
+    """Enable auto-execution of arbitrage spreads."""
+    arb_executor = getattr(request.app.state, "arb_executor", None)
+    if not arb_executor:
+        raise HTTPException(status_code=501, detail="ArbExecutor not configured")
+    arb_executor.set_enabled(True)
+    return {"status": "enabled"}
+
+
+@router.post("/arb/executor/disable")
+async def disable_arb_executor(request: Request):
+    """Disable auto-execution of arbitrage spreads."""
+    arb_executor = getattr(request.app.state, "arb_executor", None)
+    if not arb_executor:
+        raise HTTPException(status_code=501, detail="ArbExecutor not configured")
+    arb_executor.set_enabled(False)
+    return {"status": "disabled"}
+
+
+@router.get("/arb/executor/status")
+async def get_arb_executor_status(request: Request):
+    """Return the current status of the ArbExecutor."""
+    arb_executor = getattr(request.app.state, "arb_executor", None)
+    if not arb_executor:
+        raise HTTPException(status_code=501, detail="ArbExecutor not configured")
+    return {
+        "enabled": arb_executor._enabled,
+        "min_profit_bps": arb_executor._min_profit_bps,
+        "max_position_usd": arb_executor._max_position_usd,
+        "active_trades": len(arb_executor._active_trades),
+    }

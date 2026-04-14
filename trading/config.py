@@ -37,7 +37,14 @@ class BrokerConfig(BaseModel):
     @field_validator("primary_broker")
     @classmethod
     def validate_primary_broker(cls, v):
-        if v and v not in ["ibkr", "alpaca", "tradier", "paper", "kalshi", "polymarket"]:
+        if v and v not in [
+            "ibkr",
+            "alpaca",
+            "tradier",
+            "paper",
+            "kalshi",
+            "polymarket",
+        ]:
             raise ValueError(f"Unknown primary broker: {v}")
         return v
 
@@ -363,6 +370,9 @@ class Config(BaseModel):
     arb_slippage_threshold_bps: int = 5
     arb_toxicity_threshold: float = 0.7
     arb_timeout_secs: int = 2
+    arb_auto_execute: bool = False
+    arb_min_profit_bps: float = 5.0
+    arb_max_position_usd: float = 100.0
 
     # Hermes Autonomy
     hermes_full_autonomy: bool = False

@@ -1123,6 +1123,21 @@ async def lifespan(app: FastAPI):
             "ArbCoordinator initialized with %d broker(s)", len(_all_brokers or {})
         )
 
+        # --- ArbExecutor (auto-execution of spreads) ---
+        from execution.arb_executor import ArbExecutor
+
+        arb_executor = ArbExecutor(
+            spread_store=spread_store,
+            arb_coordinator=arb_coordinator,
+            event_bus=event_bus,
+            min_profit_bps=float(getattr(config, "arb_min_profit_bps", 5.0)),
+            max_position_usd=float(getattr(config, "arb_max_position_usd", 100.0)),
+            enabled=getattr(config, "arb_auto_execute", False),
+        )
+        app.state.arb_executor = arb_executor
+        bg_tasks.create_task(arb_executor.run(), name="arb_executor")
+        _log.info("ArbExecutor started (enabled=%s)", arb_executor._enabled)
+
         # Data sources (Yahoo always available, broker source optional)
         opp_store = OpportunityStore(db)
         app.state.opportunity_store = opp_store
