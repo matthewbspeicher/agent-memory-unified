@@ -18,6 +18,37 @@ router = APIRouter(
 )
 
 
+@router.get("/health")
+async def memory_health(
+    registry: MemoryRegistry = Depends(get_memory_registry),
+) -> dict:
+    """Memory subsystem health snapshot.
+
+    Reports registry state (registered agents, shared client) and runs
+    LocalMemoryStore preflight if a local store is wired. Used by Mission
+    Control + Railway readiness probes.
+    """
+    agents = registry.registered_agents()
+    response: dict = {
+        "ok": True,
+        "registered_agents": agents,
+        "agent_count": len(agents),
+        "shared_configured": registry.get_shared() is not None,
+    }
+
+    local_store = getattr(registry, "_local_store", None)
+    if local_store is not None and hasattr(local_store, "_preflight_check"):
+        try:
+            response["local_store"] = await local_store._preflight_check()
+            if not response["local_store"].get("ok"):
+                response["ok"] = False
+        except Exception as e:
+            response["ok"] = False
+            response["local_store"] = {"ok": False, "reason": str(e)}
+
+    return response
+
+
 @router.get("/index")
 async def get_memory_index(
     registry: MemoryRegistry = Depends(get_memory_registry),

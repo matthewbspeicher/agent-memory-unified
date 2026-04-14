@@ -35,6 +35,9 @@ class MemoryRegistry:
     def get_shared(self) -> Any | None:
         return self._shared
 
+    def registered_agents(self) -> list[str]:
+        return sorted(self._clients.keys())
+
     def get_tuning_config(self, agent_name: str) -> SearchTuningConfig:
         """Get tuning config for agent, creating default if not exists."""
         if agent_name not in self._tuning_configs:

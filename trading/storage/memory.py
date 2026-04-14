@@ -556,17 +556,79 @@ class LocalMemoryStore:
         updated_row = await cursor.fetchone()
         return self._row_to_record(updated_row) if updated_row else None
 
-    async def health_check(self) -> dict:
-        """Check if the local store is healthy."""
-        if not self._db:
-            return {"healthy": False, "reason": "not_connected"}
+    # Columns the rest of the codebase relies on. Drift here is what
+    # silently breaks search, decay, and dedup — preflight catches it.
+    _REQUIRED_COLUMNS: frozenset[str] = frozenset(
+        {
+            "id", "agent_id", "key", "value", "summary", "memory_type",
+            "category", "embedding", "visibility", "importance", "confidence",
+            "metadata", "tags", "access_count", "useful_count",
+            "created_at", "updated_at", "expires_at", "content_hash",
+            "status", "weight", "visibility_scope", "decay_days",
+        }
+    )
 
+    async def _preflight_check(self) -> dict:
+        """Verify the store is wired correctly: schema present, columns intact,
+        content-hash dedup index live. Returns a dict suitable for an HTTP
+        health endpoint. Cheap (few SELECTs) — safe to call on every request.
+        """
+        if not self._db:
+            return {"ok": False, "reason": "not_connected", "checks": {}}
+
+        checks: dict[str, Any] = {}
         try:
             cursor = await self._db.execute("SELECT 1")
             await cursor.fetchone()
-            return {"healthy": True}
+            checks["connection"] = True
         except Exception as e:
-            return {"healthy": False, "reason": str(e)}
+            return {"ok": False, "reason": f"connection: {e}", "checks": checks}
+
+        try:
+            cursor = await self._db.execute("PRAGMA table_info(memories)")
+            present = {row["name"] for row in await cursor.fetchall()}
+            missing = sorted(self._REQUIRED_COLUMNS - present)
+            checks["schema"] = {"missing_columns": missing, "ok": not missing}
+            if missing:
+                return {
+                    "ok": False,
+                    "reason": f"missing columns: {missing}",
+                    "checks": checks,
+                }
+        except Exception as e:
+            return {"ok": False, "reason": f"schema: {e}", "checks": checks}
+
+        try:
+            cursor = await self._db.execute(
+                "SELECT name FROM sqlite_master "
+                "WHERE type='index' AND name='idx_memories_content_hash'"
+            )
+            checks["dedup_index"] = bool(await cursor.fetchone())
+        except Exception as e:
+            checks["dedup_index"] = f"error: {e}"
+
+        try:
+            cursor = await self._db.execute("SELECT COUNT(*) FROM memories")
+            row = await cursor.fetchone()
+            checks["row_count"] = row[0] if row else 0
+        except Exception as e:
+            checks["row_count"] = f"error: {e}"
+
+        return {"ok": True, "checks": checks}
+
+    async def health_check(self) -> dict:
+        """Check if the local store is healthy.
+
+        Returns the legacy {healthy: bool, reason?: str} shape so existing
+        callers (HybridTradingMemoryClient) keep working. Also includes a
+        ``preflight`` block with full diagnostics.
+        """
+        result = await self._preflight_check()
+        return {
+            "healthy": result["ok"],
+            **({"reason": result["reason"]} if not result["ok"] else {}),
+            "preflight": result,
+        }
 
     @staticmethod
     def _row_to_record(row: aiosqlite.Row) -> MemoryRecord:
