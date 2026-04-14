@@ -387,6 +387,54 @@ Tier names aligned with unified spec: **Explorer** (was Hobby) / **Trader** (was
 
 ---
 
+#### Track F: Crypto Tipping / Reputation Boosts (folded from `2026-04-14-crypto-tipping-design.md`)
+
+Zero-custody tipping of autonomous agents via USDC on Base. Off-chain Tip→Agent mapping (no per-agent wallets). Boosts `agent_elo_ratings` proportional to verified tip. Priority: **low** — reputation perk, not a revenue driver. Run only after Track C ships and when a compliance memo (Track E.05 or a dedicated OFAC memo) clears it.
+
+**Kept from original spec:**
+- Base L2 + USDC choice (low gas, fiat-backed stablecoin, Coinbase regulatory posture)
+- Single-platform-treasury model (`PLATFORM_TREASURY_ADDRESS`, multi-sig) — no per-agent wallets
+- Off-chain `Tip → Agent` mapping in `crypto_tips` PG table
+- Four-plus-one verification checks: status=1, destination=treasury, token=Base-USDC-contract, amount matches claim, idempotency via `tx_hash UNIQUE`
+- Read-only backend (backend never signs, never holds keys)
+- `crypto_tips` schema (with the fixes below)
+
+**Fixed before keeping (spec claimed "no TBDs" but had real gaps):**
+
+| # | Gap in original spec | Fix |
+|---|-----------------------|-----|
+| F.g1 | No reorg handling — Base L2 reorgs can retroactively invalidate a verified tx | Wait N block confirmations (default 12 ≈ 24s on Base) before crediting; sweep job reverts credits on reorg-invalidated tx |
+| F.g2 | Race: same `tx_hash` submitted concurrently → RPC verified twice → double credit risk if UNIQUE index race loses | Wrap credit in transaction with `INSERT ... ON CONFLICT (tx_hash) DO NOTHING RETURNING` — only the winning row applies the Elo boost |
+| F.g3 | Single RPC provider = single point of failure | Primary + secondary RPC chain (Alchemy → QuickNode fallback), mirror pattern of `trading/llm/client.py` fallback chain |
+| F.g4 | Reputation formula "+1 per $1 USDC" is arbitrary and uncapped — whale can dominate leaderboard | Cap per-day boost per agent (e.g., max +50 Elo/day from tips); log-scale beyond $X; decay over 30 days |
+| F.g5 | Sybil / wash-tipping — agent owner tips themselves from fresh wallets | Require wallet to have ≥N prior mainnet txs or ≥$M USDC balance; flag self-tips (owner wallet in `users.wallet_addresses`) and zero them; public audit log of all tips |
+| F.g6 | OFAC sanctions screening on receiving address not addressed | Chainalysis/TRM Labs API check on `sender_address` before crediting; reject sanctioned-wallet tips; log for compliance |
+| F.g7 | `agent_registry(name)` FK target — table name not confirmed in codebase (we have `identity.agents` and Elo tables scattered) | F.01 resolves: FK points to the authoritative agent table after grep; if it's `identity.agents(name)`, update schema |
+| F.g8 | Wallet library choice left as "e.g., ConnectKit / Web3Modal / wagmi" | Pick one: **wagmi + RainbowKit** (most mature, supports MetaMask/Coinbase/Phantom). No "e.g." in shipped code. |
+
+| Seq | Title | Depends on | Parallel | Effort |
+|-----|-------|------------|----------|--------|
+| F.01 | `crypto_tips` table + confirm agent FK target + migrations across all 3 schema sources | A.01 | No | 4-6h |
+| F.02 | Backend verify endpoint (`POST /api/v1/tips/verify`) with all 5 security checks + N-confirmation wait + `ON CONFLICT` race guard | F.01 | No | 10-16h |
+| F.03 | RPC fallback chain (Alchemy primary, QuickNode secondary) + OFAC sanctions screening call | F.02 | Yes | 6-10h |
+| F.04 | Reputation boost integration — capped formula, decay, self-tip zeroing; wires into existing Elo/reputation store | F.02 | Yes | 6-10h |
+| F.05 | Reorg sweep job — periodic verification of recent `crypto_tips` rows; revert Elo on invalidation | F.02 | Yes | 4-8h |
+| F.06 | Frontend: wagmi + RainbowKit setup; `<TipAgentButton>`; tip modal; tx submission + verification polling UI | F.02 | Yes | 16-24h |
+| F.07 | Unit + integration tests: signature verification edge cases, race handling, reorg sweep, OFAC block, self-tip zero | F.02-F.06 | No | 8-12h |
+| F.08 | OFAC/tipping compliance memo (`docs/compliance/tipping-memo.md`) — short external review on sanctions posture + Howey-test sanity check on reputation boosts | — | Yes | 2-4h ours + external |
+
+**Track F total: 56-90h** (spec's "lean" framing implied ~30-40h; revision accounts for reorg + Sybil + OFAC work missing from original).
+
+**Not blocking anything else** — Track F is an independent perk. Can ship after Tracks A + C, or be deferred indefinitely without affecting Signal API / Agent Auth API revenue.
+
+**Won't be kept from original spec:**
+- The self-review claim of "no TBDs" — it had at least 8 (gaps above)
+- The uncapped linear reputation formula
+- The single-RPC-provider assumption
+- The implication that verification is a one-shot check rather than a confirmation-based credit
+
+---
+
 #### Track E: Phase 0 GTM (gates C.12 compliance and all paid launch)
 
 | Seq | Title | Depends on | Parallel | Effort |
@@ -433,6 +481,8 @@ E.01..E.05 run in parallel with Tracks A-D; E.02 + E.05 gate C.12 and launch.
 | C. Signal API | 76-124h |
 | D. Agent Auth API | 66-106h |
 | E. Phase 0 GTM | 24-34h (ours) |
-| **Total** | **198-314h** (vs roadmap's original "22 subtasks, parallel-ready" with no effort — revised per review) |
+| F. Crypto Tipping (optional perk, non-blocking) | 56-90h |
+| **Total (A-E required for revenue)** | **198-314h** |
+| **Total incl. F** | **254-404h** |
 
 The old `.tmp/tasks/signal-api/` and `.tmp/tasks/agent-auth-api/` JSON trees are retained for reference but **out-of-date**. When regenerating JSON subtasks for `coder-agent`, derive them from the tables above, not from the original trees.
