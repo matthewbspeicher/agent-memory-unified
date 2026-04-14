@@ -2188,6 +2188,9 @@ def create_app(
 
     app.add_middleware(CorrelationIdMiddleware)
 
+    from api.middleware.gatekeeper import GatekeeperMiddleware
+    app.add_middleware(GatekeeperMiddleware)
+
     # Rate Limiting
     if getattr(config or load_config(), "rate_limit_enabled", False):
         from slowapi import _rate_limit_exceeded_handler
