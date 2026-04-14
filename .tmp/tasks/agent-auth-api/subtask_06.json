@@ -1,0 +1,26 @@
+{
+  "id": "agent-auth-api-06",
+  "seq": "06",
+  "title": "Token verification endpoint",
+  "status": "pending",
+  "depends_on": ["01", "05"],
+  "parallel": false,
+  "context_files": [
+    "docs/superpowers/specs/2026-04-14-agent-auth-api-design.md"
+  ],
+  "reference_files": [
+    "trading/api/identity/dependencies.py"
+  ],
+  "acceptance_criteria": [
+    "GET /api/v1/auth/verify: reads X-Agent-Token header",
+    "Verifies token: finds auth_tokens by hash, checks revoked_at IS NULL",
+    "Returns: valid=true, agent_id, name, scopes (from identity.agents), account_id, tier",
+    "Returns 401 with {valid: false} for invalid/expired/revoked tokens",
+    "Updates last_used_at on auth_tokens on successful verification",
+    "Audit log entry: token.verified event with ip, user_agent, timestamp",
+    "LSP diagnostics clean"
+  ],
+  "deliverables": [
+    "trading/api/routes/auth/verify.py"
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "id": "signal-api",
+  "name": "Signal API",
+  "status": "active",
+  "objective": "Build Signal API paid product exposing trading signals as a tiered subscription API (Free/Pro $49/Enterprise $199) with Stripe billing and webhook delivery",
+  "context_files": [
+    "docs/superpowers/specs/2026-04-14-signal-api-design.md"
+  ],
+  "reference_files": [
+    "trading/api/routes/bittensor.py",
+    "trading/data/signal_bus.py",
+    "trading/api/middleware/limiter.py",
+    "trading/api/routes/opportunities.py"
+  ],
+  "exit_criteria": [
+    "Stripe checkout flow works end-to-end",
+    "Free tier returns 1hr-delayed signals",
+    "Pro tier returns real-time signals with confidence",
+    "Enterprise tier returns reasoning + delivers webhooks",
+    "Rate limiting enforces per-tier limits",
+    "Usage tracking accurate in Redis + Postgres",
+    "Landing page with pricing table",
+    "Unit tests pass for all new endpoints",
+    "LSP diagnostics clean on all changed files"
+  ],
+  "subtask_count": 11,
+  "completed_count": 0,
+  "created_at": "2026-04-14T00:00:00Z",
+  "completed_at": null
+}

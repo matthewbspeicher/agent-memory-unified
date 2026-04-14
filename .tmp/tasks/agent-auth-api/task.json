@@ -1,0 +1,33 @@
+{
+  "id": "agent-auth-api",
+  "name": "Agent Auth API",
+  "status": "active",
+  "objective": "Build Agent Auth API paid product — a dedicated auth layer for AI agents with token-based identity, scope enforcement, rate limiting, and audit logging (Hobby $0/Pro $29/Scale $99 tiers)",
+  "context_files": [
+    "docs/superpowers/specs/2026-04-14-agent-auth-api-design.md"
+  ],
+  "reference_files": [
+    "trading/api/identity/store.py",
+    "trading/api/identity/dependencies.py",
+    "trading/api/middleware/limiter.py",
+    "trading/api/routes/bittensor.py"
+  ],
+  "exit_criteria": [
+    "Stripe subscription flow works end-to-end",
+    "Accounts can register agents up to tier quota",
+    "Agents get amu_xxx.yyy tokens shown once at creation",
+    "Token verification returns agent identity + scopes",
+    "Hobby tier: no scope enforcement",
+    "Pro+ tiers: require_scope() enforces scopes",
+    "Scale tier: custom scope registration works",
+    "Audit log records token verifications",
+    "Rate limiting enforces account-wide limits",
+    "Landing page with pricing table",
+    "Unit tests pass for all new endpoints",
+    "LSP diagnostics clean on all changed files"
+  ],
+  "subtask_count": 11,
+  "completed_count": 0,
+  "created_at": "2026-04-14T00:00:00Z",
+  "completed_at": null
+}

@@ -1,0 +1,32 @@
+{
+  "id": "agent-auth-api-10",
+  "seq": "10",
+  "title": "Landing page + Agent Auth API dashboard",
+  "status": "pending",
+  "depends_on": ["02", "03", "04"],
+  "parallel": false,
+  "context_files": [
+    "docs/superpowers/specs/2026-04-14-agent-auth-api-design.md"
+  ],
+  "reference_files": [
+    "frontend/src/pages/bittensor/index.tsx"
+  ],
+  "acceptance_criteria": [
+    "New page at /agent-auth with tier comparison table (Hobby $0/Pro $29/Scale $99)",
+    "Each tier card has CTA linking to Stripe Checkout",
+    "Account management: update email/name",
+    "Agent management UI: list agents, create agent (name input), delete agent",
+    "Token display: shown once at creation with copy button + warning 'store this securely'",
+    "Usage dashboard: requests used / limit, agent count / limit",
+    "Audit log viewer (Pro+) with filter by agent/event",
+    "Custom scopes management (Scale only)",
+    "Matches existing frontend style",
+    "LSP diagnostics clean"
+  ],
+  "deliverables": [
+    "frontend/src/pages/agent-auth/index.tsx",
+    "frontend/src/components/agent-auth/PricingCard.tsx",
+    "frontend/src/components/agent-auth/AgentManager.tsx",
+    "frontend/src/components/agent-auth/AuditLogViewer.tsx"
+  ]
+}

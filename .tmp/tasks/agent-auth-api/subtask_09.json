@@ -1,0 +1,29 @@
+{
+  "id": "agent-auth-api-09",
+  "seq": "09",
+  "title": "Scope enforcement middleware + custom scope registration",
+  "status": "pending",
+  "depends_on": ["01", "05", "06"],
+  "parallel": false,
+  "context_files": [
+    "docs/superpowers/specs/2026-04-14-agent-auth-api-design.md"
+  ],
+  "reference_files": [
+    "trading/api/identity/dependencies.py"
+  ],
+  "acceptance_criteria": [
+    "Extend existing require_scope() to check agent's scopes array (from identity.agents.scopes + custom_scopes)",
+    "Hobby tier: require_scope() returns immediately (no scope enforcement)",
+    "Pro/Scale tiers: require_scope() enforces",
+    "Scale only: POST /api/v1/auth/scopes registers custom scope for account",
+    "GET /api/v1/auth/scopes: lists custom scopes for account",
+    "DELETE /api/v1/auth/scopes/{name}: removes custom scope",
+    "Custom scopes stored in identity.agents.custom_scopes array",
+    "Scale-only: 403 'tier_limit_reached' if non-Scale tries to register custom scope",
+    "LSP diagnostics clean"
+  ],
+  "deliverables": [
+    "trading/api/identity/scopes.py",
+    "trading/api/routes/auth/scopes.py"
+  ]
+}

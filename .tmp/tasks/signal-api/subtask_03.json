@@ -1,0 +1,25 @@
+{
+  "id": "signal-api-03",
+  "seq": "03",
+  "title": "Stripe webhook handler for subscription events",
+  "status": "pending",
+  "depends_on": ["02"],
+  "parallel": false,
+  "context_files": [
+    "docs/superpowers/specs/2026-04-14-signal-api-design.md"
+  ],
+  "reference_files": [],
+  "acceptance_criteria": [
+    "POST /api/v1/signals/webhooks/stripe handles: checkout.session.completed, customer.subscription.updated, customer.subscription.deleted, invoice.payment_failed",
+    "checkout.session.completed: creates API key record, sends key via email",
+    "subscription.updated: updates tier in signals_api_keys",
+    "subscription.deleted: downgrades tier to 'free'",
+    "invoice.payment_failed: sends warning email",
+    "Webhook signature verification (Stripe-Signature header)",
+    "Idempotent handling (check event ID not already processed)",
+    "LSP diagnostics clean"
+  ],
+  "deliverables": [
+    "trading/api/routes/signals/stripe_webhooks.py"
+  ]
+}

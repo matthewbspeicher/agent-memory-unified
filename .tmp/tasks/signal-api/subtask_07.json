@@ -1,0 +1,26 @@
+{
+  "id": "signal-api-07",
+  "seq": "07",
+  "title": "Usage tracking endpoint + Redis counters",
+  "status": "pending",
+  "depends_on": ["01", "04"],
+  "parallel": true,
+  "context_files": [
+    "docs/superpowers/specs/2026-04-14-signal-api-design.md"
+  ],
+  "reference_files": [
+    "trading/llm/cost_ledger.py"
+  ],
+  "acceptance_criteria": [
+    "GET /api/v1/signals/usage: returns current billing period requests, limit, remaining, reset_at, tier",
+    "Usage stored in Redis with key pattern signals:usage:{key_id}:{period}",
+    "Redis counter incremented on every authenticated request (non-webhook)",
+    "Counter persisted to signals_api_usage table on period end",
+    "Usage synced to Postgres for billing accuracy",
+    "Rate limit headers on all responses: X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset",
+    "LSP diagnostics clean"
+  ],
+  "deliverables": [
+    "trading/api/routes/signals/usage.py"
+  ]
+}

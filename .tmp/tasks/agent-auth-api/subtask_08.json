@@ -1,0 +1,29 @@
+{
+  "id": "agent-auth-api-08",
+  "seq": "08",
+  "title": "Account rate limiting middleware",
+  "status": "pending",
+  "depends_on": ["01", "02"],
+  "parallel": true,
+  "context_files": [
+    "docs/superpowers/specs/2026-04-14-agent-auth-api-design.md"
+  ],
+  "reference_files": [
+    "trading/api/middleware/limiter.py"
+  ],
+  "acceptance_criteria": [
+    "New AuthRateLimitMiddleware in trading/api/middleware/",
+    "Looks up account via X-API-Key to determine tier",
+    "Enforces per-tier limits: Hobby=1000/day, Pro=50000/day, Scale=500000/day",
+    "Burst limits: Hobby=100/min, Pro=500/min, Scale=5000/min",
+    "Limits are account-wide (aggregate of all agents under account)",
+    "429 response with {code: 'rate_limited', retry_after: seconds}",
+    "X-RateLimit-* headers on all responses",
+    "Graceful degradation if Redis unavailable",
+    "Usage increment in auth_usage table on each request",
+    "LSP diagnostics clean"
+  ],
+  "deliverables": [
+    "trading/api/middleware/auth_limiter.py"
+  ]
+}

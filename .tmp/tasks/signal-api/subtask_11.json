@@ -1,0 +1,28 @@
+{
+  "id": "signal-api-11",
+  "seq": "11",
+  "title": "Unit tests for Signal API",
+  "status": "pending",
+  "depends_on": ["01", "02", "03", "04", "05", "06", "07", "08", "09"],
+  "parallel": false,
+  "context_files": [
+    "docs/superpowers/specs/2026-04-14-signal-api-design.md"
+  ],
+  "reference_files": [
+    "trading/tests/unit/"
+  ],
+  "acceptance_criteria": [
+    "Test file: trading/tests/unit/test_signals_api.py",
+    "Tests for key generation: unique, hashed storage, correct format",
+    "Tests for signals endpoint: Free tier delay/filtering, Pro tier full data, Enterprise reasoning",
+    "Tests for tier-based rate limiting: each tier enforced correctly",
+    "Tests for webhook HMAC signature generation",
+    "Tests for Stripe webhook handlers: checkout completed, subscription updated/deleted",
+    "Tests for usage tracking: Redis increment, limit enforcement",
+    "All tests use mocks (no live Stripe/Redis needed)",
+    "pytest passes: cd trading && python -m pytest tests/unit/test_signals_api.py -v --tb=short --timeout=30"
+  ],
+  "deliverables": [
+    "trading/tests/unit/test_signals_api.py"
+  ]
+}

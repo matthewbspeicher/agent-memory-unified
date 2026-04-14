@@ -1,0 +1,30 @@
+{
+  "id": "agent-auth-api-11",
+  "seq": "11",
+  "title": "Unit tests for Agent Auth API",
+  "status": "pending",
+  "depends_on": ["01", "02", "03", "04", "05", "06", "07", "08", "09"],
+  "parallel": false,
+  "context_files": [
+    "docs/superpowers/specs/2026-04-14-agent-auth-api-design.md"
+  ],
+  "reference_files": [
+    "trading/tests/unit/"
+  ],
+  "acceptance_criteria": [
+    "Test file: trading/tests/unit/test_auth_api.py",
+    "Tests for account creation: email uniqueness, default tier='hobby'",
+    "Tests for agent creation: quota enforcement per tier, token shown once",
+    "Tests for token generation: format 'amu_{name}.*', hash storage, multiple tokens",
+    "Tests for token verification: valid/invalid/revoked, last_used_at update",
+    "Tests for require_scope(): Hobby=passthrough, Pro+ enforces",
+    "Tests for rate limiting: per-tier limits enforced, 429 response",
+    "Tests for custom scopes: Scale-only registration, Pro/Hobby 403",
+    "Tests for Stripe webhook handlers",
+    "All tests use mocks (no live Stripe/Redis/DB needed)",
+    "pytest passes: cd trading && python -m pytest tests/unit/test_auth_api.py -v --tb=short --timeout=30"
+  ],
+  "deliverables": [
+    "trading/tests/unit/test_auth_api.py"
+  ]
+}

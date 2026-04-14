@@ -1,0 +1,26 @@
+{
+  "id": "signal-api-01",
+  "seq": "01",
+  "title": "Database schema: signals_api_keys + signals_api_usage tables",
+  "status": "pending",
+  "depends_on": [],
+  "parallel": false,
+  "context_files": [
+    "docs/superpowers/specs/2026-04-14-signal-api-design.md",
+    "scripts/init-trading-tables.sql"
+  ],
+  "reference_files": [
+    "trading/api/identity/store.py"
+  ],
+  "acceptance_criteria": [
+    "signals_api_keys table created with all spec columns: id, account_id, name, key_hash, tier, stripe_customer_id, stripe_subscription_id, webhook_url, webhook_secret_hash, created_at, last_used_at, revoked_at",
+    "signals_api_usage table created: key_id, period_start, request_count with composite PK",
+    "SQL migration added to scripts/init-trading-tables.sql",
+    "Python SQLAlchemy model created in trading/models/signals.py matching table schema",
+    "LSP diagnostics clean"
+  ],
+  "deliverables": [
+    "scripts/init-trading-tables.sql (migration SQL)",
+    "trading/models/signals.py (SQLAlchemy models)"
+  ]
+}

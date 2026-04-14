@@ -1,0 +1,28 @@
+{
+  "id": "agent-auth-api-05",
+  "seq": "05",
+  "title": "Token generation (amu_xxx.yyy format)",
+  "status": "pending",
+  "depends_on": ["01", "04"],
+  "parallel": false,
+  "context_files": [
+    "docs/superpowers/specs/2026-04-14-agent-auth-api-design.md"
+  ],
+  "reference_files": [
+    "trading/api/identity/tokens.py"
+  ],
+  "acceptance_criteria": [
+    "POST /api/v1/auth/agents/{name}/tokens: generates new token for existing agent",
+    "Token format: amu_{agent_name}.{base64_url_safe_signature}",
+    "Token stored as SHA-256 hash in auth_tokens (original never stored)",
+    "GET /api/v1/auth/agents/{name}/tokens: lists tokens (no secrets, metadata only: token_id, created_at, last_used_at, status)",
+    "DELETE /api/v1/auth/tokens/{token_id}: revokes token, sets revoked_at",
+    "Multiple tokens per agent allowed (previous tokens stay valid)",
+    "Token validity checked via revoked_at",
+    "LSP diagnostics clean"
+  ],
+  "deliverables": [
+    "trading/api/routes/auth/tokens.py",
+    "trading/api/auth/token_generator.py"
+  ]
+}

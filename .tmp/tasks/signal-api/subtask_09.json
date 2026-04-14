@@ -1,0 +1,29 @@
+{
+  "id": "signal-api-09",
+  "seq": "09",
+  "title": "Webhook registration + HMAC delivery",
+  "status": "pending",
+  "depends_on": ["01", "04"],
+  "parallel": false,
+  "context_files": [
+    "docs/superpowers/specs/2026-04-14-signal-api-design.md"
+  ],
+  "reference_files": [
+    "trading/api/routes/opportunities.py"
+  ],
+  "acceptance_criteria": [
+    "POST /api/v1/signals/webhooks: registers webhook URL + events + secret for key",
+    "Stores webhook_url and webhook_secret_hash in signals_api_keys",
+    "Events supported: signal.new, signal.expired",
+    "Webhook delivery: POST to registered URL with X-Signal-Signature HMAC header",
+    "HMAC: HMAC-SHA256(webhook_secret, request_body)",
+    "Retry logic: 3 attempts with exponential backoff (1s, 5s, 30s)",
+    "Webhook payload matches spec exactly",
+    "Only Enterprise tier can register webhooks (403 for others)",
+    "LSP diagnostics clean"
+  ],
+  "deliverables": [
+    "trading/api/routes/signals/webhooks.py",
+    "trading/services/webhook_delivery.py"
+  ]
+}

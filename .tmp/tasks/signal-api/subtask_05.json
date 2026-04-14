@@ -1,0 +1,30 @@
+{
+  "id": "signal-api-05",
+  "seq": "05",
+  "title": "Signals endpoint with tier-based filtering",
+  "status": "pending",
+  "depends_on": ["01", "04"],
+  "parallel": true,
+  "context_files": [
+    "docs/superpowers/specs/2026-04-14-signal-api-design.md"
+  ],
+  "reference_files": [
+    "trading/data/signal_bus.py",
+    "trading/api/routes/bittensor.py"
+  ],
+  "acceptance_criteria": [
+    "GET /api/v1/signals: queries SignalBus, returns list with all spec fields",
+    "Query params: symbol, signal_type, agent, min_confidence, since, until, limit",
+    "Free tier: filters to BTC/USD only, adds 1hr delay to timestamp",
+    "Free tier: strips confidence, reasoning, source_agent fields",
+    "Pro tier: real-time, all symbols, confidence + source_agent shown",
+    "Enterprise tier: same as Pro + reasoning field included",
+    "Rate limit check before returning data",
+    "Usage increment in Redis on each request",
+    "Pagination: has_more, total count",
+    "LSP diagnostics clean"
+  ],
+  "deliverables": [
+    "trading/api/routes/signals/signals.py"
+  ]
+}

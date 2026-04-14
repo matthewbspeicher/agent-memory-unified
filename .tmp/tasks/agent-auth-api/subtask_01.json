@@ -1,0 +1,28 @@
+{
+  "id": "agent-auth-api-01",
+  "seq": "01",
+  "title": "Database schema: auth_accounts, auth_tokens, auth_usage + extend agents table",
+  "status": "pending",
+  "depends_on": [],
+  "parallel": false,
+  "context_files": [
+    "docs/superpowers/specs/2026-04-14-agent-auth-api-design.md"
+  ],
+  "reference_files": [
+    "trading/api/identity/store.py",
+    "scripts/init-trading-tables.sql"
+  ],
+  "acceptance_criteria": [
+    "auth_accounts table: account_id, email (UNIQUE), name, tier, stripe_customer_id, stripe_subscription_id, agents_count, created_at, updated_at",
+    "auth_tokens table: token_id, agent_id (FK to identity.agents), token_hash (UNIQUE), created_at, last_used_at, revoked_at",
+    "auth_usage table: account_id, period_start, request_count with composite PK",
+    "Extend identity.agents: add account_id, stripe_customer_id, webhook_url, webhook_secret_hash, custom_scopes TEXT[]",
+    "SQL migration in scripts/init-trading-tables.sql",
+    "SQLAlchemy models in trading/models/auth.py",
+    "LSP diagnostics clean"
+  ],
+  "deliverables": [
+    "scripts/init-trading-tables.sql (migration SQL)",
+    "trading/models/auth.py (SQLAlchemy models)"
+  ]
+}

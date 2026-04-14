@@ -1,0 +1,26 @@
+{
+  "id": "signal-api-06",
+  "seq": "06",
+  "title": "Opportunities endpoint",
+  "status": "pending",
+  "depends_on": ["01", "04"],
+  "parallel": true,
+  "context_files": [
+    "docs/superpowers/specs/2026-04-14-signal-api-design.md"
+  ],
+  "reference_files": [
+    "trading/api/routes/opportunities.py"
+  ],
+  "acceptance_criteria": [
+    "GET /api/v1/opportunities: returns approved signals from existing opportunities pipeline",
+    "Query params: symbol, agent, status, since, until, limit",
+    "Free tier: returns empty or minimal data (upsell signal)",
+    "Pro/Enterprise: full data with reasoning",
+    "Response format matches spec exactly (id, agent_name, symbol, signal, confidence, reasoning, suggested_trade, status, created_at, expires_at)",
+    "Rate limit check before returning data",
+    "LSP diagnostics clean"
+  ],
+  "deliverables": [
+    "trading/api/routes/signals/opportunities.py"
+  ]
+}

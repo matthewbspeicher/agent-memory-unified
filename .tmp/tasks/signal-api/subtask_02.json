@@ -1,0 +1,23 @@
+{
+  "id": "signal-api-02",
+  "seq": "02",
+  "title": "Stripe products, prices, and checkout session endpoint",
+  "status": "pending",
+  "depends_on": ["01"],
+  "parallel": false,
+  "context_files": [
+    "docs/superpowers/specs/2026-04-14-signal-api-design.md"
+  ],
+  "reference_files": [],
+  "acceptance_criteria": [
+    "Stripe Price IDs defined as constants: price_signal_api_pro, price_signal_api_enterprise",
+    "POST /api/v1/signals/checkout creates Stripe Checkout Session with correct price",
+    "Session includes success_url and cancel_url",
+    "Stripe customer ID stored in signals_api_keys on session creation",
+    "Error handling for Stripe API failures",
+    "LSP diagnostics clean"
+  ],
+  "deliverables": [
+    "trading/api/routes/signals/checkout.py (Stripe checkout endpoint)"
+  ]
+}

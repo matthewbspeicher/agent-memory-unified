@@ -1,0 +1,27 @@
+{
+  "id": "agent-auth-api-03",
+  "seq": "03",
+  "title": "Stripe checkout + webhook for Agent Auth API",
+  "status": "pending",
+  "depends_on": ["02"],
+  "parallel": false,
+  "context_files": [
+    "docs/superpowers/specs/2026-04-14-agent-auth-api-design.md"
+  ],
+  "reference_files": [],
+  "acceptance_criteria": [
+    "POST /api/v1/auth/checkout: creates Stripe Checkout Session for Pro ($29) or Scale ($99)",
+    "POST /api/v1/auth/webhooks/stripe: handles checkout.session.completed, subscription.updated, subscription.deleted, invoice.payment_failed",
+    "checkout.session.completed: creates account (if not exists), sets tier, sends account API key via email",
+    "subscription.updated: updates tier in auth_accounts",
+    "subscription.deleted: downgrades to 'hobby'",
+    "invoice.payment_failed: sends warning email",
+    "Webhook signature verification (Stripe-Signature header)",
+    "Idempotent event processing (by event ID)",
+    "LSP diagnostics clean"
+  ],
+  "deliverables": [
+    "trading/api/routes/auth/checkout.py",
+    "trading/api/routes/auth/stripe_webhooks.py"
+  ]
+}

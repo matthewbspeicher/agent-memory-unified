@@ -1,0 +1,31 @@
+{
+  "id": "signal-api-10",
+  "seq": "10",
+  "title": "Landing page + Signal API dashboard",
+  "status": "pending",
+  "depends_on": ["02", "04"],
+  "parallel": false,
+  "context_files": [
+    "docs/superpowers/specs/2026-04-14-signal-api-design.md"
+  ],
+  "reference_files": [
+    "frontend/src/pages/bittensor/index.tsx"
+  ],
+  "acceptance_criteria": [
+    "New page at /signal-api with tier comparison table (Free/Pro $49/Enterprise $199)",
+    "Each tier card has CTA button linking to Stripe Checkout",
+    "API key management section: list keys, delete keys, view usage",
+    "Usage bar showing requests used / limit",
+    "Webhook configuration section for Enterprise users",
+    "Links to API documentation",
+    "Matches existing frontend style (Tailwind, design patterns from bittensor page)",
+    "Responsive design",
+    "LSP diagnostics clean"
+  ],
+  "deliverables": [
+    "frontend/src/pages/signal-api/index.tsx",
+    "frontend/src/components/signal-api/PricingCard.tsx",
+    "frontend/src/components/signal-api/ApiKeyManager.tsx",
+    "frontend/src/components/signal-api/UsageDashboard.tsx"
+  ]
+}

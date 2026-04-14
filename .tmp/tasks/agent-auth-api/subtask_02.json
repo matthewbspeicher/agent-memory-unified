@@ -1,0 +1,25 @@
+{
+  "id": "agent-auth-api-02",
+  "seq": "02",
+  "title": "Account CRUD endpoints",
+  "status": "pending",
+  "depends_on": ["01"],
+  "parallel": false,
+  "context_files": [
+    "docs/superpowers/specs/2026-04-14-agent-auth-api-design.md"
+  ],
+  "reference_files": [
+    "trading/api/identity/store.py"
+  ],
+  "acceptance_criteria": [
+    "POST /api/v1/auth/accounts: creates account with email+name, tier='hobby', returns account_id",
+    "GET /api/v1/auth/accounts/me: returns account details including agents_count, agents_limit (by tier), usage_today, usage_limit_today",
+    "PATCH /api/v1/auth/accounts/me: update email/name",
+    "Account identified via X-API-Key header (account-level key, not agent token)",
+    "Email uniqueness validation",
+    "LSP diagnostics clean"
+  ],
+  "deliverables": [
+    "trading/api/routes/auth/accounts.py"
+  ]
+}

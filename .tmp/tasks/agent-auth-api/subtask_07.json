@@ -1,0 +1,26 @@
+{
+  "id": "agent-auth-api-07",
+  "seq": "07",
+  "title": "Audit log query endpoint",
+  "status": "pending",
+  "depends_on": ["01", "06"],
+  "parallel": true,
+  "context_files": [
+    "docs/superpowers/specs/2026-04-14-agent-auth-api-design.md"
+  ],
+  "reference_files": [
+    "trading/api/identity/store.py"
+  ],
+  "acceptance_criteria": [
+    "GET /api/v1/auth/audit: returns audit events for account",
+    "Query params: agent (filter by agent name), event (event type), since, until, limit",
+    "Pro tier: 30-day retention (events older than 30 days not returned)",
+    "Scale tier: unlimited retention",
+    "Hobby tier: 403 with code 'tier_limit_reached' (no audit access)",
+    "Response format matches spec exactly: id, agent_name, event, actor, details (ip, user_agent, endpoint), timestamp",
+    "LSP diagnostics clean"
+  ],
+  "deliverables": [
+    "trading/api/routes/auth/audit.py"
+  ]
+}

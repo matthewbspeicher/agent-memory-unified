@@ -1,0 +1,27 @@
+{
+  "id": "signal-api-08",
+  "seq": "08",
+  "title": "Tier-based rate limiting middleware",
+  "status": "pending",
+  "depends_on": ["01", "04"],
+  "parallel": true,
+  "context_files": [
+    "docs/superpowers/specs/2026-04-14-signal-api-design.md"
+  ],
+  "reference_files": [
+    "trading/api/middleware/limiter.py"
+  ],
+  "acceptance_criteria": [
+    "New SignalsRateLimitMiddleware in trading/api/middleware/",
+    "Looks up key in signals_api_keys to determine tier",
+    "Enforces per-tier limits: Free=100/day, Pro=10000/day, Enterprise=100000/day",
+    "Enforces burst: Free=10/min, Pro=500/min, Enterprise=5000/min",
+    "429 response with JSON body when limit exceeded: {code: 'rate_limited', message: '...', retry_after: seconds}",
+    "X-RateLimit-* headers on all responses",
+    "Graceful handling when Redis unavailable (allow request, log warning)",
+    "LSP diagnostics clean"
+  ],
+  "deliverables": [
+    "trading/api/middleware/signals_limiter.py"
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "id": "agent-auth-api-04",
+  "seq": "04",
+  "title": "Agent CRUD endpoints with quota enforcement",
+  "status": "pending",
+  "depends_on": ["01"],
+  "parallel": false,
+  "context_files": [
+    "docs/superpowers/specs/2026-04-14-agent-auth-api-design.md"
+  ],
+  "reference_files": [
+    "trading/api/identity/store.py"
+  ],
+  "acceptance_criteria": [
+    "POST /api/v1/auth/agents: creates agent, returns token shown ONCE",
+    "GET /api/v1/auth/agents: lists all agents with status, last_seen_at, requests_today",
+    "GET /api/v1/auth/agents/{name}: single agent detail",
+    "PATCH /api/v1/auth/agents/{name}: update scopes or metadata",
+    "DELETE /api/v1/auth/agents/{name}: revokes agent, invalidates all tokens",
+    "Quota enforcement: Hobby=5 agents, Pro=50, Scale=unlimited. 403 with code 'tier_limit_reached' when exceeded",
+    "agents_count incremented on create, decremented on delete (atomic)",
+    "Auth via account-level X-API-Key",
+    "LSP diagnostics clean"
+  ],
+  "deliverables": [
+    "trading/api/routes/auth/agents.py"
+  ]
+}

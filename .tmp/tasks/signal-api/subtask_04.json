@@ -1,0 +1,25 @@
+{
+  "id": "signal-api-04",
+  "seq": "04",
+  "title": "API key CRUD endpoints",
+  "status": "pending",
+  "depends_on": ["01"],
+  "parallel": true,
+  "context_files": [
+    "docs/superpowers/specs/2026-04-14-signal-api-design.md"
+  ],
+  "reference_files": [
+    "trading/api/identity/store.py"
+  ],
+  "acceptance_criteria": [
+    "POST /api/v1/signals/keys: generates key_ prefixed ID, SHA-256 hashes key, stores with tier, returns plaintext key only at creation",
+    "GET /api/v1/signals/keys: lists all keys for account (no secrets), includes last_used_at",
+    "DELETE /api/v1/signals/keys/{id}: sets revoked_at, key no longer valid",
+    "Key format: amu_sig_sk_live_xxxxxyyyyzzzz (24+ chars)",
+    "Auth via X-API-Key header",
+    "LSP diagnostics clean"
+  ],
+  "deliverables": [
+    "trading/api/routes/signals/keys.py"
+  ]
+}
