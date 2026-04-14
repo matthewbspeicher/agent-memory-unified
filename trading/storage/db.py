@@ -950,6 +950,35 @@ async def init_db_postgres(db) -> None:
     except Exception as e:
         logger.warning("Agent achievements DDL init (non-fatal): %s", e)
 
+    # Bittensor weight-set audit log — one row per WeightSetter submission.
+    # Explicit Postgres CREATE here because the SQLite `_INIT_DDL` block
+    # declares `INTEGER PRIMARY KEY AUTOINCREMENT` which asyncpg does not
+    # understand, causing executescript to abort before reaching this table.
+    # Without this, the /engine/v1/bittensor/weight-set-log endpoint returns
+    # UndefinedTableError live and WeightSetter._log_attempt silently drops
+    # every audit row. Matches init-trading-tables.sql:839.
+    try:
+        await db.execute("""
+        CREATE TABLE IF NOT EXISTS bittensor_weight_set_log (
+            id BIGSERIAL PRIMARY KEY,
+            attempted_at TEXT NOT NULL,
+            status TEXT NOT NULL,
+            skip_reason TEXT,
+            uid_count INTEGER NOT NULL DEFAULT 0,
+            weights_payload TEXT,
+            block BIGINT,
+            error_detail TEXT
+        );
+        """)
+        await db.execute(
+            "CREATE INDEX IF NOT EXISTS idx_bt_wsl_time ON bittensor_weight_set_log(attempted_at);"
+        )
+        await db.execute(
+            "CREATE INDEX IF NOT EXISTS idx_bt_wsl_status ON bittensor_weight_set_log(status, attempted_at);"
+        )
+    except Exception as e:
+        logger.warning("bittensor_weight_set_log DDL init (non-fatal): %s", e)
+
     # Column migrations — safe to retry (postgres raises "already exists")
     _migrations = [
         ("tracked_positions", "expires_at", "TEXT"),
