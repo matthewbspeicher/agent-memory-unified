@@ -6,6 +6,7 @@ Provides resilience for external risk data sources (pricing APIs, VaR calculator
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -113,7 +114,7 @@ class RiskProviderCircuitBreaker:
         try:
             result = (
                 await func(*args, **kwargs)
-                if asyncio.iscoroutinefunction(func)
+                if inspect.iscoroutinefunction(func)
                 else func(*args, **kwargs)
             )
             await self._record_success()

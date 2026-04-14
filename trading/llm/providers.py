@@ -120,15 +120,15 @@ class AnthropicProvider(BaseProvider):
             import time
 
             start = time.monotonic()
-            client = anthropic.AsyncAnthropic(api_key=self.api_key)
-            anthropic_messages = _anthropic_messages(
-                [{"role": "user", "content": prompt}]
-            )
-            msg = await client.messages.create(
-                model=self.model,
-                max_tokens=max_tokens,
-                messages=anthropic_messages,
-            )
+            async with anthropic.AsyncAnthropic(api_key=self.api_key) as client:
+                anthropic_messages = _anthropic_messages(
+                    [{"role": "user", "content": prompt}]
+                )
+                msg = await client.messages.create(
+                    model=self.model,
+                    max_tokens=max_tokens,
+                    messages=anthropic_messages,
+                )
             latency = (time.monotonic() - start) * 1000
             return LLMResult(
                 text=_anthropic_message_text(msg),
@@ -151,14 +151,14 @@ class AnthropicProvider(BaseProvider):
             import time
 
             start = time.monotonic()
-            client = anthropic.AsyncAnthropic(api_key=self.api_key)
-            anthropic_messages = _anthropic_messages(messages)
-            msg = await client.messages.create(
-                model=self.model,
-                max_tokens=max_tokens,
-                system=system,
-                messages=anthropic_messages,
-            )
+            async with anthropic.AsyncAnthropic(api_key=self.api_key) as client:
+                anthropic_messages = _anthropic_messages(messages)
+                msg = await client.messages.create(
+                    model=self.model,
+                    max_tokens=max_tokens,
+                    system=system,
+                    messages=anthropic_messages,
+                )
             latency = (time.monotonic() - start) * 1000
             return LLMResult(
                 text=_anthropic_message_text(msg),
@@ -305,16 +305,18 @@ class GroqProvider(BaseProvider):
             import time
 
             start = time.monotonic()
-            client = openai.AsyncOpenAI(
+            async with openai.AsyncOpenAI(
                 base_url="https://api.groq.com/openai/v1",
                 api_key=self.api_key,
-            )
-            full_messages = _openai_messages("", [{"role": "user", "content": prompt}])
-            resp = await client.chat.completions.create(
-                model=self.model,
-                max_tokens=max_tokens,
-                messages=full_messages,
-            )
+            ) as client:
+                full_messages = _openai_messages(
+                    "", [{"role": "user", "content": prompt}]
+                )
+                resp = await client.chat.completions.create(
+                    model=self.model,
+                    max_tokens=max_tokens,
+                    messages=full_messages,
+                )
             latency = (time.monotonic() - start) * 1000
             usage = getattr(resp, "usage", None)
             return LLMResult(
@@ -340,16 +342,16 @@ class GroqProvider(BaseProvider):
             import time
 
             start = time.monotonic()
-            client = openai.AsyncOpenAI(
+            async with openai.AsyncOpenAI(
                 base_url="https://api.groq.com/openai/v1",
                 api_key=self.api_key,
-            )
-            full_messages = _openai_messages(system, messages)
-            resp = await client.chat.completions.create(
-                model=self.model,
-                max_tokens=max_tokens,
-                messages=full_messages,
-            )
+            ) as client:
+                full_messages = _openai_messages(system, messages)
+                resp = await client.chat.completions.create(
+                    model=self.model,
+                    max_tokens=max_tokens,
+                    messages=full_messages,
+                )
             latency = (time.monotonic() - start) * 1000
             usage = getattr(resp, "usage", None)
             return LLMResult(
@@ -383,17 +385,19 @@ class OllamaProvider(BaseProvider):
             import time
 
             start = time.monotonic()
-            client = openai.AsyncOpenAI(
+            async with openai.AsyncOpenAI(
                 base_url=f"{self.base_url}/v1",
                 api_key="ollama",
                 timeout=30.0,
-            )
-            full_messages = _openai_messages("", [{"role": "user", "content": prompt}])
-            resp = await client.chat.completions.create(
-                model=self.model,
-                max_tokens=max_tokens,
-                messages=full_messages,
-            )
+            ) as client:
+                full_messages = _openai_messages(
+                    "", [{"role": "user", "content": prompt}]
+                )
+                resp = await client.chat.completions.create(
+                    model=self.model,
+                    max_tokens=max_tokens,
+                    messages=full_messages,
+                )
             latency = (time.monotonic() - start) * 1000
             usage = getattr(resp, "usage", None)
             return LLMResult(
@@ -419,16 +423,16 @@ class OllamaProvider(BaseProvider):
             import time
 
             start = time.monotonic()
-            client = openai.AsyncOpenAI(
+            async with openai.AsyncOpenAI(
                 base_url=f"{self.base_url}/v1",
                 api_key="ollama",
-            )
-            full_messages = _openai_messages(system, messages)
-            resp = await client.chat.completions.create(
-                model=self.model,
-                max_tokens=max_tokens,
-                messages=full_messages,
-            )
+            ) as client:
+                full_messages = _openai_messages(system, messages)
+                resp = await client.chat.completions.create(
+                    model=self.model,
+                    max_tokens=max_tokens,
+                    messages=full_messages,
+                )
             latency = (time.monotonic() - start) * 1000
             usage = getattr(resp, "usage", None)
             return LLMResult(
@@ -449,12 +453,12 @@ class OllamaProvider(BaseProvider):
         try:
             import openai
 
-            client = openai.AsyncOpenAI(
+            async with openai.AsyncOpenAI(
                 base_url=f"{self.base_url}/v1", api_key="ollama"
-            )
-            resp = await client.embeddings.create(
-                input=[text], model="nomic-embed-text"
-            )
+            ) as client:
+                resp = await client.embeddings.create(
+                    input=[text], model="nomic-embed-text"
+                )
             return resp.data[0].embedding
         except Exception as e:
             logger.warning(f"Embedding failed with ollama: {e}")

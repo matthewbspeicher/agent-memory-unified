@@ -915,6 +915,10 @@ async def init_db_postgres(db) -> None:
         ("performance_snapshots", "max_consecutive_losses", "INTEGER DEFAULT 0"),
         ("performance_snapshots", "consecutive_wins", "INTEGER DEFAULT 0"),
         ("performance_snapshots", "max_consecutive_wins", "INTEGER DEFAULT 0"),
+        # Postgres init-trading-tables.sql doesn't declare `timestamp`, but the
+        # code queries it (storage/performance.py). Without this ALTER, the
+        # TournamentEngine.evaluate_all loop 500s every cron tick in prod.
+        ("performance_snapshots", "timestamp", "TIMESTAMP DEFAULT NOW()"),
         ("bittensor_derived_views", "evaluation_status", "TEXT DEFAULT 'pending'"),
         ("elo_rating_history", "timestamp", "TEXT DEFAULT NOW()"),
         ("tournament_audit_log", "timestamp", "TEXT DEFAULT NOW()"),

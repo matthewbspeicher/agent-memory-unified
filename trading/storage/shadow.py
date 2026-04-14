@@ -126,11 +126,11 @@ class ShadowExecutionStore:
     async def list_due_for_resolution(
         self, now: str | datetime, limit: int
     ) -> List[dict[str, Any]]:
-        # Normalize to ISO-8601 string matching the stored format (T separator, +00:00 tz)
-        if isinstance(now, datetime):
-            if now.tzinfo is None:
-                now = now.replace(tzinfo=timezone.utc)
-            now = now.isoformat()
+        # Production (Postgres) declares resolve_after as TIMESTAMP — asyncpg
+        # rejects string parameters for datetime columns. The SQLite test DDL
+        # uses TEXT, which accepts both. Pass datetime for Postgres, ISO string
+        # for aiosqlite so both backends work without driver-level adapters.
+        cutoff = self._coerce_datetime_param(now)
         cursor = await self._db.execute(
             """
             SELECT *
@@ -140,10 +140,34 @@ class ShadowExecutionStore:
             ORDER BY resolve_after ASC
             LIMIT ?
             """,
-            (now, limit),
+            (cutoff, limit),
         )
         rows = await cursor.fetchall()
         return [self._decode_row(row) for row in rows]
+
+    def _coerce_datetime_param(self, value: str | datetime) -> str | datetime:
+        """Return the right parameter shape for the current db driver.
+
+        PostgresDB (asyncpg) needs a timezone-aware datetime for TIMESTAMP columns.
+        aiosqlite needs an ISO string for TEXT columns.
+        """
+        if isinstance(value, str):
+            # Incoming string — convert to datetime when the driver is asyncpg
+            if self._is_postgres():
+                try:
+                    dt = datetime.fromisoformat(value)
+                except ValueError:
+                    return value
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                return dt
+            return value
+        # datetime input — normalize to UTC-aware
+        dt = value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
+        return dt if self._is_postgres() else dt.isoformat()
+
+    def _is_postgres(self) -> bool:
+        return hasattr(self._db, "_pool")
 
     async def mark_resolved(
         self,

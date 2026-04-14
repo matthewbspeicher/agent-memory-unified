@@ -3,7 +3,7 @@ import logging
 import time
 import uuid
 import functools
-import asyncio
+import inspect
 from datetime import datetime, timezone
 from typing import Any, Callable, TypeVar, cast
 from fastapi import Request
@@ -120,7 +120,7 @@ def audit_event(action_name: str):
             result = None
 
             try:
-                if asyncio.iscoroutinefunction(func):
+                if inspect.iscoroutinefunction(func):
                     result = await func(*args, **kwargs)
                 else:
                     result = func(*args, **kwargs)

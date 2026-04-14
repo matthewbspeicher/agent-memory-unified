@@ -2099,12 +2099,19 @@ def create_app(
         from slowapi import _rate_limit_exceeded_handler
         from slowapi.errors import RateLimitExceeded
         from slowapi.middleware import SlowAPIMiddleware
-        from api.middleware.limiter import get_limiter, anon_read_only_guard
+        from api.middleware.limiter import (
+            RateLimitIdentityMiddleware,
+            anon_read_only_guard,
+            get_limiter,
+        )
 
         limiter = get_limiter(getattr(config or load_config(), "redis_url", None))
         app.state.limiter = limiter
         app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+        # Identity resolution MUST run before SlowAPIMiddleware so the sync
+        # key_func finds request.state.rate_limit_identity populated.
         app.add_middleware(SlowAPIMiddleware)
+        app.add_middleware(RateLimitIdentityMiddleware)
         # Apply anonymous read-only guard globally
         app.router.dependencies.append(Depends(anon_read_only_guard))
         _log.info("Rate limiting enabled")

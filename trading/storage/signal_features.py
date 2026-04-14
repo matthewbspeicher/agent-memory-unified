@@ -31,7 +31,8 @@ class SignalFeatureStore:
         ordered_fields = {"opportunity_id": opportunity_id}
         ordered_fields.update(fields)
         
-        now_naive = datetime.utcnow()
+        # Postgres TIMESTAMP columns expect naive datetime; compute from UTC-aware now
+        now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
         ordered_fields["updated_at"] = now_naive
         if "created_at" not in ordered_fields:
             ordered_fields["created_at"] = now_naive

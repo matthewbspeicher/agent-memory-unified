@@ -8,6 +8,9 @@ from broker.models import Position, Symbol, AssetType, AccountBalance
 @pytest.fixture
 def deps():
     client = AsyncMock()
+    # record_inbound is sync in real WhatsAppClient — use MagicMock so the
+    # returned coroutine isn't dropped unawaited (produces RuntimeWarning).
+    client.record_inbound = MagicMock()
     broker = MagicMock()
     broker.account.get_positions = AsyncMock(
         return_value=[

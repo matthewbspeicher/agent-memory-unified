@@ -204,5 +204,17 @@ class ExchangeClient:
         return {"bids": book.get("bids", [])[:20], "asks": book.get("asks", [])[:20]}
 
     async def close(self) -> None:
-        for exchange in self._exchanges.values():
-            await exchange.close()
+        """Close every underlying ccxt exchange.
+
+        ccxt's async exchanges own an aiohttp.ClientSession that leaks as an
+        "Unclosed client session" / "Unclosed connector" ResourceWarning if
+        not explicitly closed. Each close is wrapped so a failure on one
+        exchange does not prevent the others from cleaning up.
+        """
+        for eid, exchange in self._exchanges.items():
+            try:
+                await exchange.close()
+            except Exception as exc:
+                logger.warning(
+                    "ExchangeClient: close() failed for %s: %s", eid, exc
+                )

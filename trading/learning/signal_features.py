@@ -75,7 +75,7 @@ class SignalFeatureCapture:
                     broker_id=opportunity.broker_id,
                     confidence=float(opportunity.confidence),
                     opportunity_timestamp=opp_ts,
-                    captured_at=datetime.utcnow(),
+                    captured_at=datetime.now(timezone.utc).replace(tzinfo=None),
                     feature_version=FEATURE_VERSION,
                     feature_payload="{}",
                     capture_status="failed",

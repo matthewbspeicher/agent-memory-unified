@@ -22,6 +22,9 @@ async def test_agent_records_thought():
     mock_agent.config.broker = "mock_broker"
     mock_agent.config.scan_timeout = None
     mock_agent.action_level = "notify"
+    # reset_llm_call_count is sync in real Agent — override AsyncMock default so
+    # the coroutine isn't dropped unawaited (produces RuntimeWarning).
+    mock_agent.reset_llm_call_count = Mock()
 
     # Mock opp — symbol needs a .ticker attribute (runner accesses opp.symbol.ticker)
     mock_opp = Mock(spec=Opportunity)
