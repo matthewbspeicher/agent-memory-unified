@@ -2278,6 +2278,10 @@ def create_app(
 
     app.include_router(arbitrage.router)
 
+    from api.routes import tax as tax_route
+
+    app.include_router(tax_route.router)
+
     from api.startup.error_handlers import register_error_handlers
 
     register_error_handlers(app)
