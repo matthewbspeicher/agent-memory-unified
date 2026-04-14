@@ -293,13 +293,146 @@ After applying S2 (users-table prereq), the real unified critical path is:
 
 Then: `signal-api-12` (compliance gate) + `phase-0-gtm` (waitlist, pricing validation, compliance memo, competitor scan) gate the actual revenue launch.
 
-### Recommended next steps for the subtask inventory
+### Reconciled Subtask Breakdown (authoritative)
 
-1. **Rebase both `task.json` files on the unified spec** — replace context_files references.
-2. **Insert shared prereq subtask 00** — `users` table + `platform_tier` enum + `identity.agents.user_id` FK.
-3. **Collapse billing into one shared tree** — `.tmp/tasks/billing-shared/` with Stripe checkout + webhook handlers + `stripe_events` idempotency table. Point Signal API 02/03 and Agent Auth API 03 at it.
-4. **Create `.tmp/tasks/phase-0-gtm/`** covering items 0.1-0.5 from this roadmap. Gate paid Phase 2 subtasks on it.
-5. **Add `estimated_effort_hours`** field to each subtask so schedule is defensible.
-6. **Add compliance-gate subtask** (signal-api-12) — blocking on external legal memo before merge.
+The existing `.tmp/tasks/signal-api/` and `.tmp/tasks/agent-auth-api/` trees are kept for reference but need rebaselining. The breakdown below **supersedes those trees** — when regenerating JSON subtasks for `coder-agent`, use this as the source. Every subtask has: dependencies, parallel flag, effort hint, and acceptance criteria drawn from the unified spec.
 
-Until items 1-4 are applied, executing the 22 subtasks as-written would build two parallel silos that conflict with the unified monetization architecture documented in the superseding spec.
+#### Track A: Platform Foundation (shared prereq — blocks all paid work)
+
+| Seq | Title | Depends on | Parallel | Effort |
+|-----|-------|------------|----------|--------|
+| A.01 | `users` table + `platform_tier` enum + `identity.agents.user_id` FK + agent webhook/custom_scopes extensions | — | No | 4-8h |
+| A.02 | `stripe_events` idempotency table + `is_duplicate(event_id)` helper | A.01 | No | 2-4h |
+
+**A.01 acceptance criteria:**
+- `platform_tier` enum: `explorer`, `trader`, `enterprise`, `whale` (unified spec §6)
+- `users`: `id UUID PK`, `email UNIQUE`, `hashed_password`, `tier platform_tier DEFAULT 'explorer'`, `stripe_customer_id UNIQUE`, `stripe_subscription_id`, `agents_count INT DEFAULT 0`, `created_at`, `updated_at`
+- `identity.agents`: ADD `user_id UUID REFERENCES users(id)`, `webhook_url`, `webhook_secret_hash`, `custom_scopes TEXT[] DEFAULT '{}'`
+- All three schema sources updated: `scripts/init-trading-tables.sql`, `trading/storage/memory.py` `_INIT_DDL`, `trading/storage/memory.py` `_migrations` (per `reference_schema_three_sources` memory)
+- Parity test: `trading/tests/unit/test_users_schema_parity.py`
+- SQLAlchemy model: `trading/models/user.py`
+
+**A.02 acceptance criteria:**
+- `stripe_events`: `event_id TEXT PK`, `event_type`, `received_at`, `processed BOOL DEFAULT FALSE`, `processed_at`, `payload_hash`
+- Index on `(processed, received_at)` for dead-letter sweeps
+- Helper: `trading/api/routes/billing/idempotency.py:is_duplicate(event_id) -> bool`
+
+---
+
+#### Track B: Shared Billing Surface (one Stripe surface, many products)
+
+| Seq | Title | Depends on | Parallel | Effort |
+|-----|-------|------------|----------|--------|
+| B.01 | `BillingProductRegistry` + shared checkout endpoint (`POST /api/v1/billing/checkout`) | A.01 | No | 8-12h |
+| B.02 | Shared Stripe webhook dispatcher with idempotency (`POST /api/v1/billing/stripe/webhook`) | B.01, A.02 | No | 12-16h |
+| B.03 | Unit tests: registry round-trip, idempotency, signature verification, dispatch, core vs product handler order | B.01, B.02 | No | 6-10h |
+
+**B.01 behavior:**
+- Registry: `register(product_id, price_ids, success_path, cancel_path, on_subscription_created, on_subscription_updated, on_subscription_deleted)`
+- Checkout: accepts `{product_id, tier, user_id}`, looks up `price_id`, creates Stripe Checkout, returns `{checkout_url, session_id}`
+- Persists `users.stripe_customer_id` on first checkout; errors 404/422/502 as appropriate
+- Structured log event: `billing.checkout_created`
+
+**B.02 behavior:**
+- Verifies `Stripe-Signature` header; 400 on invalid
+- Checks `stripe_events` for event id; 200 immediately on duplicate; insert row before dispatch
+- Core events update `users.tier` / `stripe_subscription_id` product-agnostically; product handlers run AFTER core
+- Handler exception leaves `processed=FALSE` so Stripe retries
+- Structured log event: `billing.webhook_dispatched`
+
+---
+
+#### Track C: Signal API (revised inventory)
+
+All subtasks depend on Track A. Subtasks that previously created their own Stripe surface now integrate with Track B.
+
+| Seq | Title | Depends on | Parallel | Effort |
+|-----|-------|------------|----------|--------|
+| C.01 | `signals_api_keys` + `signals_api_usage` tables (FK → `users.id`) | A.01 | No | 4-8h |
+| C.02 | Register Signal API with `BillingProductRegistry` (Trader $49 / Enterprise $199 price IDs, success/cancel paths, key-creation handler) | B.01, C.01 | Yes (with D.02) | 2-4h |
+| C.03 | Signal API webhook handler (plugs into B.02: creates `signals_api_keys` row on checkout.completed; emails key) | B.02, C.02 | No | 4-6h |
+| C.04 | API key CRUD (`POST/GET/DELETE /api/v1/signals/keys`) — SHA-256 hash storage, `amu_sig_sk_live_*` format | C.01 | Yes | 6-10h |
+| C.05 | Signals endpoint with tier filtering (Explorer = 1hr delay, BTC/USD only, strip confidence/reasoning; Trader = real-time all symbols; Enterprise = +reasoning) | C.01, C.04 | Yes | 8-12h |
+| C.06 | Opportunities endpoint (same tier rules as C.05) | C.01, C.04 | Yes | 4-8h |
+| C.07 | Usage tracking endpoint + Redis counters + Postgres flush on period end | C.01, C.04 | Yes | 6-10h |
+| C.08 | Tier-aware rate-limit middleware — **extends existing `trading/api/middleware/limiter.py`** with a tier resolver (not a parallel middleware). Per-tier burst limits per unified spec §5. | C.01, C.04 | Yes | 6-10h |
+| C.09 | Webhook registration + HMAC delivery (Enterprise only; 3 retries with exponential backoff) | C.01, C.04 | No | 8-12h |
+| C.10 | Unified `/pricing` page with Signal API tab + product dashboard (`/signal-api/dashboard`) for keys/usage/webhooks | B.01, C.04 | No | 16-24h |
+| C.11 | Unit tests covering C.01-C.09 | C.01-C.09 | No | 8-12h |
+| C.12 | **Compliance gate** — external legal memo in `docs/compliance/signals-memo.md`; blocks merge-to-main | C.11, Phase-0.05 | No | 4-8h ours + external review |
+
+**Track C total: 76-124h** (vs roadmap's original "8-10h" — revision per review).
+
+---
+
+#### Track D: Agent Auth API (revised inventory)
+
+Tier names aligned with unified spec: **Explorer** (was Hobby) / **Trader** (was Pro) / **Enterprise** (was Scale) / **Whale** (custom scopes). Original Hobby/Pro/Scale nomenclature retired.
+
+| Seq | Title | Depends on | Parallel | Effort |
+|-----|-------|------------|----------|--------|
+| D.01 | `auth_tokens` table only (agents/accounts live in `users` + `identity.agents` from Track A) | A.01 | No | 2-4h |
+| D.02 | Register Agent Auth API with `BillingProductRegistry` (Trader $49 / Enterprise $199 price IDs — aligned with unified tiers, not separate $29/$99) | B.01, D.01 | Yes (with C.02) | 2-4h |
+| D.03 | Agent Auth webhook handler (plugs into B.02: creates account metadata on checkout.completed) | B.02, D.02 | No | 4-6h |
+| D.04 | Agent CRUD + quota enforcement (`POST/GET/PATCH/DELETE /api/v1/auth/agents`). Quota: Explorer=5, Trader=50, Enterprise=Unlimited. `users.agents_count` atomic increment/decrement. | D.01 | Yes | 8-12h |
+| D.05 | Token generation — **reuses** `trading/api/identity/tokens.py` SHA-256 + HMAC pattern (retires the JWT drift from original subtask). `amu_{agent_name}.{signature}` format; shown once at creation. | D.01, D.04 | No | 6-10h |
+| D.06 | Token verification endpoint (`GET /api/v1/auth/verify`) — finds by hash, checks `revoked_at IS NULL`, updates `last_used_at`, emits `token.verified` audit event | D.01, D.05 | No | 4-8h |
+| D.07 | Audit log query endpoint (Explorer = 403; Trader = 30-day retention; Enterprise/Whale = unlimited) | D.01, D.06 | Yes | 6-10h |
+| D.08 | Tier-aware rate-limit middleware — **extends existing limiter** (same pattern as C.08, shared tier resolver) | D.01, A.01 | Yes | 4-6h (reuses C.08 infra) |
+| D.09 | Scope enforcement + custom scope registration — extends existing `require_scope()` to check `identity.agents.scopes + custom_scopes`. Whale-tier only for custom scope API. | D.01, D.05, D.06 | No | 6-10h |
+| D.10 | Agent Auth tab on unified `/pricing` page + product dashboard (`/agent-auth/dashboard`) for agents/tokens/audit/scopes | B.01, D.04 | No | 16-24h |
+| D.11 | Unit tests covering D.01-D.09 | D.01-D.09 | No | 8-12h |
+
+**Track D total: 66-106h**.
+
+---
+
+#### Track E: Phase 0 GTM (gates C.12 compliance and all paid launch)
+
+| Seq | Title | Depends on | Parallel | Effort |
+|-----|-------|------------|----------|--------|
+| E.01 | Landing page + waitlist email capture (`/pricing` shell with "Notify me" CTAs per tier) | — | Yes | 4-6h |
+| E.02 | Pricing validation — 5 customer discovery calls; willingness-to-pay log in `docs/gtm/pricing-interviews.md` | E.01 | No | 8-10h |
+| E.03 | Competitor scan — feature/price table in `docs/gtm/competitor-scan.md` covering CoinSignals, TradingView alerts, Arkham, Nansen, Dune, whalemap | — | Yes | 4-6h |
+| E.04 | First-10-customers plan — named channels + outreach doc in `docs/gtm/first-10-customers.md` (Bittensor Discord, r/algotrading, X, existing network) | E.02, E.03 | No | 4-6h |
+| E.05 | Legal/compliance memo — external review answering "is selling signals financial advice under our setup?" and "required disclaimers?"; doc at `docs/compliance/signals-memo.md` | — | Yes | 4-6h ours + external review |
+
+**Track E total: 24-34h** (ours; external review cost/time not included).
+
+**Gate:** C.12 blocks on E.02 **and** E.05. Paid launch blocks on all of Track E plus Tracks A-D.
+
+---
+
+#### Reconciled critical path
+
+```
+A.01 (users + tier)
+  ├─ A.02 (stripe_events)
+  │    └─ B.02 (webhook dispatcher) ── B.03 (tests)
+  ├─ B.01 (registry + checkout)
+  │    ├─ C.02, D.02 (product registration, parallel)
+  │    │    └─ C.03, D.03 (product webhooks)
+  │    └─ C.10, D.10 (unified /pricing + dashboards)
+  ├─ C.01 (signals tables)
+  │    ├─ C.04 (keys) ── C.05/06/07/08/09 (parallel)
+  │    └─ C.11 (tests) ── C.12 (compliance gate)
+  └─ D.01 (auth_tokens)
+       ├─ D.04 (agents) ── D.05 (tokens) ── D.06 (verify)
+       │    └─ D.07, D.08, D.09 (parallel)
+       └─ D.11 (tests)
+
+E.01..E.05 run in parallel with Tracks A-D; E.02 + E.05 gate C.12 and launch.
+```
+
+#### Rollup
+
+| Track | Effort |
+|-------|--------|
+| A. Platform Foundation | 6-12h |
+| B. Shared Billing | 26-38h |
+| C. Signal API | 76-124h |
+| D. Agent Auth API | 66-106h |
+| E. Phase 0 GTM | 24-34h (ours) |
+| **Total** | **198-314h** (vs roadmap's original "22 subtasks, parallel-ready" with no effort — revised per review) |
+
+The old `.tmp/tasks/signal-api/` and `.tmp/tasks/agent-auth-api/` JSON trees are retained for reference but **out-of-date**. When regenerating JSON subtasks for `coder-agent`, derive them from the tables above, not from the original trees.
