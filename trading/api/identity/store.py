@@ -6,8 +6,11 @@ import json
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
+from uuid import UUID
 
 import asyncpg
+
+from models.user import User, PlatformTier
 
 
 class DuplicateAgentError(Exception):
@@ -24,7 +27,8 @@ class AgentRecord:
     name: str
     token_hash: str
     scopes: list[str]
-    tier: str
+    tier: str | None
+    user_id: UUID | None
     created_at: datetime
     revoked_at: datetime | None
     contact_email: str | None
@@ -42,7 +46,8 @@ class IdentityStore:
         name: str,
         token_hash: str,
         scopes: list[str],
-        tier: str,
+        tier: str | None = None,
+        user_id: UUID | None = None,
         created_by: str | None = None,
         contact_email: str | None = None,
         moltbook_handle: str | None = None,
@@ -52,15 +57,16 @@ class IdentityStore:
                 row = await conn.fetchrow(
                     """
                     INSERT INTO identity.agents
-                        (name, token_hash, scopes, tier, created_by, contact_email, moltbook_handle)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7)
-                    RETURNING id, name, token_hash, scopes, tier, created_at, revoked_at,
+                        (name, token_hash, scopes, tier, user_id, created_by, contact_email, moltbook_handle)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                    RETURNING id, name, token_hash, scopes, tier, user_id, created_at, revoked_at,
                               contact_email, moltbook_handle, metadata
                     """,
                     name,
                     token_hash,
                     scopes,
                     tier,
+                    user_id,
                     created_by,
                     contact_email,
                     moltbook_handle,
@@ -73,7 +79,7 @@ class IdentityStore:
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
                 """
-                SELECT id, name, token_hash, scopes, tier, created_at, revoked_at,
+                SELECT id, name, token_hash, scopes, tier, user_id, created_at, revoked_at,
                        contact_email, moltbook_handle, metadata
                 FROM identity.agents
                 WHERE name = $1 AND revoked_at IS NULL
@@ -86,7 +92,7 @@ class IdentityStore:
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
                 """
-                SELECT id, name, token_hash, scopes, tier, created_at, revoked_at,
+                SELECT id, name, token_hash, scopes, tier, user_id, created_at, revoked_at,
                        contact_email, moltbook_handle, metadata
                 FROM identity.agents
                 WHERE token_hash = $1 AND revoked_at IS NULL
@@ -99,7 +105,7 @@ class IdentityStore:
         async with self._pool.acquire() as conn:
             rows = await conn.fetch(
                 """
-                SELECT id, name, token_hash, scopes, tier, created_at, revoked_at,
+                SELECT id, name, token_hash, scopes, tier, user_id, created_at, revoked_at,
                        contact_email, moltbook_handle, metadata
                 FROM identity.agents
                 WHERE revoked_at IS NULL
@@ -181,6 +187,7 @@ class IdentityStore:
             token_hash=row["token_hash"],
             scopes=list(row["scopes"]),
             tier=row["tier"],
+            user_id=row["user_id"],
             created_at=row["created_at"],
             revoked_at=row["revoked_at"],
             contact_email=row["contact_email"],
@@ -266,6 +273,26 @@ class IdentityStore:
         async with self._pool.acquire() as conn:
             result = await conn.execute(query, draft_id)
         return result == "DELETE 1"
+
+    async def get_user_by_email(self, email: str) -> User | None:
+        query = """
+            SELECT id, email, hashed_password, tier, stripe_customer_id, stripe_subscription_id, created_at
+            FROM users
+            WHERE email = $1
+        """
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow(query, email)
+        if not row:
+            return None
+        return User(
+            id=row["id"],
+            email=row["email"],
+            hashed_password=row["hashed_password"],
+            tier=PlatformTier(row["tier"]),
+            stripe_customer_id=row["stripe_customer_id"],
+            stripe_subscription_id=row["stripe_subscription_id"],
+            created_at=row["created_at"],
+        )
 
     def _row_to_draft(self, row) -> dict:
         return {
