@@ -182,6 +182,19 @@ class BitGetClient:
         resp.raise_for_status()
         return resp.json()
 
+    async def get_positions(self) -> list[dict[str, Any]]:
+        """Get current positions (spot assets with non-zero balance)."""
+        path = "/api/v2/spot/account/assets"
+        headers = self._headers("GET", path)
+
+        resp = await self._client.get(
+            f"{self.base_url}{path}",
+            headers=headers,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        return data.get("data", [])
+
     async def get_open_orders(self, symbol: str | None = None) -> list[dict[str, Any]]:
         """Get all open orders."""
         path = "/api/v2/spot/trade/openOrders"

@@ -17,6 +17,7 @@ from broker.interfaces import (
 from broker.models import (
     AccountBalance,
     Account,
+    AssetType,
     Bar,
     BrokerCapabilities,
     ContractDetails,
@@ -103,7 +104,28 @@ class BitGetAccount(AccountProvider):
         )
 
     async def get_positions(self, account_id: str) -> list[Position]:
-        return []
+        positions: list[Position] = []
+        try:
+            assets = await self.client.get_positions()
+            for asset in assets:
+                qty = Decimal(asset.get("available", "0"))
+                if qty <= 0:
+                    continue
+                positions.append(
+                    Position(
+                        symbol=Symbol(
+                            ticker=asset.get("coin", "USDT"),
+                            asset_type=AssetType.STOCK,
+                        ),
+                        quantity=qty,
+                        avg_price=Decimal("0"),
+                        current_price=Decimal("0"),
+                        side="long",
+                    )
+                )
+        except Exception as e:
+            logger.error("BitGet: Failed to get positions: %s", e)
+        return positions
 
     async def get_order_history(
         self, account_id: str, filters: OrderHistoryFilter | None = None
