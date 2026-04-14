@@ -1,0 +1,27 @@
+{
+  "id": "phase-0-gtm-04",
+  "seq": "04",
+  "title": "First-10-customers outreach plan",
+  "status": "pending",
+  "depends_on": ["02", "03"],
+  "parallel": false,
+  "estimated_effort_hours": "4-6",
+  "delegatable_to": "user",
+  "context_files": [
+    "docs/gtm/pricing-interviews.md",
+    "docs/gtm/competitor-scan.md"
+  ],
+  "reference_files": [],
+  "acceptance_criteria": [
+    "Doc at docs/gtm/first-10-customers.md",
+    "Named list of 10 specific people/handles (not 'post to Reddit' — '@username in $channel, pitch X')",
+    "For each: name/handle, channel (Discord server, subreddit, X DM, email), pitch (1-2 sentences tailored to them), expected conversion likelihood (low/med/high), what makes them a good first customer (vocal / influential / representative / paying-today)",
+    "Launch-day runbook: who to message first (high likelihood), who second (medium), follow-up cadence",
+    "Includes at least 2 Bittensor-community contacts (we already validate on Subnet 8)",
+    "Includes a 'what we will NOT do' section (spam r/cryptocurrency, cold DM strangers, etc.) so launch day stays clean"
+  ],
+  "deliverables": [
+    "docs/gtm/first-10-customers.md (named list + launch-day runbook)"
+  ],
+  "user_driven_note": "Requires knowledge of user's personal network and Bittensor/trading community relationships. Agent can structure the doc template and suggest outreach-message wording once the list is populated."
+}

@@ -1,0 +1,28 @@
+{
+  "id": "phase-0-gtm",
+  "name": "Phase 0 GTM Foundation",
+  "status": "active",
+  "objective": "Go-to-market foundation that gates paid launch for Signal API and Agent Auth API. Landing page + waitlist, competitor scan, pricing validation interviews, first-10-customers plan, and compliance memo. Half agent-delegatable (E.01, E.03), half user-driven (E.02, E.04, E.05).",
+  "context_files": [
+    "docs/plans/revenue-roadmap.md",
+    "docs/superpowers/specs/2026-04-14-unified-platform-monetization.md"
+  ],
+  "reference_files": [
+    "frontend/src/pages/bittensor/index.tsx",
+    "trading/api/routes/"
+  ],
+  "agent_delegatable": ["01", "03"],
+  "user_driven": ["02", "04", "05"],
+  "exit_criteria": [
+    "Landing page live with waitlist capture (E.01)",
+    "5 customer discovery calls logged (E.02 — user-driven)",
+    "Competitor feature/price table written (E.03)",
+    "First-10-customers outreach plan documented (E.04 — user-driven)",
+    "Compliance memo drafted + external review complete (E.05 — user-driven + external)"
+  ],
+  "gate": "C.12 (Signal API compliance gate) blocks on E.02 + E.05. Paid launch blocks on all of Track E plus Tracks A-D.",
+  "subtask_count": 5,
+  "completed_count": 0,
+  "created_at": "2026-04-14T00:00:00Z",
+  "completed_at": null
+}

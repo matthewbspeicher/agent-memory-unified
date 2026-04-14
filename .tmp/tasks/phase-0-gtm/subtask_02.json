@@ -1,0 +1,26 @@
+{
+  "id": "phase-0-gtm-02",
+  "seq": "02",
+  "title": "Pricing validation — 5 customer discovery calls",
+  "status": "pending",
+  "depends_on": ["01"],
+  "parallel": false,
+  "estimated_effort_hours": "8-10",
+  "delegatable_to": "user",
+  "context_files": [
+    "docs/plans/revenue-roadmap.md"
+  ],
+  "reference_files": [],
+  "acceptance_criteria": [
+    "At least 5 recorded or note-backed discovery calls with candidate buyers",
+    "Candidates sourced from: Bittensor Discord, r/algotrading, X/Twitter DMs, existing network",
+    "Each call 20-30 minutes; minimum questions asked: (1) what do you pay today for trading signals / alpha data, (2) what tool do you use and what is the #1 pain, (3) if we offered $49/mo for real-time multi-strategy AI signals, what makes you pay vs pass, (4) what would make you pay $199/mo instead, (5) what would we have to do for you to stop paying the tool you use today",
+    "Quotes logged verbatim where possible in docs/gtm/pricing-interviews.md",
+    "Synthesis section at top of doc: is $49/$199 right? too high? too low? what features did buyers actually want that we do not have?",
+    "Go/no-go recommendation: does the pricing hold, shift, or blow up the roadmap"
+  ],
+  "deliverables": [
+    "docs/gtm/pricing-interviews.md (5+ interview notes + synthesis)"
+  ],
+  "user_driven_note": "This task requires live conversations and cannot be delegated to an agent. Agent can help draft outreach messages and interview scripts if asked."
+}

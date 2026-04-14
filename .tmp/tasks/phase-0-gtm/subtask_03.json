@@ -1,0 +1,29 @@
+{
+  "id": "phase-0-gtm-03",
+  "seq": "03",
+  "title": "Competitor feature/price scan",
+  "status": "pending",
+  "depends_on": [],
+  "parallel": true,
+  "estimated_effort_hours": "4-6",
+  "delegatable_to": "opencode",
+  "context_files": [
+    "docs/plans/revenue-roadmap.md",
+    "docs/superpowers/specs/2026-04-14-unified-platform-monetization.md"
+  ],
+  "reference_files": [],
+  "acceptance_criteria": [
+    "Markdown doc at docs/gtm/competitor-scan.md",
+    "Covers at minimum these 6 competitors: CoinSignals (or equivalent retail crypto signal service), TradingView alerts + paid indicators, Arkham Intelligence, Nansen, Dune Analytics (query layer), whalemap.io",
+    "For each competitor, a row with columns: name, URL, primary product, pricing (Free / Starter / Pro / Enterprise tiers with $/mo), signals per day or API calls, latency (real-time vs delayed), symbol coverage, API/webhook availability, key differentiator, our differentiator vs them",
+    "Pricing pulled from public pricing pages as of the doc date; note 'checked YYYY-MM-DD' at top",
+    "Our differentiator column specifically: what do we have that they do not. Bittensor-consensus signals is the honest answer for most; multi-strategy 13-agent ensemble for others",
+    "Bottom-of-doc section: Positioning Recommendations — 3-5 bullets on how our pricing and feature mix should respond to the competitive set (e.g., 'Trader $49 undercuts TradingView Premium at $60', 'Enterprise $199 is above retail signal services but well below Nansen at $150-$1800')",
+    "No fabricated data; if a competitor's pricing is not publicly listed, write 'Private / contact sales' rather than guessing",
+    "Agent-drafted; user reviews before merge"
+  ],
+  "deliverables": [
+    "docs/gtm/competitor-scan.md (comparison table + positioning recs)"
+  ],
+  "verification_note": "Opencode drafts from public pricing pages via WebFetch. User spot-checks 2 competitors before accepting the PR to catch hallucinations."
+}

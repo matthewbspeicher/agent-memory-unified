@@ -1,0 +1,52 @@
+{
+  "id": "phase-0-gtm-01",
+  "seq": "01",
+  "title": "Landing page + waitlist email capture",
+  "status": "pending",
+  "depends_on": [],
+  "parallel": true,
+  "estimated_effort_hours": "4-6",
+  "delegatable_to": "opencode",
+  "context_files": [
+    "docs/plans/revenue-roadmap.md",
+    "docs/superpowers/specs/2026-04-14-unified-platform-monetization.md"
+  ],
+  "reference_files": [
+    "frontend/src/pages/bittensor/index.tsx",
+    "frontend/src/lib/api/bittensor.ts",
+    "trading/api/routes/opportunities.py",
+    "scripts/init-trading-tables.sql"
+  ],
+  "acceptance_criteria": [
+    "Route at /pricing in the frontend Vite app",
+    "Tier grid shows the unified spec tiers: Explorer ($0) / Trader ($49/mo) / Enterprise ($199/mo) / Whale (Custom)",
+    "Each tier card shows: price, target audience, 3-5 key features (per unified spec §2)",
+    "Each paid tier card has a 'Notify me when available' button (not 'Subscribe' — we don't accept payment yet)",
+    "Clicking the button opens an inline email input + submit",
+    "POST /api/v1/waitlist endpoint accepts {email, tier} and inserts into waitlist table",
+    "Waitlist table: id UUID PK, email TEXT NOT NULL, tier TEXT NOT NULL, source TEXT DEFAULT 'pricing_page', created_at TIMESTAMPTZ DEFAULT NOW(), UNIQUE(email, tier)",
+    "Migration added to all 3 schema sources (scripts/init-trading-tables.sql + _INIT_DDL + _migrations)",
+    "Duplicate submission returns 200 (idempotent from user POV); log event waitlist.signup with tier",
+    "Basic email validation (regex, not MX lookup)",
+    "Page styling matches existing frontend patterns (Tailwind, uses tokens from the design pipeline)",
+    "No auth required on /pricing or /api/v1/waitlist",
+    "Mobile-responsive (test at 375px width)",
+    "Unit test for /api/v1/waitlist: happy path, duplicate, invalid email",
+    "LSP diagnostics clean on all changed files"
+  ],
+  "deliverables": [
+    "frontend/src/pages/pricing/index.tsx (landing page)",
+    "frontend/src/components/pricing/TierCard.tsx (tier card component)",
+    "frontend/src/components/pricing/WaitlistForm.tsx (email capture)",
+    "trading/api/routes/waitlist.py (POST endpoint)",
+    "trading/models/waitlist.py (SQLAlchemy model)",
+    "scripts/init-trading-tables.sql (DDL migration)",
+    "trading/storage/memory.py (updated _INIT_DDL + _migrations)",
+    "trading/tests/unit/test_waitlist.py (unit tests)"
+  ],
+  "non_goals": [
+    "Stripe integration (that is Track B)",
+    "Account/login flows (that is Track A + C.04/D.05)",
+    "Email notification on signup — a subsequent subtask can add Mailchimp/Postmark"
+  ]
+}

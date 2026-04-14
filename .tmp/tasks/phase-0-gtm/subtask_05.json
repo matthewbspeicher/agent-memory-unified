@@ -1,0 +1,31 @@
+{
+  "id": "phase-0-gtm-05",
+  "seq": "05",
+  "title": "Legal/compliance memo — signals as financial advice",
+  "status": "pending",
+  "depends_on": [],
+  "parallel": true,
+  "estimated_effort_hours": "4-6 ours + external review",
+  "delegatable_to": "user + external-lawyer",
+  "context_files": [
+    "docs/plans/revenue-roadmap.md",
+    "docs/superpowers/specs/2026-04-14-unified-platform-monetization.md",
+    "docs/superpowers/specs/2026-04-14-signal-api-design.md"
+  ],
+  "reference_files": [],
+  "acceptance_criteria": [
+    "User drafts factual description in docs/compliance/signals-memo-facts.md: what the product is, exactly (AI-generated signals, 13-agent ensemble + Bittensor consensus, tier-gated latency, no order execution on behalf of customers, no custody of customer funds, no personalization beyond tier)",
+    "User engages a securities-aware attorney (referral from r/algotrading, r/legaladvice, or existing counsel). Budget: $500-2000 for a 1-2hr review",
+    "Lawyer returns a one-page memo addressing: (a) is this investment advice requiring SEC / state adviser registration under our fact pattern, (b) required disclaimers and language, (c) any prohibited claims we must not make in marketing, (d) any state-level carve-outs (e.g., do we avoid CA residents, NY residents, etc.)",
+    "Memo filed at docs/compliance/signals-memo.md (redacted for public if needed; full version in private store)",
+    "Derived actions added to Track C (e.g., update C.05 to inject disclaimer in responses, update C.10 to show disclaimer on pricing page)",
+    "Memo has a validity date; schedule a re-review annually or on product-surface changes"
+  ],
+  "deliverables": [
+    "docs/compliance/signals-memo-facts.md (facts, user-drafted)",
+    "docs/compliance/signals-memo.md (legal conclusion, lawyer-authored)",
+    "trading/api/routes/signals.py — disclaimer injection (if required by memo)",
+    "frontend/src/pages/pricing — disclaimer text (if required by memo)"
+  ],
+  "user_driven_note": "Agent can help draft the factual description (signals-memo-facts.md) but MUST NOT write the legal conclusion. Only a licensed attorney should produce the signals-memo.md content. No fake legal guidance."
+}
