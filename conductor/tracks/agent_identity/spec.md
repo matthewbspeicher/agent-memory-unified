@@ -118,6 +118,9 @@ Scopes follow an `<action>:<resource>` pattern. Initial vocabulary:
 | `risk:halt` | Kill-switch trigger — operator-only (and even then, two-step confirmed) |
 | `admin` | Implies all other scopes; reserved for the master `STA_API_KEY` |
 | `*` | Alias for `admin` (back-compat) |
+| `read:feeds.arb` | Read access to `/api/v1/feeds/arb/signals` (PM arb signal feed subscription) |
+
+**Namespace `read:feeds.<feed_name>`:** read scopes for paid signal/data feeds. Future scopes follow this pattern (e.g., `read:feeds.sn8`, `read:feeds.arb.webhook`). A `read:feeds.*` wildcard is reserved for bundle tiers; not yet implemented.
 
 **Tier defaults:** each `tier` field value maps to a default scope set:
 
