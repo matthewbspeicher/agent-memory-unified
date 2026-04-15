@@ -1003,6 +1003,11 @@ async def init_db_postgres(db) -> None:
         # TournamentEngine.evaluate_all loop 500s every cron tick in prod.
         ("performance_snapshots", "timestamp", "TIMESTAMP DEFAULT NOW()"),
         ("bittensor_derived_views", "evaluation_status", "TEXT DEFAULT 'pending'"),
+        # bittensor_miner_rankings.symbol was added to _INIT_DDL later; live
+        # Postgres tables created from the earlier schema are missing it and
+        # crash get_miner_rankings(symbol="aggregate"). Default 'aggregate'
+        # matches how all existing callers query.
+        ("bittensor_miner_rankings", "symbol", "VARCHAR(32) NOT NULL DEFAULT 'aggregate'"),
         ("elo_rating_history", "timestamp", "TEXT DEFAULT NOW()"),
         ("tournament_audit_log", "timestamp", "TEXT DEFAULT NOW()"),
         ("strategy_health", "consecutive_losses", "INTEGER DEFAULT 0"),

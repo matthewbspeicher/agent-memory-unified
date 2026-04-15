@@ -91,10 +91,21 @@ class EvaluatorMetrics(BaseModel):
     last_evaluation_duration_secs: float
 
 
+class WeightSetterMetrics(BaseModel):
+    weight_sets_total: int
+    weight_sets_failed: int
+    weight_sets_skipped: int
+    last_weight_skip_reason: str | None = None
+    last_weight_set_block: int | None = None
+    last_weight_set_at: str | None = None
+    last_weight_set_uid_count: int | None = None
+
+
 class BittensorMetricsResponse(BaseModel):
     enabled: bool
     scheduler: SchedulerMetrics | None = None
     evaluator: EvaluatorMetrics | None = None
+    weight_setter: WeightSetterMetrics | None = None
 
 
 # --- /api/bittensor/rankings ---

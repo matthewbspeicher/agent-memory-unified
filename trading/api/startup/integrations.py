@@ -132,6 +132,7 @@ async def setup_bittensor(
         from integrations.bittensor.adapter import TaoshiProtocolAdapter
         from integrations.bittensor.scheduler import TaoshiScheduler
         from integrations.bittensor.evaluator import MinerEvaluator
+        from integrations.bittensor.weight_setter import WeightSetter
         from integrations.bittensor.models import BittensorMetrics
 
         _bt_metrics = BittensorMetrics()
@@ -186,6 +187,22 @@ async def setup_bittensor(
             metrics=_bt_metrics,
         )
 
+        # WeightSetter submits on-chain weights based on rankings produced by
+        # the evaluator. Safe to start unconditionally: _set_weights_once skips
+        # on empty rankings (SKIP_INSUFFICIENT_RANKINGS) and on zero total
+        # score (SKIP_ZERO_SCORE), so until the scheduler's direct_query_enabled
+        # is true AND evaluation cycles complete, this is a 5-minute no-op loop.
+        _bt_weight_setter = WeightSetter(
+            adapter=_bt_adapter,
+            store=_bt_store,
+            netuid=config.bittensor_subnet_uid,
+            wallet=_bt_adapter.wallet,
+            subtensor=_bt_adapter.subtensor,
+            set_interval=getattr(config, "bittensor_weight_set_interval", 300.0),
+            min_rankings=getattr(config, "bittensor_min_rankings", 1),
+            version_key=getattr(config, "bittensor_weight_version_key", 1),
+        )
+
         logger.info(
             "Bittensor integration enabled (network=%s, subnet=%d)",
             config.bittensor_network,
@@ -198,6 +215,7 @@ async def setup_bittensor(
             "adapter": _bt_adapter,
             "scheduler": _bt_scheduler,
             "evaluator": _bt_evaluator,
+            "weight_setter": _bt_weight_setter,
         }
     except Exception as exc:
         logger.warning("Bittensor setup failed (continuing without it): %s", exc)

@@ -499,12 +499,16 @@ async def _setup_bittensor_integration(
         app.state.bittensor_adapter = bittensor_components["adapter"]
         app.state.bittensor_scheduler = bittensor_components["scheduler"]
         app.state.bittensor_evaluator = bittensor_components["evaluator"]
+        app.state.bittensor_weight_setter = bittensor_components["weight_setter"]
 
         task_mgr.create_task(
             bittensor_components["scheduler"].run(), name="bittensor_scheduler"
         )
         task_mgr.create_task(
             bittensor_components["evaluator"].run(), name="bittensor_evaluator"
+        )
+        task_mgr.create_task(
+            bittensor_components["weight_setter"].run(), name="bittensor_weight_setter"
         )
     elif config.bittensor_mock:
         from integrations.bittensor.mock_source import MockBittensorSource

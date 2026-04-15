@@ -176,6 +176,14 @@ class TaoshiProtocolAdapter:
     def dendrite(self):
         return self._dendrite
 
+    @property
+    def wallet(self):
+        return self._wallet
+
+    @property
+    def subtensor(self):
+        return self._subtensor
+
     def is_hotkey_registered(self) -> bool:
         """Check if our hotkey is registered on the subnet."""
         if self._metagraph is None or self._wallet is None:
