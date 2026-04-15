@@ -91,7 +91,20 @@
       "Bash(grep -E \"\\\\.py$\")",
       "Bash(rm -f /opt/agent-memory-unified/.claude/knowledge/scripts/search.db)",
       "Bash(uv run:*)",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "Bash(wsl.exe -d Ubuntu -- bash -c \"cd /opt/agent-memory-unified/trading && source .venv/bin/activate && STA_POLYMARKET_DRY_RUN=true POLYMARKET_INTEGRATION=true python -m pytest tests/integration/test_polymarket_orderbook.py -v --tb=short --timeout=60 2>&1 | tail -60\")",
+      "Bash(wsl.exe -d Ubuntu -- bash -c \"cd /opt/agent-memory-unified/trading && source .venv/bin/activate && python /tmp/smoke_arb.py 2>&1 | tail -80\")",
+      "Bash(wsl.exe -d Ubuntu -- bash -c \"cd /opt/agent-memory-unified/trading && source .venv/bin/activate && PYTHONPATH=/opt/agent-memory-unified/trading python /tmp/smoke_arb.py 2>&1 | tail -80\")",
+      "Bash(wsl.exe -d Ubuntu -- bash -c \"grep -n 'async def record\\\\|async def claim_spread\\\\|async def get_observation' /opt/agent-memory-unified/trading/storage/spreads.py | head -10 && echo '---RECORD BODY---' && awk '/async def record/,/^    async def|^class /' /opt/agent-memory-unified/trading/storage/spreads.py | head -40\")",
+      "Bash(wsl.exe -d Ubuntu -- bash -c \"grep -n 'sizing_engine\\\\|SizingEngine\\\\|event_bus' /opt/agent-memory-unified/trading/api/app.py | head -20\")",
+      "Bash(wsl.exe -d Ubuntu -- bash -c \"grep -A 12 'arb_spread_observations' /opt/agent-memory-unified/scripts/init-trading-tables.sql 2>/dev/null | head -25 && echo '---' && grep -rn 'CREATE TABLE.*arb_spread_observations\\\\|CREATE TABLE.*spread_observations' /opt/agent-memory-unified/trading/ 2>/dev/null | head -5\")",
+      "Bash(wsl.exe -d Ubuntu -- bash -c \"grep -n 'sizing_engine =\\\\|SizingEngine\\(' /opt/agent-memory-unified/trading/api/app.py | head\")",
+      "Bash(wsl.exe -d Ubuntu -- bash -c \"find /opt/agent-memory-unified/trading/tests -name 'test_arb*' -o -name 'test_execution*' 2>/dev/null | head && echo '---' && ls /opt/agent-memory-unified/trading/tests/unit/test_execution/ 2>/dev/null\")",
+      "Bash(wsl.exe -d Ubuntu -- bash -c \"grep -n 'ArbExecutor\\\\|execute_arb' /opt/agent-memory-unified/trading/tests/unit/test_arbitrage.py /opt/agent-memory-unified/trading/tests/unit/test_arb_concurrent.py 2>/dev/null | head\")",
+      "Bash(wsl.exe -d Ubuntu -- bash -c \"ls /opt/agent-memory-unified/trading/tests/unit/test_arb_executor.py 2>&1\")",
+      "Edit(///wsl.localhost/Ubuntu/**)",
+      "Write(///wsl.localhost/Ubuntu/**)",
+      "NotebookEdit(///wsl.localhost/Ubuntu/**)"
     ]
   }
 }

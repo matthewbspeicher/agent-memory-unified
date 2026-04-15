@@ -44,3 +44,4 @@ railway.schema.json
 # Frontend test artifacts
 frontend/playwright-report/
 frontend/test-results/
+.claude/scheduled_tasks.lock
