@@ -85,12 +85,15 @@ class KalshiClient:
         self,
         key_id: str | None = None,
         private_key_path: str | None = None,
+        private_key_pem: str | None = None,
         demo: bool = True,
         timeout: float = 10.0,
     ) -> None:
         self._key_id = key_id
         self._private_key: str | None = None
-        if private_key_path:
+        if private_key_pem:
+            self._private_key = private_key_pem
+        elif private_key_path:
             self._private_key = Path(private_key_path).read_text()
         self._base = DEMO_BASE if demo else PROD_BASE
         self._client = httpx.AsyncClient(

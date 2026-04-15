@@ -291,6 +291,7 @@ class Config(BaseModel):
     # Kalshi prediction markets
     kalshi_key_id: str | None = None
     kalshi_private_key_path: str | None = None
+    kalshi_private_key_b64: str | None = None  # base64-encoded PEM; preferred over path on Railway
     kalshi_demo: bool = True
 
     # Polymarket prediction markets

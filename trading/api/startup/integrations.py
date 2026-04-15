@@ -23,22 +23,38 @@ async def setup_kalshi(
     Returns:
         (kalshi_source, kalshi_client) or (None, None) if not configured
     """
-    if not config.kalshi_key_id or not config.kalshi_private_key_path:
-        if config.kalshi_key_id or config.kalshi_private_key_path:
+    has_key_material = bool(
+        config.kalshi_private_key_path or config.kalshi_private_key_b64
+    )
+    if not config.kalshi_key_id or not has_key_material:
+        if config.kalshi_key_id or has_key_material:
             logger.warning(
-                "Kalshi integration disabled due to incomplete config: key_id=%s private_key_path=%s",
+                "Kalshi integration disabled due to incomplete config: key_id=%s key_material=%s",
                 bool(config.kalshi_key_id),
-                bool(config.kalshi_private_key_path),
+                has_key_material,
             )
         return None, None
 
     try:
+        import base64
+
         from adapters.kalshi.client import KalshiClient
         from adapters.kalshi.data_source import KalshiDataSource
+
+        private_key_pem: str | None = None
+        if config.kalshi_private_key_b64:
+            try:
+                private_key_pem = base64.b64decode(
+                    config.kalshi_private_key_b64
+                ).decode("utf-8")
+            except Exception as exc:
+                logger.warning("Kalshi private_key_b64 decode failed: %s", exc)
+                return None, None
 
         _kalshi_client = KalshiClient(
             key_id=config.kalshi_key_id,
             private_key_path=config.kalshi_private_key_path,
+            private_key_pem=private_key_pem,
             demo=config.kalshi_demo,
         )
         _kalshi_source = KalshiDataSource(_kalshi_client)
