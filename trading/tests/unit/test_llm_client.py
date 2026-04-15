@@ -445,6 +445,134 @@ async def test_estimate_probability_falls_back_to_rules():
 
 
 # ---------------------------------------------------------------------------
+# Foresight-style ensemble aggregation tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_ensemble_takes_median_of_three_samples():
+    """N=3 samples with different probabilities → median of the three."""
+    samples = [
+        LLMResult(text='{"implied_probability": 0.30, "confidence": 70, "reasoning": "low-sample"}', provider="ollama", model="x"),
+        LLMResult(text='{"implied_probability": 0.50, "confidence": 70, "reasoning": "mid-sample"}', provider="ollama", model="x"),
+        LLMResult(text='{"implied_probability": 0.40, "confidence": 70, "reasoning": "high-sample"}', provider="ollama", model="x"),
+    ]
+
+    client = LLMClient(chain=["ollama", "rule-based"])
+    with patch.object(
+        client.registry.get("ollama"),
+        "complete",
+        new_callable=AsyncMock,
+        side_effect=samples,
+    ):
+        result = await client.estimate_probability("Q?", ["h"])
+
+    # Median of 0.30, 0.40, 0.50 = 0.40
+    assert result.implied_probability == pytest.approx(0.40)
+    # Spread = 0.20 → > 0.10 branch → -10 confidence penalty
+    assert result.confidence == 60
+
+
+@pytest.mark.asyncio
+async def test_ensemble_spread_reduces_confidence():
+    """High-spread samples trigger confidence penalty."""
+    samples = [
+        LLMResult(text='{"implied_probability": 0.10, "confidence": 80, "reasoning": "a"}', provider="ollama", model="x"),
+        LLMResult(text='{"implied_probability": 0.50, "confidence": 80, "reasoning": "b"}', provider="ollama", model="x"),
+        LLMResult(text='{"implied_probability": 0.90, "confidence": 80, "reasoning": "c"}', provider="ollama", model="x"),
+    ]
+
+    client = LLMClient(chain=["ollama", "rule-based"])
+    with patch.object(
+        client.registry.get("ollama"),
+        "complete",
+        new_callable=AsyncMock,
+        side_effect=samples,
+    ):
+        result = await client.estimate_probability("Q?", ["h"])
+
+    # Median of 0.10, 0.50, 0.90 = 0.50
+    assert result.implied_probability == pytest.approx(0.50)
+    # Spread = 0.80 > 0.20 → -25 confidence penalty
+    assert result.confidence == 55
+
+
+@pytest.mark.asyncio
+async def test_ensemble_uses_partial_successes():
+    """When only 2 of 3 samples parse, still return an estimate from the 2."""
+    samples = [
+        LLMResult(text="not json at all", provider="ollama", model="x"),
+        LLMResult(text='{"implied_probability": 0.40, "confidence": 60, "reasoning": "ok"}', provider="ollama", model="x"),
+        LLMResult(text='{"implied_probability": 0.60, "confidence": 60, "reasoning": "ok2"}', provider="ollama", model="x"),
+    ]
+
+    client = LLMClient(chain=["ollama", "rule-based"])
+    with patch.object(
+        client.registry.get("ollama"),
+        "complete",
+        new_callable=AsyncMock,
+        side_effect=samples,
+    ):
+        result = await client.estimate_probability("Q?", ["h"])
+
+    # Median of 0.40, 0.60 = 0.50
+    assert result.implied_probability == pytest.approx(0.50)
+    # Spread = 0.20 → > 0.10 branch → -10 confidence penalty
+    assert result.confidence == 50
+
+
+@pytest.mark.asyncio
+async def test_ensemble_falls_through_when_all_samples_fail_to_parse():
+    """Zero successful samples → next provider in chain (rule-based here)."""
+    bad_results = [
+        LLMResult(text="garbage 1", provider="ollama", model="x"),
+        LLMResult(text="garbage 2", provider="ollama", model="x"),
+        LLMResult(text="garbage 3", provider="ollama", model="x"),
+    ]
+
+    client = LLMClient(chain=["ollama", "rule-based"])
+    with patch.object(
+        client.registry.get("ollama"),
+        "complete",
+        new_callable=AsyncMock,
+        side_effect=bad_results,
+    ):
+        result = await client.estimate_probability(
+            "Will inflation rise?", ["inflation rising fast"]
+        )
+
+    # Fell through to rule-based — reasoning contains "overlap"
+    assert "overlap" in result.reasoning.lower()
+
+
+@pytest.mark.asyncio
+async def test_ensemble_n_equals_one_disables_ensemble():
+    """ensemble_n=1 → single call, no median aggregation."""
+    sample = LLMResult(
+        text='{"implied_probability": 0.35, "confidence": 75, "reasoning": "single"}',
+        provider="ollama",
+        model="x",
+    )
+
+    client = LLMClient(chain=["ollama", "rule-based"])
+    call_count = 0
+
+    async def _counting_complete(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        return sample
+
+    with patch.object(
+        client.registry.get("ollama"), "complete", side_effect=_counting_complete
+    ):
+        result = await client.estimate_probability("Q?", ["h"], ensemble_n=1)
+
+    assert call_count == 1
+    assert result.implied_probability == 0.35
+    assert result.confidence == 75  # no spread penalty with only 1 sample
+
+
+# ---------------------------------------------------------------------------
 # Integration: full fallback chain simulation
 # ---------------------------------------------------------------------------
 

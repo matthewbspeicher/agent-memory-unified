@@ -555,11 +555,37 @@ class LLMClient:
         self,
         question: str,
         headlines: list[str],
+        *,
+        ensemble_n: int = 3,
     ) -> ProbabilityEstimate:
         """
-        Estimate probability from headlines.
-        Tries LLM providers, falls back to rule-based heuristic.
+        Estimate probability from headlines using a Foresight-style
+        ensemble of N independent samples, median-averaged for robustness
+        to a single miscalibrated draw.
+
+        Within one provider: fire `ensemble_n` parallel calls with the
+        same cached system prompt and the same user prompt. The Anthropic
+        API returns independent samples because of its default sampling
+        temperature. Parse each; take the median probability across
+        successful parses. Falls back to the next provider in the chain
+        only if zero samples parse successfully (rare — usually means the
+        provider itself is down).
+
+        Reference: LightningRod Labs' Foresight-32B (Feb 2026) found that
+        sampling N=3 independent probability predictions and aggregating
+        closes most of the calibration gap between a base model and a
+        fine-tuned forecaster. See PROBABILITY_ESTIMATOR_SYSTEM for the
+        calibration guidance this composes with.
+
+        Args:
+            question: The binary market question.
+            headlines: Recent news headlines to inform the estimate.
+            ensemble_n: Number of samples to draw. Default 3 (Foresight
+                paper's setting). Set to 1 to disable ensembling.
         """
+        import asyncio
+        import statistics
+
         headlines_text = (
             "\n".join(f"- {h}" for h in headlines)
             if headlines
@@ -571,6 +597,7 @@ class LLMClient:
             f"Question: {question}\n\n"
             f"Recent headlines:\n{headlines_text}"
         )
+        n = max(1, ensemble_n)
 
         providers = await self._resolve_chain()
         for provider_name in providers:
@@ -580,35 +607,73 @@ class LLMClient:
                 continue
 
             provider = self.registry.get(provider_name)
-            if provider:
-                result = await provider.complete(
+            if not provider:
+                continue
+
+            # Fire N samples in parallel. Prompt caching (cache_system=True)
+            # means only the first call pays full system-token cost; the
+            # remaining N-1 hit the cache at 0.1x rate within the 5-min TTL.
+            tasks = [
+                provider.complete(
                     user_prompt,
                     system=PROBABILITY_ESTIMATOR_SYSTEM,
                     cache_system=True,
                 )
-                if result and result.text:
-                    self._record_success(provider_name)
-                    try:
-                        match = re.search(r"\{.*\}", result.text, re.DOTALL)
-                        if match:
-                            data = json.loads(match.group(0))
-                            return ProbabilityEstimate(
-                                implied_probability=max(
-                                    0.01,
-                                    min(
-                                        0.99,
-                                        float(data.get("implied_probability", 0.5)),
-                                    ),
-                                ),
-                                confidence=max(
-                                    0, min(100, int(data.get("confidence", 50)))
-                                ),
-                                reasoning=str(data.get("reasoning", "")),
-                            )
-                    except (json.JSONDecodeError, ValueError):
-                        pass
-                else:
-                    self._record_failure(provider_name)
+                for _ in range(n)
+            ]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+            parsed: list[ProbabilityEstimate] = []
+            for result in results:
+                if isinstance(result, BaseException) or not result or not result.text:
+                    continue
+                try:
+                    match = re.search(r"\{.*\}", result.text, re.DOTALL)
+                    if not match:
+                        continue
+                    data = json.loads(match.group(0))
+                    parsed.append(
+                        ProbabilityEstimate(
+                            implied_probability=max(
+                                0.01,
+                                min(0.99, float(data.get("implied_probability", 0.5))),
+                            ),
+                            confidence=max(
+                                0, min(100, int(data.get("confidence", 50)))
+                            ),
+                            reasoning=str(data.get("reasoning", "")),
+                        )
+                    )
+                except (json.JSONDecodeError, ValueError):
+                    continue
+
+            if parsed:
+                self._record_success(provider_name)
+                probs = [p.implied_probability for p in parsed]
+                confs = [p.confidence for p in parsed]
+                median_prob = statistics.median(probs)
+                mean_conf = int(round(sum(confs) / len(confs)))
+                # Reduce confidence when the ensemble disagrees — spread is
+                # direct evidence of how calibrated the samples are with
+                # each other. Samples within 0.05 of each other are stable.
+                if len(probs) >= 2:
+                    spread = max(probs) - min(probs)
+                    if spread > 0.20:
+                        mean_conf = max(0, mean_conf - 25)
+                    elif spread > 0.10:
+                        mean_conf = max(0, mean_conf - 10)
+                reasoning = (
+                    parsed[len(parsed) // 2].reasoning
+                    if parsed[len(parsed) // 2].reasoning
+                    else "; ".join(p.reasoning for p in parsed if p.reasoning)[:200]
+                )
+                return ProbabilityEstimate(
+                    implied_probability=median_prob,
+                    confidence=mean_conf,
+                    reasoning=reasoning,
+                )
+            else:
+                self._record_failure(provider_name)
 
         # Rule-based fallback
         logger.debug("LLMClient: using rule-based fallback for probability estimate")
