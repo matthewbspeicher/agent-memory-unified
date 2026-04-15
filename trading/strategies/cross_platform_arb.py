@@ -30,12 +30,19 @@ class CrossPlatformArbAgent(StructuredAgent):
         kalshi_ds=None,
         polymarket_ds=None,
         spread_store=None,
+        event_bus=None,
         **kwargs,
     ):
         super().__init__(config, **kwargs)
         self.kalshi_ds = kalshi_ds
         self.polymarket_ds = polymarket_ds
         self.spread_store = spread_store
+        # event_bus is optional. When provided, emit `arb.spread` events
+        # alongside Opportunity objects so the ArbExecutor auto-execution
+        # path (which currently only fires from the live WS/SpreadTracker
+        # pipeline) can also fire from cron scans. Tests that don't pass
+        # a bus stay green — no events published.
+        self.event_bus = event_bus
 
         params = config.parameters or {}
         self.threshold = params.get("threshold_cents", 8)
@@ -130,6 +137,10 @@ class CrossPlatformArbAgent(StructuredAgent):
             gap = abs(k_cents - p_cents)
 
             # Record spread observation for every matched pair (history building)
+            # and capture the row id so we can reference it in the arb.spread
+            # event published after opportunity emission (ArbExecutor uses
+            # the id to claim the spread atomically via SpreadStore).
+            observation_id: int | None = None
             if self.spread_store is not None:
                 from storage.spreads import SpreadObservation
 
@@ -143,7 +154,7 @@ class CrossPlatformArbAgent(StructuredAgent):
                     kalshi_volume=k_norm.volume_usd_24h,
                     poly_volume=p_norm.volume_usd_24h,
                 )
-                await self.spread_store.record(obs)
+                observation_id = await self.spread_store.record(obs)
 
             if gap == 0 or gap <= self.threshold:
                 continue
@@ -211,6 +222,36 @@ class CrossPlatformArbAgent(StructuredAgent):
                     status=OpportunityStatus.PENDING,
                 )
             )
+
+            # Feed the auto-execution path. ArbExecutor subscribes to
+            # `arb.spread` and claims the observation id to build the
+            # atomic 2-leg trade. Gated on event_bus + observation_id so
+            # tests without a bus or without a spread_store stay quiet.
+            # Execution remains gated by ArbExecutor.enabled (default
+            # False) — this emission alone does not place orders.
+            if self.event_bus is not None and observation_id is not None:
+                try:
+                    await self.event_bus.publish(
+                        "arb.spread",
+                        {
+                            "observation_id": observation_id,
+                            "kalshi_ticker": cand.kalshi_ticker,
+                            "poly_ticker": cand.poly_ticker,
+                            "kalshi_cents": k_cents,
+                            "poly_cents": p_cents,
+                            "gap_cents": gap,
+                            "match_score": cand.final_score,
+                            "observed_at": now.isoformat(),
+                        },
+                    )
+                except Exception as exc:
+                    logger.warning(
+                        "cross_platform_arb: event_bus.publish failed for "
+                        "%s/%s (non-fatal): %s",
+                        cand.kalshi_ticker,
+                        cand.poly_ticker,
+                        exc,
+                    )
 
         opportunities.sort(key=lambda o: o.data["gap_cents"], reverse=True)
         return opportunities

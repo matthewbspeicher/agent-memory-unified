@@ -1131,6 +1131,7 @@ async def lifespan(app: FastAPI):
 
         # --- ArbExecutor (auto-execution of spreads) ---
         from execution.arb_executor import ArbExecutor
+        from decimal import Decimal as _Dec
 
         arb_executor = ArbExecutor(
             spread_store=spread_store,
@@ -1139,6 +1140,11 @@ async def lifespan(app: FastAPI):
             min_profit_bps=float(getattr(config, "arb_min_profit_bps", 5.0)),
             max_position_usd=float(getattr(config, "arb_max_position_usd", 100.0)),
             enabled=getattr(config, "arb_auto_execute", False),
+            # sizing_engine is wired below once it's been constructed
+            # (depends on perf_store which is initialized later in the
+            # lifespan). Defaults to None → falls back to 1-share min.
+            bankroll_usd=_Dec(str(getattr(config, "arb_bankroll_usd", 100.0))),
+            agent_name="cross_platform_arb",
         )
         app.state.arb_executor = arb_executor
         task_mgr.create_task(arb_executor.run(), name="arb_executor")
@@ -1689,6 +1695,7 @@ async def lifespan(app: FastAPI):
                     kalshi_ds=_kalshi_source,
                     polymarket_ds=_polymarket_source,
                     spread_store=_spread_store,
+                    event_bus=event_bus,  # emit arb.spread → ArbExecutor
                 ),
             )
 
@@ -1879,6 +1886,14 @@ async def lifespan(app: FastAPI):
 
         sizing_engine = SizingEngine(perf_store=perf_store)
         app.state.sizing_engine = sizing_engine
+
+        # Inject sizing into ArbExecutor now that it's available. ArbExecutor
+        # was constructed earlier in the lifespan (before perf_store existed)
+        # so sizing is wired via setter — same pattern as meta_agent being
+        # attached to ArbCoordinator after MetaAgent is built.
+        _arb_exec = getattr(app.state, "arb_executor", None)
+        if _arb_exec is not None:
+            _arb_exec.set_sizing_engine(sizing_engine)
 
         exit_manager = None
         exec_tracker = None

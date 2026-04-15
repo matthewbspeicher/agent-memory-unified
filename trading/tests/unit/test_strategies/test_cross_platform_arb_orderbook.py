@@ -318,3 +318,186 @@ async def test_scan_skips_pair_when_orderbook_returns_zero_bid(monkeypatch):
         "scan must skip pairs where orderbook fallback returned bid=0 "
         "(dead CLOB book, not a tradable price)"
     )
+
+
+# ---------------------------------------------------------------------------
+# arb.spread event emission (Phase 1 — wires cron scan into ArbExecutor)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_scan_publishes_arb_spread_event_when_event_bus_wired(monkeypatch):
+    """When event_bus is wired and a spread observation is recorded, scan
+    publishes an arb.spread event with the observation_id so the
+    ArbExecutor can claim and atomically execute the 2-leg trade."""
+    k_market = MagicMock(
+        ticker="KTICK",
+        native_market_id="KTICK",
+        yes_bid=55,
+        yes_ask=57,
+        title="US trade deficit for 2026",
+        volume_usd_24h=Decimal("500"),
+    )
+    p_market = MagicMock(
+        ticker="PTICK",
+        native_market_id="PTICK",
+        yes_bid=70,
+        yes_ask=72,
+        title="US Trade Deficit in 2026",
+        volume_usd_24h=Decimal("500"),
+    )
+
+    kalshi_ds = AsyncMock()
+    kalshi_ds.get_events.return_value = [k_market]
+    polymarket_ds = AsyncMock()
+    polymarket_ds.get_events.return_value = [p_market]
+
+    spread_store = AsyncMock()
+    spread_store.record = AsyncMock(return_value=12345)  # observation_id
+
+    event_bus = AsyncMock()
+
+    candidate = MagicMock(kalshi_ticker="KTICK", poly_ticker="PTICK", final_score=1.0)
+    monkeypatch.setattr(
+        "strategies.cross_platform_arb.match_markets",
+        _FakeMatcher([candidate]),
+    )
+    monkeypatch.setattr(
+        "strategies.cross_platform_arb.normalize_contract",
+        lambda m, platform: MagicMock(volume_usd_24h=Decimal("500")),
+    )
+    monkeypatch.setattr(
+        "strategies.cross_platform_arb.compute_confidence",
+        lambda **_: 0.8,
+    )
+
+    agent = CrossPlatformArbAgent(
+        _make_config(),
+        kalshi_ds=kalshi_ds,
+        polymarket_ds=polymarket_ds,
+        spread_store=spread_store,
+        event_bus=event_bus,
+    )
+    opps = await agent.scan(data=MagicMock())
+
+    # Opportunity emitted as before
+    assert len(opps) == 1
+    # And event_bus.publish called once with arb.spread + the observation_id
+    assert event_bus.publish.await_count == 1
+    topic, payload = event_bus.publish.await_args.args
+    assert topic == "arb.spread"
+    assert payload["observation_id"] == 12345
+    assert payload["kalshi_ticker"] == "KTICK"
+    assert payload["poly_ticker"] == "PTICK"
+    # Convention: kalshi=ask (57), poly=bid (70), gap=13
+    assert payload["kalshi_cents"] == 57
+    assert payload["poly_cents"] == 70
+    assert payload["gap_cents"] == 13
+
+
+@pytest.mark.asyncio
+async def test_scan_does_not_publish_when_event_bus_is_none(monkeypatch):
+    """Regression guard: tests that don't wire event_bus must not blow up
+    and must not publish anything."""
+    k_market = MagicMock(
+        ticker="KTICK",
+        native_market_id="KTICK",
+        yes_bid=55,
+        yes_ask=57,
+        title="A",
+        volume_usd_24h=Decimal("500"),
+    )
+    p_market = MagicMock(
+        ticker="PTICK",
+        native_market_id="PTICK",
+        yes_bid=70,
+        yes_ask=72,
+        title="A",
+        volume_usd_24h=Decimal("500"),
+    )
+
+    kalshi_ds = AsyncMock()
+    kalshi_ds.get_events.return_value = [k_market]
+    polymarket_ds = AsyncMock()
+    polymarket_ds.get_events.return_value = [p_market]
+
+    candidate = MagicMock(kalshi_ticker="KTICK", poly_ticker="PTICK", final_score=1.0)
+    monkeypatch.setattr(
+        "strategies.cross_platform_arb.match_markets",
+        _FakeMatcher([candidate]),
+    )
+    monkeypatch.setattr(
+        "strategies.cross_platform_arb.normalize_contract",
+        lambda m, platform: MagicMock(volume_usd_24h=Decimal("500")),
+    )
+    monkeypatch.setattr(
+        "strategies.cross_platform_arb.compute_confidence",
+        lambda **_: 0.8,
+    )
+
+    # No event_bus, no spread_store — exact shape used by older tests
+    agent = _make_agent(kalshi_ds, polymarket_ds)
+    opps = await agent.scan(data=MagicMock())
+
+    assert len(opps) == 1  # opportunity still emitted
+    # No assertion on publish — just confirm we don't crash.
+
+
+@pytest.mark.asyncio
+async def test_scan_event_bus_failure_is_swallowed(monkeypatch):
+    """Defensive: a misbehaving event_bus must not block opportunity
+    emission. Publish errors log a warning and continue."""
+    k_market = MagicMock(
+        ticker="KTICK",
+        native_market_id="KTICK",
+        yes_bid=55,
+        yes_ask=57,
+        title="A",
+        volume_usd_24h=Decimal("500"),
+    )
+    p_market = MagicMock(
+        ticker="PTICK",
+        native_market_id="PTICK",
+        yes_bid=70,
+        yes_ask=72,
+        title="A",
+        volume_usd_24h=Decimal("500"),
+    )
+
+    kalshi_ds = AsyncMock()
+    kalshi_ds.get_events.return_value = [k_market]
+    polymarket_ds = AsyncMock()
+    polymarket_ds.get_events.return_value = [p_market]
+
+    spread_store = AsyncMock()
+    spread_store.record = AsyncMock(return_value=99)
+
+    event_bus = AsyncMock()
+    event_bus.publish = AsyncMock(side_effect=RuntimeError("redis down"))
+
+    candidate = MagicMock(kalshi_ticker="KTICK", poly_ticker="PTICK", final_score=1.0)
+    monkeypatch.setattr(
+        "strategies.cross_platform_arb.match_markets",
+        _FakeMatcher([candidate]),
+    )
+    monkeypatch.setattr(
+        "strategies.cross_platform_arb.normalize_contract",
+        lambda m, platform: MagicMock(volume_usd_24h=Decimal("500")),
+    )
+    monkeypatch.setattr(
+        "strategies.cross_platform_arb.compute_confidence",
+        lambda **_: 0.8,
+    )
+
+    agent = CrossPlatformArbAgent(
+        _make_config(),
+        kalshi_ds=kalshi_ds,
+        polymarket_ds=polymarket_ds,
+        spread_store=spread_store,
+        event_bus=event_bus,
+    )
+    opps = await agent.scan(data=MagicMock())
+
+    # Opportunity still emitted despite the publish failure
+    assert len(opps) == 1
+    # Publish was attempted
+    assert event_bus.publish.await_count == 1

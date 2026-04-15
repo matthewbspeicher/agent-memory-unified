@@ -6,7 +6,14 @@ from pydantic import BaseModel
 from typing import Optional
 
 from api.auth import verify_api_key
+from api.identity.dependencies import require_scope
 
+# Router-level verify_api_key covers the read endpoints (/arb/spreads,
+# /arb/pnl, /arb/executor/status, /arb/governor/*). Write endpoints layer
+# require_scope("write:predictions") on top — the admin master key still
+# satisfies it (identity.dependencies treats "admin"/"*" as wildcard), so
+# existing master-key callers keep working while agent tokens need the
+# scope explicitly. Pattern mirrors orders.py:97,131,146.
 router = APIRouter(tags=["Arbitrage"], dependencies=[Depends(verify_api_key)])
 
 
@@ -27,7 +34,10 @@ async def get_active_spreads(request: Request, min_gap: int = 5, limit: int = 50
     return {"spreads": spreads, "count": len(spreads)}
 
 
-@router.post("/arb/execute")
+@router.post(
+    "/arb/execute",
+    dependencies=[Depends(require_scope("write:predictions"))],
+)
 async def execute_arbitrage(req: ExecuteArbRequest, request: Request):
     """Atomically execute a dual-leg arbitrage trade."""
     spread_store = getattr(request.app.state, "spread_store", None)
@@ -189,7 +199,10 @@ async def get_governor_status(request: Request):
     return {"agents": results, "timestamp": gov._cache.timestamp}
 
 
-@router.post("/arb/executor/enable")
+@router.post(
+    "/arb/executor/enable",
+    dependencies=[Depends(require_scope("write:predictions"))],
+)
 async def enable_arb_executor(request: Request):
     """Enable auto-execution of arbitrage spreads."""
     arb_executor = getattr(request.app.state, "arb_executor", None)
@@ -199,7 +212,10 @@ async def enable_arb_executor(request: Request):
     return {"status": "enabled"}
 
 
-@router.post("/arb/executor/disable")
+@router.post(
+    "/arb/executor/disable",
+    dependencies=[Depends(require_scope("write:predictions"))],
+)
 async def disable_arb_executor(request: Request):
     """Disable auto-execution of arbitrage spreads."""
     arb_executor = getattr(request.app.state, "arb_executor", None)

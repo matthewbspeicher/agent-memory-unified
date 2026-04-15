@@ -111,6 +111,7 @@ Scopes follow an `<action>:<resource>` pattern. Initial vocabulary:
 | `write:kg` | Adding or invalidating KG triples (usually NOT exposed externally) |
 | `read:orders` | Viewing trade history, not creating orders |
 | `write:orders` | Creating, modifying, canceling orders — high trust |
+| `write:predictions` | Executing prediction-market arbitrage (Kalshi/Polymarket 2-leg atomic trades, enable/disable auto-execution) — high trust |
 | `read:agents` | Listing internal agents, reading their configs |
 | `control:agents` | Start/stop/evolve internal agents — operator-only |
 | `read:memory` | Agent memory + L0/L1 context — operator-only |

@@ -31,10 +31,15 @@ class SpreadStore:
     def __init__(self, db: aiosqlite.Connection) -> None:
         self._db = db
 
-    async def record(self, obs: SpreadObservation) -> None:
-        """Fire-and-forget insert. Errors are logged and swallowed."""
+    async def record(self, obs: SpreadObservation) -> int | None:
+        """Insert a spread observation and return its id.
+
+        Returns the inserted row's id on success, or None on error.
+        Errors are logged and swallowed so observation recording never
+        blocks the caller's main flow (matching, alerting, etc).
+        """
         try:
-            await self._db.execute(
+            cursor = await self._db.execute(
                 """INSERT INTO arb_spread_observations
                    (kalshi_ticker, poly_ticker, match_score, kalshi_cents, poly_cents,
                     gap_cents, kalshi_volume, poly_volume, observed_at)
@@ -52,8 +57,10 @@ class SpreadStore:
                 ),
             )
             await self._db.commit()
+            return cursor.lastrowid
         except Exception as exc:
             logger.warning("SpreadStore.record failed (non-fatal): %s", exc)
+            return None
 
     async def get_history(
         self,
