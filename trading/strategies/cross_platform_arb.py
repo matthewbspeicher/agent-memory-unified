@@ -17,6 +17,7 @@ from agents.models import AgentConfig, Opportunity, OpportunityStatus
 from broker.models import LimitOrder, Symbol, AssetType, OrderSide, TIF
 from strategies.matching import match_markets
 from strategies.normalization import normalize_contract, compute_confidence
+from utils.ids import new_signal_id
 
 logger = logging.getLogger(__name__)
 
@@ -187,6 +188,8 @@ class CrossPlatformArbAgent(StructuredAgent):
             sym = Symbol(ticker=target_ticker, asset_type=AssetType.PREDICTION)
             confidence = compute_confidence(gap_cents=gap, k_norm=k_norm, p_norm=p_norm)
 
+            signal_id = new_signal_id()
+
             opportunities.append(
                 Opportunity(
                     id=f"x_arb_{target_ticker}_{now.timestamp()}",
@@ -210,6 +213,7 @@ class CrossPlatformArbAgent(StructuredAgent):
                         time_in_force=TIF.GTC,
                     ),
                     data={
+                        "signal_id": signal_id,
                         "kalshi_ticker": cand.kalshi_ticker,
                         "poly_ticker": cand.poly_ticker,
                         "kalshi_cents": k_cents,
@@ -234,6 +238,7 @@ class CrossPlatformArbAgent(StructuredAgent):
                     await self.event_bus.publish(
                         "arb.spread",
                         {
+                            "signal_id": signal_id,
                             "observation_id": observation_id,
                             "kalshi_ticker": cand.kalshi_ticker,
                             "poly_ticker": cand.poly_ticker,

@@ -58,6 +58,7 @@ async def setup_polymarket(
     config: Config,
     data_bus: DataBus,
     all_brokers: dict,
+    order_map: Any | None = None,
 ) -> tuple[Any, Any]:
     """
     Initialize Polymarket prediction markets integration.
@@ -90,6 +91,7 @@ async def setup_polymarket(
             data_source=_polymarket_source,
             creds_path=config.polymarket_creds_path,
             dry_run=config.polymarket_dry_run,
+            order_map=order_map,
         )
         await polymarket_broker.connection.connect()
         data_bus._polymarket_source = _polymarket_source
@@ -155,9 +157,7 @@ async def setup_bittensor(
             logger.warning("Bittensor connect timed out — integration disabled")
             return False, {}
         try:
-            _bt_healthy = await asyncio.wait_for(
-                _bt_adapter.smoke_test(), timeout=30.0
-            )
+            _bt_healthy = await asyncio.wait_for(_bt_adapter.smoke_test(), timeout=30.0)
         except asyncio.TimeoutError:
             logger.warning("Bittensor smoke test timed out — integration disabled")
             return False, {}

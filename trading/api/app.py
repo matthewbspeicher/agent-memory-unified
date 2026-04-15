@@ -1554,11 +1554,15 @@ async def lifespan(app: FastAPI):
 
         # --- Polymarket Integration ---
         from api.startup.integrations import setup_polymarket
+        from feeds.order_map import OrderMap
+
+        _order_map = OrderMap(pool=db._pool) if hasattr(db, "_pool") else None
 
         _polymarket_source, polymarket_broker = await setup_polymarket(
             config=config,
             data_bus=data_bus,
             all_brokers=_all_brokers,
+            order_map=_order_map,
         )
 
         # Multi-broker map — start from connected trading brokers, add prediction markets

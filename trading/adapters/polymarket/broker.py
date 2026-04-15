@@ -11,6 +11,7 @@ import asyncio
 import logging
 from decimal import Decimal
 from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 from adapters.polymarket.client import PolymarketClient
 from adapters.polymarket.data_source import PolymarketDataSource
@@ -41,6 +42,9 @@ from broker.models import (
     Symbol,
 )
 from py_clob_client.order_builder.constants import BUY, SELL
+
+if TYPE_CHECKING:
+    from feeds.order_map import OrderMap
 
 logger = logging.getLogger(__name__)
 
@@ -280,11 +284,16 @@ class PolymarketMarketData(MarketDataProvider):
 
 class PolymarketOrderManager(OrderManager):
     def __init__(
-        self, client: PolymarketClient, data_source: PolymarketDataSource, dry_run: bool
+        self,
+        client: PolymarketClient,
+        data_source: PolymarketDataSource,
+        dry_run: bool,
+        order_map: "OrderMap | None" = None,
     ):
         self.client = client
         self.ds = data_source
         self.dry_run = dry_run
+        self._order_map = order_map
         self._order_update_callbacks: list[Callable[[OrderResult], object]] = []
 
     def on_order_update(self, callback: Callable[[OrderResult], object]) -> None:
@@ -328,8 +337,23 @@ class PolymarketOrderManager(OrderManager):
         try:
             resp = self.client.clob.create_order(args)
             if resp.get("success"):
+                order_id = resp.get("orderID")
+                if order_id and order.signal_id and self._order_map is not None:
+                    try:
+                        await self._order_map.record(
+                            order_hash=order_id,
+                            signal_id=order.signal_id,
+                            venue="polymarket",
+                        )
+                    except Exception as exc:
+                        logger.warning(
+                            "Polymarket: failed to record order_map for %s→%s: %s",
+                            order_id,
+                            order.signal_id,
+                            exc,
+                        )
                 return OrderResult(
-                    order_id=resp.get("orderID"),
+                    order_id=order_id,
                     status=OrderStatus.SUBMITTED,
                     filled_quantity=Decimal("0"),
                     avg_fill_price=Decimal("0"),
@@ -417,11 +441,14 @@ class PolymarketBroker(Broker):
         data_source: PolymarketDataSource,
         creds_path: str,
         dry_run: bool,
+        order_map: "OrderMap | None" = None,
     ):
         self._conn = PolymarketConnection(client, creds_path, dry_run)
         self._acct = PolymarketAccount(client)
         self._data = PolymarketMarketData(data_source)
-        self._om = PolymarketOrderManager(client, data_source, dry_run)
+        self._om = PolymarketOrderManager(
+            client, data_source, dry_run, order_map=order_map
+        )
 
     @property
     def connection(self) -> BrokerConnection:

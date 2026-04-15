@@ -60,6 +60,7 @@ class OrderBase:
     quantity: Decimal
     account_id: str
     time_in_force: TIF = TIF.DAY
+    signal_id: str | None = None
 
 
 @dataclass

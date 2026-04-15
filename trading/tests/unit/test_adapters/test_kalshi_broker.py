@@ -218,6 +218,7 @@ class TestKalshiOrderManager:
             side="yes",
             count=10,
             price=65,
+            client_order_id=None,
         )
         assert result.order_id == "ord-001"
         assert result.status == OrderStatus.SUBMITTED

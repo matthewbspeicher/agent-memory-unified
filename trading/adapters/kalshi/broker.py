@@ -317,6 +317,7 @@ class KalshiOrderManager(OrderManager):
                 side=side,
                 count=count,
                 price=price_cents,
+                client_order_id=order.signal_id,
             )
             status_str = raw.get("status", "resting")
             status = (

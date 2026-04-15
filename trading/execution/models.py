@@ -50,6 +50,7 @@ class ArbTrade:
     leg_a: ArbLeg
     leg_b: ArbLeg
     expected_profit_bps: int
+    signal_id: Optional[str] = None  # ULID linking back to the originating arb signal
     sequencing: SequencingStrategy = SequencingStrategy.LESS_LIQUID_FIRST
     state: ArbState = ArbState.INIT
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
@@ -63,6 +64,7 @@ class ArbTrade:
             "symbol_a": self.symbol_a,
             "symbol_b": self.symbol_b,
             "expected_profit_bps": self.expected_profit_bps,
+            "signal_id": self.signal_id,
             "sequencing": self.sequencing.value,
             "state": self.state.value,
             "created_at": self.created_at.isoformat(),

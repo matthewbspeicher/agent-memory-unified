@@ -78,6 +78,7 @@ class ArbExecutor:
     async def _handle_spread(self, data: dict[str, Any]) -> None:
         """Process a spread observation and execute if profitable."""
         observation_id = data.get("observation_id") or data.get("id")
+        signal_id = data.get("signal_id")
         gap_cents = data.get("gap_cents", 0)
         kalshi_ticker = data.get("kalshi_ticker", "")
         poly_ticker = data.get("poly_ticker", "")
@@ -120,6 +121,7 @@ class ArbExecutor:
                 gap_cents,
                 kalshi_cents=kalshi_cents,
                 poly_cents=poly_cents,
+                signal_id=signal_id,
             )
             if success:
                 logger.info("ArbExecutor: Trade %s completed successfully", trade_key)
@@ -134,6 +136,7 @@ class ArbExecutor:
         """When disabled, run the same gates as _handle_spread but only log —
         never claim the spread or dispatch to the coordinator."""
         observation_id = data.get("observation_id") or data.get("id")
+        signal_id = data.get("signal_id")
         gap_cents = data.get("gap_cents", 0)
         kalshi_ticker = data.get("kalshi_ticker", "")
         poly_ticker = data.get("poly_ticker", "")
@@ -162,6 +165,7 @@ class ArbExecutor:
             f"Shadow: {kalshi_ticker} ↔ {poly_ticker} gap={gap_cents} would_execute={would_execute}",
             data={
                 "observation_id": observation_id,
+                "signal_id": signal_id,
                 "tickers": f"{kalshi_ticker} ↔ {poly_ticker}",
                 "gap_cents": gap_cents,
                 "prices": {"kalshi_cents": kalshi_cents, "poly_cents": poly_cents},
@@ -181,6 +185,7 @@ class ArbExecutor:
         gap_cents: float,
         kalshi_cents: int | None = None,
         poly_cents: int | None = None,
+        signal_id: str | None = None,
     ) -> bool:
         """Execute arbitrage via coordinator."""
         from execution.models import ArbTrade, ArbLeg, SequencingStrategy
@@ -202,6 +207,7 @@ class ArbExecutor:
                 side=kalshi_side,
                 quantity=quantity,
                 account_id="default",
+                signal_id=signal_id,
             ),
         )
 
@@ -212,6 +218,7 @@ class ArbExecutor:
                 side=poly_side,
                 quantity=quantity,
                 account_id="default",
+                signal_id=signal_id,
             ),
         )
 
@@ -222,6 +229,7 @@ class ArbExecutor:
             leg_a=leg_a,
             leg_b=leg_b,
             expected_profit_bps=Decimal(str(abs(gap_cents))),
+            signal_id=signal_id,
             sequencing=SequencingStrategy.LESS_LIQUID_FIRST,
         )
 
