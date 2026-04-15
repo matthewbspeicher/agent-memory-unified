@@ -848,6 +848,53 @@ _INIT_DDL = """
         );
         CREATE INDEX IF NOT EXISTS idx_bt_wsl_time ON bittensor_weight_set_log(attempted_at);
         CREATE INDEX IF NOT EXISTS idx_bt_wsl_status ON bittensor_weight_set_log(status, attempted_at);
+
+        -- ── Feed / billing tables (arb signal feed) ──────────────────────
+
+        CREATE TABLE IF NOT EXISTS feed_arb_signals (
+            signal_id TEXT PRIMARY KEY,
+            ts TEXT NOT NULL,
+            pair_kalshi_ticker TEXT NOT NULL,
+            pair_kalshi_side TEXT NOT NULL,
+            pair_poly_token_id TEXT NOT NULL,
+            pair_poly_side TEXT NOT NULL,
+            edge_cents REAL NOT NULL,
+            max_size_at_edge_usd REAL NOT NULL,
+            expires_at TEXT NOT NULL,
+            outcome TEXT,
+            outcome_set_at TEXT,
+            raw_signal TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_feed_arb_signals_ts ON feed_arb_signals(ts);
+        CREATE INDEX IF NOT EXISTS idx_feed_arb_signals_pending ON feed_arb_signals(ts) WHERE outcome IS NULL;
+
+        CREATE TABLE IF NOT EXISTS feed_arb_pnl_rollup (
+            rollup_ts TEXT PRIMARY KEY,
+            realized_pnl_usd REAL NOT NULL,
+            open_pnl_usd REAL NOT NULL,
+            cumulative_pnl_usd REAL NOT NULL,
+            open_position_count INTEGER NOT NULL,
+            closed_position_count INTEGER NOT NULL,
+            scaled_realized_pnl_usd REAL NOT NULL,
+            scaled_open_pnl_usd REAL NOT NULL,
+            scaled_cumulative_pnl_usd REAL NOT NULL,
+            scaling_assumption TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS stripe_processed_events (
+            event_id TEXT PRIMARY KEY,
+            event_type TEXT NOT NULL,
+            processed_at TEXT NOT NULL DEFAULT (datetime('now')),
+            result TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS signal_order_map (
+            order_hash TEXT PRIMARY KEY,
+            signal_id TEXT NOT NULL,
+            venue TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_signal_order_map_signal ON signal_order_map(signal_id);
 """
 
 
@@ -979,6 +1026,82 @@ async def init_db_postgres(db) -> None:
     except Exception as e:
         logger.warning("bittensor_weight_set_log DDL init (non-fatal): %s", e)
 
+    # ── Feed / billing tables (arb signal feed) ──────────────────────
+    # Declared in _INIT_DDL with SQLite syntax; re-created here with
+    # Postgres-native types because executescript aborts on
+    # INTEGER PRIMARY KEY AUTOINCREMENT before reaching these tables.
+
+    try:
+        await db.execute("""
+        CREATE TABLE IF NOT EXISTS feed_arb_signals (
+            signal_id TEXT PRIMARY KEY,
+            ts TIMESTAMPTZ NOT NULL,
+            pair_kalshi_ticker TEXT NOT NULL,
+            pair_kalshi_side TEXT NOT NULL,
+            pair_poly_token_id TEXT NOT NULL,
+            pair_poly_side TEXT NOT NULL,
+            edge_cents NUMERIC(10,2) NOT NULL,
+            max_size_at_edge_usd NUMERIC(12,2) NOT NULL,
+            expires_at TIMESTAMPTZ NOT NULL,
+            outcome TEXT,
+            outcome_set_at TIMESTAMPTZ,
+            raw_signal JSONB NOT NULL
+        );
+        """)
+        await db.execute(
+            "CREATE INDEX IF NOT EXISTS idx_feed_arb_signals_ts ON feed_arb_signals(ts DESC);"
+        )
+        await db.execute(
+            "CREATE INDEX IF NOT EXISTS idx_feed_arb_signals_pending ON feed_arb_signals(ts) WHERE outcome IS NULL;"
+        )
+    except Exception as e:
+        logger.warning("feed_arb_signals DDL init (non-fatal): %s", e)
+
+    try:
+        await db.execute("""
+        CREATE TABLE IF NOT EXISTS feed_arb_pnl_rollup (
+            rollup_ts TIMESTAMPTZ PRIMARY KEY,
+            realized_pnl_usd NUMERIC(12,2) NOT NULL,
+            open_pnl_usd NUMERIC(12,2) NOT NULL,
+            cumulative_pnl_usd NUMERIC(12,2) NOT NULL,
+            open_position_count INT NOT NULL,
+            closed_position_count INT NOT NULL,
+            scaled_realized_pnl_usd NUMERIC(14,2) NOT NULL,
+            scaled_open_pnl_usd NUMERIC(14,2) NOT NULL,
+            scaled_cumulative_pnl_usd NUMERIC(14,2) NOT NULL,
+            scaling_assumption TEXT NOT NULL
+        );
+        """)
+    except Exception as e:
+        logger.warning("feed_arb_pnl_rollup DDL init (non-fatal): %s", e)
+
+    try:
+        await db.execute("""
+        CREATE TABLE IF NOT EXISTS stripe_processed_events (
+            event_id TEXT PRIMARY KEY,
+            event_type TEXT NOT NULL,
+            processed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            result TEXT NOT NULL
+        );
+        """)
+    except Exception as e:
+        logger.warning("stripe_processed_events DDL init (non-fatal): %s", e)
+
+    try:
+        await db.execute("""
+        CREATE TABLE IF NOT EXISTS signal_order_map (
+            order_hash TEXT PRIMARY KEY,
+            signal_id TEXT NOT NULL,
+            venue TEXT NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        """)
+        await db.execute(
+            "CREATE INDEX IF NOT EXISTS idx_signal_order_map_signal ON signal_order_map(signal_id);"
+        )
+    except Exception as e:
+        logger.warning("signal_order_map DDL init (non-fatal): %s", e)
+
     # Column migrations — safe to retry (postgres raises "already exists")
     _migrations = [
         ("tracked_positions", "expires_at", "TEXT"),
@@ -1007,7 +1130,11 @@ async def init_db_postgres(db) -> None:
         # Postgres tables created from the earlier schema are missing it and
         # crash get_miner_rankings(symbol="aggregate"). Default 'aggregate'
         # matches how all existing callers query.
-        ("bittensor_miner_rankings", "symbol", "VARCHAR(32) NOT NULL DEFAULT 'aggregate'"),
+        (
+            "bittensor_miner_rankings",
+            "symbol",
+            "VARCHAR(32) NOT NULL DEFAULT 'aggregate'",
+        ),
         ("elo_rating_history", "timestamp", "TEXT DEFAULT NOW()"),
         ("tournament_audit_log", "timestamp", "TEXT DEFAULT NOW()"),
         ("strategy_health", "consecutive_losses", "INTEGER DEFAULT 0"),

@@ -849,3 +849,50 @@ CREATE TABLE IF NOT EXISTS bittensor_weight_set_log (
 CREATE INDEX IF NOT EXISTS idx_bt_wsl_time ON bittensor_weight_set_log(attempted_at);
 CREATE INDEX IF NOT EXISTS idx_bt_wsl_status ON bittensor_weight_set_log(status, attempted_at);
 
+-- ── Feed / billing tables (arb signal feed) ──────────────────────
+
+CREATE TABLE IF NOT EXISTS feed_arb_signals (
+    signal_id TEXT PRIMARY KEY,
+    ts TIMESTAMPTZ NOT NULL,
+    pair_kalshi_ticker TEXT NOT NULL,
+    pair_kalshi_side TEXT NOT NULL,
+    pair_poly_token_id TEXT NOT NULL,
+    pair_poly_side TEXT NOT NULL,
+    edge_cents NUMERIC(10,2) NOT NULL,
+    max_size_at_edge_usd NUMERIC(12,2) NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    outcome TEXT,
+    outcome_set_at TIMESTAMPTZ,
+    raw_signal JSONB NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_feed_arb_signals_ts ON feed_arb_signals(ts DESC);
+CREATE INDEX IF NOT EXISTS idx_feed_arb_signals_pending ON feed_arb_signals(ts) WHERE outcome IS NULL;
+
+CREATE TABLE IF NOT EXISTS feed_arb_pnl_rollup (
+    rollup_ts TIMESTAMPTZ PRIMARY KEY,
+    realized_pnl_usd NUMERIC(12,2) NOT NULL,
+    open_pnl_usd NUMERIC(12,2) NOT NULL,
+    cumulative_pnl_usd NUMERIC(12,2) NOT NULL,
+    open_position_count INT NOT NULL,
+    closed_position_count INT NOT NULL,
+    scaled_realized_pnl_usd NUMERIC(14,2) NOT NULL,
+    scaled_open_pnl_usd NUMERIC(14,2) NOT NULL,
+    scaled_cumulative_pnl_usd NUMERIC(14,2) NOT NULL,
+    scaling_assumption TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS stripe_processed_events (
+    event_id TEXT PRIMARY KEY,
+    event_type TEXT NOT NULL,
+    processed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    result TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS signal_order_map (
+    order_hash TEXT PRIMARY KEY,
+    signal_id TEXT NOT NULL,
+    venue TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_signal_order_map_signal ON signal_order_map(signal_id);
+
