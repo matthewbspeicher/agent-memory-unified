@@ -3,6 +3,8 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi.testclient import TestClient
 
+from models.user import User, PlatformTier
+
 
 @pytest.fixture
 def opp_client(mock_broker):
@@ -10,10 +12,17 @@ def opp_client(mock_broker):
 
     os.environ["STA_API_KEY"] = "test-key"
     from api.app import create_app
+    from api.auth import _get_settings
+    from api.auth.users import get_current_user
     from api.routes.opportunities import router as opp_router
 
+    _get_settings.cache_clear()
     app = create_app(mock_broker)
     app.include_router(opp_router)
+
+    test_user = User(email="test@example.com", tier=PlatformTier.TRADER)
+    app.dependency_overrides[get_current_user] = lambda: test_user
+
     store = MagicMock()
     store.list = AsyncMock(
         return_value=[
@@ -45,7 +54,9 @@ def opp_client(mock_broker):
     )
     store.update_status = AsyncMock()
     app.state.opportunity_store = store
-    return TestClient(app)
+    client = TestClient(app)
+    yield client
+    app.dependency_overrides.clear()
 
 
 class TestOpportunitiesAPI:

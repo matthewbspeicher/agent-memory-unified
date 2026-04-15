@@ -187,6 +187,7 @@ class KalshiDataSource:
             open_interest=first.get("open_interest", 0),
             volume_24h=first.get("volume_24h", 0),
             result=first.get("result"),
+            native_market_id=first.get("ticker"),
         )
 
     def _parse_market(self, m: dict) -> PredictionContract:
@@ -208,4 +209,5 @@ class KalshiDataSource:
             open_interest=m.get("open_interest", 0),
             volume_24h=m.get("volume_24h", 0),
             result=m.get("result"),
+            native_market_id=m.get("ticker"),
         )

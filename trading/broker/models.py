@@ -382,6 +382,11 @@ class PredictionContract:
     open_interest: int = 0
     volume_24h: int = 0
     result: str | None = None  # "YES" | "NO" | None (unresolved)
+    # Platform-specific market identifier for live orderbook lookups.
+    # Kalshi: market ticker (e.g. "HIGHNY-25MAR26-B72")
+    # Polymarket: condition_id (e.g. "0x1234...")
+    # None when only event-level data is available.
+    native_market_id: str | None = None
 
     @property
     def as_symbol(self) -> Symbol:

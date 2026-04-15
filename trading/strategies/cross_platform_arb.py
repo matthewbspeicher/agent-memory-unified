@@ -92,14 +92,16 @@ class CrossPlatformArbAgent(StructuredAgent):
             p_cents = p_mkt.yes_bid
 
             if k_cents is None:
+                ticker = k_mkt.native_market_id or cand.kalshi_ticker
                 q = await self.kalshi_ds.get_quote(
-                    Symbol(ticker=cand.kalshi_ticker, asset_type=AssetType.PREDICTION)
+                    Symbol(ticker=ticker, asset_type=AssetType.PREDICTION)
                 )
                 if q is not None and q.ask is not None:
                     k_cents = int(q.ask * 100)
             if p_cents is None:
+                ticker = p_mkt.native_market_id or cand.poly_ticker
                 q = await self.polymarket_ds.get_quote(
-                    Symbol(ticker=cand.poly_ticker, asset_type=AssetType.PREDICTION)
+                    Symbol(ticker=ticker, asset_type=AssetType.PREDICTION)
                 )
                 if q is not None and q.bid is not None:
                     p_cents = int(q.bid * 100)
@@ -107,7 +109,8 @@ class CrossPlatformArbAgent(StructuredAgent):
             if k_cents is None or p_cents is None:
                 logger.debug(
                     "cross_platform_arb: skipping %s/%s — no live price after orderbook fetch",
-                    cand.kalshi_ticker, cand.poly_ticker,
+                    cand.kalshi_ticker,
+                    cand.poly_ticker,
                 )
                 continue
 

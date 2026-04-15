@@ -25,6 +25,7 @@ def mock_poly_ds():
             )
         ]
     )
+    ds.get_events = AsyncMock(return_value=ds.get_markets.return_value)
     return ds
 
 
@@ -32,6 +33,18 @@ def mock_poly_ds():
 def mock_kalshi_ds():
     ds = MagicMock()
     ds.get_markets = AsyncMock(
+        return_value=[
+            PredictionContract(
+                ticker="KALSHI-123",
+                title="Test News Market",
+                category="politics",
+                close_time=datetime(2026, 12, 31, tzinfo=timezone.utc),
+                yes_bid=55,
+                volume_24h=1000,
+            )
+        ]
+    )
+    ds.get_events = AsyncMock(
         return_value=[
             PredictionContract(
                 ticker="KALSHI-123",

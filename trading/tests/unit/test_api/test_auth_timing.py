@@ -36,12 +36,11 @@ class TestApiKeyTiming:
         assert exc.value.status_code == 503
 
     def test_timing_safe_comparison_used(self):
-        """Verify hmac.compare_digest is used (can't test timing, but verify import)."""
+        """Verify hmac.compare_digest is used in the auth implementation."""
         import hmac
         import inspect
-        from api import auth
+        from api.auth import agents as auth_agents
 
-        # Check that hmac is imported in auth module
         assert hasattr(hmac, "compare_digest")
-        source = inspect.getsource(auth)
+        source = inspect.getsource(auth_agents)
         assert "hmac.compare_digest" in source

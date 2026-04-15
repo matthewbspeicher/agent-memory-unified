@@ -149,6 +149,7 @@ class PolymarketDataSource:
                 yes_bid=yes_cents,
                 volume_24h=int(Decimal(str(mkt.get("volume_24hr", "0")))),
                 result=result,
+                native_market_id=mkt.get("condition_id"),
             )
         except Exception as e:
             logger.debug(
@@ -211,7 +212,10 @@ class PolymarketDataSource:
         allowed = {t.lower() for t in tags} if tags else None
         contracts: list[PredictionContract] = []
         for ev in raw:
-            ev_tags = [t.get("label", "") if isinstance(t, dict) else str(t) for t in (ev.get("tags") or [])]
+            ev_tags = [
+                t.get("label", "") if isinstance(t, dict) else str(t)
+                for t in (ev.get("tags") or [])
+            ]
             if allowed is not None and not any(t.lower() in allowed for t in ev_tags):
                 continue
             try:
@@ -263,7 +267,9 @@ class PolymarketDataSource:
                 break
 
         try:
-            volume_24h = int(Decimal(str(ev.get("volume24hr") or first.get("volume24hr") or "0")))
+            volume_24h = int(
+                Decimal(str(ev.get("volume24hr") or first.get("volume24hr") or "0"))
+            )
         except Exception:
             volume_24h = 0
 
@@ -286,6 +292,7 @@ class PolymarketDataSource:
             yes_bid=yes_cents,
             volume_24h=volume_24h,
             result=None,
+            native_market_id=first.get("conditionId") or first.get("condition_id"),
         )
 
     def get_market(self, condition_id: str) -> PredictionContract | None:
@@ -324,7 +331,11 @@ class PolymarketDataSource:
         return matches[:limit]
 
     async def get_quote(self, symbol: Symbol) -> "Quote | None":
-        """Fetch quote by condition_id (ticker)."""
+        """Fetch quote by condition_id (ticker).
+
+        Falls back to live CLOB orderbook when cached bid/ask are None
+        (common for illiquid markets where Gamma returns null prices).
+        """
         import asyncio
 
         mkt = await asyncio.to_thread(self.get_market, symbol.ticker)
@@ -333,16 +344,58 @@ class PolymarketDataSource:
         from broker.models import Quote
         from decimal import Decimal
 
+        bid = (
+            Decimal(str(mkt.yes_bid)) / Decimal("100")
+            if mkt.yes_bid is not None
+            else None
+        )
+        ask = (
+            Decimal(str(mkt.yes_ask)) / Decimal("100")
+            if mkt.yes_ask is not None
+            else None
+        )
+        last = (
+            Decimal(str(mkt.yes_last)) / Decimal("100")
+            if mkt.yes_last is not None
+            else None
+        )
+
+        if bid is None or ask is None:
+            ob_bid, ob_ask = await self._orderbook_fallback(symbol.ticker)
+            if ob_bid is not None:
+                bid = ob_bid
+            if ob_ask is not None:
+                ask = ob_ask
+
         return Quote(
             symbol=symbol,
-            bid=Decimal(str(mkt.yes_bid)) / Decimal("100")
-            if mkt.yes_bid is not None
-            else None,
-            ask=Decimal(str(mkt.yes_ask)) / Decimal("100")
-            if mkt.yes_ask is not None
-            else None,
-            last=Decimal(str(mkt.yes_last)) / Decimal("100")
-            if mkt.yes_last is not None
-            else None,
+            bid=bid,
+            ask=ask,
+            last=last,
             volume=mkt.volume_24h,
         )
+
+    async def _orderbook_fallback(
+        self, condition_id: str
+    ) -> tuple[Decimal | None, Decimal | None]:
+        """Fetch live bid/ask from CLOB orderbook when cached prices are None."""
+        import asyncio
+        from decimal import Decimal
+
+        token_id = await asyncio.to_thread(self.resolve_token_id, condition_id, "YES")
+        if not token_id:
+            return None, None
+
+        try:
+            ob = await asyncio.to_thread(self.client.get_orderbook, token_id)
+        except Exception as exc:
+            logger.debug(
+                "Polymarket orderbook fallback failed for %s: %s", condition_id, exc
+            )
+            return None, None
+
+        bids = ob.get("bids") or []
+        asks = ob.get("asks") or []
+        bid = Decimal(str(bids[0]["price"])) if bids else None
+        ask = Decimal(str(asks[0]["price"])) if asks else None
+        return bid, ask
