@@ -256,3 +256,65 @@ async def test_scan_uses_cached_prices_when_available(monkeypatch):
     )
     assert len(opps) == 1
     assert opps[0].data["gap_cents"] == 15
+
+
+@pytest.mark.asyncio
+async def test_scan_skips_pair_when_orderbook_returns_zero_bid(monkeypatch):
+    """Dead-book filter: illiquid CLOB markets return bid=0 / ask=None.
+
+    Verified live 2026-04-15: 4/4 null-cached Gamma events filled via
+    `_orderbook_fallback` with bid=Decimal("0"), which is not tradable.
+    scan() must skip these rather than emit a fake opportunity with
+    gap_cents = |k_cents - 0|.
+    """
+    k_market = MagicMock(
+        ticker="KTICK",
+        native_market_id="KTICK",
+        yes_bid=None,
+        yes_ask=None,
+        title="US trade deficit for 2026",
+        volume_usd_24h=Decimal("500"),
+    )
+    p_market = MagicMock(
+        ticker="PTICK",
+        native_market_id="PTICK",
+        yes_bid=None,
+        yes_ask=None,
+        title="US Trade Deficit in 2026",
+        volume_usd_24h=Decimal("500"),
+    )
+
+    kalshi_ds = AsyncMock()
+    kalshi_ds.get_markets.return_value = [k_market]
+    kalshi_ds.get_events.return_value = [k_market]
+    kalshi_ds.get_quote.return_value = MagicMock(
+        bid=Decimal("0.55"), ask=Decimal("0.57")
+    )
+
+    polymarket_ds = AsyncMock()
+    polymarket_ds.get_markets.return_value = [p_market]
+    polymarket_ds.get_events.return_value = [p_market]
+    # Dead book: orderbook fallback reached CLOB but found bid=0.
+    polymarket_ds.get_quote.return_value = MagicMock(bid=Decimal("0"), ask=None)
+
+    candidate = MagicMock(kalshi_ticker="KTICK", poly_ticker="PTICK", final_score=1.0)
+    monkeypatch.setattr(
+        "strategies.cross_platform_arb.match_markets",
+        _FakeMatcher([candidate]),
+    )
+    monkeypatch.setattr(
+        "strategies.cross_platform_arb.normalize_contract",
+        lambda m, platform: MagicMock(volume_usd_24h=Decimal("500")),
+    )
+    monkeypatch.setattr(
+        "strategies.cross_platform_arb.compute_confidence",
+        lambda **_: 0.8,
+    )
+
+    agent = _make_agent(kalshi_ds, polymarket_ds)
+    opps = await agent.scan(data=MagicMock())
+
+    assert len(opps) == 0, (
+        "scan must skip pairs where orderbook fallback returned bid=0 "
+        "(dead CLOB book, not a tradable price)"
+    )

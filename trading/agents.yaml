@@ -96,7 +96,18 @@ agents:
     action_level: suggest_trade
     parameters:
       threshold_cents: 8
-      min_match_similarity: 0.20
+      # Live smoke at 0.20-0.30 produced 74 opportunities dominated by
+      # mismatched pairs (score 0.33-0.44, gap >90¢ from pairing different
+      # questions). The ccbe8ea commit message called 0.83+ "gold"; 0.60 is
+      # a conservative floor that filters noise without being so strict that
+      # real matches with title variance (e.g. "2026 GDP" vs "GDP 2026") drop.
+      min_match_similarity: 0.60
+      # Secondary quality guard. Gaps above ~50¢ are almost always either
+      # (a) matcher error on different questions with extreme prices, or
+      # (b) inverse-direction pairs (K "will X" ~99¢ vs P "will NOT X" ~2¢)
+      # that need a different execution path than the current single-leg
+      # BUY. Reject both; surface as spread-only observations, not trades.
+      max_gap_cents: 50
       alert_on_spread: true
       kalshi_categories: ["economics", "politics", "climate"]
       polymarket_tags: ["politics", "crypto", "climate"]

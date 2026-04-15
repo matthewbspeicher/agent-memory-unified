@@ -72,3 +72,43 @@ async def test_native_market_id_populated_in_market_data():
         assert mkt.native_market_id is not None, (
             f"market {mkt.ticker} should have native_market_id (conditionId)"
         )
+
+
+@skip_unless_integration
+@pytest.mark.asyncio
+async def test_orderbook_fallback_fires_for_null_cached_event():
+    """Targets the production arb path: find a Gamma event with null cached
+    prices and verify `_orderbook_fallback` actually reaches the CLOB.
+
+    This is the test commit 1b28488's original integration suite was missing —
+    the old tests passed via `markets[0]` having cached prices, so the
+    fallback code was never exercised. This one specifically filters to
+    null-cached events before calling get_quote.
+    """
+    from broker.models import AssetType, Symbol
+
+    ds = _build_data_source()
+    events = await ds.get_events(max_pages=2)
+    null_cached = [e for e in events if e.yes_bid is None]
+    if not null_cached:
+        pytest.skip(
+            "no null-cached events in active set — try again later "
+            "(every current Gamma event has populated outcomePrices)"
+        )
+
+    target = null_cached[0]
+    quote = await ds.get_quote(
+        Symbol(ticker=target.ticker, asset_type=AssetType.PREDICTION)
+    )
+    assert quote is not None, (
+        f"get_quote returned None for null-cached event {target.ticker!r} — "
+        "orderbook fallback path is broken"
+    )
+    # The fallback reached the CLOB. Either side may be None if the book is
+    # one-sided or empty (illiquid market) — we only assert that get_quote
+    # did not 301/404 at the get_market step, which is the actual regression
+    # we're guarding against.
+    assert quote.bid is not None or quote.ask is not None or quote.last is not None, (
+        f"orderbook fallback returned fully-empty quote for {target.ticker!r}; "
+        "this means CLOB orderbook has no depth either side — flag for scan filter"
+    )

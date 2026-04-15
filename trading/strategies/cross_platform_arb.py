@@ -40,6 +40,11 @@ class CrossPlatformArbAgent(StructuredAgent):
         params = config.parameters or {}
         self.threshold = params.get("threshold_cents", 8)
         self.min_similarity = params.get("min_match_similarity", 0.35)
+        # Gaps above this are almost always matcher error or inverse-direction
+        # pairs that the current single-leg BUY execution can't trade correctly.
+        # Spread observations are still recorded below; only the Opportunity
+        # emission is gated. See docstring on scan() for the full rationale.
+        self.max_gap_cents = params.get("max_gap_cents", 50)
         self.kalshi_categories = params.get(
             "kalshi_categories", ["economics", "politics", "climate"]
         )
@@ -106,11 +111,19 @@ class CrossPlatformArbAgent(StructuredAgent):
                 if q is not None and q.bid is not None:
                     p_cents = int(q.bid * 100)
 
-            if k_cents is None or p_cents is None:
+            # Dead-book filter: the orderbook fallback can reach the CLOB and
+            # return a Decimal("0") bid (or an ask with no counter-bid) for
+            # illiquid markets. Those aren't tradable — a 0¢ quote means
+            # nobody is willing to buy/sell, not that the true price is 0.
+            # Live 2026-04-15 probe: 4/4 null-cached events filled as bid=0.
+            if k_cents is None or p_cents is None or k_cents <= 0 or p_cents <= 0:
                 logger.debug(
-                    "cross_platform_arb: skipping %s/%s — no live price after orderbook fetch",
+                    "cross_platform_arb: skipping %s/%s — no tradable price "
+                    "(k=%s p=%s; dead book or zero-depth orderbook)",
                     cand.kalshi_ticker,
                     cand.poly_ticker,
+                    k_cents,
+                    p_cents,
                 )
                 continue
 
@@ -133,6 +146,23 @@ class CrossPlatformArbAgent(StructuredAgent):
                 await self.spread_store.record(obs)
 
             if gap == 0 or gap <= self.threshold:
+                continue
+
+            # Quality guard: reject implausibly large gaps. These dominate
+            # the signal at loose min_match_similarity values and are almost
+            # always either matcher error (different questions) or inverse-
+            # direction pairs that the single-leg BUY below cannot execute
+            # as an arb. Spread observation above has already been recorded
+            # for history, so this only gates emission.
+            if gap > self.max_gap_cents:
+                logger.debug(
+                    "cross_platform_arb: skipping %s/%s — gap=%d¢ exceeds "
+                    "max_gap_cents=%d (likely mismatch or inverse pair)",
+                    cand.kalshi_ticker,
+                    cand.poly_ticker,
+                    gap,
+                    self.max_gap_cents,
+                )
                 continue
 
             target_broker = "kalshi" if k_cents < p_cents else "polymarket"
