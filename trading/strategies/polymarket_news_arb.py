@@ -197,15 +197,20 @@ class PolymarketNewsArbAgent(StructuredAgent):
             return []
 
     async def _fetch_recent_headlines(self) -> list[str]:
-        """Fetch headlines from NewsAPI if key is configured, otherwise fall back to RSS feeds."""
+        """Fetch headlines from NewsAPI; fall back to RSS feeds if NewsAPI is
+        unset OR returns an empty list (rate-limit / outage are common)."""
+        headlines: list[str] = []
         if self.newsapi_key:
-            return await self._fetch_newsapi_headlines("markets finance", page_size=15)
+            headlines = await self._fetch_newsapi_headlines(
+                "markets finance", page_size=15
+            )
+        if headlines:
+            return headlines
 
         # Fall back to RSS feeds
         import httpx
         import xml.etree.ElementTree as ET
 
-        headlines = []
         async with httpx.AsyncClient() as client:
             for feed in self.rss_feeds:
                 try:

@@ -156,7 +156,9 @@ class KalshiNewsArbAgent(StructuredAgent):
             all_headlines = await _fetch_newsapi_headlines(
                 "markets finance", newsapi_key, page_size=15
             )
-        else:
+        # Fall back to RSS if NewsAPI returned nothing (or wasn't configured).
+        # NewsAPI has been known to silently yield [] on rate-limit / outage.
+        if not all_headlines:
             for feed in rss_feeds:
                 all_headlines.extend(await _fetch_headlines(feed, limit=5))
         all_headlines = all_headlines[:15]  # cap total context
