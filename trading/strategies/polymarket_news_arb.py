@@ -197,8 +197,9 @@ class PolymarketNewsArbAgent(StructuredAgent):
             return []
 
     async def _fetch_recent_headlines(self) -> list[str]:
-        """Fetch headlines from NewsAPI; fall back to RSS feeds if NewsAPI is
-        unset OR returns an empty list (rate-limit / outage are common)."""
+        """Fetch headlines in order: NewsAPI → RSS → GDELT. Each tier is
+        skipped if the prior returned content; each is independently
+        resilient to failure (empty list on error, never raises)."""
         headlines: list[str] = []
         if self.newsapi_key:
             headlines = await self._fetch_newsapi_headlines(
@@ -226,6 +227,15 @@ class PolymarketNewsArbAgent(StructuredAgent):
                     logger.debug(
                         "PolymarketNewsArbAgent failed to fetch RSS %s: %s", feed, e
                     )
+        if headlines:
+            return headlines
+
+        # Final fallback: GDELT DOC 2.0 — free, no key, 15-min refresh.
+        from data.sources.gdelt import fetch_headlines as _gdelt_fetch
+
+        headlines = await _gdelt_fetch(
+            "markets finance politics economy", max_records=15, timespan="1d"
+        )
         return headlines
 
     def _build_prompt(self, mkt, headlines: list[str]) -> str:

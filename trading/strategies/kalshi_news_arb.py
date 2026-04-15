@@ -161,6 +161,13 @@ class KalshiNewsArbAgent(StructuredAgent):
         if not all_headlines:
             for feed in rss_feeds:
                 all_headlines.extend(await _fetch_headlines(feed, limit=5))
+        # Final fallback: GDELT DOC 2.0 — free, no key, 15-min refresh.
+        if not all_headlines:
+            from data.sources.gdelt import fetch_headlines as _gdelt_fetch
+
+            all_headlines = await _gdelt_fetch(
+                "markets finance politics economy", max_records=15, timespan="1d"
+            )
         all_headlines = all_headlines[:15]  # cap total context
 
         opportunities: list[Opportunity] = []
