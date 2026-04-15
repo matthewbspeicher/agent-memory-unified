@@ -292,6 +292,7 @@ class KalshiClient:
         price: int,  # cents 1–99
         order_type: str = "limit",
         expiration_ts: int | None = None,
+        client_order_id: str | None = None,
     ) -> dict:
         """POST /portfolio/orders"""
         body: dict[str, Any] = {
@@ -305,6 +306,8 @@ class KalshiClient:
             body["yes_price"] = price if side == "yes" else (100 - price)
         if expiration_ts:
             body["expiration_ts"] = expiration_ts
+        if client_order_id:
+            body["client_order_id"] = client_order_id
         data = await self._post("/portfolio/orders", body)
         return data.get("order", data)
 
