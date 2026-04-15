@@ -2,7 +2,7 @@ import pytest
 import json
 from unittest.mock import AsyncMock, MagicMock
 from fastapi.testclient import TestClient
-from trading.models.user import PlatformTier, User
+from models.user import PlatformTier, User
 from uuid import uuid4
 from datetime import datetime
 

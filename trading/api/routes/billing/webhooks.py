@@ -1,8 +1,8 @@
 import stripe
 import json
 from fastapi import APIRouter, Request, HTTPException, Depends
-from trading.api.identity.store import IdentityStore
-from trading.models.user import PlatformTier
+from api.identity.store import IdentityStore
+from models.user import PlatformTier
 from api.auth.users import get_identity_store
 
 router = APIRouter()

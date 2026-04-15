@@ -11,7 +11,7 @@ from uuid import UUID
 
 import asyncpg
 
-from trading.models.user import User, PlatformTier
+from models.user import User, PlatformTier
 
 
 class DuplicateAgentError(Exception):

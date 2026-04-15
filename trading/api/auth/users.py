@@ -7,8 +7,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel, EmailStr
 
-from trading.api.identity.store import IdentityStore
-from trading.models.user import User
+from api.identity.store import IdentityStore
+from models.user import User
 
 router = APIRouter()
 

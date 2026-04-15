@@ -3,8 +3,8 @@ import hmac
 import json
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
 import jwt
-from trading.api.identity.store import IdentityStore
-from trading.models.user import PlatformTier
+from api.identity.store import IdentityStore
+from models.user import PlatformTier
 from api.auth import _get_settings
 from api.deps import get_event_bus
 

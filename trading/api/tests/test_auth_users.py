@@ -14,7 +14,7 @@ class MockIdentityStore:
         return self.users.get(email)
         
     async def create_user(self, email: str, password: str):
-        from trading.models.user import User, PlatformTier
+        from models.user import User, PlatformTier
         import uuid
         salt = bcrypt.gensalt()
         hashed = bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')

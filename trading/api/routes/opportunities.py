@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from agents.models import OpportunityStatus
 from api.auth import verify_api_key, _get_settings, get_current_user
-from trading.models.user import User, PlatformTier
+from models.user import User, PlatformTier
 from api.deps import get_opportunity_store
 
 router = APIRouter(prefix="/opportunities", tags=["opportunities"])
