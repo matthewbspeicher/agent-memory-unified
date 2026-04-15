@@ -4,14 +4,12 @@ from agents.runner import AgentRunner
 from agents.models import Opportunity
 from models.thought import ActionType
 
+
 @pytest.mark.asyncio
 async def test_agent_records_thought():
     # Setup mock runner
     runner = AgentRunner(
-        data_bus=AsyncMock(),
-        router=AsyncMock(),
-        event_bus=AsyncMock(),
-        db=AsyncMock()
+        data_bus=AsyncMock(), router=AsyncMock(), event_bus=AsyncMock(), db=AsyncMock()
     )
     runner._record_thought = AsyncMock()
 
@@ -34,10 +32,11 @@ async def test_agent_records_thought():
     mock_opp.broker_id = None
 
     mock_agent.scan = AsyncMock(return_value=[mock_opp])
-    
+    mock_agent.scan_with_guards = AsyncMock(return_value=[mock_opp])
+
     # Run _execute_scan
     await runner._execute_scan(mock_agent)
-    
+
     # Assert _record_thought was called
     runner._record_thought.assert_called_once()
     args, kwargs = runner._record_thought.call_args

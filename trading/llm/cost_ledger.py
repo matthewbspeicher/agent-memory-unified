@@ -144,6 +144,19 @@ class CostLedger:
                 logger.warning("CostLedger: Redis error in get_agent_spend()")
         return self._local.get(agent_name, 0.0)
 
+    async def check_agent_budget(
+        self, agent_name: str, cap_cents: int | None
+    ) -> bool:
+        """True when the agent may still spend more LLM dollars today.
+
+        ``cap_cents=None`` disables the per-agent cap (global budget still
+        applies separately via ``check_thresholds``).
+        """
+        if cap_cents is None:
+            return True
+        spent = await self.get_agent_spend(agent_name)
+        return spent < cap_cents
+
     def get_cost(self, provider: str, model: str) -> dict[str, float]:
         """Look up per-1M-token cost for a provider/model pair.
 

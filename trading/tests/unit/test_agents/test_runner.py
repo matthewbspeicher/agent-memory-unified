@@ -37,6 +37,7 @@ def _mock_agent(name="test-agent"):
     agent.setup = AsyncMock()
     agent.teardown = AsyncMock()
     agent.scan = AsyncMock(return_value=[])
+    agent.scan_with_guards = AsyncMock(return_value=[])
     return agent
 
 
@@ -56,7 +57,7 @@ class TestAgentRunner:
         runner.register(agent)
         opps = await runner.run_once("test-agent")
         assert opps == []
-        agent.scan.assert_awaited_once()
+        agent.scan_with_guards.assert_awaited_once()
 
     async def test_run_once_skips_retired_agent(self):
         health_engine = MagicMock()
@@ -135,7 +136,7 @@ class TestAgentRunnerWithPaperBroker:
 
         result = await runner.run_once("fidelity-agent")
 
-        agent.scan.assert_awaited_once()
+        agent.scan_with_guards.assert_awaited_once()
         assert isinstance(result, list)
 
     async def test_runner_with_ibkr_paper_broker(self, paper_store_memory):
@@ -147,7 +148,7 @@ class TestAgentRunnerWithPaperBroker:
 
         result = await runner.run_once("ibkr-agent")
 
-        agent.scan.assert_awaited_once()
+        agent.scan_with_guards.assert_awaited_once()
         assert isinstance(result, list)
 
     async def test_runner_run_once_routes_opportunities(self, paper_store_memory):
@@ -177,6 +178,7 @@ class TestAgentRunnerWithPaperBroker:
         router.route = AsyncMock()
         agent = _mock_agent("routing-agent")
         agent.scan = AsyncMock(return_value=[opp])
+        agent.scan_with_guards = AsyncMock(return_value=[opp])
 
         runner = AgentRunner(data_bus=MagicMock(), router=router)
         runner.register(agent)

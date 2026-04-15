@@ -26,6 +26,7 @@ async def test_heartbeat_called_after_successful_scan():
     agent.config.scan_timeout = None  # Ensure getattr returns None, not MagicMock
     agent.config.universe = ["SPY"]
     agent.scan = AsyncMock(return_value=[])
+    agent.scan_with_guards = AsyncMock(return_value=[])
 
     runner.register(agent)
 

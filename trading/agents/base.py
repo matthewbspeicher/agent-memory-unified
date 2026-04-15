@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any
 
 from agents.models import ActionLevel, AgentConfig, Opportunity
+from strategies.base_guards import KillSwitchGuard
 
 if TYPE_CHECKING:
     from data.bus import DataBus
@@ -77,6 +78,18 @@ class StructuredAgent(Agent):
     @property
     def parameters(self) -> dict[str, Any]:
         return {**self._config.parameters, **self._config.runtime_overrides}
+
+    def _build_guard(self) -> KillSwitchGuard:
+        ks = getattr(self, "_kill_switch", None) or getattr(
+            getattr(self, "_engine", None), "kill_switch", None
+        )
+        return KillSwitchGuard(ks)
+
+    async def scan_with_guards(self, data: DataBus) -> list[Opportunity]:
+        guard = self._build_guard()
+        if not await guard.allow_scan(self.name):
+            return []
+        return await self.scan(data)
 
     async def structured_call(
         self,

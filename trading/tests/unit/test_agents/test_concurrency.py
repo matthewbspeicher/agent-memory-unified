@@ -28,6 +28,7 @@ def mock_agent():
         scan_timeout=10.0,
     )
     agent.scan = AsyncMock(return_value=[])
+    agent.scan_with_guards = AsyncMock(return_value=[])
     agent.setup = AsyncMock()
     agent.teardown = AsyncMock()
     return agent
@@ -84,7 +85,7 @@ class TestAgentConcurrencyLimits:
         await runner._execute_scan(mock_agent)
 
         # Verify timeout was used (agent.config.scan_timeout=30.0)
-        mock_agent.scan.assert_called_once()
+        mock_agent.scan_with_guards.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_scan_timeout_fallback_to_default(self, mock_data_bus, mock_router):
@@ -112,7 +113,7 @@ class TestAgentConcurrencyLimits:
 
         await runner._execute_scan(agent)
 
-        agent.scan.assert_called_once()
+        agent.scan_with_guards.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_scan_timeout_triggers_error_on_exceed(
@@ -135,6 +136,7 @@ class TestAgentConcurrencyLimits:
             scan_timeout=0.1,  # Very short timeout
         )
         agent.scan = slow_scan
+        agent.scan_with_guards = slow_scan
         agent.setup = AsyncMock()
         agent.teardown = AsyncMock()
 
@@ -186,6 +188,7 @@ class TestAgentConcurrencyLimits:
                 scan_timeout=5.0,
             )
             agent.scan = await make_scan_fn(agent.name)
+            agent.scan_with_guards = agent.scan
             agent.setup = AsyncMock()
             agent.teardown = AsyncMock()
             runner.register(agent)

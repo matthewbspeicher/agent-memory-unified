@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Optional
 
 from execution.models import ArbTrade, ArbLeg, ArbState, SequencingStrategy
 from broker.models import OrderStatus, OrderResult, OrderSide, MarketOrder
+from risk.portfolio_cap import PortfolioCap, PortfolioCapExceeded
 
 if TYPE_CHECKING:
     from broker.interfaces import Broker
@@ -36,6 +37,7 @@ class ArbCoordinator:
         meta_agent: Optional[MetaAgent] = None,
         event_bus: Optional[EventBus] = None,
         journal_manager: Optional[JournalManager] = None,
+        portfolio_cap: Optional[PortfolioCap] = None,
     ) -> None:
         self._brokers = brokers
         self._store = store
@@ -43,6 +45,7 @@ class ArbCoordinator:
         self._meta_agent = meta_agent
         self._event_bus = event_bus
         self._journal_manager = journal_manager
+        self._portfolio_cap = portfolio_cap
 
     async def _publish_state(self, trade: ArbTrade):
         if self._event_bus:
@@ -131,6 +134,23 @@ class ArbCoordinator:
                     trade, pnl=0.0, reason="Aborted: Slippage"
                 )
                 return False
+
+            # 2b. Portfolio cap check
+            if self._portfolio_cap is not None:
+                try:
+                    await self._portfolio_cap.check(
+                        additional_usd=Decimal(str(trade.leg_1.notional_usd))
+                    )
+                except PortfolioCapExceeded as exc:
+                    logger.warning(
+                        "ArbCoordinator: portfolio cap rejected trade %s: %s",
+                        trade.id,
+                        exc,
+                    )
+                    trade.state = ArbState.REJECTED
+                    trade.error_message = f"portfolio_cap: {exc}"
+                    await self._publish_state(trade)
+                    return False
 
             # 2. Persist initial state
             await self._store.save_trade(trade)

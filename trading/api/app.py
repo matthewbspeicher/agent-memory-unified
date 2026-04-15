@@ -1082,6 +1082,8 @@ async def lifespan(app: FastAPI):
             bedrock_secret_access_key=config.bedrock_secret_access_key,
             cost_ledger=cost_ledger,
         )
+        if config.llm.agent_budgets:
+            llm_client.set_agent_budgets(config.llm.agent_budgets)
         app.state.llm_client = llm_client
 
         # --- Health Cache (external service status for Mission Control) ---
@@ -1653,12 +1655,16 @@ async def lifespan(app: FastAPI):
             try:
                 from strategies.matching import match_markets as _match_markets
 
-                _arb_categories = ["politics", "economics", "climate", "crypto", "world"]
+                _arb_categories = [
+                    "politics",
+                    "economics",
+                    "climate",
+                    "crypto",
+                    "world",
+                ]
                 _k_events = await _kalshi_source.get_events(categories=_arb_categories)
                 _p_events = await _polymarket_source.get_events()
-                _seed_min_score = float(
-                    getattr(config, "arb_match_min_score", 0.45)
-                )
+                _seed_min_score = float(getattr(config, "arb_match_min_score", 0.45))
                 _seeds = _match_markets(_k_events, _p_events, min_score=_seed_min_score)
                 for _c in _seeds:
                     _match_index[_c.poly_ticker] = _c.kalshi_ticker
@@ -2223,6 +2229,7 @@ def create_app(
     app.add_middleware(CorrelationIdMiddleware)
 
     from api.middleware.gatekeeper import GatekeeperMiddleware
+
     app.add_middleware(GatekeeperMiddleware)
 
     # Rate Limiting

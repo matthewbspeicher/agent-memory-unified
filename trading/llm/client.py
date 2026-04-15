@@ -244,11 +244,21 @@ class LLMClient:
         self._disabled: dict[str, bool] = {}
         self._max_fails = 5
 
+        # Per-agent daily LLM cap (cents). Populated at startup from
+        # config.llm.agent_budgets via set_agent_budgets(); empty = no caps.
+        self._agent_budgets: dict[str, int] = {}
+        self._agent_cap_cents: int | None = None
+
+    def set_agent_budgets(self, budgets: dict[str, int]) -> None:
+        """Install per-agent daily cap values. Call once at startup."""
+        self._agent_budgets = dict(budgets)
+
     def for_agent(self, agent_name: str) -> "LLMClient":
         """Return a lightweight view that records cost under a different agent name.
 
         Shares the same registry, chain, circuit breakers, and cost_ledger
-        as the parent — only _agent_name differs.
+        as the parent. Resolves the per-agent cap from ``_agent_budgets`` so
+        ``is_over_budget()`` can short-circuit LLM-dependent scans.
         """
         proxy = object.__new__(LLMClient)
         proxy._chain = self._chain
@@ -260,7 +270,21 @@ class LLMClient:
         proxy._fail_counts = self._fail_counts
         proxy._disabled = self._disabled
         proxy._max_fails = self._max_fails
+        proxy._agent_budgets = getattr(self, "_agent_budgets", {})
+        proxy._agent_cap_cents = proxy._agent_budgets.get(agent_name)
         return proxy
+
+    async def is_over_budget(self) -> bool:
+        """True when this agent has exhausted its per-agent daily LLM cap.
+
+        Call-sites (strategy scan entry points) use this to short-circuit
+        LLM-dependent scans when the cap is hit. No cap configured ⇒ False.
+        """
+        cap = getattr(self, "_agent_cap_cents", None)
+        name = getattr(self, "_agent_name", None)
+        if cap is None or name is None or self._cost_ledger is None:
+            return False
+        return not await self._cost_ledger.check_agent_budget(name, cap)
 
     def _is_disabled(self, provider: str) -> bool:
         return self._disabled.get(provider, False)

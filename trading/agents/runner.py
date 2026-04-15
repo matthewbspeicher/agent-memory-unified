@@ -402,7 +402,7 @@ class AgentRunner:
                     )
                     try:
                         opportunities = await asyncio.wait_for(
-                            agent.scan(self._data_bus), timeout=timeout
+                            agent.scan_with_guards(self._data_bus), timeout=timeout
                         )
                     except asyncio.TimeoutError:
                         logger.error(

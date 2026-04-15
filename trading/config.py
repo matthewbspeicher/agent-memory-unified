@@ -104,6 +104,9 @@ class LLMConfig(BaseModel):
     warning_threshold_pct: float = 0.80  # Alert at 80%
     grace_period_minutes: int = 15  # After ceiling hit
     cost_table_override: str | None = None  # JSON override
+    agent_budgets: dict[str, int] = Field(
+        default_factory=dict
+    )  # per-agent daily cap (cents)
 
 
 class CompetitionConfig(BaseModel):
@@ -373,6 +376,7 @@ class Config(BaseModel):
     arb_auto_execute: bool = False
     arb_min_profit_bps: float = 5.0
     arb_max_position_usd: float = 100.0
+    portfolio_max_position_usd: float = 0.0
 
     # Hermes Autonomy
     hermes_full_autonomy: bool = False
@@ -488,6 +492,13 @@ def load_config(env_file: str = ".env") -> Any:
                 llm_nested["fallback_chain"] = [
                     s.strip() for s in val.split(",") if s.strip()
                 ]
+    if isinstance(llm_nested, dict) and "agent_budgets" in llm_nested:
+        val = llm_nested["agent_budgets"]
+        if isinstance(val, str):
+            try:
+                llm_nested["agent_budgets"] = json.loads(val)
+            except (json.JSONDecodeError, ValueError):
+                llm_nested["agent_budgets"] = {}
 
     # Special handling for Railway PORT and standard HOST env vars
     if "PORT" in os.environ:
