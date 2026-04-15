@@ -267,8 +267,19 @@ class PolymarketDataSource:
         except Exception:
             volume_24h = 0
 
+        # Use the first market's conditionId as the contract identifier
+        # — that's what the CLOB orderbook + ws_feed key off, and what
+        # SpreadTracker.match_index expects on the Polymarket side. The
+        # event slug is preserved on title for matching purposes only.
+        condition_id = (
+            first.get("conditionId")
+            or first.get("condition_id")
+            or ev.get("slug")
+            or str(ev.get("id", ""))
+        )
+
         return PredictionContract(
-            ticker=ev.get("slug") or str(ev.get("id", "")),
+            ticker=condition_id,
             title=ev.get("title", ""),
             category=first_tag,
             close_time=ev.get("endDate") or first.get("endDate") or "",

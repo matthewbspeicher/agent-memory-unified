@@ -1642,9 +1642,39 @@ async def lifespan(app: FastAPI):
             app.state.arb_coordinator = _arb_coordinator
 
             # match_index is poly_ticker (condition_id) -> kalshi_ticker
-            # populated once at startup; refreshed by WS feed background refresh
+            # Populated at startup by running match_markets across both
+            # venues' /events; refreshed by WS feed background refresh.
+            # Without this the SpreadTracker live path stays dark even when
+            # the scheduled scan path produces opportunities (see commit
+            # ccbe8ea / reference_arb_pipeline_startup_gating.md).
             _match_index: dict[str, str] = {}
             app.state.arb_match_index = _match_index
+
+            try:
+                from strategies.matching import match_markets as _match_markets
+
+                _arb_categories = ["politics", "economics", "climate", "crypto", "world"]
+                _k_events = await _kalshi_source.get_events(categories=_arb_categories)
+                _p_events = await _polymarket_source.get_events()
+                _seed_min_score = float(
+                    getattr(config, "arb_match_min_score", 0.45)
+                )
+                _seeds = _match_markets(_k_events, _p_events, min_score=_seed_min_score)
+                for _c in _seeds:
+                    _match_index[_c.poly_ticker] = _c.kalshi_ticker
+                _log.info(
+                    "arb match_index seeded: kalshi_events=%d poly_events=%d "
+                    "pairs=%d (min_score=%.2f)",
+                    len(_k_events),
+                    len(_p_events),
+                    len(_seeds),
+                    _seed_min_score,
+                )
+            except Exception as _seed_exc:
+                _log.warning(
+                    "arb match_index seeding failed (continuing with empty index): %s",
+                    _seed_exc,
+                )
 
             _reg(
                 "cross_platform_arb",

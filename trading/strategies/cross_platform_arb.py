@@ -86,10 +86,29 @@ class CrossPlatformArbAgent(StructuredAgent):
             k_norm = normalize_contract(k_mkt, platform="kalshi")
             p_norm = normalize_contract(p_mkt, platform="polymarket")
 
-            # Use ask for the buy leg (Kalshi YES) and bid for the sell leg (Poly YES)
+            # Prefer nested-market cached prices, fall back to live orderbook
+            # when either side is None (Polymarket outcomePrices=[null,null] etc.)
             k_cents = k_mkt.yes_ask if k_mkt.yes_ask is not None else k_mkt.yes_bid
             p_cents = p_mkt.yes_bid
+
+            if k_cents is None:
+                q = await self.kalshi_ds.get_quote(
+                    Symbol(ticker=cand.kalshi_ticker, asset_type=AssetType.PREDICTION)
+                )
+                if q is not None and q.ask is not None:
+                    k_cents = int(q.ask * 100)
+            if p_cents is None:
+                q = await self.polymarket_ds.get_quote(
+                    Symbol(ticker=cand.poly_ticker, asset_type=AssetType.PREDICTION)
+                )
+                if q is not None and q.bid is not None:
+                    p_cents = int(q.bid * 100)
+
             if k_cents is None or p_cents is None:
+                logger.debug(
+                    "cross_platform_arb: skipping %s/%s — no live price after orderbook fetch",
+                    cand.kalshi_ticker, cand.poly_ticker,
+                )
                 continue
 
             gap = abs(k_cents - p_cents)

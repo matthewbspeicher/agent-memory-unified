@@ -154,11 +154,17 @@ class KalshiDataSource:
     def _parse_event(self, ev: dict) -> PredictionContract:
         """Translate a raw Kalshi event dict into a PredictionContract.
 
-        Uses the first nested market for pricing; the event_ticker is the
-        primary key (market tickers are too granular for cross-venue match).
+        Uses the first nested market's ticker as the contract identifier
+        (orderable; works with /markets/{ticker}/orderbook for live quotes
+        and is the right `Symbol.ticker` for an actual Kalshi order). The
+        title/category come from the event itself so cross-venue matching
+        sees the semantic name, not a market-suffixed string.
+
+        Falls back to event_ticker only when no nested markets are present.
         """
         markets = ev.get("markets") or []
         first = markets[0] if markets else {}
+        market_ticker = first.get("ticker") or ev["event_ticker"]
         close_ts = (
             first.get("close_time")
             or first.get("expected_expiration_time")
@@ -171,7 +177,7 @@ class KalshiDataSource:
             close_time = datetime.now(timezone.utc)
 
         return PredictionContract(
-            ticker=ev["event_ticker"],
+            ticker=market_ticker,
             title=ev.get("title", ""),
             category=ev.get("category", ""),
             close_time=close_time,

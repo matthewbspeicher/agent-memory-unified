@@ -35,7 +35,14 @@ def _make_contract(
 
 def _make_ds(contracts):
     ds = MagicMock()
+    # The agent now drives off /events (commit ccbe8ea); keep get_markets
+    # mocked too so any caller still on the legacy path doesn't break.
     ds.get_markets = AsyncMock(return_value=contracts)
+    ds.get_events = AsyncMock(return_value=contracts)
+    # Orderbook fallback (added in the parallel orderbook-enrichment edit)
+    # — return None by default so the cached nested-market price wins. Tests
+    # that need a different fallback should override this directly.
+    ds.get_quote = AsyncMock(return_value=None)
     return ds
 
 
