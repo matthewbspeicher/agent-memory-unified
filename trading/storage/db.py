@@ -1014,12 +1014,40 @@ async def init_db_postgres(db) -> None:
         ("strategy_health", "max_consecutive_losses", "INTEGER DEFAULT 0"),
         ("strategy_health", "consecutive_wins", "INTEGER DEFAULT 0"),
         ("strategy_health", "max_consecutive_wins", "INTEGER DEFAULT 0"),
+        # arb_spread_observations.observed_at was present in the _INIT_DDL +
+        # init-trading-tables.sql schemas but live Postgres created the table
+        # from an earlier DDL and is missing both the column and the two
+        # indexes on it. SpreadStore.record() INSERTs against `observed_at`
+        # → every insert fails silently (caught by SpreadStore's own
+        # except/warn) → observation_id stays None → cross_platform_arb's
+        # arb.spread EventBus publish never fires → ArbExecutor never sees
+        # events. See docs/feeds/arb/phase-b-findings.md §B-extra.
+        # TEXT rather than TIMESTAMP to match the codebase convention for
+        # timestamp columns (see elo_rating_history.timestamp, tournament_audit_log.timestamp
+        # above): SpreadStore stores ISO-8601 strings and reads them back as
+        # `str` per the SpreadObservation dataclass in storage/spreads.py:25.
+        ("arb_spread_observations", "observed_at", "TEXT NOT NULL DEFAULT NOW()"),
     ]
     for table, col, col_def in _migrations:
         try:
             await db.execute(f"ALTER TABLE {table} ADD COLUMN {col} {col_def}")
         except Exception:
             pass  # Column already exists
+
+    # Indexes on arb_spread_observations.observed_at — counterparts to the
+    # ALTER above. Declared in _INIT_DDL but never created because the
+    # executescript in init_db_postgres aborts the whole block when any
+    # CREATE INDEX references a column that's missing from the live table.
+    for idx_sql in (
+        "CREATE INDEX IF NOT EXISTS idx_arb_spread_pair "
+        "ON arb_spread_observations(kalshi_ticker, poly_ticker, observed_at)",
+        "CREATE INDEX IF NOT EXISTS idx_arb_spread_gap "
+        "ON arb_spread_observations(gap_cents, observed_at)",
+    ):
+        try:
+            await db.execute(idx_sql)
+        except Exception:
+            pass
 
 
 async def get_db(path: str = "data.db") -> aiosqlite.Connection:

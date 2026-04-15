@@ -182,7 +182,6 @@ def _ensure_strategies_registered() -> None:
 
     register_strategy("correlation_monitor", StrategyCorrelationMonitor)
 
-    register_strategy("cross_platform_arb", lambda cfg: None)
     register_strategy("meta_agent", lambda cfg: None)
     register_strategy("meta", lambda cfg: None)
 

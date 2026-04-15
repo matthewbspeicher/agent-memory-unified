@@ -229,5 +229,28 @@ class PostgresDB:
 
     @staticmethod
     def _convert_datetime_now(sql: str) -> str:
-        """Convert datetime('now') → NOW()"""
-        return re.sub(r"datetime\s*\(\s*'now'\s*\)", "NOW()", sql, flags=re.IGNORECASE)
+        """Convert SQLite datetime functions to PostgreSQL equivalents.
+
+        Handles:
+          datetime('now')                → NOW()
+          datetime('now', '-2 minutes')   → NOW() - INTERVAL '2 minutes'
+          datetime('now', '+1 hour')      → NOW() + INTERVAL '1 hour'
+        """
+
+        def _replace_datetime_modifier(match: re.Match) -> str:
+            modifier = match.group(1).strip()
+            mod_match = re.match(r"^([+-])(\d+)\s+(\w+)$", modifier)
+            if mod_match:
+                sign, amount, unit = mod_match.groups()
+                pg_sign = "-" if sign == "-" else "+"
+                return f"NOW() {pg_sign} INTERVAL '{amount} {unit}'"
+            return match.group(0)
+
+        sql = re.sub(
+            r"datetime\s*\(\s*'now'\s*,\s*'([^']+)'\s*\)",
+            _replace_datetime_modifier,
+            sql,
+            flags=re.IGNORECASE,
+        )
+        sql = re.sub(r"datetime\s*\(\s*'now'\s*\)", "NOW()", sql, flags=re.IGNORECASE)
+        return sql
