@@ -26,8 +26,14 @@ async def app():
     app.include_router(create_import_router(store))
     # Override auth for testing
     from api.auth import verify_api_key
+    from api.identity.dependencies import resolve_identity, Identity
 
     app.dependency_overrides[verify_api_key] = lambda: "test-key"
+
+    async def _override_resolve_identity():
+        return Identity(name="master", scopes=frozenset(["admin", "*"]), tier="admin")
+
+    app.dependency_overrides[resolve_identity] = _override_resolve_identity
     yield app
     await db.close()
 

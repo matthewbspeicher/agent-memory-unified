@@ -173,8 +173,8 @@ async def risk_analytics(
     }
 
 
-@router.patch("/rules")
-async def update_rules(_: str = Depends(verify_api_key)):
+@router.patch("/rules", dependencies=[Depends(require_scope("risk:halt"))])
+async def update_rules():
     raise HTTPException(status_code=501, detail="Not implemented yet")
 
 

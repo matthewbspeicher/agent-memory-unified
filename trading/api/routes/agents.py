@@ -23,7 +23,11 @@ def list_agents(runner: AgentRunner = Depends(get_agent_runner)) -> list[AgentIn
     return runner.list_agents()
 
 
-@router.post("", status_code=201, dependencies=[Depends(check_kill_switch)])
+@router.post(
+    "",
+    status_code=201,
+    dependencies=[Depends(check_kill_switch), Depends(require_scope("control:agents"))],
+)
 @audit_event("agents.create")
 async def create_agent(payload: dict, request: Request):
     """Create a new agent in the registry.
@@ -110,7 +114,7 @@ async def get_agents_activity(
     return {"events": rows, "total": len(rows)}
 
 
-@router.post("/sync")
+@router.post("/sync", dependencies=[Depends(require_scope("control:agents"))])
 async def sync_agents(runner: AgentRunner = Depends(get_agent_runner)):
     """Manually trigger reconciliation of running agents against the registry."""
     await runner._reconcile_registry()
@@ -195,7 +199,7 @@ def get_agent(name: str, runner: AgentRunner = Depends(get_agent_runner)) -> Age
     return info
 
 
-@router.patch("/{name}")
+@router.patch("/{name}", dependencies=[Depends(require_scope("control:agents"))])
 async def update_agent(name: str, payload: dict, request: Request):
     """Partially update an agent's configuration in the registry.
 
@@ -349,7 +353,10 @@ async def evolve_agent(
     }
 
 
-@router.put("/{name}/remembr-token")
+@router.put(
+    "/{name}/remembr-token",
+    dependencies=[Depends(require_scope("control:agents"))],
+)
 async def set_remembr_token(
     name: str,
     payload: dict,

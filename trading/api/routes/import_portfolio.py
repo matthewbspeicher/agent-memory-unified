@@ -2,13 +2,17 @@ from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
 
 from adapters.fidelity.parser import parse_fidelity_csv, extract_balances
 from api.auth import verify_api_key
+from api.identity.dependencies import require_scope
 from storage.external import ExternalPortfolioStore
 
 
 def create_import_router(store: ExternalPortfolioStore) -> APIRouter:
     router = APIRouter(tags=["import"], dependencies=[Depends(verify_api_key)])
 
-    @router.post("/import/fidelity")
+    @router.post(
+        "/import/fidelity",
+        dependencies=[Depends(require_scope("write:orders"))],
+    )
     async def import_fidelity(file: UploadFile = File(...)):
         content = (await file.read()).decode("utf-8")
         try:

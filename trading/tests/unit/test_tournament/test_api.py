@@ -15,6 +15,13 @@ def client():
     app = FastAPI()
     app.include_router(create_tournament_router(engine))
     app.dependency_overrides[verify_api_key] = lambda: "test-key"
+
+    from api.identity.dependencies import resolve_identity, Identity
+
+    async def _admin_identity():
+        return Identity(name="master", scopes=frozenset(["admin", "*"]), tier="admin")
+
+    app.dependency_overrides[resolve_identity] = _admin_identity
     return TestClient(app), engine
 
 

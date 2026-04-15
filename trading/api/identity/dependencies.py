@@ -78,10 +78,24 @@ async def resolve_identity(
     return ANONYMOUS_IDENTITY
 
 
+def _stash_audit(request: Request, identity: Identity, scope_required: str) -> None:
+    """Record the verified identity + declared scope on request.state so that
+    AuditLogMiddleware can emit a structured ``audit.request`` event after the
+    handler runs. Called before any 403 so rejections are also auditable."""
+    request.state.identity_audit = {
+        "agent_name": identity.name,
+        "scope_required": scope_required,
+        "tier": identity.tier,
+        "agent_id": identity.agent_id,
+    }
+
+
 def require_scope(scope: str):
     async def checker(
+        request: Request,
         identity: Annotated[Identity, Depends(resolve_identity)],
     ) -> Identity:
+        _stash_audit(request, identity, scope)
         if "admin" in identity.scopes or "*" in identity.scopes:
             return identity
         if scope in identity.scopes:
@@ -96,8 +110,10 @@ def require_scope(scope: str):
 
 def require_any_scope(*scopes: str):
     async def checker(
+        request: Request,
         identity: Annotated[Identity, Depends(resolve_identity)],
     ) -> Identity:
+        _stash_audit(request, identity, "|".join(scopes))
         if "admin" in identity.scopes or "*" in identity.scopes:
             return identity
         if any(s in identity.scopes for s in scopes):

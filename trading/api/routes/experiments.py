@@ -1,6 +1,7 @@
 import logging
 from fastapi import APIRouter, HTTPException, Depends
 from api.auth import verify_api_key
+from api.identity.dependencies import require_scope
 from experiments.ab_test import (
     ExperimentConfig,
     ExperimentManager,
@@ -18,7 +19,7 @@ async def list_experiments(
     return [exp.config for exp in manager.get_all()]
 
 
-@router.post("")
+@router.post("", dependencies=[Depends(require_scope("control:agents"))])
 async def create_experiment(
     config: ExperimentConfig,
     manager: ExperimentManager = Depends(get_experiment_manager),
@@ -29,7 +30,7 @@ async def create_experiment(
     return config
 
 
-@router.delete("/{name}")
+@router.delete("/{name}", dependencies=[Depends(require_scope("control:agents"))])
 async def delete_experiment(
     name: str, manager: ExperimentManager = Depends(get_experiment_manager)
 ) -> dict:

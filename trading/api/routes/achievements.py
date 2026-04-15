@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from typing import Optional
 
 from api.auth import verify_api_key
+from api.identity.dependencies import require_scope
 from achievements import create_tracker, get_all_achievements
 
 
@@ -106,7 +107,10 @@ async def get_achievement(
     }
 
 
-@router.post("/{achievement_id}/unlock")
+@router.post(
+    "/{achievement_id}/unlock",
+    dependencies=[Depends(require_scope("admin"))],
+)
 async def unlock_achievement(
     request: Request,
     achievement_id: str,

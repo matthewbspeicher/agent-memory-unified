@@ -4,6 +4,11 @@ from httpx import ASGITransport, AsyncClient
 from fastapi import FastAPI
 from api.routes.test import create_test_router
 from api.auth import verify_api_key
+from api.identity.dependencies import resolve_identity, Identity
+
+
+async def _admin_identity():
+    return Identity(name="master", scopes=frozenset(["admin", "*"]), tier="admin")
 
 
 @pytest.fixture
@@ -19,6 +24,7 @@ def app(mock_wa_client):
     router = create_test_router(wa_client=mock_wa_client, allowed_numbers="15551234567")
     app.include_router(router)
     app.dependency_overrides[verify_api_key] = lambda: "test-key"
+    app.dependency_overrides[resolve_identity] = _admin_identity
     return app
 
 
@@ -41,6 +47,7 @@ async def test_whatsapp_smoke_no_client():
     router = create_test_router(wa_client=None, allowed_numbers=None)
     app.include_router(router)
     app.dependency_overrides[verify_api_key] = lambda: "test-key"
+    app.dependency_overrides[resolve_identity] = _admin_identity
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
     ) as client:

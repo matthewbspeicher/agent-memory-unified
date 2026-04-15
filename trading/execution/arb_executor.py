@@ -9,6 +9,7 @@ from uuid import uuid4
 
 from execution.cost_model import CostModel
 from agents.models import TrustLevel
+from utils.logging import log_event
 
 if TYPE_CHECKING:
     from data.events import EventBus
@@ -67,6 +68,7 @@ class ArbExecutor:
             if event.get("topic") != "arb.spread":
                 continue
             if not self._enabled:
+                await self._log_shadow_decision(event.get("data", {}))
                 continue
             try:
                 await self._handle_spread(event.get("data", {}))
@@ -127,6 +129,49 @@ class ArbExecutor:
             self._active_trades.pop(trade_key, None)
             # Release the spread lock
             await self._store.release_spread(observation_id)
+
+    async def _log_shadow_decision(self, data: dict[str, Any]) -> None:
+        """When disabled, run the same gates as _handle_spread but only log —
+        never claim the spread or dispatch to the coordinator."""
+        observation_id = data.get("observation_id") or data.get("id")
+        gap_cents = data.get("gap_cents", 0)
+        kalshi_ticker = data.get("kalshi_ticker", "")
+        poly_ticker = data.get("poly_ticker", "")
+        kalshi_cents = data.get("kalshi_cents")
+        poly_cents = data.get("poly_cents")
+
+        if not observation_id:
+            return
+
+        would_execute = True
+        reason_blocked: str | None = None
+
+        if not self._cost_model.should_execute(gap_cents, self._min_profit_bps):
+            would_execute = False
+            reason_blocked = "below_min_profit_bps"
+
+        computed_quantity = await self._compute_quantity(kalshi_cents, poly_cents)
+
+        kalshi_side = "SELL" if gap_cents > 0 else "BUY"
+        poly_side = "BUY" if gap_cents > 0 else "SELL"
+
+        log_event(
+            logger,
+            logging.INFO,
+            "arb.shadow",
+            f"Shadow: {kalshi_ticker} ↔ {poly_ticker} gap={gap_cents} would_execute={would_execute}",
+            data={
+                "observation_id": observation_id,
+                "tickers": f"{kalshi_ticker} ↔ {poly_ticker}",
+                "gap_cents": gap_cents,
+                "prices": {"kalshi_cents": kalshi_cents, "poly_cents": poly_cents},
+                "would_execute": would_execute,
+                "reason_blocked": reason_blocked,
+                "kalshi_side": kalshi_side,
+                "poly_side": poly_side,
+                "computed_quantity": str(computed_quantity),
+            },
+        )
 
     async def _execute_arb(
         self,

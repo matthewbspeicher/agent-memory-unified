@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from api.auth import verify_api_key
+from api.identity.dependencies import require_scope
 from competition.arena_rewards import (
     award_arena_completion_rewards,
     get_arena_achievement_checks,
@@ -130,11 +131,14 @@ async def get_challenges(
     return [ArenaChallengeResponse(**c) for c in challenges]
 
 
-@router.post("/sessions", response_model=StartSessionResponse)
+@router.post(
+    "/sessions",
+    response_model=StartSessionResponse,
+    dependencies=[Depends(require_scope("participate:arena"))],
+)
 async def start_session(
     body: StartSessionRequest,
     request: Request,
-    _: str = Depends(verify_api_key),
 ):
     """Start a new arena session for an agent."""
     store = _get_store(request)
@@ -148,12 +152,15 @@ async def start_session(
         raise HTTPException(status_code=404, detail=str(e))
 
 
-@router.post("/sessions/{session_id}/turns", response_model=ExecuteTurnResponse)
+@router.post(
+    "/sessions/{session_id}/turns",
+    response_model=ExecuteTurnResponse,
+    dependencies=[Depends(require_scope("participate:arena"))],
+)
 async def execute_turn(
     session_id: str,
     body: ExecuteTurnRequest,
     request: Request,
-    _: str = Depends(verify_api_key),
 ):
     """Execute a tool in an arena session."""
     store = _get_store(request)
@@ -234,11 +241,14 @@ class ClaimRewardsResponse(BaseModel):
     achievements: list[dict]
 
 
-@router.post("/sessions/claim-rewards", response_model=ClaimRewardsResponse)
+@router.post(
+    "/sessions/claim-rewards",
+    response_model=ClaimRewardsResponse,
+    dependencies=[Depends(require_scope("participate:arena"))],
+)
 async def claim_session_rewards(
     body: ClaimRewardsRequest,
     request: Request,
-    _: str = Depends(verify_api_key),
 ):
     store = _get_store(request)
 

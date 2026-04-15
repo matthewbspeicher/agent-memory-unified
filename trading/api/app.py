@@ -2243,8 +2243,10 @@ def create_app(
 
     app.add_middleware(CorrelationIdMiddleware)
 
+    from api.middleware.audit import AuditLogMiddleware
     from api.middleware.gatekeeper import GatekeeperMiddleware
 
+    app.add_middleware(AuditLogMiddleware)
     app.add_middleware(GatekeeperMiddleware)
 
     # Rate Limiting

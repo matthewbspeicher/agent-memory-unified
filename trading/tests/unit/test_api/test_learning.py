@@ -38,6 +38,13 @@ async def client():
     app = FastAPI()
     app.include_router(router)
 
+    from api.identity.dependencies import resolve_identity, Identity
+
+    async def _admin_identity():
+        return Identity(name="master", scopes=frozenset(["admin", "*"]), tier="admin")
+
+    app.dependency_overrides[resolve_identity] = _admin_identity
+
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
     ) as ac:

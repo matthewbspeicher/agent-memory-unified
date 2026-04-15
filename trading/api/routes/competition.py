@@ -10,6 +10,7 @@ from sse_starlette.sse import EventSourceResponse
 
 from api.auth import verify_api_key
 from api.dependencies import check_kill_switch
+from api.identity.dependencies import require_scope
 from utils.audit import audit_event
 from api.routes.competition_schemas import (
     AgentCardResponse,
@@ -399,14 +400,13 @@ async def get_competitor_loadout(
 @router.post(
     "/competitors/{competitor_id}/loadout/equip",
     response_model_exclude_none=True,
-    dependencies=[Depends(check_kill_switch)]
+    dependencies=[Depends(check_kill_switch), Depends(require_scope("participate:arena"))],
 )
 @audit_event("competition.trait.equip")
 async def equip_trait(
     competitor_id: str,
     request: Request,
     body: dict,
-    _: str = Depends(verify_api_key),
     asset: str = Query("BTC"),
 ):
     """Equip a trait in the first empty loadout slot."""
@@ -452,14 +452,13 @@ async def equip_trait(
 @router.post(
     "/competitors/{competitor_id}/loadout/unequip",
     response_model_exclude_none=True,
-    dependencies=[Depends(check_kill_switch)]
+    dependencies=[Depends(check_kill_switch), Depends(require_scope("participate:arena"))],
 )
 @audit_event("competition.trait.unequip")
 async def unequip_trait(
     competitor_id: str,
     request: Request,
     body: dict,
-    _: str = Depends(verify_api_key),
     asset: str = Query("BTC"),
 ):
     """Remove a trait from the loadout."""
@@ -557,14 +556,13 @@ async def get_missions(
 @router.post(
     "/competitors/{competitor_id}/missions/{mission_id}/claim",
     response_model=ClaimMissionResponse,
-    dependencies=[Depends(check_kill_switch)]
+    dependencies=[Depends(check_kill_switch), Depends(require_scope("participate:arena"))],
 )
 @audit_event("competition.mission.claim")
 async def claim_mission(
     request: Request,
     competitor_id: str,
     mission_id: str,
-    _: str = Depends(verify_api_key),
     asset: str = Query("BTC"),
 ):
     store = _get_store(request)
@@ -691,16 +689,15 @@ async def get_betting_pool(
 
 
 @router.post(
-    "/matches/{match_id}/bet", 
+    "/matches/{match_id}/bet",
     response_model=BetResponse,
-    dependencies=[Depends(check_kill_switch)]
+    dependencies=[Depends(check_kill_switch), Depends(require_scope("bet:arena"))],
 )
 @audit_event("competition.bet.place")
 async def place_bet(
     request: Request,
     match_id: str,
     bet: BetPlacement,
-    _: str = Depends(verify_api_key),
 ):
     store = _get_store(request)
 
@@ -755,16 +752,15 @@ async def get_match_bets(
 
 
 @router.post(
-    "/matches/{match_id}/settle", 
+    "/matches/{match_id}/settle",
     response_model=BetResultResponse,
-    dependencies=[Depends(check_kill_switch)]
+    dependencies=[Depends(check_kill_switch), Depends(require_scope("admin"))],
 )
 @audit_event("competition.settle")
 async def settle_match(
     request: Request,
     match_id: str,
     winner_id: str = Query(...),
-    _: str = Depends(verify_api_key),
 ):
     store = _get_store(request)
 
@@ -858,15 +854,14 @@ async def get_lineage(
 
 
 @router.post(
-    "/breed", 
+    "/breed",
     response_model=BreedResultResponse,
-    dependencies=[Depends(check_kill_switch)]
+    dependencies=[Depends(check_kill_switch), Depends(require_scope("control:agents"))],
 )
 @audit_event("competition.breed")
 async def breed_agents(
     request: Request,
     breed: BreedRequest,
-    _: str = Depends(verify_api_key),
 ):
     store = _get_store(request)
 

@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from api.auth import verify_api_key
+from api.identity.dependencies import require_scope
 
 if TYPE_CHECKING:
     from tournament.engine import TournamentEngine
@@ -17,7 +18,7 @@ class OverrideRequest(BaseModel):
 def create_tournament_router(engine: TournamentEngine) -> APIRouter:
     router = APIRouter(prefix="/tournament", tags=["tournament"])
 
-    @router.post("/override", dependencies=[Depends(verify_api_key)])
+    @router.post("/override", dependencies=[Depends(require_scope("admin"))])
     async def override_agent(req: OverrideRequest):
         message = await engine.override(req.agent_name, req.action, by=req.by)
         return {"message": message}
@@ -55,7 +56,7 @@ def create_tournament_router(engine: TournamentEngine) -> APIRouter:
         rankings = await engine.compute_rankings()
         return {"rankings": rankings, "count": len(rankings)}
 
-    @router.post("/run", dependencies=[Depends(verify_api_key)])
+    @router.post("/run", dependencies=[Depends(require_scope("admin"))])
     async def run_tournament():
         """Run complete tournament cycle: evaluate, rank, update ELO."""
         results = await engine.run_tournament()

@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from api.auth import verify_api_key
+from api.identity.dependencies import require_scope
 from storage.shadow import ShadowExecutionStore
 
 logger = logging.getLogger(__name__)
@@ -103,7 +104,10 @@ async def get_agent_shadow_summary(
     }
 
 
-@router.post("/agents/{agent_name}/promote")
+@router.post(
+    "/agents/{agent_name}/promote",
+    dependencies=[Depends(require_scope("control:agents"))],
+)
 async def promote_agent(
     agent_name: str,
     request: Request,

@@ -175,13 +175,17 @@ class TestOverrideAgentHealth:
         assert resp.status_code == 422
 
     async def test_override_requires_api_key(self, app_with_health):
+        """Unauthenticated callers are rejected by the scope check (403), not
+        by the legacy verify_api_key (which returned 401). The route has been
+        migrated to require_scope('control:agents')."""
         app, _ = app_with_health
         client = TestClient(app, raise_server_exceptions=True)
         resp = client.post(
             "/analytics/strategy-health/rsi_agent/override",
             json={"status": "retired", "reason": "test"},
         )
-        assert resp.status_code == 401
+        assert resp.status_code == 403
+        assert "control:agents" in resp.json()["detail"]
 
     async def test_override_all_valid_statuses(self, app_with_health):
         app, _ = app_with_health
@@ -224,7 +228,11 @@ class TestRecomputeHealth:
         await db.close()
 
     async def test_recompute_requires_api_key(self, app_with_health_engine):
+        """Unauthenticated callers are rejected by the scope check (403), not
+        by the legacy verify_api_key (which returned 401). The route has been
+        migrated to require_scope('control:agents')."""
         app = app_with_health_engine
         client = TestClient(app, raise_server_exceptions=True)
         resp = client.post("/analytics/strategy-health/recompute")
-        assert resp.status_code == 401
+        assert resp.status_code == 403
+        assert "control:agents" in resp.json()["detail"]

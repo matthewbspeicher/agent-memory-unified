@@ -12,7 +12,14 @@ from fastapi import FastAPI
 from api.auth import verify_api_key
 from api.routes.backtest import router as backtest_router
 from api.deps import get_agent_runner
+from api.identity.dependencies import resolve_identity, Identity
 from storage.db import init_db
+
+_ADMIN_IDENTITY = Identity(
+    name="master",
+    scopes=frozenset(["admin", "*"]),
+    tier="admin",
+)
 
 
 _INSERT = """
@@ -65,6 +72,9 @@ async def app_and_db():
 
     # Bypass auth
     app.dependency_overrides[verify_api_key] = lambda: "test-key"
+
+    # Bypass identity/scope checks so require_scope("control:agents") passes
+    app.dependency_overrides[resolve_identity] = lambda: _ADMIN_IDENTITY
 
     # Mock agent runner (no real agents) so the dependency resolves
     runner = MagicMock()

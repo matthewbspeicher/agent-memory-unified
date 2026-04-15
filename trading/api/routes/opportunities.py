@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from agents.models import OpportunityStatus
 from api.auth import verify_api_key, _get_settings, get_current_user
+from api.identity.dependencies import require_scope
 from models.user import User, PlatformTier
 from api.deps import get_opportunity_store
 
@@ -57,7 +58,10 @@ async def get_opportunity(
     return opp
 
 
-@router.post("/{opportunity_id}/approve")
+@router.post(
+    "/{opportunity_id}/approve",
+    dependencies=[Depends(require_scope("write:orders"))],
+)
 async def approve_opportunity(
     opportunity_id: str,
     request: Request,
@@ -78,7 +82,10 @@ async def approve_opportunity(
     return {"id": opportunity_id, "status": "approved"}
 
 
-@router.post("/{opportunity_id}/reject")
+@router.post(
+    "/{opportunity_id}/reject",
+    dependencies=[Depends(require_scope("write:orders"))],
+)
 async def reject_opportunity(
     opportunity_id: str,
     request: Request,
@@ -100,7 +107,10 @@ async def reject_opportunity(
     return {"id": opportunity_id, "status": "rejected"}
 
 
-@router.post("/{opportunity_id}/approve-auth", dependencies=[Depends(verify_api_key)])
+@router.post(
+    "/{opportunity_id}/approve-auth",
+    dependencies=[Depends(require_scope("write:orders"))],
+)
 async def approve_opportunity_authenticated(
     opportunity_id: str,
     store=Depends(get_opportunity_store),
@@ -112,7 +122,10 @@ async def approve_opportunity_authenticated(
     return {"id": opportunity_id, "status": "approved"}
 
 
-@router.post("/{opportunity_id}/reject-auth", dependencies=[Depends(verify_api_key)])
+@router.post(
+    "/{opportunity_id}/reject-auth",
+    dependencies=[Depends(require_scope("write:orders"))],
+)
 async def reject_opportunity_authenticated(
     opportunity_id: str,
     store=Depends(get_opportunity_store),

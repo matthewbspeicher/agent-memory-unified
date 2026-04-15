@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 from api.auth import verify_api_key
+from api.identity.dependencies import require_scope
 
 
 def create_test_router(wa_client=None, allowed_numbers: str | None = None) -> APIRouter:
     router = APIRouter(prefix="/test", tags=["test"], dependencies=[Depends(verify_api_key)])
 
-    @router.post("/whatsapp")
+    @router.post("/whatsapp", dependencies=[Depends(require_scope("admin"))])
     async def test_whatsapp():
         if not wa_client or not allowed_numbers:
             raise HTTPException(status_code=400, detail="WhatsApp not configured")

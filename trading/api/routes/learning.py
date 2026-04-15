@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from api.auth import verify_api_key
+from api.identity.dependencies import require_scope
 from storage.agent_registry import AgentStore
 from storage.performance import PerformanceStore
 from storage.pnl import TrackedPositionStore
@@ -44,7 +45,10 @@ def create_learning_router(
             return {"message": "No performance data available"}
         return snapshot.model_dump()
 
-    @router.put("/{name}/trust")
+    @router.put(
+        "/{name}/trust",
+        dependencies=[Depends(require_scope("control:agents"))],
+    )
     async def put_trust(name: str, body: TrustUpdateRequest) -> dict:
         current = await agent_store.get(name)
         old_level = current.get("trust_level", "none") if current else "none"
@@ -64,7 +68,10 @@ def create_learning_router(
     async def get_trust_history(name: str) -> list:
         return await agent_store.get_trust_history(name)
 
-    @router.delete("/{name}/overrides")
+    @router.delete(
+        "/{name}/overrides",
+        dependencies=[Depends(require_scope("control:agents"))],
+    )
     async def delete_overrides(name: str) -> dict:
         # Reset runtime overrides for this agent
         await agent_store.update(name, runtime_overrides={})

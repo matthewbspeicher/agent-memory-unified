@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from api.auth import verify_api_key
 from api.dependencies import get_memory_registry
+from api.identity.dependencies import require_scope
 from api.services.memory_registry import MemoryRegistry, SearchTuningConfig
 
 logger = logging.getLogger(__name__)
@@ -253,7 +254,10 @@ async def get_tuning(
     )
 
 
-@router.post("/{agent_name}/tune")
+@router.post(
+    "/{agent_name}/tune",
+    dependencies=[Depends(require_scope("control:agents"))],
+)
 async def set_tuning(
     agent_name: str,
     params: TuningParamsRequest,
@@ -277,7 +281,10 @@ async def set_tuning(
 # --- Status Transition Endpoint (MemClaw lifecycle) ---
 
 
-@router.post("/{agent_name}/memories/{memory_id}/transition")
+@router.post(
+    "/{agent_name}/memories/{memory_id}/transition",
+    dependencies=[Depends(require_scope("control:agents"))],
+)
 async def transition_memory_status(
     agent_name: str,
     memory_id: str,

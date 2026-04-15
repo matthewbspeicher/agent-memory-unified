@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, Request, Query
 from fastapi.responses import JSONResponse
 
 from api.auth import verify_api_key
+from api.identity.dependencies import require_scope
 
 router = APIRouter()
 
@@ -63,8 +64,11 @@ async def index_status(request: Request, _: str = Depends(verify_api_key)):
     }
 
 
-@router.post("/journal/rebuild-index")
-async def rebuild_index(request: Request, _: str = Depends(verify_api_key)):
+@router.post(
+    "/journal/rebuild-index",
+    dependencies=[Depends(require_scope("control:agents"))],
+)
+async def rebuild_index(request: Request):
     indexer = getattr(request.app.state, "journal_indexer", None)
     if indexer is None:
         return JSONResponse(
@@ -122,11 +126,13 @@ async def get_journal_detail(
     return {"trade": result}
 
 
-@router.post("/journal/{position_id}/publish")
+@router.post(
+    "/journal/{position_id}/publish",
+    dependencies=[Depends(require_scope("write:orders"))],
+)
 async def publish_journal_autopsy(
     request: Request,
     position_id: int,
-    _: str = Depends(verify_api_key),
 ):
     service = getattr(request.app.state, "journal_service", None)
     if service is None:

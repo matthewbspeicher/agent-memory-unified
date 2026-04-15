@@ -8,6 +8,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from api.auth import verify_api_key
+from api.identity.dependencies import require_scope
 from storage.signal_features import SignalFeatureStore
 
 router = APIRouter(prefix="/analytics/signal-features", tags=["signal-features"])
@@ -66,12 +67,14 @@ async def list_signal_features(
     )
 
 
-@router.post("/backfill")
+@router.post(
+    "/backfill",
+    dependencies=[Depends(require_scope("control:agents"))],
+)
 async def backfill_signal_features(
     request: Request,
     agent_name: str | None = Query(None, description="Restrict backfill to this agent"),
     limit: int = Query(50, ge=1, le=500, description="Max opportunities to backfill"),
-    _: str = Depends(verify_api_key),
 ) -> dict[str, Any]:
     """Admin trigger for best-effort backfill of historical opportunities.
 

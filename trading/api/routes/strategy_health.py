@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from api.auth import verify_api_key
+from api.identity.dependencies import require_scope
 from storage.strategy_health import StrategyHealthStore
 
 router = APIRouter(prefix="/analytics/strategy-health", tags=["strategy-health"])
@@ -68,12 +69,14 @@ async def get_agent_health(
     }
 
 
-@router.post("/{agent_name}/override")
+@router.post(
+    "/{agent_name}/override",
+    dependencies=[Depends(require_scope("control:agents"))],
+)
 async def override_agent_health(
     request: Request,
     agent_name: str,
     body: OverrideRequest,
-    _: str = Depends(verify_api_key),
 ):
     """Apply an operator override to a strategy's health status."""
     from learning.strategy_health import StrategyHealthStatus
@@ -103,10 +106,12 @@ async def override_agent_health(
     }
 
 
-@router.post("/recompute")
+@router.post(
+    "/recompute",
+    dependencies=[Depends(require_scope("control:agents"))],
+)
 async def recompute_all_health(
     request: Request,
-    _: str = Depends(verify_api_key),
 ):
     """Admin: trigger a full health recompute for all known agents.
 

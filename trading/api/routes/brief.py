@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from api.auth import verify_api_key
+from api.identity.dependencies import require_scope
 
 router = APIRouter(tags=["Brief"], dependencies=[Depends(verify_api_key)])
 
@@ -39,7 +40,10 @@ async def get_session_bias(request: Request):
     return bias.to_dict()
 
 
-@router.post("/brief/bias/generate")
+@router.post(
+    "/brief/bias/generate",
+    dependencies=[Depends(require_scope("control:agents"))],
+)
 async def generate_session_bias(request: Request):
     """Force-generate today's session bias (re-scans watchlist)."""
     bias_gen = getattr(request.app.state, "session_bias_generator", None)

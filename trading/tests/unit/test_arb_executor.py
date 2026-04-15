@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
+import logging
 
 import pytest
 
@@ -55,6 +56,7 @@ class TestArbExecutor:
 # ---------------------------------------------------------------------------
 # Sizing wiring + bug-fix tests
 # ---------------------------------------------------------------------------
+
 
 def _make_executor(sizing_engine=None, enabled=True):
     """Construct an ArbExecutor with mocked deps for sizing/dispatch tests."""
@@ -201,3 +203,91 @@ async def test_execute_arb_quantity_threads_through_to_legs():
     trade = exe._coordinator.execute_arbitrage.await_args.args[0]
     assert trade.leg_a.order.quantity == Decimal("3")
     assert trade.leg_b.order.quantity == Decimal("3")
+
+
+# ---------------------------------------------------------------------------
+# Shadow-mode logging tests
+# ---------------------------------------------------------------------------
+
+
+def _shadow_records(caplog) -> list[dict]:
+    """Extract arb.shadow event data from caplog."""
+    out: list[dict] = []
+    for rec in caplog.records:
+        if getattr(rec, "event_type", None) == "arb.shadow":
+            data = getattr(rec, "event_data", None) or {}
+            out.append(data)
+    return out
+
+
+@pytest.mark.asyncio
+async def test_shadow_mode_profitable_spread_logs_event_no_claim_no_dispatch(caplog):
+    """When disabled, a profitable spread emits arb.shadow with
+    would_execute=True and does NOT claim_spread or dispatch to coordinator."""
+    from execution.cost_model import CostModel
+
+    cost_model = CostModel()
+    exe = _make_executor(enabled=False)
+    exe._cost_model = cost_model
+
+    profitable_gap = cost_model.min_gap_cents() + 5.0
+
+    with caplog.at_level(logging.INFO, logger="execution.arb_executor"):
+        await exe._log_shadow_decision(
+            {
+                "observation_id": 42,
+                "kalshi_ticker": "KQ-YES",
+                "poly_ticker": "0xpoly_yes",
+                "gap_cents": profitable_gap,
+                "kalshi_cents": 55,
+                "poly_cents": 45,
+            }
+        )
+
+    records = _shadow_records(caplog)
+    assert len(records) == 1
+    data = records[0]
+    assert data["observation_id"] == 42
+    assert data["would_execute"] is True
+    assert data["reason_blocked"] is None
+    assert data["kalshi_side"] == "SELL"
+    assert data["poly_side"] == "BUY"
+    assert data["computed_quantity"] == "1"
+
+    exe._store.claim_spread.assert_not_called()
+    exe._coordinator.execute_arbitrage.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_shadow_mode_unprofitable_spread_logs_blocked_reason(caplog):
+    """When disabled, an unprofitable spread emits arb.shadow with
+    would_execute=False and reason_blocked='below_min_profit_bps'."""
+    from execution.cost_model import CostModel
+
+    cost_model = CostModel()
+    exe = _make_executor(enabled=False)
+    exe._cost_model = cost_model
+
+    unprofitable_gap = 0.01
+
+    with caplog.at_level(logging.INFO, logger="execution.arb_executor"):
+        await exe._log_shadow_decision(
+            {
+                "observation_id": 99,
+                "kalshi_ticker": "KQ-NO",
+                "poly_ticker": "0xpoly_no",
+                "gap_cents": unprofitable_gap,
+                "kalshi_cents": 50,
+                "poly_cents": 50,
+            }
+        )
+
+    records = _shadow_records(caplog)
+    assert len(records) == 1
+    data = records[0]
+    assert data["observation_id"] == 99
+    assert data["would_execute"] is False
+    assert data["reason_blocked"] == "below_min_profit_bps"
+
+    exe._store.claim_spread.assert_not_called()
+    exe._coordinator.execute_arbitrage.assert_not_called()

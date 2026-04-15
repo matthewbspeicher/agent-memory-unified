@@ -4,6 +4,7 @@ from pydantic import BaseModel
 
 from api.deps import get_agent_runner, get_opportunity_store, get_trade_store
 from api.auth import verify_api_key, _get_settings
+from api.identity.dependencies import require_scope
 from agents.runner import AgentRunner
 from agents.models import AgentStatus
 from agents.tuning import AdaptiveTuner
@@ -26,7 +27,10 @@ class RecommendationsResponse(BaseModel):
     recommendations: str
 
 
-@router.post("/evolution/trigger")
+@router.post(
+    "/evolution/trigger",
+    dependencies=[Depends(require_scope("control:agents"))],
+)
 async def trigger_evolution_cycle(
     request: Request,
     runner: AgentRunner = Depends(get_agent_runner),
@@ -140,7 +144,11 @@ async def trigger_evolution_cycle(
     }
 
 
-@router.post("/{agent_name}/cycle", response_model=TuningCycleResponse)
+@router.post(
+    "/{agent_name}/cycle",
+    response_model=TuningCycleResponse,
+    dependencies=[Depends(require_scope("control:agents"))],
+)
 async def run_tuning_cycle(
     agent_name: str,
     runner: AgentRunner = Depends(get_agent_runner),
@@ -214,7 +222,10 @@ class GeneticOptimizeRequest(BaseModel):
     mutation_rate: float = 0.1
 
 
-@router.post("/{agent_name}/grid-search")
+@router.post(
+    "/{agent_name}/grid-search",
+    dependencies=[Depends(require_scope("control:agents"))],
+)
 async def run_grid_search(
     agent_name: str,
     body: GridSearchRequest,
@@ -275,7 +286,10 @@ async def run_grid_search(
     }
 
 
-@router.post("/{agent_name}/genetic-optimize")
+@router.post(
+    "/{agent_name}/genetic-optimize",
+    dependencies=[Depends(require_scope("control:agents"))],
+)
 async def run_genetic_optimize(
     agent_name: str,
     body: GeneticOptimizeRequest,

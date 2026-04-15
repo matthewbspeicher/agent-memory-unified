@@ -12,6 +12,7 @@ from pydantic import BaseModel
 
 from api.auth import verify_api_key
 from api.deps import get_agent_runner
+from api.identity.dependencies import require_scope
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Backtest"], dependencies=[Depends(verify_api_key)])
@@ -39,7 +40,7 @@ class SandboxRequest(BaseModel):
     initial_capital: float = 100000.0
 
 
-@router.post("/backtest")
+@router.post("/backtest", dependencies=[Depends(require_scope("control:agents"))])
 async def run_backtest(
     req: BacktestRequest, request: Request, runner=Depends(get_agent_runner)
 ):
@@ -168,7 +169,10 @@ async def list_backtest_results(
     return [dict(r) for r in await cursor.fetchall()]
 
 
-@router.post("/backtest/sandbox")
+@router.post(
+    "/backtest/sandbox",
+    dependencies=[Depends(require_scope("control:agents"))],
+)
 async def run_sandbox(req: SandboxRequest, request: Request):
     """Evaluate an arbitrary strategy config against historical data.
 

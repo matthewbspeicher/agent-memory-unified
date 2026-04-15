@@ -137,9 +137,78 @@ async def app_with_mocks():
 
     orders._csv_logger = MagicMock()
 
+    # Stores used by arena / competition / achievements / journal routes — the
+    # scope-check is a dependency that runs BEFORE the handler, so we only need
+    # enough state to stop the handler from erroring during FastAPI's dependency
+    # resolution. Downstream handler errors are acceptable since the assertion
+    # is `status_code != 403`, not `== 200`.
+    mock_competition_store = AsyncMock()
+
+    # `place_bet` must return something whose attributes are real strings so
+    # Pydantic's BetResponse can serialize it — otherwise the handler raises
+    # a ValidationError whose repr contains random mock IDs that happen to
+    # include "403", which defeats the `"403" not in str(e)` guard used by
+    # the correct-scope tests.
+    class _FakeBet:
+        id = "b1"
+        match_id = "m1"
+        predicted_winner = "a"
+        amount = 100
+        potential_payout = 200
+        created_at = None
+
+        class status:
+            value = "open"
+
+    mock_competition_store.place_bet.return_value = _FakeBet()
+
+    class _FakeMatch:
+        competitor_a_id = "a"
+        competitor_b_id = "b"
+
+    mock_competition_store.get_match.return_value = _FakeMatch()
+
+    app.state.competition_store = mock_competition_store
+
+    app.state.db = AsyncMock()
+    app.state.default_agent = "default"
+    app.state.shadow_execution_store = AsyncMock()
+    app.state.opportunity_store = AsyncMock()
+    app.state.health_engine = AsyncMock()
+    app.state.data_bus = MagicMock()
+    app.state.settings = MagicMock()
+
     app.include_router(orders.router, prefix="/api/v1")
     app.include_router(risk.router, prefix="/api/v1")
     app.include_router(agents.router, prefix="/api/v1")
+
+    # Mount the routers needed for the extended per-scope-group tests. Each
+    # maps to one line of the scope coverage table in the plan.
+    from api.routes import (
+        arena as arena_routes,
+        competition as competition_routes,
+        achievements as achievements_routes,
+        opportunities as opportunities_routes,
+    )
+
+    app.include_router(arena_routes.router)
+    app.include_router(competition_routes.router)
+    app.include_router(achievements_routes.router, prefix="/api/v1")
+    app.include_router(opportunities_routes.router, prefix="/api/v1")
+
+    # get_current_user dep used by opportunities list route — stub to a
+    # free-tier user so the scope-focused tests don't need to wire JWTs.
+    from api.auth import get_current_user
+    from models.user import User, PlatformTier
+
+    async def override_get_current_user():
+        return User(
+            id="test-user",
+            email="t@t.com",
+            tier=PlatformTier.EXPLORER,
+        )
+
+    app.dependency_overrides[get_current_user] = override_get_current_user
 
     # Store reference for tests to modify identity
     app._identity_container = _identity_container
@@ -227,6 +296,34 @@ async def app_admin(app_with_mocks):
             name="admin",
             scopes=frozenset(["admin", "*"]),
             tier="admin",
+        )
+    )
+    return app_with_mocks
+
+
+@pytest_asyncio.fixture
+async def app_participate_arena(app_with_mocks):
+    """App with identity that has participate:arena scope."""
+    app_with_mocks._set_test_identity(
+        Identity(
+            name="arena-player",
+            scopes=frozenset(["participate:arena"]),
+            tier="public",
+            agent_id="agent-arena",
+        )
+    )
+    return app_with_mocks
+
+
+@pytest_asyncio.fixture
+async def app_bet_arena(app_with_mocks):
+    """App with identity that has bet:arena scope."""
+    app_with_mocks._set_test_identity(
+        Identity(
+            name="arena-bettor",
+            scopes=frozenset(["bet:arena"]),
+            tier="public",
+            agent_id="agent-bet",
         )
     )
     return app_with_mocks
@@ -420,3 +517,249 @@ class TestScopeEnforcement:
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             response = await client.post("/api/v1/agents/test-agent/scan")
         assert response.status_code != 403, f"Got 403: {response.json()}"
+
+
+class TestMigratedRouteScopes:
+    """Coverage for the 37 mutation routes migrated from verify_api_key to
+    require_scope. One wrong-scope 403 + one correct-scope non-403 per scope
+    group (per the plan's scope-coverage table), with anonymous and admin
+    (wildcard) checks for each group.
+    """
+
+    # ------------------------------------------------------------------
+    # control:agents — agents create, tuning cycle, memory tune, etc.
+    # ------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_agents_create_anonymous_403(self, app_anonymous):
+        transport = ASGITransport(app=app_anonymous)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post("/api/v1/agents", json={"name": "x"})
+        assert response.status_code == 403
+        assert "control:agents" in response.json()["detail"]
+
+    @pytest.mark.asyncio
+    async def test_agents_create_admin_allowed(self, app_admin):
+        transport = ASGITransport(app=app_admin)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post("/api/v1/agents", json={"name": "x"})
+        assert response.status_code != 403
+
+    @pytest.mark.asyncio
+    async def test_agents_patch_wrong_scope_403(self, app_wrong_scope):
+        transport = ASGITransport(app=app_wrong_scope)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.patch("/api/v1/agents/x", json={})
+        assert response.status_code == 403
+        assert "control:agents" in response.json()["detail"]
+
+    @pytest.mark.asyncio
+    async def test_agents_sync_correct_scope_allowed(self, app_control_agents):
+        transport = ASGITransport(app=app_control_agents)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post("/api/v1/agents/sync")
+        assert response.status_code != 403
+
+    # ------------------------------------------------------------------
+    # participate:arena — arena sessions, competition loadout, missions
+    # ------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_arena_session_start_anonymous_403(self, app_anonymous):
+        transport = ASGITransport(app=app_anonymous)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post(
+                "/engine/v1/arena/sessions",
+                json={"challenge_id": "c", "agent_id": "a"},
+            )
+        assert response.status_code == 403
+        assert "participate:arena" in response.json()["detail"]
+
+    @pytest.mark.asyncio
+    async def test_arena_session_start_wrong_scope_403(self, app_wrong_scope):
+        transport = ASGITransport(app=app_wrong_scope)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post(
+                "/engine/v1/arena/sessions",
+                json={"challenge_id": "c", "agent_id": "a"},
+            )
+        assert response.status_code == 403
+
+    @pytest.mark.asyncio
+    async def test_arena_session_start_correct_scope_allowed(
+        self, app_participate_arena
+    ):
+        transport = ASGITransport(app=app_participate_arena)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            try:
+                response = await client.post(
+                    "/engine/v1/arena/sessions",
+                    json={"challenge_id": "c", "agent_id": "a"},
+                )
+                assert response.status_code != 403, f"Got 403: {response.json()}"
+            except Exception as e:
+                assert "403" not in str(e), f"Scope check failed: {e}"
+
+    @pytest.mark.asyncio
+    async def test_arena_session_start_admin_allowed(self, app_admin):
+        transport = ASGITransport(app=app_admin)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            try:
+                response = await client.post(
+                    "/engine/v1/arena/sessions",
+                    json={"challenge_id": "c", "agent_id": "a"},
+                )
+                assert response.status_code != 403, f"Got 403: {response.json()}"
+            except Exception as e:
+                assert "403" not in str(e), f"Scope check failed: {e}"
+
+    @pytest.mark.asyncio
+    async def test_competition_loadout_equip_wrong_scope_403(self, app_wrong_scope):
+        transport = ASGITransport(app=app_wrong_scope)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post(
+                "/engine/v1/competition/competitors/c1/loadout/equip",
+                json={"trait": "x"},
+            )
+        assert response.status_code == 403
+        assert "participate:arena" in response.json()["detail"]
+
+    @pytest.mark.asyncio
+    async def test_competition_mission_claim_correct_scope_allowed(
+        self, app_participate_arena
+    ):
+        transport = ASGITransport(app=app_participate_arena)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post(
+                "/engine/v1/competition/competitors/c1/missions/m1/claim"
+            )
+        assert response.status_code != 403
+
+    # ------------------------------------------------------------------
+    # bet:arena — competition match bets
+    # ------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_competition_bet_anonymous_403(self, app_anonymous):
+        transport = ASGITransport(app=app_anonymous)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post(
+                "/engine/v1/competition/matches/m1/bet",
+                json={"predicted_winner": "a", "amount": 100},
+            )
+        assert response.status_code == 403
+        assert "bet:arena" in response.json()["detail"]
+
+    @pytest.mark.asyncio
+    async def test_competition_bet_participate_scope_403(self, app_participate_arena):
+        """participate:arena is NOT sufficient for bet:arena routes."""
+        transport = ASGITransport(app=app_participate_arena)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post(
+                "/engine/v1/competition/matches/m1/bet",
+                json={"predicted_winner": "a", "amount": 100},
+            )
+        assert response.status_code == 403
+        assert "bet:arena" in response.json()["detail"]
+
+    @pytest.mark.asyncio
+    async def test_competition_bet_correct_scope_allowed(self, app_bet_arena):
+        transport = ASGITransport(app=app_bet_arena)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            try:
+                response = await client.post(
+                    "/engine/v1/competition/matches/m1/bet",
+                    json={"predicted_winner": "a", "amount": 100},
+                )
+                assert response.status_code != 403, f"Got 403: {response.json()}"
+            except Exception as e:
+                assert "403" not in str(e), f"Scope check failed: {e}"
+
+    @pytest.mark.asyncio
+    async def test_competition_bet_admin_allowed(self, app_admin):
+        transport = ASGITransport(app=app_admin)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            try:
+                response = await client.post(
+                    "/engine/v1/competition/matches/m1/bet",
+                    json={"predicted_winner": "a", "amount": 100},
+                )
+                assert response.status_code != 403, f"Got 403: {response.json()}"
+            except Exception as e:
+                assert "403" not in str(e), f"Scope check failed: {e}"
+
+    # ------------------------------------------------------------------
+    # admin — tournament run, competition settle, achievements unlock
+    # ------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_competition_settle_anonymous_403(self, app_anonymous):
+        transport = ASGITransport(app=app_anonymous)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post(
+                "/engine/v1/competition/matches/m1/settle?winner_id=a"
+            )
+        assert response.status_code == 403
+        assert "admin" in response.json()["detail"]
+
+    @pytest.mark.asyncio
+    async def test_competition_settle_wrong_scope_403(self, app_bet_arena):
+        """bet:arena can place bets but cannot settle — admin-only."""
+        transport = ASGITransport(app=app_bet_arena)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post(
+                "/engine/v1/competition/matches/m1/settle?winner_id=a"
+            )
+        assert response.status_code == 403
+        assert "admin" in response.json()["detail"]
+
+    @pytest.mark.asyncio
+    async def test_competition_settle_admin_allowed(self, app_admin):
+        transport = ASGITransport(app=app_admin)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            try:
+                response = await client.post(
+                    "/engine/v1/competition/matches/m1/settle?winner_id=a"
+                )
+                assert response.status_code != 403, f"Got 403: {response.json()}"
+            except Exception as e:
+                assert "403" not in str(e), f"Scope check failed: {e}"
+
+    @pytest.mark.asyncio
+    async def test_achievements_unlock_wrong_scope_403(self, app_control_agents):
+        """control:agents is NOT admin — unlock route gates on admin only."""
+        transport = ASGITransport(app=app_control_agents)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post("/api/v1/achievements/ach-1/unlock")
+        assert response.status_code == 403
+        assert "admin" in response.json()["detail"]
+
+    # ------------------------------------------------------------------
+    # write:orders — opportunities approve, already covered broadly; here we
+    # pin the newly-migrated approve route specifically.
+    # ------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_opportunities_approve_auth_anonymous_403(self, app_anonymous):
+        transport = ASGITransport(app=app_anonymous)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post("/api/v1/opportunities/opp-1/approve-auth")
+        assert response.status_code == 403
+        assert "write:orders" in response.json()["detail"]
+
+    @pytest.mark.asyncio
+    async def test_opportunities_approve_auth_wrong_scope_403(self, app_wrong_scope):
+        transport = ASGITransport(app=app_wrong_scope)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post("/api/v1/opportunities/opp-1/approve-auth")
+        assert response.status_code == 403
+        assert "write:orders" in response.json()["detail"]
+
+    @pytest.mark.asyncio
+    async def test_opportunities_approve_auth_correct_scope_allowed(
+        self, app_write_orders
+    ):
+        transport = ASGITransport(app=app_write_orders)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post("/api/v1/opportunities/opp-1/approve-auth")
+        assert response.status_code != 403
