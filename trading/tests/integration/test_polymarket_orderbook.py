@@ -18,14 +18,35 @@ skip_unless_integration = pytest.mark.skipif(
 )
 
 
+def _build_data_source():
+    """Construct a live PolymarketDataSource using the same factory path
+    as trading/api/startup/integrations.py::setup_polymarket."""
+    from config import load_config
+    from adapters.polymarket.client import PolymarketClient
+    from adapters.polymarket.data_source import PolymarketDataSource
+
+    cfg = load_config()
+    client = PolymarketClient(
+        private_key=cfg.polymarket_private_key,
+        funder=cfg.polymarket_funder or "",
+        api_key=cfg.polymarket_api_key,
+        signature_type=cfg.polymarket_signature_type,
+        creds_path=cfg.polymarket_creds_path,
+        rpc_url=cfg.polymarket_rpc_url,
+        dry_run=cfg.polymarket_dry_run,
+        relayer_api_key=cfg.polymarket_relayer_api_key,
+        relayer_address=cfg.polymarket_relayer_address,
+    )
+    return PolymarketDataSource(client)
+
+
 @skip_unless_integration
 @pytest.mark.asyncio
 async def test_get_quote_returns_live_orderbook_for_null_prices():
     """When cached bid/ask are None, get_quote falls back to CLOB orderbook."""
-    from adapters.polymarket.data_source import PolymarketDataSource
     from broker.models import AssetType, Symbol
 
-    ds = PolymarketDataSource()
+    ds = _build_data_source()
     markets = await ds.get_markets(limit=5)
     assert len(markets) > 0, "expected at least one Polymarket market"
 
@@ -43,9 +64,7 @@ async def test_get_quote_returns_live_orderbook_for_null_prices():
 @pytest.mark.asyncio
 async def test_native_market_id_populated_in_market_data():
     """Polymarket markets should have native_market_id set to conditionId."""
-    from adapters.polymarket.data_source import PolymarketDataSource
-
-    ds = PolymarketDataSource()
+    ds = _build_data_source()
     markets = await ds.get_markets(limit=5)
     assert len(markets) > 0
 
