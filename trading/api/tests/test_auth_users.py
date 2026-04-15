@@ -19,7 +19,7 @@ class MockIdentityStore:
         salt = bcrypt.gensalt()
         hashed = bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
         user = User(
-            id=str(uuid.uuid4()),
+            id=uuid.uuid4(),
             email=email,
             hashed_password=hashed,
             tier=PlatformTier.EXPLORER
