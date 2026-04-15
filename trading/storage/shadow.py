@@ -130,18 +130,33 @@ class ShadowExecutionStore:
         # rejects string parameters for datetime columns. The SQLite test DDL
         # uses TEXT, which accepts both. Pass datetime for Postgres, ISO string
         # for aiosqlite so both backends work without driver-level adapters.
-        cutoff = self._coerce_datetime_param(now)
-        cursor = await self._db.execute(
+        #
+        # For Postgres: cast resolve_after to TIMESTAMPTZ so UTC-aware `now`
+        # can be compared against it. For aiosqlite (TEXT column): use ISO string.
+        if self._is_postgres():
+            cutoff = self._coerce_datetime_param(now)
+            query = """
+                SELECT *
+                FROM shadow_executions
+                WHERE resolution_status = 'open'
+                  AND resolve_after::timestamptz <= ?
+                ORDER BY resolve_after ASC
+                LIMIT ?
             """
-            SELECT *
-            FROM shadow_executions
-            WHERE resolution_status = 'open'
-              AND resolve_after <= ?
-            ORDER BY resolve_after ASC
-            LIMIT ?
-            """,
-            (cutoff, limit),
-        )
+            cursor = await self._db.execute(query, (cutoff, limit))
+        else:
+            cutoff = self._coerce_datetime_param(now)
+            cursor = await self._db.execute(
+                """
+                SELECT *
+                FROM shadow_executions
+                WHERE resolution_status = 'open'
+                  AND resolve_after <= ?
+                ORDER BY resolve_after ASC
+                LIMIT ?
+                """,
+                (cutoff, limit),
+            )
         rows = await cursor.fetchall()
         return [self._decode_row(row) for row in rows]
 
