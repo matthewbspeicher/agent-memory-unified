@@ -6,6 +6,7 @@ import jwt
 from api.identity.store import IdentityStore
 from models.user import PlatformTier
 from api.auth import _get_settings
+from api.auth.users import get_jwt_secret
 from api.deps import get_event_bus
 
 router = APIRouter(prefix="/engine/v1/ws", tags=["websockets"])
@@ -62,8 +63,8 @@ async def websocket_endpoint(websocket: WebSocket, token: str | None = Query(def
         return
         
     settings = _get_settings()
-    secret_key = settings.api_key or "secret"
-    
+    secret_key = get_jwt_secret(settings)
+
     try:
         payload = jwt.decode(token, secret_key, algorithms=["HS256"])
         email: str = payload.get("sub")

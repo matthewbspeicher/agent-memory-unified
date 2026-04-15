@@ -15,6 +15,22 @@ router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login", auto_error=False)
 
 
+def get_jwt_secret(settings) -> str:
+    """Return the key used to sign/verify user JWTs.
+
+    Previously this fell back to the literal string "secret" when
+    `settings.api_key` was empty, which silently let anyone forge tokens
+    in any environment where `STA_API_KEY` was unset. Fail loud instead.
+    """
+    key = getattr(settings, "api_key", None)
+    if not key:
+        raise RuntimeError(
+            "STA_API_KEY must be set — required to sign user JWTs. "
+            "Refusing to start with a default/empty signing key."
+        )
+    return key
+
+
 class UserCreate(BaseModel):
     email: EmailStr
     password: str
@@ -81,7 +97,7 @@ async def login(
         )
 
     settings = request.app.state.config
-    secret_key = settings.api_key or "secret"
+    secret_key = get_jwt_secret(settings)
 
     access_token = create_access_token(
         data={"sub": user.email},
@@ -104,7 +120,7 @@ async def get_current_user(
         )
 
     settings = request.app.state.config
-    secret_key = settings.api_key or "secret"
+    secret_key = get_jwt_secret(settings)
 
     try:
         payload = jwt.decode(token, secret_key, algorithms=["HS256"])

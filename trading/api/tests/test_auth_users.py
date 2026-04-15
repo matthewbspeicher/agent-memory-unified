@@ -31,14 +31,17 @@ class MockIdentityStore:
 def mock_store():
     return MockIdentityStore()
 
+TEST_JWT_SECRET = "test-jwt-secret-at-least-32-bytes-long-abc"
+
+
 @pytest.fixture
 def client(mock_store):
-    config = load_config()
+    config = load_config().model_copy(update={"api_key": TEST_JWT_SECRET})
     app = create_app(enable_agent_framework=True, config=config)
-    
+
     from api.auth.users import get_identity_store
     app.dependency_overrides[get_identity_store] = lambda: mock_store
-    
+
     return TestClient(app)
 
 def test_signup_and_login(client):
@@ -58,11 +61,9 @@ def test_signup_and_login(client):
     assert "access_token" in data
     assert data["token_type"] == "bearer"
     
-    # Verify JWT
+    # Verify JWT — must decode with the same secret the app was given
     token = data["access_token"]
-    config = load_config()
-    secret_key = config.api_key or "secret"
-    payload = jwt.decode(token, secret_key, algorithms=["HS256"])
+    payload = jwt.decode(token, TEST_JWT_SECRET, algorithms=["HS256"])
     assert payload["sub"] == email
 
 def test_login_invalid_credentials(client):
