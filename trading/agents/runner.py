@@ -648,12 +648,26 @@ class AgentRunner:
                 interval_or_cron = entry.get("interval_or_cron", 60)
                 schedule = entry.get("schedule", "continuous")
 
+                # Cron expression lives in parameters.cron because
+                # interval_or_cron is an INTEGER column on Postgres and
+                # can't hold a cron string. If absent, we'd fall back to
+                # stringifying the int, which croniter rejects — so skip
+                # registry-driven start for cron agents without parameters.cron.
+                _params = entry.get("parameters") or {}
+                _cron_expr = _params.get("cron") if schedule == "cron" else None
+                if schedule == "cron" and not _cron_expr:
+                    logger.warning(
+                        "Registry entry for '%s' has schedule=cron but no parameters.cron; skipping registry-driven start (yaml seed path still works)",
+                        name,
+                    )
+                    continue
+
                 agent_config = AgentConfig(
                     name=name,
                     strategy=strategy,
                     schedule=schedule,
                     interval=interval_or_cron if schedule == "continuous" else 60,
-                    cron=str(interval_or_cron) if schedule == "cron" else None,
+                    cron=_cron_expr if schedule == "cron" else None,
                     action_level=action_level,
                     universe=entry.get("universe", []),
                     parameters=entry.get("parameters", {}),
