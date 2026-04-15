@@ -115,6 +115,8 @@ class AnthropicProvider(BaseProvider):
 
     async def complete(self, prompt: str, **kwargs) -> LLMResult | None:
         max_tokens = kwargs.get("max_tokens", 200)
+        system = kwargs.get("system")
+        cache_system = kwargs.get("cache_system", False)
         try:
             import anthropic
             import time
@@ -124,11 +126,28 @@ class AnthropicProvider(BaseProvider):
                 anthropic_messages = _anthropic_messages(
                     [{"role": "user", "content": prompt}]
                 )
-                msg = await client.messages.create(
-                    model=self.model,
-                    max_tokens=max_tokens,
-                    messages=anthropic_messages,
-                )
+                create_kwargs: dict[str, object] = {
+                    "model": self.model,
+                    "max_tokens": max_tokens,
+                    "messages": anthropic_messages,
+                }
+                if system:
+                    # Per Anthropic docs: system can be a string OR a list of
+                    # content blocks. Structured form is required for
+                    # cache_control. Minimum cacheable size: 1024 tokens
+                    # (Sonnet/Opus) or 2048 (Haiku). Below threshold, cache
+                    # is silently bypassed by the API — no error, no savings.
+                    if cache_system:
+                        create_kwargs["system"] = [
+                            {
+                                "type": "text",
+                                "text": system,
+                                "cache_control": {"type": "ephemeral"},
+                            }
+                        ]
+                    else:
+                        create_kwargs["system"] = system
+                msg = await client.messages.create(**create_kwargs)
             latency = (time.monotonic() - start) * 1000
             return LLMResult(
                 text=_anthropic_message_text(msg),
@@ -300,6 +319,7 @@ class GroqProvider(BaseProvider):
 
     async def complete(self, prompt: str, **kwargs) -> LLMResult | None:
         max_tokens = kwargs.get("max_tokens", 200)
+        system = kwargs.get("system") or ""
         try:
             import openai
             import time
@@ -310,7 +330,7 @@ class GroqProvider(BaseProvider):
                 api_key=self.api_key,
             ) as client:
                 full_messages = _openai_messages(
-                    "", [{"role": "user", "content": prompt}]
+                    system, [{"role": "user", "content": prompt}]
                 )
                 resp = await client.chat.completions.create(
                     model=self.model,
@@ -380,6 +400,7 @@ class OllamaProvider(BaseProvider):
 
     async def complete(self, prompt: str, **kwargs) -> LLMResult | None:
         max_tokens = kwargs.get("max_tokens", 200)
+        system = kwargs.get("system") or ""
         try:
             import openai
             import time
@@ -391,7 +412,7 @@ class OllamaProvider(BaseProvider):
                 timeout=30.0,
             ) as client:
                 full_messages = _openai_messages(
-                    "", [{"role": "user", "content": prompt}]
+                    system, [{"role": "user", "content": prompt}]
                 )
                 resp = await client.chat.completions.create(
                     model=self.model,
