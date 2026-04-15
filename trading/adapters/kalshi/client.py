@@ -206,6 +206,49 @@ class KalshiClient:
         data = await self._get(f"/markets/{ticker}")
         return data.get("market", data)
 
+    async def get_events(
+        self,
+        status: str = "open",
+        with_nested_markets: bool = True,
+        limit: int = 200,
+        cursor: str | None = None,
+    ) -> dict:
+        """GET /events — returns {events: [...], cursor: ...}.
+
+        `/markets` lost the category filter (silently ignored) and returns
+        un-categorized sports-prop aggregates by default. `/events` is the
+        correct top-level primitive — it has populated `category` fields and
+        `with_nested_markets=true` returns the child markets inline, avoiding
+        a per-event fanout.
+        """
+        params: dict[str, Any] = {"limit": limit, "status": status}
+        if with_nested_markets:
+            params["with_nested_markets"] = "true"
+        if cursor:
+            params["cursor"] = cursor
+        return await self._get("/events", params=params)
+
+    async def get_all_events(
+        self,
+        status: str = "open",
+        with_nested_markets: bool = True,
+        max_pages: int = 25,
+    ) -> list[dict]:
+        """Paginate /events, returning a flat list of event dicts."""
+        results: list[dict] = []
+        cursor: str | None = None
+        for _ in range(max_pages):
+            page = await self.get_events(
+                status=status,
+                with_nested_markets=with_nested_markets,
+                cursor=cursor,
+            )
+            results.extend(page.get("events", []))
+            cursor = page.get("cursor")
+            if not cursor:
+                break
+        return results
+
     async def get_orderbook(self, ticker: str, depth: int = 10) -> dict:
         """GET /markets/{ticker}/orderbook"""
         data = await self._get(f"/markets/{ticker}/orderbook", params={"depth": depth})

@@ -53,13 +53,12 @@ class CrossPlatformArbAgent(StructuredAgent):
         if not self.kalshi_ds or not self.polymarket_ds:
             return []
 
-        k_markets = []
-        for cat in self.kalshi_categories:
-            k_markets.extend(await self.kalshi_ds.get_markets(category=cat))
-
-        p_markets = []
-        for tag in self.poly_tags:
-            p_markets.extend(await self.polymarket_ds.get_markets(tag=tag))
+        # Event-level matching — the `/markets` endpoints on both venues either
+        # silently ignore the category/tag filter (Kalshi) or serve stale 2023
+        # archive data (Polymarket CLOB). The `/events` endpoints are the
+        # correct primitives (see commit 7c811da and the arb-pipeline memory).
+        k_markets = await self.kalshi_ds.get_events(categories=self.kalshi_categories)
+        p_markets = await self.polymarket_ds.get_events(tags=self.poly_tags)
 
         candidates = match_markets(k_markets, p_markets, min_score=self.min_similarity)
 

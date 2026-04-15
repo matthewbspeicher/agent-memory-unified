@@ -184,6 +184,99 @@ class PolymarketDataSource:
                 contracts.append(c)
         return contracts
 
+    async def get_events(
+        self,
+        tags: list[str] | None = None,
+        closed: bool = False,
+        max_pages: int = 10,
+    ) -> list[PredictionContract]:
+        """Return current Gamma-API events as PredictionContracts.
+
+        The CLOB `/markets` endpoint returns archived March-2023 data with
+        `active=true, closed=true` mislabelling, so it's unusable for live
+        matching. Gamma's `/events` is the current-event primitive.
+
+        If `tags` is supplied, filter client-side (the upstream tag param
+        has been unreliable in the past).
+        """
+        import asyncio as _asyncio
+
+        raw = await _asyncio.to_thread(
+            self.client.get_all_gamma_events,
+            active=not closed,
+            closed=closed,
+            page_size=500,
+            max_pages=max_pages,
+        )
+        allowed = {t.lower() for t in tags} if tags else None
+        contracts: list[PredictionContract] = []
+        for ev in raw:
+            ev_tags = [t.get("label", "") if isinstance(t, dict) else str(t) for t in (ev.get("tags") or [])]
+            if allowed is not None and not any(t.lower() in allowed for t in ev_tags):
+                continue
+            try:
+                contracts.append(self._map_gamma_event(ev))
+            except Exception as exc:
+                logger.debug(
+                    "PolymarketDataSource.get_events: skipping %s: %s",
+                    ev.get("slug"),
+                    exc,
+                )
+        return contracts
+
+    def _map_gamma_event(self, ev: dict) -> PredictionContract:
+        """Translate a Gamma event dict (camelCase) into a PredictionContract.
+
+        Uses the first nested market for pricing. The event slug is the
+        primary key — stable across Gamma and sufficient to identify the
+        event without collapsing to per-outcome condition_ids.
+        """
+        markets = ev.get("markets") or []
+        first = markets[0] if markets else {}
+
+        # Gamma outcomePrices is a stringified JSON list of probabilities.
+        yes_cents: int | None = None
+        import json as _json
+
+        op_raw = first.get("outcomePrices")
+        if isinstance(op_raw, str):
+            try:
+                prices = _json.loads(op_raw)
+                if prices:
+                    yes_cents = int(Decimal(str(prices[0])) * 100)
+            except Exception:
+                pass
+        elif isinstance(op_raw, list) and op_raw:
+            try:
+                yes_cents = int(Decimal(str(op_raw[0])) * 100)
+            except Exception:
+                pass
+
+        ev_tags = ev.get("tags") or []
+        first_tag = ""
+        for t in ev_tags:
+            if isinstance(t, dict):
+                first_tag = t.get("label") or t.get("slug") or ""
+            else:
+                first_tag = str(t)
+            if first_tag:
+                break
+
+        try:
+            volume_24h = int(Decimal(str(ev.get("volume24hr") or first.get("volume24hr") or "0")))
+        except Exception:
+            volume_24h = 0
+
+        return PredictionContract(
+            ticker=ev.get("slug") or str(ev.get("id", "")),
+            title=ev.get("title", ""),
+            category=first_tag,
+            close_time=ev.get("endDate") or first.get("endDate") or "",
+            yes_bid=yes_cents,
+            volume_24h=volume_24h,
+            result=None,
+        )
+
     def get_market(self, condition_id: str) -> PredictionContract | None:
         """Fetch a single market by condition ID."""
         try:

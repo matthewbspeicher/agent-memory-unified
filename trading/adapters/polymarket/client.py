@@ -202,6 +202,55 @@ class PolymarketClient:
         resp.raise_for_status()
         return resp.json()
 
+    def get_gamma_events(
+        self,
+        active: bool = True,
+        closed: bool = False,
+        limit: int = 500,
+        offset: int = 0,
+    ) -> list[dict]:
+        """GET gamma-api.polymarket.com/events — returns list of current events.
+
+        The CLOB `/markets` endpoint (the other method here) returns archived
+        markets with `active=true, closed=true` set together — much of the
+        payload is March-2023 NCAAB / NBA games. For live tradable events we
+        must hit the Gamma API, which uses camelCase fields and honours the
+        `active` / `closed` filters correctly.
+        """
+        params: dict[str, str | int | bool] = {
+            "limit": limit,
+            "offset": offset,
+            "active": "true" if active else "false",
+            "closed": "true" if closed else "false",
+        }
+        resp = httpx.get("https://gamma-api.polymarket.com/events", params=params)
+        resp.raise_for_status()
+        data = resp.json()
+        return data if isinstance(data, list) else data.get("data", [])
+
+    def get_all_gamma_events(
+        self,
+        active: bool = True,
+        closed: bool = False,
+        page_size: int = 500,
+        max_pages: int = 10,
+    ) -> list[dict]:
+        """Paginate Gamma /events via offset, returning a flat list."""
+        results: list[dict] = []
+        for page in range(max_pages):
+            batch = self.get_gamma_events(
+                active=active,
+                closed=closed,
+                limit=page_size,
+                offset=page * page_size,
+            )
+            if not batch:
+                break
+            results.extend(batch)
+            if len(batch) < page_size:
+                break
+        return results
+
     def get_orderbook(self, token_id: str) -> dict:
         return self.clob.get_order_book(token_id)
 

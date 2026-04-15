@@ -116,6 +116,73 @@ class KalshiDataSource:
             logger.warning("KalshiDataSource.get_market(%s) failed: %s", ticker, exc)
             return None
 
+    async def get_events(
+        self,
+        categories: list[str] | None = None,
+        status: str = "open",
+        max_pages: int = 25,
+    ) -> list[PredictionContract]:
+        """Return open Kalshi events (with their first market inlined) as PredictionContracts.
+
+        Prefer this over `get_markets` for matching against other venues —
+        `/events` has populated `category` fields and event-level titles that
+        are semantically comparable to Polymarket event slugs. If `categories`
+        is supplied, filter client-side (the API param is silently ignored).
+        """
+        raw = await self._client.get_all_events(
+            status=status, with_nested_markets=True, max_pages=max_pages
+        )
+        allowed = {c.lower() for c in categories} if categories else None
+        contracts: list[PredictionContract] = []
+        for ev in raw:
+            cat = (ev.get("category") or "").strip()
+            cat_lower = cat.lower()
+            if allowed is not None and not any(
+                a == cat_lower or a in cat_lower for a in allowed
+            ):
+                continue
+            try:
+                contracts.append(self._parse_event(ev))
+            except Exception as exc:
+                logger.debug(
+                    "KalshiDataSource.get_events: skipping %s: %s",
+                    ev.get("event_ticker"),
+                    exc,
+                )
+        return contracts
+
+    def _parse_event(self, ev: dict) -> PredictionContract:
+        """Translate a raw Kalshi event dict into a PredictionContract.
+
+        Uses the first nested market for pricing; the event_ticker is the
+        primary key (market tickers are too granular for cross-venue match).
+        """
+        markets = ev.get("markets") or []
+        first = markets[0] if markets else {}
+        close_ts = (
+            first.get("close_time")
+            or first.get("expected_expiration_time")
+            or ev.get("close_time")
+            or ""
+        )
+        try:
+            close_time = datetime.fromisoformat(close_ts.replace("Z", "+00:00"))
+        except (ValueError, AttributeError):
+            close_time = datetime.now(timezone.utc)
+
+        return PredictionContract(
+            ticker=ev["event_ticker"],
+            title=ev.get("title", ""),
+            category=ev.get("category", ""),
+            close_time=close_time,
+            yes_bid=first.get("yes_bid"),
+            yes_ask=first.get("yes_ask"),
+            yes_last=first.get("last_price"),
+            open_interest=first.get("open_interest", 0),
+            volume_24h=first.get("volume_24h", 0),
+            result=first.get("result"),
+        )
+
     def _parse_market(self, m: dict) -> PredictionContract:
         """Translate a raw Kalshi market dict to a PredictionContract."""
         close_ts = m.get("close_time") or m.get("expected_expiration_time") or ""
