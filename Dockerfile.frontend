@@ -30,11 +30,23 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Install serve globally
-RUN npm install -g serve
-
-# Copy built assets from build stage
+# Copy built assets from the build stage.
 COPY --from=build /app/frontend/dist ./dist
 
-# Start command (use shell form to allow $PORT expansion)
-CMD serve -s dist -l $PORT
+# Copy the production server (replaces `serve -s dist`). It proxies
+# API paths (/api, /engine, /ready, /metrics, /stripe, /agents, /shadow,
+# /health) to the trading backend so remembr.dev serves a real API
+# response on those paths instead of falling through to index.html.
+# SPA fallback preserved for every other path.
+COPY frontend/server.mjs ./server.mjs
+
+# Minimal runtime deps — only http-proxy is needed; the rest of the
+# static-file logic uses Node's built-in http + fs modules. Avoids
+# dragging in the full frontend devDependency tree for the server.
+RUN npm install --omit=dev --no-audit --no-fund --save=false http-proxy@1.18.1
+
+# Railway sets PORT. TRADING_UPSTREAM_URL is the backend target —
+# defaults inside server.mjs to the Railway private DNS name
+# (http://trading.railway.internal:8080). Override via Railway env var
+# if needed.
+CMD ["node", "server.mjs"]
