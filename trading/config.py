@@ -187,7 +187,26 @@ class Config(BaseModel):
                     return getattr(nested, suffix)
         raise AttributeError(f"'Config' object has no attribute {name!r}")
 
-    # Missing flat fields for compatibility
+    # Flat-field compatibility shim.
+    #
+    # Fields below are declared here (rather than pulled through the
+    # nested LLMConfig / BittensorConfig / etc. via __getattr__) because
+    # callers across the codebase access them as flat attributes:
+    #   config.anthropic_api_key (not config.llm.anthropic_api_key)
+    # Keeping them flat here is cheaper than rewriting every call site.
+    #
+    # DO NOT add fields below that are already declared in the blocks
+    # further down in this class (Kalshi, Polymarket, Supabase, remembr,
+    # journal_index, external-data keys, order_timeout, ...). Python
+    # silently takes the later declaration; mypy then (correctly) flags
+    # every entry here as `[no-redef]`. An earlier revision duplicated
+    # ~45 fields across this block and the ones below; cleaned up in a
+    # follow-up pass — if you re-add one, pick ONE location.
+    #
+    # Canonical rule: unique-to-this-block or not at all.
+
+    # LLM providers — flat because LLMConfig nests them but most callers
+    # reach for `config.anthropic_api_key` directly.
     anthropic_api_key: str | None = None
     groq_api_key: str | None = None
     gemini_api_key: str | None = None
@@ -196,61 +215,20 @@ class Config(BaseModel):
     bedrock_model: str | None = None
     bedrock_access_key_id: str | None = None
     bedrock_secret_access_key: str | None = None
-    remembr_owner_token: str | None = None
-    remembr_agent_token: str | None = None
-    remembr_base_url: str = "https://remembr.dev/api/v1"
-    remembr_timeout: int | None = None
-    remembr_api_key: str | None = None
-    remembr_shared_api_key: str | None = None
-    paper_trading: bool | None = None
-    paper_trading_initial_balance: float = 100000.0
-    massive_key: str | None = None
-    news_feeds: list[str] | None = None
-    news_poll_interval: int | None = None
+
+    # Alpaca (brokerage) — flat because BrokerConfig nests them
     alpaca_streaming: bool | None = None
     alpaca_api_key: str | None = None
     alpaca_secret_key: str | None = None
     alpaca_data_feed: str | None = None
+
+    # Tradier (brokerage) — flat for the same reason
     tradier_streaming: bool | None = None
     tradier_token: str | None = None
     tradier_sandbox: bool | None = None
-    journal_index_enabled: bool = False
-    journal_index_persist_interval: int | None = None
-    journal_index_model: str = "all-MiniLM-L6-v2"
-    journal_index_path: str = "data/journal_index"
-    journal_index_space: str = "cosine"
-    journal_index_ef_construction: int = 200
-    journal_index_m: int = 16
-    journal_index_ef_search: int = 50
-    journal_index_max_elements: int = 100_000
-    gpu_enabled: bool | None = None
-    supabase_url: str | None = None
-    supabase_anon_key: str | None = None
-    supabase_service_key: str | None = None
-    kalshi_demo: bool | None = None
-    polymarket_private_key: str | None = None
-    polymarket_funder: str | None = None
-    polymarket_api_key: str | None = None
-    polymarket_signature_type: int | None = None
-    polymarket_creds_path: str | None = None
-    polymarket_rpc_url: str | None = None
-    polymarket_dry_run: bool | None = None
-    polymarket_relayer_api_key: str | None = None
-    polymarket_relayer_address: str | None = None
-    # External API keys (not nested under a prefix)
-    metaculus_token: str | None = None
-    manifold_markets_key: str | None = None
-    newsapi_key: str | None = None
-    alpha_vantage_key: str | None = None
-    coingecko_api_key: str | None = None
-    tradercongress_api_key: str | None = None
-    quiverquant_api_key: str | None = None
 
-    agents_config: str | None = None
-    redis_url: str | None = None
+    # Unique flat fields (no nested counterpart anywhere below)
     broker_routing: dict[str, str] | None = None
-    arb_toxicity_threshold: float | None = None
-    order_timeout: int | None = None
     knowledge_graph_enabled: bool = False
     rate_limit_enabled: bool = False
 

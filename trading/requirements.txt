@@ -1,6 +1,24 @@
-# Canonical source: pyproject.toml
-# Auto-generated from pyproject.toml - DO NOT EDIT DIRECTLY
-# Run `uv pip compile pyproject.toml -o requirements.txt` to regenerate
+# requirements.txt for CI / minimal `pip install -r` flows.
+#
+# Hand-curated, NOT auto-generated. The canonical direct-dep list with
+# version specs lives in `pyproject.toml [project] dependencies`; this
+# file mirrors it with the same version constraints so CI (GitHub
+# Actions) gets a clean install without pulling `uv` into the workflow.
+#
+# Two rules for keeping it in sync:
+#   1. Every package in pyproject.toml [project].dependencies must also
+#      appear here with a compatible version spec.
+#   2. Tests enforce rule 1 — see
+#      trading/tests/unit/test_requirements_sync.py.
+#
+# If you add a dep, add it to BOTH files. If you remove one, remove it
+# from both. The optional [project.optional-dependencies] extras (ml,
+# torch) live in pyproject.toml only — installed via `pip install -e .[ml]`.
+#
+# An earlier header claimed this file was auto-generated via
+# `uv pip compile`. It was not — the sections, inline comments, and
+# [ml] commented block all get stripped by a real pip-compile pass.
+# Honest framing above replaces the stale claim.
 
 # Core web framework
 fastapi>=0.115.0

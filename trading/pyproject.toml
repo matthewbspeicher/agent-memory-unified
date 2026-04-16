@@ -37,6 +37,7 @@ dependencies = [
     # ML / statistics
     "xgboost>=2.0.0",
     "hmmlearn>=0.3.0",
+    "networkx>=3.0",
     # Scheduling
     "croniter>=3.0.0",
     # Utilities
