@@ -381,6 +381,11 @@ class Config(BaseModel):
     arb_max_position_usd: float = 100.0
     portfolio_max_position_usd: float = 0.0
 
+    # Feed attribution + scaled-PnL (PM Arb Signal Feed v1 §3.1)
+    feed_attribution_interval_seconds: int = 60
+    feed_real_sleeve_notional_usd: float = 11000.0
+    feed_scaled_reference_notional_usd: float = 250000.0
+
     # Hermes Autonomy
     hermes_full_autonomy: bool = False
 

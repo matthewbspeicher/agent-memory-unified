@@ -1660,6 +1660,46 @@ async def lifespan(app: FastAPI):
         # SpreadStore always available on app.state (None when arb not configured)
         app.state.spread_store = None
 
+        # Feed PnL attribution job — runs every 60s regardless of whether
+        # brokers are wired. Core responsibility without brokers: mark
+        # expired feed_arb_signals rows as 'missed' so the public dashboard
+        # shows every emitted signal's disposition. With brokers: pull
+        # fills, join to signal_id (Kalshi via client_order_id, Polymarket
+        # via signal_order_map), write feed_arb_pnl_rollup. Honest-tracker
+        # contract (spec §3.1): no rollup written when no real fills —
+        # dashboard stays at pnl: null. Plan next-action #2.
+        try:
+            from feeds.pnl_attribution import FeedArbPnLAttribution
+
+            feed_attribution = FeedArbPnLAttribution(
+                db=db,
+                kalshi_broker=_brokers.get("kalshi"),
+                polymarket_broker=_brokers.get("polymarket"),
+                interval_seconds=int(
+                    getattr(config, "feed_attribution_interval_seconds", 60)
+                ),
+                real_notional_usd=float(
+                    getattr(config, "feed_real_sleeve_notional_usd", 11000.0)
+                ),
+                scaled_notional_usd=float(
+                    getattr(config, "feed_scaled_reference_notional_usd", 250000.0)
+                ),
+            )
+            app.state.feed_attribution = feed_attribution
+            task_mgr.create_task(
+                feed_attribution.run(), name="feed_pnl_attribution"
+            )
+            _log.info(
+                "FeedArbPnLAttribution started (interval=%ds, real=$%s, scaled=$%s)",
+                feed_attribution._interval,
+                feed_attribution._real,
+                feed_attribution._scaled,
+            )
+        except Exception as _attr_exc:
+            _log.warning(
+                "FeedArbPnLAttribution startup failed (non-fatal): %s", _attr_exc
+            )
+
         # Cross-platform arb (only if both Kalshi and Polymarket configured)
         _kalshi_source = getattr(data_bus, "_kalshi_source", None)
         if _kalshi_source and _polymarket_source:
