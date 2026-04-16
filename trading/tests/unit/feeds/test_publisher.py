@@ -125,7 +125,7 @@ class TestFeedPublisherHappyPath:
         assert row["ts"].startswith("2026-04-16T14:00:00")
         assert row["pair_kalshi_ticker"] == "KXELEC-TEST"
         assert row["pair_poly_token_id"].startswith("0x")
-        assert row["edge_cents"] > 0  # net of fees
+        assert row["edge_cents"] > 0  # gross gap per spec §3.2
         assert row["max_size_at_edge_usd"] > 0
         assert row["expires_at"] > row["ts"]
         assert row["outcome"] is None  # set later by attribution

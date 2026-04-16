@@ -104,10 +104,11 @@ Single page. Sections: pitch, sample signals (5 most recent from public dashboar
 
 Components, all on existing trading-engine infra (FastAPI port 8080, Postgres, identity store).
 
+> **Implementation reconciliation (2026-04-16):** the publisher source is the existing **`EventBus` topic `arb.spread`** (not `SignalBus` as this doc originally described). `cross_platform_arb.py:232-254` already publishes `arb.spread` with the full payload needed, and `ArbExecutor` already consumes it. Two independent subscribers, one topic — the `SignalBus` is not wired for cross-platform arb, so using `EventBus` avoids a wholly-new registration path. See plan Alt-4 and [phase-b-findings.md §B6](../../feeds/arb/phase-b-findings.md).
+
 ```
-SignalBus (existing)
-   ├─→ existing arb executor ($11k sleeve, exists)
-   │     └─→ tags fills with signal_id (new — see §5)
+EventBus (existing) — topic "arb.spread"
+   ├─→ ArbExecutor ($11k sleeve, exists) — tags fills with signal_id (see §5)
    └─→ feed_publisher (new)
          └─→ feed_arb_signals table (new)
                 ├─→ /api/v1/feeds/arb/public  (no auth — dashboard)
@@ -131,10 +132,11 @@ Monitoring → freshness SLI, alert on stale publisher / stale rollup
 
 | Component | Description | Files (anticipated) |
 |---|---|---|
-| `feed_publisher` | Subscribes to existing `SignalBus` for `cross_platform_arb` events, persists to `feed_arb_signals` table | `trading/feeds/publisher.py` |
-| `feed_arb_signals` table | Append-only signal log + outcome tags | `_INIT_DDL` + `init-trading-tables.sql` + `_migrations` (per `reference_schema_three_sources` rule) |
-| `feed_arb_pnl_rollup` table | Real + scaled PnL snapshots every 60s | same three sources |
-| `stripe_processed_events` table | Idempotency keys for Stripe webhook | same three sources |
+| `feed_publisher` | Subscribes to existing `EventBus` topic `arb.spread`, re-applies the `CostModel.should_execute` gate, persists to `feed_arb_signals` | `trading/feeds/publisher.py` (shipped in `c54d3ab`) |
+| `feed_arb_signals` table | Append-only signal log + outcome tags | **Two** schema sources in practice: `init_db_postgres()` (prod, `TIMESTAMPTZ/NUMERIC/JSONB`) + `init-trading-tables.sql` (bootstrap snapshot). `_INIT_DDL` SQLite block is **not** used for these tables on Postgres — see §4.2 reconciliation below. |
+| `feed_arb_pnl_rollup` table | Real + scaled PnL snapshots every 60s | same two sources |
+| `stripe_processed_events` table | Idempotency keys for Stripe webhook | same two sources |
+| `signal_order_map` table | `order_hash → signal_id` mapping for Polymarket (no round-trip of `client_order_id` available) | same two sources; populated by `OrderManager` after `clob.create_order` |
 | Subscriber API route | `GET /api/v1/feeds/arb/signals` | `trading/api/routes/feeds.py` |
 | Public dashboard backend | `GET /api/v1/feeds/arb/public` (no auth, aggregated stats + last-N signals) | `trading/api/routes/feeds.py` |
 | Public dashboard frontend | React 19 + Vite, reuse Mission Control patterns | `frontend/src/pages/FeedArbLive.tsx`, `frontend/src/lib/api/feeds.ts` |
@@ -148,7 +150,9 @@ Monitoring → freshness SLI, alert on stale publisher / stale rollup
 
 ### 4.2 Database schema
 
-Three new tables. All added to **all three** schema sources (`_INIT_DDL`, `init-trading-tables.sql`, `_migrations`) per `reference_schema_three_sources` parity rule.
+**Four** new tables (`feed_arb_signals`, `feed_arb_pnl_rollup`, `stripe_processed_events`, `signal_order_map`). Schema home is `init_db_postgres()` in `trading/storage/db.py` (Postgres-native `TIMESTAMPTZ`/`NUMERIC`/`JSONB`) plus a mirror in `scripts/init-trading-tables.sql` for bootstrap. **Not** in `_INIT_DDL` — earlier versions duplicated them there with SQLite types (`TEXT`/`REAL`) and `executescript` silently landed them with the wrong types, causing the explicit native blocks to no-op with `CREATE TABLE IF NOT EXISTS`. See [phase-b-findings.md](../../feeds/arb/phase-b-findings.md) B-extra. (SQLite-specific declarations exist in `init_db()` for unit-test fixtures only, with TEXT/REAL since type precision doesn't matter in-memory.)
+
+The `reference_schema_three_sources` rule referenced in rev 1 is superseded: `trading/storage/migrations.py` is deprecated per its own header; two sources remain in practice.
 
 **`feed_arb_signals`** (append-only)
 ```sql
@@ -412,6 +416,7 @@ Public-facing paid product needs a freshness SLI with numeric targets. Wired int
 | Subscriber API p95 latency | < 200ms | > 500ms for 10 min → warn |
 | Subscriber API error rate | < 1% | > 5% for 5 min → page |
 | Stripe webhook handler error rate | < 1% (excluding signature mismatches) | > 5% for 5 min → page |
+| `STA_STRIPE_ENABLED` flag | `true` in prod by launch day | still `false` 48h before paid-tier open → page. Flag gates the webhook handler at [billing/webhooks.py](../../../trading/api/routes/billing/webhooks.py); prior handler was unsafe (unsigned-JSON tier grants) and is disabled by default pending the §6 rebuild. Shipped in `5255235`. |
 | Reconciliation job successful run | Hourly | Missed run for 3 consecutive hours → warn |
 | Polymarket fill `signal_id` match rate | > 95% | < 80% for 1 hr → warn (suggests order-hash map breakage) |
 
@@ -468,3 +473,39 @@ v1 ships successfully when:
 - Decision point at day 60: continue, pivot, or shelve and move to #5 (hosted MemPalace) regardless
 
 Customer #1 within 30 days remains the gate that unlocks #5. Without it, the audience hypothesis for #5 also needs reconsideration.
+
+## 15. Upstream pipeline prerequisites (2026-04-16)
+
+Four bugs in the upstream pipeline had to be fixed before the publisher could land a single row. Adding here for the audit trail — all shipped, all verified end-to-end. Detailed diagnostics in [phase-b-findings.md](../../feeds/arb/phase-b-findings.md).
+
+| # | Bug | Fix | Commit |
+|---|---|---|---|
+| A0.1 | `arb_spread_observations.observed_at` column missing in prod Postgres; `SpreadStore.record()` INSERTs silently failing | ALTER TABLE migration in `init_db_postgres()` adds column + two indexes | `5255235` |
+| A0.2 | Cron scheduler silently skips `cross_platform_arb` (placeholder returning `None` + warm-restart `interval_or_cron` INTEGER column) | Remove placeholder from `config.py`; read `parameters.cron` JSONB in `runner._reconcile_registry`; pre-register `CrossPlatformArbAgent` class so `AgentsFileSchema` validation passes | `8dc03e4` + `102d5e8` + `5255235` |
+| A0.3 | `PostgresDB._convert_datetime_now()` only translated the zero-arg form; `datetime('now', '-N minutes')` modifier form left untranslated → runtime error on `get_top_spreads` / `claim_spread` | Enhanced regex to translate modifier forms to `NOW() - INTERVAL 'N minutes'` | `8dc03e4` |
+| A0.4 | `SpreadStore.record()` returned `None` on Postgres (`cursor.lastrowid` not exposed by the wrapper), so even after A0.1 the `arb.spread` publish was gated off | Dual-path `INSERT ... RETURNING id` on Postgres, `cursor.lastrowid` on SQLite | `5255235` |
+
+Plus two collateral fixes in `5255235`: feed/billing table types (TEXT/REAL → TIMESTAMPTZ/NUMERIC/JSONB); `Config.gemini_api_key` flat-field shim; `/stripe/webhooks` disabled behind `STA_STRIPE_ENABLED=true` (see §11).
+
+**Gate:** no paid-tier launch without all four fixes in place and verified. All four shipped and green as of 2026-04-16. Publisher lands rows end-to-end (POST /agents/cross_platform_arb/scan → 11+ rows in `feed_arb_signals`).
+
+## 16. Host topology (v1 monolithic, relocatable)
+
+v1 ships as a monolith: publisher, subscriber API, and public route all live in the existing trading-engine FastAPI process on port 8080. This is intentional for the week-11 launch and deliberately **relocatable** — the new direction (see `project_local_first_direction` memory) is to split the publisher onto a local laptop (next to the strategies that emit `arb.spread`) and the paid-subscriber routes onto the web host (so `remembr.dev` can terminate HTTPS properly for paid traffic).
+
+To keep v1 monolithic without foreclosing the split:
+
+- **Publisher writes to a table.** No in-process handoff between publisher and routes; the DB is the contract.
+- **Route handlers are SELECT-and-shape.** No app-state caching inside route handlers; no EventBus subscription in the routes; no DB-side triggers.
+- **Public route cache lives on Redis,** not a Python module-level dict. Redis is reachable from either host. `feeds.py` `PUBLIC_CACHE_TTL_SECONDS = 10` and `_PUBLIC_CACHE_KEY` are the cache seam.
+- **Prometheus counter names are stable across hosts.** `feed_arb_signals_published_total`, `feed_arb_public_cache_hits_total`, etc. keep their identity when the route moves.
+
+When the split happens, lifting `feeds.py` and `feeds/publisher.py` to separate services is a configuration change, not a rewrite. No plan in this doc for the split itself — that's future work gated on #5 (hosted MemPalace) and audience-C maturity.
+
+## ADR-0008 event types (appendix)
+
+Appending to the canonical event-type list in [docs/adr/0008-structured-logging-convention.md](../../adr/0008-structured-logging-convention.md):
+
+- `feed.publish` — FeedPublisher wrote a row to `feed_arb_signals`
+- `feed.public_query` — `/api/v1/feeds/arb/public` served a response (reserved; wire when helpful)
+- `feed.subscriber_query` — `/api/v1/feeds/arb/signals` served a response (reserved; wire when helpful)

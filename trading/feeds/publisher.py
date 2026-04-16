@@ -145,17 +145,15 @@ class FeedPublisher:
             FEED_ARB_SIGNALS_DROPPED_TOTAL.labels(reason="below_min_profit_bps").inc()
             return
 
-        # Net edge in cents after fees + slippage. `expected_profit_bps`
-        # returns bps against notional; convert to cents-per-share for
-        # display parity with the raw gap field.
-        try:
-            net_bps = self._cost_model.expected_profit_bps(gap_cents)
-            edge_cents = float(net_bps / Decimal("100"))
-        except Exception:
-            # Defensive: if the cost model blows up (unlikely on a valid
-            # gap_cents), fall back to the raw gap. Publisher is not the
-            # place to block on cost-model bugs.
-            edge_cents = gap_cents
+        # Gross edge per spec §3.2: "edge_cents — gross edge at signal
+        # emission, before fees and slippage." The CostModel.should_execute
+        # gate above ensures only signals where gross > fees+slippage+min
+        # get published; what subscribers see is the same raw gap number
+        # they could compute from our publicly-disclosed Kalshi + Poly
+        # price feeds. (Net-of-fees would require publishing our cost
+        # model, which gets into proprietary territory and is a support
+        # nightmare if our fees ever change.)
+        edge_cents = abs(float(gap_cents))
 
         # Side derivation mirrors execution/arb_executor.py:195-196:
         #   gap_cents > 0 means Kalshi is more expensive than Polymarket,

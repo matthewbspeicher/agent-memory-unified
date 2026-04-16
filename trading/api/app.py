@@ -2419,6 +2419,13 @@ def create_app(
 
     app.include_router(copilot_route.router, prefix="/api/v1", tags=["copilot"])
 
+    # PM Arb Signal Feed v1 (spec: 2026-04-15-arb-signal-feed-design.md)
+    # Routes land at /api/v1/feeds/arb/signals (subscriber) and
+    # /api/v1/feeds/arb/public (public dashboard). See plan A6/A7.
+    from api.routes import feeds as feeds_route
+
+    app.include_router(feeds_route.router, prefix="/api/v1")
+
     from api.routes import achievements as achievements_route
 
     app.include_router(achievements_route.router)
