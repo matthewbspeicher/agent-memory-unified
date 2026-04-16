@@ -114,6 +114,14 @@ class PostgresDB:
             rows = await conn.fetch(sql, *(params or []))
             return [dict(r) for r in rows]
 
+    async def fetch(self, sql: str, *args) -> list[dict]:
+        """asyncpg-compatible fetch with positional args.
+
+        The arena/escape-room store code uses ``await db.fetch(sql, *params)``
+        (asyncpg native style) rather than ``db.fetchall(sql, list_of_params)``.
+        """
+        return await self.fetchall(sql, list(args) if args else None)
+
     async def executemany(self, sql: str, params_list) -> None:
         sql = self._translate(sql)
         async with self._pool.acquire() as conn:
