@@ -30,25 +30,39 @@ agents:
     strategy: kalshi_news_arb
     schedule: cron
     cron: "*/15 * * * *"
-    action_level: suggest_trade
-    trust_level: monitored
+    action_level: auto_execute
+    trust_level: autonomous
     parameters:
       categories: ["economics", "climate"]
       threshold_cents: 15
       min_confidence: 60
       max_markets_per_scan: 10
+      rss_feeds:
+        - http://feeds.bbci.co.uk/news/world/rss.xml
+        - http://feeds.bbci.co.uk/news/politics/rss.xml
+        - http://feeds.bbci.co.uk/news/business/rss.xml
+        - https://feeds.npr.org/1001/rss.xml
+        - https://feeds.npr.org/1014/rss.xml
+        - https://www.aljazeera.com/xml/rss/all.xml
 
   - name: polymarket_news_arb
     strategy: polymarket_news_arb
     schedule: cron
     cron: "*/15 * * * *"
-    action_level: suggest_trade
-    trust_level: monitored
+    action_level: auto_execute
+    trust_level: autonomous
     parameters:
       tags: ["politics", "crypto"]
       threshold_cents: 15
       min_confidence: 60
       max_markets_per_scan: 10
+      rss_feeds:
+        - http://feeds.bbci.co.uk/news/world/rss.xml
+        - http://feeds.bbci.co.uk/news/politics/rss.xml
+        - http://feeds.bbci.co.uk/news/business/rss.xml
+        - https://feeds.npr.org/1001/rss.xml
+        - https://feeds.npr.org/1014/rss.xml
+        - https://www.aljazeera.com/xml/rss/all.xml
 
   - name: exit_monitor
     strategy: exit_monitor
