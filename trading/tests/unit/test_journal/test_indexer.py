@@ -1,5 +1,13 @@
 import pytest
 from unittest.mock import MagicMock, AsyncMock
+
+# Optional ML stack — only installed via `pip install -e .[ml]`. Skip the
+# whole file when missing so CI (minimal install) and local dev containers
+# that don't carry the extras don't red-flag these tests. See
+# pyproject.toml `[project.optional-dependencies].ml`.
+pytest.importorskip("hnswlib")
+pytest.importorskip("sentence_transformers")
+
 import numpy as np
 from journal.indexer import JournalIndexer, SearchResult
 

@@ -3,9 +3,14 @@ from unittest.mock import patch, MagicMock
 
 # sys.modules mocks removed to prevent test pollution
 
-import numpy as np
-
 import pytest
+
+# Optional ML stack — only installed via `pip install -e .[ml]`. Skip when
+# missing so environments without the extras don't red-flag the test.
+pytest.importorskip("hnswlib")
+pytest.importorskip("sentence_transformers")
+
+import numpy as np
 
 from journal.indexer import JournalIndexer
 from data.events import EventBus

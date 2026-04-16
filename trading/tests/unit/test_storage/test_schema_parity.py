@@ -20,9 +20,29 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parents[4]
 SQL_FILE = REPO_ROOT / "scripts" / "init-trading-tables.sql"
 DB_PY = REPO_ROOT / "trading" / "storage" / "db.py"
+
+# Skip the whole file when scripts/init-trading-tables.sql isn't reachable
+# from the test runner. Happens in two operational cases:
+#   1. Docker test container that mounts only trading/ — scripts/ is outside
+#      the mount so the SQL file path doesn't resolve.
+#   2. Anyone running pytest from an extracted package without the repo's
+#      scripts/ directory.
+# Both are environment issues, not parity regressions. Skipping here
+# preserves the check for anyone running from the repo root without
+# red-flagging unrelated environments. When someone runs this with scripts/
+# present, full parity enforcement still applies.
+if not SQL_FILE.exists() or not DB_PY.exists():
+    pytest.skip(
+        f"schema parity test needs {SQL_FILE.name} + db.py accessible "
+        f"from the test runner; skipping — environment issue, not a "
+        f"parity regression",
+        allow_module_level=True,
+    )
 
 
 # Tables owned by a specific module that self-creates them at runtime.

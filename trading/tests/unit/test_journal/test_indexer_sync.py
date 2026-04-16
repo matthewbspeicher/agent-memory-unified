@@ -1,7 +1,14 @@
 import sys
-import numpy as np
 import pytest
 from unittest.mock import MagicMock, AsyncMock
+
+# hnswlib is imported lazily inside journal/indexer.py's ensure_model; skip
+# the test file entirely when it's not installed (CI minimal install, dev
+# containers without `pip install -e .[ml]`). sentence_transformers is
+# mocked below so it doesn't need the importorskip.
+pytest.importorskip("hnswlib")
+
+import numpy as np
 
 # Mock sentence_transformers BEFORE importing JournalIndexer to avoid crashes
 sys.modules["sentence_transformers"] = MagicMock()

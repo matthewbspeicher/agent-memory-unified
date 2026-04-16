@@ -86,5 +86,10 @@ pytest-xdist>=3.5.0
 # stable-baselines3>=2.1.0
 # shimmy>=1.1.0
 # sentence-transformers>=3.0.0
-# hnswlib==0.8.0
+# hnswlib — used by journal/indexer.py for the optional HNSW semantic index.
+# Kept at top level (not in the commented-out [ml] block) because
+# trading/tests/unit/test_journal/test_indexer*.py depend on it at test-
+# collection time. importorskip in the tests is a safety net if we ever
+# drop it again.
+hnswlib==0.8.0
 sqlmodel>=0.0.16
