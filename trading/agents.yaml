@@ -32,6 +32,13 @@ agents:
       min_volume: 200
       min_confidence: 60
       min_days_to_close: 1
+      rss_feeds:
+        - http://feeds.bbci.co.uk/news/world/rss.xml
+        - http://feeds.bbci.co.uk/news/politics/rss.xml
+        - http://feeds.bbci.co.uk/news/business/rss.xml
+        - https://feeds.npr.org/1001/rss.xml
+        - https://feeds.npr.org/1014/rss.xml
+        - https://www.aljazeera.com/xml/rss/all.xml
 
   - name: kalshi_calibration
     strategy: kalshi_calibration
@@ -66,6 +73,13 @@ agents:
       min_volume: 500
       min_confidence: 60
       min_days_to_close: 1
+      rss_feeds:
+        - http://feeds.bbci.co.uk/news/world/rss.xml
+        - http://feeds.bbci.co.uk/news/politics/rss.xml
+        - http://feeds.bbci.co.uk/news/business/rss.xml
+        - https://feeds.npr.org/1001/rss.xml
+        - https://feeds.npr.org/1014/rss.xml
+        - https://www.aljazeera.com/xml/rss/all.xml
 
   - name: polymarket_calibration
     strategy: polymarket_calibration
