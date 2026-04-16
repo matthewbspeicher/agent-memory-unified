@@ -90,6 +90,7 @@ class BittensorConfig(BaseModel):
 class LLMConfig(BaseModel):
     anthropic_api_key: str | None = None
     groq_api_key: str | None = None
+    gemini_api_key: str | None = None
     ollama_base_url: str = "http://localhost:11434"
     bedrock_region: str | None = None
     bedrock_access_key_id: str | None = None

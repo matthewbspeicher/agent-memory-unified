@@ -465,7 +465,7 @@ async def test_ensemble_takes_median_of_three_samples():
         new_callable=AsyncMock,
         side_effect=samples,
     ):
-        result = await client.estimate_probability("Q?", ["h"])
+        result = await client.estimate_probability("Q?", ["h"], ensemble_n=3)
 
     # Median of 0.30, 0.40, 0.50 = 0.40
     assert result.implied_probability == pytest.approx(0.40)
@@ -489,7 +489,7 @@ async def test_ensemble_spread_reduces_confidence():
         new_callable=AsyncMock,
         side_effect=samples,
     ):
-        result = await client.estimate_probability("Q?", ["h"])
+        result = await client.estimate_probability("Q?", ["h"], ensemble_n=3)
 
     # Median of 0.10, 0.50, 0.90 = 0.50
     assert result.implied_probability == pytest.approx(0.50)
@@ -513,7 +513,7 @@ async def test_ensemble_uses_partial_successes():
         new_callable=AsyncMock,
         side_effect=samples,
     ):
-        result = await client.estimate_probability("Q?", ["h"])
+        result = await client.estimate_probability("Q?", ["h"], ensemble_n=3)
 
     # Median of 0.40, 0.60 = 0.50
     assert result.implied_probability == pytest.approx(0.50)

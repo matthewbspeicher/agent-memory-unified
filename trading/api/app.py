@@ -1075,6 +1075,7 @@ async def lifespan(app: FastAPI):
         llm_client = LLMClient(
             anthropic_key=config.anthropic_api_key,
             groq_key=config.groq_api_key,
+            gemini_key=config.gemini_api_key,
             ollama_url=config.ollama_base_url,
             bedrock_region=config.bedrock_region,
             bedrock_model=config.bedrock_model,

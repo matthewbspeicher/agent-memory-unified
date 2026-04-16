@@ -389,6 +389,87 @@ class GroqProvider(BaseProvider):
             return None
 
 
+class GeminiProvider(BaseProvider):
+    """Google AI Studio via OpenAI-compatible endpoint. No new SDK needed."""
+
+    name = "gemini"
+
+    def __init__(self, api_key: str, model: str = "gemini-2.5-flash"):
+        self.api_key = api_key
+        self.model = model
+
+    async def complete(self, prompt: str, **kwargs) -> LLMResult | None:
+        max_tokens = kwargs.get("max_tokens", 200)
+        system = kwargs.get("system") or ""
+        try:
+            import openai
+            import time
+
+            start = time.monotonic()
+            async with openai.AsyncOpenAI(
+                base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+                api_key=self.api_key,
+            ) as client:
+                full_messages = _openai_messages(
+                    system, [{"role": "user", "content": prompt}]
+                )
+                resp = await client.chat.completions.create(
+                    model=self.model,
+                    max_tokens=max_tokens,
+                    messages=full_messages,
+                )
+            latency = (time.monotonic() - start) * 1000
+            usage = getattr(resp, "usage", None)
+            return LLMResult(
+                text=_openai_message_text(resp),
+                provider="gemini",
+                model=self.model,
+                latency_ms=round(latency),
+                input_tokens=getattr(usage, "prompt_tokens", None) if usage else None,
+                output_tokens=getattr(usage, "completion_tokens", None)
+                if usage
+                else None,
+            )
+        except Exception as exc:
+            logger.warning("Gemini failed: %s", exc)
+            return None
+
+    async def chat(
+        self, system: str, messages: list[dict[str, str]], **kwargs
+    ) -> LLMResult | None:
+        max_tokens = kwargs.get("max_tokens", 500)
+        try:
+            import openai
+            import time
+
+            start = time.monotonic()
+            async with openai.AsyncOpenAI(
+                base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+                api_key=self.api_key,
+            ) as client:
+                full_messages = _openai_messages(system, messages)
+                resp = await client.chat.completions.create(
+                    model=self.model,
+                    max_tokens=max_tokens,
+                    messages=full_messages,
+                )
+            latency = (time.monotonic() - start) * 1000
+            usage = getattr(resp, "usage", None)
+            return LLMResult(
+                text=_openai_message_text(resp),
+                provider="gemini",
+                model=self.model,
+                latency_ms=round(latency),
+                input_tokens=getattr(usage, "prompt_tokens", None) if usage else None,
+                output_tokens=getattr(usage, "completion_tokens", None)
+                if usage
+                else None,
+            )
+        except Exception as exc:
+            logger.warning("Gemini chat failed: %s", exc)
+            return None
+
+
 class OllamaProvider(BaseProvider):
     name = "ollama"
 

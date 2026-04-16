@@ -26,6 +26,7 @@ from dataclasses import dataclass
 from .providers import (
     AnthropicProvider,
     BedrockProvider,
+    GeminiProvider,
     GroqProvider,
     LLMResult,
     OllamaProvider,
@@ -109,6 +110,16 @@ Reply with ONLY valid JSON — no markdown fences, no preamble, no trailing text
 - "reasoning": a short string (under 200 chars) — the key reasoning step that produced the estimate
 
 If the headlines are empty or irrelevant, fall back to the base rate and report a lower confidence (typically 30–50) rather than refusing.
+"""
+
+
+PROBABILITY_ESTIMATOR_COMPACT = """You are a calibrated probability forecaster. Estimate the probability that a binary question resolves YES, given the question and recent headlines.
+
+Rules: anchor to base rates first, then adjust for specific evidence. Small adjustments (5-15pp) are usually correct. Avoid availability bias and narrative bias.
+
+Scoring: 1-5% = near-certain NO, 10-20% = unlikely, 25-35% = leaning NO, 40-60% = toss-up, 65-75% = leaning YES, 80-90% = likely, 95-99% = near-certain YES.
+
+Reply with ONLY valid JSON: {"implied_probability": float 0.01-0.99, "confidence": int 0-100, "reasoning": "short string under 200 chars"}
 """
 
 
@@ -268,6 +279,7 @@ class LLMClient:
         self,
         anthropic_key: str | None = None,
         groq_key: str | None = None,
+        gemini_key: str | None = None,
         ollama_url: str = "http://localhost:11434",
         bedrock_region: str | None = None,
         bedrock_access_key_id: str | None = None,
@@ -275,6 +287,7 @@ class LLMClient:
         chain: list[str] | None = None,
         anthropic_model: str = "claude-haiku-4-5-20251001",
         groq_model: str = "llama-3.3-70b-versatile",
+        gemini_model: str = "gemini-2.5-flash",
         ollama_model: str = "llama3.2:3b",
         bedrock_model: str = "anthropic.claude-3-haiku-20240307-v1:0",
         agent_name: str = "unknown",
@@ -312,6 +325,9 @@ class LLMClient:
 
         if groq_key:
             self.registry.register(GroqProvider(api_key=groq_key, model=groq_model))
+
+        if gemini_key:
+            self.registry.register(GeminiProvider(api_key=gemini_key, model=gemini_model))
 
         self.registry.register(OllamaProvider(base_url=ollama_url, model=ollama_model))
 
@@ -610,14 +626,16 @@ class LLMClient:
             if not provider:
                 continue
 
-            # Fire N samples in parallel. Prompt caching (cache_system=True)
-            # means only the first call pays full system-token cost; the
-            # remaining N-1 hit the cache at 0.1x rate within the 5-min TTL.
+            # Anthropic supports prompt caching (0.1x on the 2250-token
+            # system block after the first call). Other providers pay full
+            # token cost, so they get the compact ~100-token version.
+            use_full = provider_name == "anthropic"
+            sys_prompt = PROBABILITY_ESTIMATOR_SYSTEM if use_full else PROBABILITY_ESTIMATOR_COMPACT
             tasks = [
                 provider.complete(
                     user_prompt,
-                    system=PROBABILITY_ESTIMATOR_SYSTEM,
-                    cache_system=True,
+                    system=sys_prompt,
+                    cache_system=use_full,
                 )
                 for _ in range(n)
             ]
