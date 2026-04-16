@@ -1151,6 +1151,33 @@ async def lifespan(app: FastAPI):
         task_mgr.create_task(arb_executor.run(), name="arb_executor")
         _log.info("ArbExecutor started (enabled=%s)", arb_executor._enabled)
 
+        # FeedPublisher — subscribes to the same `arb.spread` EventBus
+        # topic ArbExecutor uses, re-applies the CostModel gate, and
+        # persists qualifying signals to feed_arb_signals. One of two
+        # consumers of arb.spread (executor = trading, publisher = paid
+        # signal feed). They run independently — each has its own queue
+        # from EventBus.subscribe() per data/events.py.
+        # Spec: docs/superpowers/specs/2026-04-15-arb-signal-feed-design.md
+        # Plan: ~/.claude/plans/temporal-spinning-flame.md A4/A5
+        from feeds.publisher import FeedPublisher
+
+        feed_publisher = FeedPublisher(
+            db=db,
+            event_bus=event_bus,
+            # cost_model=None — publisher builds its own default CostModel,
+            # identical fee/slippage assumptions to ArbExecutor's default
+            # (see execution/arb_executor.py:44). If fee overrides move to
+            # config, wire a shared instance here and pass to both.
+            cost_model=None,
+            min_profit_bps=float(getattr(config, "arb_min_profit_bps", 5.0)),
+        )
+        app.state.feed_publisher = feed_publisher
+        task_mgr.create_task(feed_publisher.run(), name="feed_publisher")
+        _log.info(
+            "FeedPublisher started (min_profit_bps=%.1f)",
+            feed_publisher._min_profit_bps,
+        )
+
         # Data sources (Yahoo always available, broker source optional)
         opp_store = OpportunityStore(db)
         app.state.opportunity_store = opp_store

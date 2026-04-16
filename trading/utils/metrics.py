@@ -95,6 +95,35 @@ MINER_SIGNALS_VALID = Counter(
     "Valid miner signals after validation",
 )
 
+# ── PM Arb Signal Feed (spec: 2026-04-15-arb-signal-feed-design.md) ─────────────
+# Reserved names owed by Phase D1 (observability). Labels are deliberately
+# minimal so cardinality stays bounded — the signal-id is opaque, so no
+# per-signal label.
+
+FEED_ARB_SIGNALS_PUBLISHED_TOTAL = Counter(
+    "feed_arb_signals_published_total",
+    "Arb signals written to feed_arb_signals (after CostModel gate)",
+)
+
+FEED_ARB_SIGNALS_DROPPED_TOTAL = Counter(
+    "feed_arb_signals_dropped_total",
+    "Arb signals dropped before write",
+    # Keep the reason set small and stable. Any new reason gets added here
+    # first so the D4 alert rule can key off specific values.
+    ["reason"],  # "below_min_profit_bps", "missing_observation_id",
+                 # "missing_tickers", "store_error"
+)
+
+FEED_ARB_PUBLIC_CACHE_HITS_TOTAL = Counter(
+    "feed_arb_public_cache_hits_total",
+    "Redis cache hits on /api/v1/feeds/arb/public",
+)
+
+FEED_ARB_PUBLIC_CACHE_MISSES_TOTAL = Counter(
+    "feed_arb_public_cache_misses_total",
+    "Redis cache misses on /api/v1/feeds/arb/public (served from DB)",
+)
+
 
 def track_latency(provider: str):
     """Decorator to track provider latency."""

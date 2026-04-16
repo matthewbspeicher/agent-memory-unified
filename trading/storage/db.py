@@ -862,6 +862,64 @@ _INIT_DDL = """
 async def init_db(db: aiosqlite.Connection) -> None:
     await db.executescript(_INIT_DDL)
 
+    # Feed / billing tables — SQLite-only declarations.
+    # These are intentionally omitted from _INIT_DDL; their production home
+    # is init_db_postgres() with Postgres-native types (TIMESTAMPTZ / NUMERIC
+    # / JSONB). We add SQLite-compatible versions here so unit tests using
+    # aiosqlite have the tables available. Tests don't need the type
+    # precision that matters in prod. See phase-b-findings.md.
+    try:
+        await db.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS feed_arb_signals (
+                signal_id TEXT PRIMARY KEY,
+                ts TEXT NOT NULL,
+                pair_kalshi_ticker TEXT NOT NULL,
+                pair_kalshi_side TEXT NOT NULL,
+                pair_poly_token_id TEXT NOT NULL,
+                pair_poly_side TEXT NOT NULL,
+                edge_cents REAL NOT NULL,
+                max_size_at_edge_usd REAL NOT NULL,
+                expires_at TEXT NOT NULL,
+                outcome TEXT,
+                outcome_set_at TEXT,
+                raw_signal TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_feed_arb_signals_ts ON feed_arb_signals(ts);
+            CREATE INDEX IF NOT EXISTS idx_feed_arb_signals_pending ON feed_arb_signals(ts) WHERE outcome IS NULL;
+
+            CREATE TABLE IF NOT EXISTS feed_arb_pnl_rollup (
+                rollup_ts TEXT PRIMARY KEY,
+                realized_pnl_usd REAL NOT NULL,
+                open_pnl_usd REAL NOT NULL,
+                cumulative_pnl_usd REAL NOT NULL,
+                open_position_count INTEGER NOT NULL,
+                closed_position_count INTEGER NOT NULL,
+                scaled_realized_pnl_usd REAL NOT NULL,
+                scaled_open_pnl_usd REAL NOT NULL,
+                scaled_cumulative_pnl_usd REAL NOT NULL,
+                scaling_assumption TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS stripe_processed_events (
+                event_id TEXT PRIMARY KEY,
+                event_type TEXT NOT NULL,
+                processed_at TEXT NOT NULL DEFAULT (datetime('now')),
+                result TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS signal_order_map (
+                order_hash TEXT PRIMARY KEY,
+                signal_id TEXT NOT NULL,
+                venue TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+            CREATE INDEX IF NOT EXISTS idx_signal_order_map_signal ON signal_order_map(signal_id);
+            """
+        )
+    except Exception:
+        pass  # Defensive — missing feed tables in tests shouldn't block other storage tests.
+
     # Migrations for tracked_positions
     for col, col_def in [
         ("expires_at", "TEXT"),
