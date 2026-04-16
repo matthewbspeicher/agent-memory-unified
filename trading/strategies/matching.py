@@ -147,7 +147,7 @@ def match_markets(
             p_cat = normalize_category(p_mkt.category)
             category_bonus = 0.10 if k_cat == p_cat and k_cat != "other" else 0.0
             date_penalty = _date_penalty(k_mkt.close_time, p_mkt.close_time)
-            final_score = title_score + category_bonus - date_penalty
+            final_score = min(1.0, title_score + category_bonus - date_penalty)
             if final_score >= min_score:
                 all_candidates.append(
                     MatchCandidate(

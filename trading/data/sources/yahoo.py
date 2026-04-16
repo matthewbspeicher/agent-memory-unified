@@ -28,7 +28,15 @@ class YahooFinanceSource(DataSource):
             ticker = f"^{ticker}"
         return ticker
 
+    _YAHOO_UNSUPPORTED_TYPES = {"PREDICTION", "prediction"}
+
     async def get_quote(self, symbol: Symbol) -> Quote:
+        if symbol.asset_type.value in self._YAHOO_UNSUPPORTED_TYPES:
+            return Quote(
+                symbol=symbol, bid=Decimal(0), ask=Decimal(0),
+                last=Decimal(0), volume=0, timestamp=datetime.utcnow(),
+            )
+
         def _fetch():
             ticker = self._format_ticker(symbol)
             t = yf.Ticker(ticker)
@@ -50,6 +58,9 @@ class YahooFinanceSource(DataSource):
         timeframe: str = "1d",
         period: str = "3mo",
     ) -> list[Bar]:
+        if symbol.asset_type.value in self._YAHOO_UNSUPPORTED_TYPES:
+            return []
+
         def _fetch():
             def _as_scalar(value: Any) -> Any:
                 if hasattr(value, "iloc"):
