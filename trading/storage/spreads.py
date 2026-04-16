@@ -37,24 +37,44 @@ class SpreadStore:
         Returns the inserted row's id on success, or None on error.
         Errors are logged and swallowed so observation recording never
         blocks the caller's main flow (matching, alerting, etc).
+
+        Uses INSERT ... RETURNING on Postgres (where our wrapper does
+        not expose cursor.lastrowid) and falls back to cursor.lastrowid
+        on SQLite. Mirrors the dual-path pattern in storage/pnl.py:40.
+        Returning None here would silently break the arb.spread →
+        ArbExecutor pipeline (publish at cross_platform_arb.py:232 is
+        gated on observation_id is not None).
         """
+        params = (
+            obs.kalshi_ticker,
+            obs.poly_ticker,
+            obs.match_score,
+            obs.kalshi_cents,
+            obs.poly_cents,
+            obs.gap_cents,
+            obs.kalshi_volume,
+            obs.poly_volume,
+            obs.observed_at,
+        )
         try:
+            if hasattr(self._db, "fetchone"):
+                row = await self._db.fetchone(
+                    """INSERT INTO arb_spread_observations
+                       (kalshi_ticker, poly_ticker, match_score, kalshi_cents, poly_cents,
+                        gap_cents, kalshi_volume, poly_volume, observed_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                       RETURNING id""",
+                    params,
+                )
+                await self._db.commit()
+                return int(row["id"]) if row else None
+
             cursor = await self._db.execute(
                 """INSERT INTO arb_spread_observations
                    (kalshi_ticker, poly_ticker, match_score, kalshi_cents, poly_cents,
                     gap_cents, kalshi_volume, poly_volume, observed_at)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (
-                    obs.kalshi_ticker,
-                    obs.poly_ticker,
-                    obs.match_score,
-                    obs.kalshi_cents,
-                    obs.poly_cents,
-                    obs.gap_cents,
-                    obs.kalshi_volume,
-                    obs.poly_volume,
-                    obs.observed_at,
-                ),
+                params,
             )
             await self._db.commit()
             return cursor.lastrowid

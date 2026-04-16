@@ -1,3 +1,4 @@
+import os
 import stripe
 import json
 from fastapi import APIRouter, Request, HTTPException, Depends
@@ -7,11 +8,42 @@ from api.auth.users import get_identity_store
 
 router = APIRouter()
 
+
+def _stripe_enabled() -> bool:
+    """Feature-flag the broken Stripe webhook handler.
+
+    The current implementation parses unsigned JSON and grants tier upgrades
+    based on a `customer_email` field that any caller can spoof — anyone
+    able to POST to /billing/stripe/webhooks could promote arbitrary users
+    to TRADER. Until signature verification + idempotency land per the
+    spec §6 (PM Arb Signal Feed v1) + the unified monetization spec,
+    keep this route disabled by default.
+
+    Set STA_STRIPE_ENABLED=true to opt in (e.g. in a test env that has
+    wired stripe.Webhook.construct_event with the right secret).
+    """
+    return os.getenv("STA_STRIPE_ENABLED", "false").lower() in ("1", "true", "yes")
+
+
 @router.post("/stripe/webhooks")
 async def stripe_webhook(request: Request, store: IdentityStore = Depends(get_identity_store)):
+    if not _stripe_enabled():
+        # 410 Gone signals to Stripe (and to scanners) that this endpoint
+        # is intentionally retired. Do NOT 404 — Stripe retries on 4xx
+        # other than 410 and would flood logs.
+        raise HTTPException(
+            status_code=410,
+            detail=(
+                "Stripe webhook is disabled. The current handler does not "
+                "verify Stripe signatures and is unsafe in production. "
+                "Set STA_STRIPE_ENABLED=true only in environments where "
+                "signature verification is wired."
+            ),
+        )
+
     payload = await request.body()
     sig_header = request.headers.get("Stripe-Signature")
-    
+
     # In a real implementation, you would verify the signature using stripe.Webhook.construct_event
     # and a secret key. For this phase, we mock the verification or use a dummy secret if testing.
     # event = stripe.Webhook.construct_event(payload, sig_header, endpoint_secret)

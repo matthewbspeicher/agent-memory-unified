@@ -190,6 +190,7 @@ class Config(BaseModel):
     # Missing flat fields for compatibility
     anthropic_api_key: str | None = None
     groq_api_key: str | None = None
+    gemini_api_key: str | None = None
     ollama_base_url: str | None = None
     bedrock_region: str | None = None
     bedrock_model: str | None = None

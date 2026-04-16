@@ -185,6 +185,22 @@ def _ensure_strategies_registered() -> None:
     register_strategy("meta_agent", lambda cfg: None)
     register_strategy("meta", lambda cfg: None)
 
+    # Pre-register cross_platform_arb with the bare class so AgentsFileSchema
+    # validation passes at config-validation time (well before app.py's
+    # lifespan reaches the broker-setup phase). The real factory at
+    # api/app.py:1700 OVERWRITES this entry with one that injects
+    # kalshi_ds / polymarket_ds / spread_store / event_bus when those
+    # data sources are wired. CrossPlatformArbAgent's __init__ defaults
+    # all of those to None, so the bare-class form doesn't crash if it's
+    # ever invoked before the override (e.g. in unit tests that bypass
+    # the lifespan); it just produces no opportunities.
+    #
+    # DO NOT replace this with `lambda cfg: None`. That was the original
+    # bug — the lambda returns None, runner.register skips it silently,
+    # and cross_platform_arb never starts. See phase-b-findings.md A0.2.
+    from strategies.cross_platform_arb import CrossPlatformArbAgent
+    register_strategy("cross_platform_arb", CrossPlatformArbAgent)
+
     from agents.decorators import register_decorated_strategies
 
     register_decorated_strategies()

@@ -268,19 +268,43 @@ class AgentStore:
             name = agent.get("name")
             if name is None:
                 continue
+            # Cron expressions live at the top of each YAML entry (cron field)
+            # but interval_or_cron is INTEGER on Postgres so we cannot store the
+            # expression there. Mirror it into parameters.cron — the runner
+            # reads parameters.cron from the registry-driven start path
+            # (runner._reconcile_registry, see commit 102d5e8). Without this,
+            # warm-restart skips the cron agent with the "no parameters.cron"
+            # warning and the agent never reschedules.
+            schedule = agent.get("schedule", "continuous")
+            parameters = dict(agent.get("parameters", {}) or {})
+            if schedule == "cron" and agent.get("cron") and "cron" not in parameters:
+                parameters["cron"] = agent["cron"]
+
             existing = await self.get(name)
             if existing is not None:
+                # Backfill parameters.cron on existing rows that lack it.
+                # Container rebuilds reseed yaml without this field;
+                # leaving the row in place would orphan cron agents.
+                existing_params = existing.get("parameters") or {}
+                if (
+                    schedule == "cron"
+                    and agent.get("cron")
+                    and not existing_params.get("cron")
+                ):
+                    merged = dict(existing_params)
+                    merged["cron"] = agent["cron"]
+                    await self.update(name, {"parameters": merged})
                 continue
 
             # Map YAML schema to registry columns
             entry = {
                 "strategy": agent.get("strategy", ""),
-                "schedule": agent.get("schedule", "continuous"),
+                "schedule": schedule,
                 "interval_or_cron": agent.get(
                     "interval", agent.get("interval_or_cron", 60)
                 ),
                 "universe": agent.get("universe", []),
-                "parameters": agent.get("parameters", {}),
+                "parameters": parameters,
                 "status": "active",
                 "trust_level": agent.get("trust_level", "monitored"),
                 "runtime_overrides": {},

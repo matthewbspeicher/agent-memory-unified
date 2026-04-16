@@ -155,3 +155,21 @@ agents:
       rsi_weight: 0.4
       macd_weight: 0.3
       volume_weight: 0.3
+
+  # Cross-platform arb agent — needed in paper mode to drive the arb signal
+  # feed pipeline locally. Mirrors the agents.yaml entry; same threshold and
+  # quality gates. See docs/feeds/arb/phase-b-findings.md and
+  # docs/superpowers/specs/2026-04-15-arb-signal-feed-design.md.
+  - name: cross_platform_arb
+    strategy: cross_platform_arb
+    schedule: cron
+    cron: "*/30 * * * *"
+    action_level: suggest_trade
+    parameters:
+      threshold_cents: 8
+      min_match_similarity: 0.60
+      max_gap_cents: 50
+      alert_on_spread: true
+      kalshi_categories: ["economics", "politics", "climate"]
+      polymarket_tags: ["politics", "crypto", "climate"]
+      max_markets_per_platform: 50
