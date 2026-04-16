@@ -33,6 +33,10 @@ async def setup_kalshi(
                 bool(config.kalshi_key_id),
                 has_key_material,
             )
+        else:
+            logger.info(
+                "Kalshi integration disabled — no STA_KALSHI_KEY_ID or STA_KALSHI_PRIVATE_KEY_{PATH,B64} configured"
+            )
         return None, None
 
     try:
@@ -83,6 +87,9 @@ async def setup_polymarket(
         (polymarket_source, polymarket_broker) or (None, None) if not configured
     """
     if not config.polymarket_private_key:
+        logger.info(
+            "Polymarket integration disabled — no STA_POLYMARKET_PRIVATE_KEY configured"
+        )
         return None, None
 
     try:

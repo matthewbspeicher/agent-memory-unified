@@ -1565,8 +1565,12 @@ async def lifespan(app: FastAPI):
             order_map=_order_map,
         )
 
-        # Multi-broker map — start from connected trading brokers, add prediction markets
-        _brokers: dict = dict(_all_brokers)
+        # Multi-broker map — mutate _all_brokers in place so the
+        # ArbCoordinator's stored reference (captured upstream at init
+        # time before PM setup ran) sees the PM brokers added below.
+        # Rebuilding with dict(_all_brokers) would silently leave the
+        # coordinator with an empty-of-PM snapshot. See audit finding 1.
+        _brokers = _all_brokers
         if polymarket_broker:
             _brokers["polymarket"] = polymarket_broker
             # Paper broker alongside live (only if paper trading mode is on)

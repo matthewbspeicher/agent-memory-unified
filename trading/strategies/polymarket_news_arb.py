@@ -41,21 +41,29 @@ class PolymarketNewsArbAgent(StructuredAgent):
     async def scan(self, data) -> list[Opportunity]:
         app_state = getattr(self.config, "_app_state", None)
         if app_state and "polymarket" not in app_state.brokers:
-            logger.debug("PolymarketNewsArbAgent: polymarket broker not active.")
+            logger.info(
+                "%s: scan skipped — 'polymarket' broker not in app_state.brokers (keys=%s)",
+                self.name,
+                sorted((app_state.brokers or {}).keys()) if app_state else [],
+            )
             return []
 
         # Find the data source among databus providers
         ds = getattr(data, "_polymarket_source", None)
         if not ds:
-            logger.debug(
-                "PolymarketNewsArbAgent: PolymarketDataSource not found in DataBus."
+            logger.info(
+                "%s: scan skipped — PolymarketDataSource not attached to DataBus",
+                self.name,
             )
             return []
 
         # Gather recent headlines
         headlines = await self._fetch_recent_headlines()
         if not headlines:
-            logger.debug("PolymarketNewsArbAgent: No recent headlines found.")
+            logger.info(
+                "%s: scan skipped — no headlines from NewsAPI / RSS / GDELT",
+                self.name,
+            )
             return []
 
         now = datetime.now(timezone.utc)
@@ -171,6 +179,15 @@ class PolymarketNewsArbAgent(StructuredAgent):
                         )
                     )
 
+        logger.info(
+            "%s: scan complete — %d opportunities (threshold=%d¢, min_confidence=%d, tags=%s, headlines=%d)",
+            self.name,
+            len(opportunities),
+            self.threshold_cents,
+            self.min_confidence,
+            self.tags,
+            len(headlines),
+        )
         return opportunities
 
     async def _fetch_newsapi_headlines(

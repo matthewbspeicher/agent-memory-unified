@@ -126,7 +126,10 @@ class KalshiNewsArbAgent(StructuredAgent):
         # Requires KalshiDataSource attached to DataBus
         kalshi_source = getattr(data, "_kalshi_source", None)
         if kalshi_source is None:
-            logger.warning("%s: no KalshiDataSource on DataBus — skipping", self.name)
+            logger.info(
+                "%s: scan skipped — KalshiDataSource not attached to DataBus",
+                self.name,
+            )
             return []
 
         # Build unified LLM client from DataBus settings
@@ -266,4 +269,13 @@ class KalshiNewsArbAgent(StructuredAgent):
                     )
                 )
 
+        logger.info(
+            "%s: scan complete — %d opportunities (threshold=%d¢, min_confidence=%d, categories=%s, headlines=%d)",
+            self.name,
+            len(opportunities),
+            threshold,
+            min_confidence,
+            categories,
+            len(all_headlines),
+        )
         return opportunities
