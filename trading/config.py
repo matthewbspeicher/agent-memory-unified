@@ -385,6 +385,11 @@ class Config(BaseModel):
     feed_attribution_interval_seconds: int = 60
     feed_real_sleeve_notional_usd: float = 11000.0
     feed_scaled_reference_notional_usd: float = 250000.0
+    # Feed health monitor (D3/D4 alerts — spec §11 SLIs)
+    feed_health_interval_seconds: int = 60
+    feed_attribution_staleness_seconds: int = 300   # D3 — 5 min
+    feed_publisher_zero_window_seconds: int = 7200  # D4 — 2 h
+    feed_alert_cooldown_seconds: int = 1800         # 30 min between repeat alerts
 
     # Hermes Autonomy
     hermes_full_autonomy: bool = False

@@ -1945,6 +1945,48 @@ async def lifespan(app: FastAPI):
 
         notifier = CompositeNotifier(active_notifiers)
 
+        # FeedHealthMonitor — background task watching the arb signal
+        # feed pipeline for stalls. Fires D3 (attribution rollup stale
+        # > 5 min), D4 (no publisher writes over 2h window during trading
+        # hours), D6 (subscriber churn — inert until Stripe is live).
+        # Wired here because it needs the CompositeNotifier (Slack/Discord/
+        # WhatsApp/LogNotifier) built just above. D5 (public-endpoint SLO
+        # dashboard) is a docs deliverable at docs/feeds/arb/slo-dashboard.md.
+        # Plan next-action #3 (D3) + #4 (D4/D5/D6 fan-out).
+        try:
+            from feeds.health_monitor import FeedHealthMonitor
+
+            feed_health = FeedHealthMonitor(
+                db=db,
+                notifier=notifier,
+                interval_seconds=int(
+                    getattr(config, "feed_health_interval_seconds", 60)
+                ),
+                attribution_staleness_seconds=int(
+                    getattr(config, "feed_attribution_staleness_seconds", 300)
+                ),
+                publisher_zero_window_seconds=int(
+                    getattr(config, "feed_publisher_zero_window_seconds", 7200)
+                ),
+                alert_cooldown_seconds=int(
+                    getattr(config, "feed_alert_cooldown_seconds", 1800)
+                ),
+            )
+            app.state.feed_health = feed_health
+            task_mgr.create_task(feed_health.run(), name="feed_health_monitor")
+            _log.info(
+                "FeedHealthMonitor started (interval=%ds, attr_stale=%ds, "
+                "pub_zero=%ds, cooldown=%ds)",
+                feed_health._interval,
+                feed_health._attr_stale,
+                feed_health._pub_zero_window,
+                feed_health._cooldown,
+            )
+        except Exception as _fhm_exc:
+            _log.warning(
+                "FeedHealthMonitor startup failed (non-fatal): %s", _fhm_exc
+            )
+
         # --- Observability Setup ---
         from api.startup.observability import setup_observability
 
