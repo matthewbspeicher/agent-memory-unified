@@ -34,9 +34,9 @@ agents:
     trust_level: autonomous
     parameters:
       categories: ["economics", "climate"]
-      threshold_cents: 15
-      min_confidence: 60
-      max_markets_per_scan: 10
+      threshold_cents: 8
+      min_confidence: 45
+      max_markets_per_scan: 20
       rss_feeds:
         - http://feeds.bbci.co.uk/news/world/rss.xml
         - http://feeds.bbci.co.uk/news/politics/rss.xml
@@ -53,9 +53,9 @@ agents:
     trust_level: autonomous
     parameters:
       tags: ["politics", "crypto"]
-      threshold_cents: 15
-      min_confidence: 60
-      max_markets_per_scan: 10
+      threshold_cents: 8
+      min_confidence: 45
+      max_markets_per_scan: 20
       rss_feeds:
         - http://feeds.bbci.co.uk/news/world/rss.xml
         - http://feeds.bbci.co.uk/news/politics/rss.xml
