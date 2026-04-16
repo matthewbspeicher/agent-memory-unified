@@ -556,7 +556,7 @@ class LLMClient:
         question: str,
         headlines: list[str],
         *,
-        ensemble_n: int = 3,
+        ensemble_n: int = 1,
     ) -> ProbabilityEstimate:
         """
         Estimate probability from headlines using a Foresight-style
