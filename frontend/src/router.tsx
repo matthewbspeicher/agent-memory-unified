@@ -40,6 +40,12 @@ const TradingDashboard = lazy(() => import('./pages/TradingDashboard'));
 const Forge = lazy(() => import('./pages/Forge'));
 const Lab = lazy(() => import('./pages/Lab'));
 
+// PM Arb Signal Feed — public pages (registered at top level below,
+// NOT inside Layout, so they don't get the sidebar + auth redirect).
+// Spec §3.1 (FeedArbLive) + §3.3 (FeedArbLanding).
+const FeedArbLive = lazy(() => import('./pages/FeedArbLive'));
+const FeedArbLanding = lazy(() => import('./pages/FeedArbLanding'));
+
 function LazyPage({ children }: { children: React.ReactNode }) {
   return (
     <Suspense fallback={
@@ -62,6 +68,19 @@ export const router = createBrowserRouter([
   {
     path: '/check-email',
     element: <CheckEmail />,
+  },
+  // PM Arb Signal Feed — public, no auth, no sidebar.
+  // /feeds/arb/live is the indexable dashboard; /feeds/arb is the pitch
+  // page subscribers land on. Spec §3.1 / §3.3. Both routes live at the
+  // top level (outside Layout) so the Layout's 401 → /login redirect
+  // never fires for unauthenticated public visitors.
+  {
+    path: '/feeds/arb',
+    element: <LazyPage><FeedArbLanding /></LazyPage>,
+  },
+  {
+    path: '/feeds/arb/live',
+    element: <LazyPage><FeedArbLive /></LazyPage>,
   },
   {
     path: '/',
