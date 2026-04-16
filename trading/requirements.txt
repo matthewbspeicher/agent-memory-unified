@@ -93,3 +93,16 @@ pytest-xdist>=3.5.0
 # drop it again.
 hnswlib==0.8.0
 sqlmodel>=0.0.16
+
+# Auth + billing stack — declared in pyproject.toml but previously not
+# mirrored here, so CI (which does `pip install -r requirements.txt`)
+# couldn't import api/auth/users.py or the Stripe webhook handler.
+# Tests were failing at collection with ModuleNotFoundError: bcrypt.
+bcrypt>=5.0.0
+passlib>=1.7.4
+email-validator>=2.0.0
+stripe>=10.0.0
+
+# ULID generator — used by utils/ids.py (new_signal_id) and every arb
+# signal downstream. pyproject.toml has it; this keeps the two in sync.
+ulid-py>=1.1.0
