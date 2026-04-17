@@ -74,6 +74,15 @@ class MassiveDataSource(DataSource):
     def __init__(self, client) -> None:
         # Lazy import to avoid circular deps; caller passes MassiveClient.
         self._client = client
+        # Free-tier lockout — Massive's snapshot endpoint is paid-only and
+        # returns HTTP 403 "NOT_AUTHORIZED / not entitled to this data" on
+        # every request. Without tracking that, every get_quote() call
+        # pays the roundtrip + log line before falling through to the
+        # next source. First 403 flips this flag; subsequent calls raise
+        # immediately so DataBus can advance to yfinance without delay.
+        # Rechecked on process restart — if the plan upgrades, operators
+        # just restart to re-enable snapshots.
+        self._snapshot_locked_out = False
 
     # ------------------------------------------------------------------
     # DataSource interface
@@ -84,7 +93,15 @@ class MassiveDataSource(DataSource):
         Fetch a live quote for *symbol* using the Massive snapshot endpoint.
 
         Falls back to ``get_quote`` (NBBO) if snapshot is unavailable.
+        On free-tier accounts the snapshot endpoint is permanently 403;
+        we detect that once and short-circuit every subsequent call.
         """
+        if self._snapshot_locked_out:
+            # Raise a sentinel error type DataBus recognizes as
+            # "don't retry this source" so the log stays quiet.
+            raise RuntimeError(
+                "Massive snapshot disabled on current plan (paid-tier only)"
+            )
         try:
             snap = await self._client.get_snapshot(symbol.ticker)
             day = snap.get("day", {}) or {}
@@ -115,6 +132,31 @@ class MassiveDataSource(DataSource):
                 timestamp=ts,
             )
         except Exception as exc:
+            # Detect the free-tier 403 signature once and flip the
+            # lockout so we stop hitting the endpoint. 403 and the
+            # "NOT_AUTHORIZED" / "not entitled" phrase are the stable
+            # markers; match loosely so minor response-shape drift
+            # doesn't prevent the lockout.
+            _msg = str(exc).lower()
+            if (
+                "403" in _msg
+                or "not_authorized" in _msg
+                or "not entitled" in _msg
+                or "upgrade your plan" in _msg
+            ):
+                if not self._snapshot_locked_out:
+                    logger.warning(
+                        "MassiveDataSource.get_quote: snapshot endpoint "
+                        "returned 403/NOT_AUTHORIZED for %s — free-tier "
+                        "lockout, skipping snapshot for the rest of this "
+                        "process. Upgrade Massive plan and restart to "
+                        "re-enable. Falling back to yfinance for quotes.",
+                        symbol.ticker,
+                    )
+                    self._snapshot_locked_out = True
+                raise
+            # Other errors (network, 5xx, etc.) — keep the original
+            # WARNING so they stay visible.
             logger.warning(
                 "MassiveDataSource.get_quote snapshot failed for %s: %s",
                 symbol.ticker,
