@@ -70,12 +70,15 @@ services:
       - "9090:9090"
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
       - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
-    networks:
-      - monitoring
+    # Default network (no explicit networks: list) so the trading:8080
+    # scrape target resolves. Previous isolated `monitoring` network
+    # made Prometheus loadable but left it unable to reach the trading
+    # engine, so D3's alert fired on `absent()` instead of real values.
 
   grafana:
     image: grafana/grafana:latest
@@ -89,14 +92,9 @@ services:
       - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
     depends_on:
       - prometheus
-    networks:
-      - monitoring
 
 volumes:
   postgres_data:
   redis_data:
   prometheus_data:
 
-networks:
-  monitoring:
-    driver: bridge

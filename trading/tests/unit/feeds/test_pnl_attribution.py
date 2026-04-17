@@ -850,3 +850,71 @@ class TestCollectPaperFills:
         assert signal_id in result.filled_signal_ids
         assert await _outcome(db, signal_id) == "filled"
         assert await _rollup_count(db) == 1
+
+
+# ---------------------------------------------------------------------------
+# D3 SLI — attribution-stall metrics
+# ---------------------------------------------------------------------------
+
+
+class TestAttributionStallMetrics:
+    """The D3 Prometheus alert rule keys off two metrics emitted by
+    _write_rollup: `feed_arb_pnl_rollup_last_ts_seconds` (gauge) and
+    `feed_arb_pnl_rollup_writes_total` (counter). The alert is gated on
+    writes_total>0, so a fresh deploy with zero fills never pages."""
+
+    async def test_rollup_write_updates_gauge_and_counter(self, db):
+        from utils.metrics import (
+            FEED_ARB_PNL_ROLLUP_LAST_TS_SECONDS,
+            FEED_ARB_PNL_ROLLUP_WRITES_TOTAL,
+        )
+
+        now = datetime(2026, 4, 16, 12, 0, 0, tzinfo=timezone.utc)
+        signal_id = "01METRIC000000000000000AAA"
+        await _seed_signal(
+            db,
+            signal_id,
+            ts=now - timedelta(seconds=30),
+            expires_at=now + timedelta(minutes=5),
+            edge_cents=10.0,
+            max_size_usd=100.0,
+        )
+        await _seed_arb_trade_with_leg(
+            db,
+            trade_id="arb-metric-001",
+            signal_id=signal_id,
+            broker_id="kalshi_paper",
+            status="filled",
+            fill_price="1.0",
+            fill_quantity="50",
+            updated_at=now,
+        )
+
+        writes_before = FEED_ARB_PNL_ROLLUP_WRITES_TOTAL._value.get()
+        job = FeedArbPnLAttribution(db=db, clock=lambda: now)
+        await job.tick()
+
+        # Counter advanced by exactly 1 — one rollup write.
+        writes_after = FEED_ARB_PNL_ROLLUP_WRITES_TOTAL._value.get()
+        assert writes_after == writes_before + 1
+
+        # Gauge set to rollup_ts as unix seconds. The prometheus_client
+        # Gauge internal accessor is ._value.get().
+        gauge_val = FEED_ARB_PNL_ROLLUP_LAST_TS_SECONDS._value.get()
+        assert gauge_val == now.timestamp()
+
+    async def test_no_fills_no_metric_update(self, db):
+        """Honest-tracker contract: no fills → no rollup → counter does
+        NOT advance. The D3 alert's `writes_total > 0` gate relies on
+        this — a fresh deploy with zero fills should never page."""
+        from utils.metrics import FEED_ARB_PNL_ROLLUP_WRITES_TOTAL
+
+        now = datetime(2026, 4, 16, 12, 0, 0, tzinfo=timezone.utc)
+
+        writes_before = FEED_ARB_PNL_ROLLUP_WRITES_TOTAL._value.get()
+        job = FeedArbPnLAttribution(db=db, clock=lambda: now)
+        result = await job.tick()
+
+        assert result is None
+        writes_after = FEED_ARB_PNL_ROLLUP_WRITES_TOTAL._value.get()
+        assert writes_after == writes_before

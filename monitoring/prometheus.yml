@@ -4,13 +4,17 @@ global:
   scrape_interval: 15s
   evaluation_interval: 15s
 
+# Alert rules (Phase D of the arb-signal-feed plan — spec §11).
+# D3 (attribution stall) lives in alert_rules.yml; D4–D6 will join it.
+rule_files:
+  - /etc/prometheus/alert_rules.yml
+
 scrape_configs:
   - job_name: 'trading-engine'
     static_configs:
       - targets: ['trading:8080']
     metrics_path: '/metrics'
 
-  - job_name: 'api'
-    static_configs:
-      - targets: ['api:8000']
-    metrics_path: '/metrics'
+  # Laravel `api` scrape job removed 2026-04-16 — the service itself was
+  # deprecated in ADR-0006 (removed 2026-04-09). Keeping the target here
+  # made Prometheus page on a permanently-down service every eval cycle.

@@ -1,0 +1,66 @@
+# Prometheus alert rules for the PM Arb Signal Feed.
+#
+# Spec: docs/superpowers/specs/2026-04-15-arb-signal-feed-design.md §11
+# Plan: ~/.claude/plans/temporal-spinning-flame.md (Phase D)
+#
+# Alerts here gate **G4 (public dashboard launch)**. D3 is the first to
+# fire after the attribution job ships; D4–D6 follow in parallel.
+#
+# Routing:
+#   - `severity: page`     → wake someone up
+#   - `severity: ticket`   → open a ticket, no page
+#   - `severity: info`     → dashboard annotation only
+
+groups:
+  # ────────────────────────────────────────────────────────────────────────
+  # D3 — Attribution stall
+  # ────────────────────────────────────────────────────────────────────────
+  # Fires when the attribution job stops writing feed_arb_pnl_rollup rows
+  # despite having written rollups in the past. Gated on
+  # feed_arb_pnl_rollup_writes_total > 0 so fresh deployments with no
+  # fills yet don't page.
+  #
+  # Tuning:
+  #   - Attribution tick interval defaults to 60s (STA_FEED_ATTRIBUTION_
+  #     INTERVAL_SECONDS). Two consecutive missed ticks + one scrape
+  #     margin ≈ 180s; we use 300s per spec §11 to also absorb short
+  #     no-fills windows during quiet markets without false-paging.
+  #   - `for: 1m` prevents flap-paging on a single slow tick.
+  #
+  # Attach `runbook_url` when the runbook lands at docs/runbooks/ (v1.1).
+  - name: feed_arb_attribution
+    rules:
+      - alert: FeedArbAttributionStall
+        expr: |
+          feed_arb_pnl_rollup_writes_total > 0
+          and
+          (time() - feed_arb_pnl_rollup_last_ts_seconds) > 300
+        for: 1m
+        labels:
+          severity: page
+          component: feed_arb_attribution
+          feed: arb
+        annotations:
+          summary: "Arb feed attribution job has stalled"
+          description: |
+            No feed_arb_pnl_rollup row written in the last {{ $value | humanizeDuration }}.
+            Expected: a rollup every 60s when fills are flowing (spec §3.1).
+
+            Start here:
+              1. Is the trading container up? `docker ps | grep trading`
+              2. Is FeedArbPnLAttribution still a live task? Look for
+                 log lines from `feeds.pnl_attribution` — should tick
+                 every 60s.
+              3. Are arb fills still landing in arb_legs? Query:
+                   SELECT COUNT(*) FROM arb_legs
+                   WHERE status = 'filled' AND broker_id LIKE '%_paper'
+                     AND rowid IN (last N).
+                 If zero, the executor is the fault — not attribution.
+              4. Check `feed_arb_pnl_rollup_writes_total` — is it still
+                 incrementing? If yes, rollups ARE writing but something
+                 broke the gauge publish path.
+
+            Public dashboard implication: `/api/v1/feeds/arb/public`
+            continues to serve the last cached rollup until the 10s
+            Redis TTL expires, then falls back to DB. Users see stale
+            PnL until remediated.

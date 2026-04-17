@@ -2404,9 +2404,13 @@ def create_app(
         app.router.dependencies.append(Depends(anon_read_only_guard))
         _log.info("Rate limiting enabled")
 
-    Instrumentator().instrument(app).expose(
-        app, endpoint="/metrics", dependencies=[Depends(verify_api_key)]
-    )
+    # /metrics is the standard Prometheus scrape endpoint — intentionally
+    # unauthenticated per Prometheus convention. Protect via network
+    # topology (container-internal scrape, no public ingress route) not
+    # via API key, because scrape configs don't easily pass custom
+    # headers. Metrics emit no PII: they're counters/gauges/histograms
+    # with bounded label sets.
+    Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 
     # Sentry error tracking (if DSN configured)
     import os

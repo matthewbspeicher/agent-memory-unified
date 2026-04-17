@@ -766,6 +766,26 @@ class FeedArbPnLAttribution:
         await self._db.execute(sql, params)
         await self._db.commit()
 
+        # D3 SLI: update the "most recent rollup" gauge + writes counter
+        # so the attribution-stall alert can fire on
+        # (time() - feed_arb_pnl_rollup_last_ts_seconds) > 300s, gated
+        # on feed_arb_pnl_rollup_writes_total > 0. Import late to keep
+        # this module importable in bare test contexts where
+        # prometheus_client isn't configured.
+        try:
+            from utils.metrics import (
+                FEED_ARB_PNL_ROLLUP_LAST_TS_SECONDS,
+                FEED_ARB_PNL_ROLLUP_WRITES_TOTAL,
+            )
+
+            FEED_ARB_PNL_ROLLUP_LAST_TS_SECONDS.set(rollup_ts.timestamp())
+            FEED_ARB_PNL_ROLLUP_WRITES_TOTAL.inc()
+        except Exception:
+            # Metrics are best-effort. A broken metrics import must not
+            # break attribution — D3 firing on a real stall is more
+            # important than D3 firing accurately on a metrics misconfig.
+            pass
+
 
 def _parse_iso(s: Any) -> datetime | None:
     if not s:

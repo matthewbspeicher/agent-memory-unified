@@ -124,6 +124,24 @@ FEED_ARB_PUBLIC_CACHE_MISSES_TOTAL = Counter(
     "Redis cache misses on /api/v1/feeds/arb/public (served from DB)",
 )
 
+# D3 attribution-stall SLI (spec §11). Gauge holds the unix timestamp of
+# the most recent feed_arb_pnl_rollup write; paired counter lets the
+# alert rule gate on "has ever written" so fresh deployments don't page
+# during the no-fills-yet window. Alert rule: attribution-stall.yml.
+FEED_ARB_PNL_ROLLUP_LAST_TS_SECONDS = Gauge(
+    "feed_arb_pnl_rollup_last_ts_seconds",
+    "Unix timestamp of the most recent feed_arb_pnl_rollup write. "
+    "Paired with feed_arb_pnl_rollup_writes_total so the D3 alert rule "
+    "can gate on writes>0 and avoid false alarms during cold boot.",
+)
+
+FEED_ARB_PNL_ROLLUP_WRITES_TOTAL = Counter(
+    "feed_arb_pnl_rollup_writes_total",
+    "Total feed_arb_pnl_rollup rows written by FeedArbPnLAttribution. "
+    "Only increments when a tick has real fills — honest-tracker rule. "
+    "Used by the D3 alert to distinguish 'stalled' from 'never started'.",
+)
+
 
 def track_latency(provider: str):
     """Decorator to track provider latency."""
