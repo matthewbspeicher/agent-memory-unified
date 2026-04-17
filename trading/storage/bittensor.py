@@ -242,9 +242,7 @@ class BittensorStore:
         # asyncpg requires a datetime instance for TIMESTAMP params; SQLite
         # TEXT-affinity columns need the ISO string with T-separator to compare
         # correctly against stored values written by .isoformat(). Branch.
-        from storage.postgres import PostgresDB
-
-        cutoff_param = cutoff if isinstance(self._db, PostgresDB) else cutoff.isoformat()
+        cutoff_param = cutoff.isoformat()
         cursor = await self._db.execute(
             """SELECT dv.window_id, dv.symbol, dv.timeframe, dv.timestamp,
                       rf.prediction_size

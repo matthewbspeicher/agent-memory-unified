@@ -147,6 +147,11 @@ async def setup_bittensor(
         (enabled, components_dict) where components_dict contains:
         - store, source, adapter, scheduler, evaluator
     """
+    import logging
+
+    for _name in ("bittensor", "integrations.bittensor", "taoshi", "subtensor"):
+        logging.getLogger(_name).setLevel(logging.INFO)
+
     if not config.bittensor_enabled:
         logger.info("Bittensor integration disabled by config")
         return False, {}

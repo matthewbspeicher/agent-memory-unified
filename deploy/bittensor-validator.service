@@ -1,0 +1,20 @@
+[Unit]
+Description=Agent Memory Bittensor Validator (Subnet 8)
+After=network.target
+
+[Service]
+Type=simple
+User=mspeicher
+WorkingDirectory=/opt/agent-memory-unified/trading
+EnvironmentFile=/opt/agent-memory-unified/trading/.env
+Environment=PATH=/opt/agent-memory-unified/trading/.venv/bin:/usr/local/bin:/usr/bin
+Environment=PYTHONPATH=/opt/agent-memory-unified:/opt/agent-memory-unified/trading
+ExecStart=/opt/agent-memory-unified/trading/.venv/bin/python -m uvicorn api.app:create_app --host 0.0.0.0 --port 8080 --factory
+Restart=on-failure
+RestartSec=30
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=bittensor-validator
+
+[Install]
+WantedBy=multi-user.target
