@@ -362,3 +362,48 @@ class TestPublicRoute:
         body = r.json()
         assert body["signals"] == []
         assert body["pnl"] is None
+
+    def test_mode_defaults_to_paper(self, db_with_signals, monkeypatch):
+        """Without STA_ARB_ROUTE_LIVE set, the route reports paper mode.
+        The frontend banners PnL as demonstration-only in response, which
+        is the honest-tracker default."""
+        monkeypatch.delenv("STA_ARB_ROUTE_LIVE", raising=False)
+        db, _ = db_with_signals
+        app = FastAPI()
+        app.state.db = db
+        app.state.redis = None
+        app.include_router(feeds_route.router, prefix="/api/v1")
+        client = TestClient(app)
+        r = client.get("/api/v1/feeds/arb/public")
+        assert r.status_code == 200
+        assert r.json()["mode"] == "paper"
+
+    def test_mode_reflects_route_live_flag(self, db_with_signals, monkeypatch):
+        """STA_ARB_ROUTE_LIVE=true flips the reported mode. Same env var
+        the ArbExecutor reads in app.py — keeps frontend disclosure
+        locked to actual order routing."""
+        monkeypatch.setenv("STA_ARB_ROUTE_LIVE", "true")
+        db, _ = db_with_signals
+        app = FastAPI()
+        app.state.db = db
+        app.state.redis = None
+        app.include_router(feeds_route.router, prefix="/api/v1")
+        client = TestClient(app)
+        r = client.get("/api/v1/feeds/arb/public")
+        assert r.status_code == 200
+        assert r.json()["mode"] == "live"
+
+    def test_mode_falsy_values_stay_paper(self, db_with_signals, monkeypatch):
+        """Only the explicit truthy set flips to live. Common false
+        alternates — empty string, "0", "no" — stay paper. Protects
+        against mis-configured deployments silently routing live."""
+        db, _ = db_with_signals
+        for falsy in ("", "0", "no", "false", "False"):
+            monkeypatch.setenv("STA_ARB_ROUTE_LIVE", falsy)
+            app = FastAPI()
+            app.state.db = db
+            app.state.redis = None
+            app.include_router(feeds_route.router, prefix="/api/v1")
+            client = TestClient(app)
+            r = client.get("/api/v1/feeds/arb/public")
+            assert r.json()["mode"] == "paper", f"failed for {falsy!r}"

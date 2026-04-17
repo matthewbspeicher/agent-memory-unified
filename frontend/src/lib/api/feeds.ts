@@ -58,6 +58,18 @@ export interface ArbPnLRollup {
 /** `GET /api/v1/feeds/arb/public` response — spec §3.1. */
 export interface PublicFeedSnapshot {
   as_of: string;
+  /**
+   * Execution mode. "paper" = fills routed through in-process paper
+   * brokers (KalshiPaperBroker / PolymarketPaperBroker). "live" = real
+   * orders placed on Kalshi + Polymarket. Drives the honest-tracker
+   * disclosure: paper-mode PnL is banner'd as demonstration-only, live
+   * mode as real-money. Backend flips with STA_ARB_ROUTE_LIVE; both
+   * the route and the executor read the same env var so they can't
+   * drift apart. Optional on the type because old cached snapshots
+   * written before this field was added won't have it — treat missing
+   * as paper (the safer default).
+   */
+  mode?: 'paper' | 'live';
   signals: ArbSignal[];
   /** Null until the attribution job writes the first rollup — honest
    * tracker: no fake PnL. Frontend must handle this cleanly. */

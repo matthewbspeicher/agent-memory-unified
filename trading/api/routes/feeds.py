@@ -68,12 +68,20 @@ async def public_dashboard_snapshot(request: Request) -> dict[str, Any]:
     Response shape (keep compatible with spec §3.1):
         {
             "as_of": <iso8601>,
+            "mode": "paper" | "live",   # whether fills are paper-routed
             "signals": [{signal_id, ts, pair, edge_cents, ...}, ...],  # last 50
             "pnl": {realized_usd, open_usd, cumulative_usd,
                     open_positions, closed_positions} | null,
             "scaling": <str> | null  # e.g. "assumes 10x capital vs $11k sleeve"
         }
+
+    `mode` drives the frontend honest-tracker disclosure. When paper,
+    the dashboard banners PnL as "paper trading — demonstration only,"
+    NOT as real-money returns on the $11k sleeve. Flipping
+    STA_ARB_ROUTE_LIVE=true in the backend flips the banner too, in
+    lockstep with the actual order routing.
     """
+    import os as _os  # late import keeps module-import graph lean
     redis = getattr(request.app.state, "redis", None)
 
     if redis is not None:
@@ -106,8 +114,15 @@ async def public_dashboard_snapshot(request: Request) -> dict[str, Any]:
     db = request.app.state.db
     signals = await _select_recent_signals(db, limit=PUBLIC_SIGNAL_LIMIT)
     pnl = await _select_latest_pnl(db)
+    # paper vs live routing indicator. Paired with ArbExecutor's
+    # STA_ARB_ROUTE_LIVE wiring in app.py so both places read the
+    # same env var and can't drift.
+    _route_live = _os.getenv("STA_ARB_ROUTE_LIVE", "false").lower() in (
+        "1", "true", "yes",
+    )
     snapshot = {
         "as_of": datetime.now(timezone.utc).isoformat(),
+        "mode": "live" if _route_live else "paper",
         "signals": signals,
         "pnl": pnl,
         "scaling": (pnl or {}).get("scaling_assumption") if pnl else None,

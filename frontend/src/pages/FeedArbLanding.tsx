@@ -54,12 +54,12 @@ export default function FeedArbLanding() {
       <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-violet-900/10 blur-[150px] rounded-full pointer-events-none" />
 
       <div className="relative z-10 max-w-4xl mx-auto px-4 md:px-8">
-        <Hero loading={loading} totalSignals={totalSignals} />
+        <Hero loading={loading} totalSignals={totalSignals} mode={snapshot?.mode ?? 'paper'} />
         <SampleSignals signals={sampleSignals} />
         <PnLSummary snapshot={snapshot} />
         <CTA />
         <FAQ />
-        <Footer />
+        <Footer mode={snapshot?.mode ?? 'paper'} />
       </div>
     </div>
   );
@@ -69,7 +69,15 @@ export default function FeedArbLanding() {
 // Hero
 // ---------------------------------------------------------------------------
 
-function Hero({ loading, totalSignals }: { loading: boolean; totalSignals: number }) {
+function Hero({
+  loading,
+  totalSignals,
+  mode,
+}: {
+  loading: boolean;
+  totalSignals: number;
+  mode: 'paper' | 'live';
+}) {
   return (
     <section className="pt-20 md:pt-28 text-center">
       <div className="inline-flex items-center gap-2 bg-cyan-950/30 border border-cyan-500/30 rounded-full px-4 py-1.5 mb-8 shadow-[0_0_15px_rgba(34,211,238,0.2)]">
@@ -80,7 +88,7 @@ function Hero({ loading, totalSignals }: { loading: boolean; totalSignals: numbe
         <span className="text-xs font-mono text-cyan-300 tracking-widest uppercase">
           {loading
             ? 'loading'
-            : `${totalSignals} live signals · honest tracker`}
+            : `${totalSignals} live signals · ${mode} mode · honest tracker`}
         </span>
       </div>
 
@@ -204,25 +212,35 @@ function OutcomePill({ outcome }: { outcome: ArbSignal['outcome'] }) {
 
 function PnLSummary({ snapshot }: { snapshot: PublicFeedSnapshot | null }) {
   const pnl = snapshot?.pnl;
+  const mode = snapshot?.mode ?? 'paper';
+  const paper = mode === 'paper';
   return (
     <section className="mt-20 grid grid-cols-1 md:grid-cols-2 gap-4">
       <GlassCard variant="cyan" hoverEffect={false}>
         <div className="text-xs uppercase tracking-widest text-cyan-300/80 font-mono mb-2">
-          realized PnL · $11k sleeve
+          {paper ? 'paper PnL · synthetic fills' : 'realized PnL · $11k sleeve'}
         </div>
         {pnl ? (
-          <div className="text-3xl font-mono font-bold text-cyan-200">
+          <div
+            className={`text-3xl font-mono font-bold ${
+              paper ? 'text-amber-200' : 'text-cyan-200'
+            }`}
+          >
             {formatUsd(pnl.cumulative_usd)}
           </div>
         ) : (
           <div className="text-2xl font-mono font-bold text-slate-500">
-            Not trading live yet
+            {paper ? 'No paper fills yet' : 'Not trading live yet'}
           </div>
         )}
         <p className="mt-3 text-xs font-mono text-slate-400 leading-relaxed">
-          {pnl
+          {pnl && !paper
             ? 'Realized from actual fills. Every win and every loss shown on the live dashboard.'
-            : 'Executor is in shadow mode pending compliance review. This number stays blank — honest tracker — until real fills happen. Spec §11 week-11 paid open is the target.'}
+            : pnl && paper
+              ? 'Synthetic fills routed through in-process paper brokers against live market data. This is a backtest, not demonstrated returns. Live switch flips after compliance sign-off.'
+              : paper
+                ? 'Paper executor is running against live markets but the cron has not yet emitted a qualifying spread. Check the live dashboard for the running count of signals.'
+                : 'Executor is in shadow mode pending compliance review. This number stays blank — honest tracker — until real fills happen. Spec §11 week-11 paid open is the target.'}
         </p>
       </GlassCard>
       <GlassCard variant="violet" hoverEffect={false}>
@@ -240,6 +258,7 @@ function PnLSummary({ snapshot }: { snapshot: PublicFeedSnapshot | null }) {
           Linear projection only. Does not adjust for slippage at larger
           notional — that's v1.1. What this shows is the strategy
           economics, not a promise.
+          {paper && ' In paper mode the projection is unverified until live fills land.'}
         </p>
       </GlassCard>
     </section>
@@ -332,14 +351,26 @@ function FAQ() {
 // Footer
 // ---------------------------------------------------------------------------
 
-function Footer() {
+function Footer({ mode }: { mode: 'paper' | 'live' }) {
   return (
     <footer className="mt-24 mb-12 pt-8 border-t border-white/5 text-[10px] text-slate-500 font-mono text-center leading-relaxed">
       remembr.dev Arb Signal Feed provides data on observed price
       spreads between prediction-market venues for informational purposes
       only. Nothing herein is investment advice, an offer to buy or sell
-      any security, or a recommendation of any trade. Past performance
-      on our demonstration account does not guarantee future results.
+      any security, or a recommendation of any trade.{' '}
+      {mode === 'paper' ? (
+        <>
+          Currently in paper mode: fills shown on the live dashboard are
+          simulated against real market data; no actual orders are routed
+          to Kalshi or Polymarket. PnL is a backtest, not demonstrated
+          returns.
+        </>
+      ) : (
+        <>
+          Past performance on our $11,000 demonstration account does not
+          guarantee future results.
+        </>
+      )}{' '}
       Subscribers are responsible for their own trading decisions, legal
       compliance in their jurisdiction, and access to the underlying
       venues. remembr.dev is not a registered investment adviser or

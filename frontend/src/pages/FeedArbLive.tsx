@@ -61,7 +61,18 @@ export default function FeedArbLive() {
       <div className="absolute bottom-0 right-0 w-[600px] h-[600px] bg-violet-900/10 blur-[150px] rounded-full pointer-events-none" />
 
       <div className="relative z-10 max-w-6xl mx-auto px-4 md:px-8 py-12">
-        <Header asOf={snapshot?.as_of} loading={loading} error={error} />
+        <Header
+          asOf={snapshot?.as_of}
+          loading={loading}
+          error={error}
+          mode={snapshot?.mode ?? 'paper'}
+        />
+
+        {/* Mode banner — prominent, above the PnL cards, so anyone
+            landing on the page understands what they're looking at
+            BEFORE seeing numbers that could be mistaken for real-money
+            results. Honest-tracker contract. */}
+        <ModeBanner mode={snapshot?.mode ?? 'paper'} loading={loading} />
 
         <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-4">
           <PnLCard snapshot={snapshot} />
@@ -88,10 +99,22 @@ export default function FeedArbLive() {
         </section>
 
         <footer className="mt-16 pt-8 border-t border-white/5 text-xs text-slate-500 font-mono">
-          remembr.dev/feeds/arb/live — honest tracker, pre-launch. This is
-          a data feed, not investment advice. Past performance on the
-          $11,000 demonstration sleeve does not guarantee future results.
-          Prediction-market trading carries significant risk of loss.
+          remembr.dev/feeds/arb/live — honest tracker, pre-launch. This
+          is a data feed, not investment advice.{' '}
+          {(snapshot?.mode ?? 'paper') === 'paper' ? (
+            <>
+              Currently operating in paper mode: fills are simulated against
+              live market data; no real orders on Kalshi or Polymarket. PnL
+              numbers are a backtest, not demonstrated returns. The live
+              switch flips after compliance sign-off (target week 11).
+            </>
+          ) : (
+            <>
+              Past performance on the $11,000 demonstration sleeve does
+              not guarantee future results. Prediction-market trading
+              carries significant risk of loss.
+            </>
+          )}
         </footer>
       </div>
     </div>
@@ -106,10 +129,12 @@ function Header({
   asOf,
   loading,
   error,
+  mode,
 }: {
   asOf?: string;
   loading: boolean;
   error: string | null;
+  mode: 'paper' | 'live';
 }) {
   return (
     <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-2">
@@ -128,7 +153,11 @@ function Header({
             />
           </span>
           <span className="text-xs font-mono text-cyan-300 tracking-widest uppercase">
-            {error ? 'feed offline' : loading ? 'loading' : 'live'}
+            {error
+              ? 'feed offline'
+              : loading
+                ? 'loading'
+                : `live · ${mode}`}
           </span>
         </div>
         <h1 className="text-4xl md:text-5xl font-black tracking-tighter text-slate-100">
@@ -151,29 +180,78 @@ function Header({
 }
 
 // ---------------------------------------------------------------------------
+// Mode banner — prominent paper-vs-live disclosure
+// ---------------------------------------------------------------------------
+
+function ModeBanner({
+  mode,
+  loading,
+}: {
+  mode: 'paper' | 'live';
+  loading: boolean;
+}) {
+  if (loading) return null;
+  if (mode === 'live') {
+    // Real-money routing. Brand this honestly — readers of the live
+    // dashboard in the paid-launch phase deserve to know these are
+    // real fills, not a simulation.
+    return (
+      <div className="mt-6 rounded-xl border border-emerald-500/30 bg-emerald-950/20 px-4 py-3 text-sm font-mono text-emerald-200 shadow-[0_0_20px_rgba(16,185,129,0.15)]">
+        <span className="text-emerald-300 font-bold uppercase tracking-widest text-xs mr-3">
+          live
+        </span>
+        Real orders on Kalshi + Polymarket · PnL below is realized on the
+        operator's $11k sleeve · every drawdown is public
+      </div>
+    );
+  }
+  // Paper mode — the only thing worse than a blank PnL would be paper
+  // PnL banner'd as if it were real. Label it loudly.
+  return (
+    <div className="mt-6 rounded-xl border border-amber-500/30 bg-amber-950/20 px-4 py-3 text-sm font-mono text-amber-200">
+      <span className="text-amber-300 font-bold uppercase tracking-widest text-xs mr-3">
+        paper
+      </span>
+      Fills below are synthetic — routed through in-process paper brokers
+      while compliance review runs (target: week 11 paid launch). No real
+      money at risk, no real fills on Kalshi or Polymarket. The PnL
+      numbers are a backtest against live market data, not demonstrated
+      returns.
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // PnL card — realized/scaled/cumulative with honest-tracker fallback
 // ---------------------------------------------------------------------------
 
 function PnLCard({ snapshot }: { snapshot: PublicFeedSnapshot | null }) {
   const pnl = snapshot?.pnl;
+  const mode = snapshot?.mode ?? 'paper';
+  const paper = mode === 'paper';
   return (
     <GlassCard variant="cyan" hoverEffect={false}>
       <div className="text-xs uppercase tracking-widest text-cyan-300/80 font-mono mb-2">
-        realized PnL ($11k sleeve)
+        {paper
+          ? 'paper PnL (synthetic fills)'
+          : 'realized PnL ($11k sleeve)'}
       </div>
       {!pnl ? (
         <>
           <div className="text-3xl font-mono font-bold text-slate-500">—</div>
           <p className="mt-3 text-xs font-mono text-slate-500 leading-relaxed">
-            No fills on the $11k sleeve yet. The executor is in shadow
-            mode pending compliance review (week 11 paid launch). This
-            panel stays blank — honest tracker by design — until real
-            fills land.
+            {paper
+              ? 'No paper fills yet — cross_platform_arb scan fires every 30 minutes. Once a qualifying spread clears the cost gate, the paper executor simulates a fill and the panel fills in.'
+              : 'No fills on the $11k sleeve yet. This panel stays blank — honest tracker by design — until real fills land.'}
           </p>
         </>
       ) : (
         <>
-          <div className="text-3xl font-mono font-bold text-cyan-200">
+          <div
+            className={`text-3xl font-mono font-bold ${
+              paper ? 'text-amber-200' : 'text-cyan-200'
+            }`}
+          >
             {formatUsd(pnl.cumulative_usd)}
           </div>
           <div className="mt-3 space-y-1 text-xs font-mono text-slate-400">
@@ -189,6 +267,12 @@ function PnLCard({ snapshot }: { snapshot: PublicFeedSnapshot | null }) {
               <div className="text-xl font-mono font-bold text-violet-200">
                 {formatUsd(pnl.scaled_cumulative_usd)}
               </div>
+              {paper && (
+                <p className="mt-2 text-[10px] font-mono text-slate-500 leading-relaxed">
+                  Linear projection from synthetic fills. Unverified until
+                  the live-mode switch is flipped post-compliance.
+                </p>
+              )}
             </div>
           )}
         </>
