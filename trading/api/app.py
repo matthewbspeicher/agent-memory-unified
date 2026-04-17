@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os as _os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
@@ -1134,6 +1135,15 @@ async def lifespan(app: FastAPI):
         from execution.arb_executor import ArbExecutor
         from decimal import Decimal as _Dec
 
+        # Paper-route is the default safety posture: fills go through the
+        # in-process paper brokers (kalshi_paper / polymarket_paper) even
+        # when Kalshi is in LIVE market-data mode. Flip STA_ARB_ROUTE_LIVE=true
+        # only with explicit operator review — real orders result. The
+        # ArbExecutor fails-closed at startup if paper_route=True but the
+        # paper brokers aren't wired (see ArbExecutor._paper_brokers_available).
+        _arb_route_live = _os.getenv("STA_ARB_ROUTE_LIVE", "false").lower() in (
+            "1", "true", "yes"
+        )
         arb_executor = ArbExecutor(
             spread_store=spread_store,
             arb_coordinator=arb_coordinator,
@@ -1141,6 +1151,7 @@ async def lifespan(app: FastAPI):
             min_profit_bps=float(getattr(config, "arb_min_profit_bps", 5.0)),
             max_position_usd=float(getattr(config, "arb_max_position_usd", 100.0)),
             enabled=getattr(config, "arb_auto_execute", False),
+            paper_route=not _arb_route_live,
             # sizing_engine is wired below once it's been constructed
             # (depends on perf_store which is initialized later in the
             # lifespan). Defaults to None → falls back to 1-share min.
@@ -1149,7 +1160,11 @@ async def lifespan(app: FastAPI):
         )
         app.state.arb_executor = arb_executor
         task_mgr.create_task(arb_executor.run(), name="arb_executor")
-        _log.info("ArbExecutor started (enabled=%s)", arb_executor._enabled)
+        _log.info(
+            "ArbExecutor started (enabled=%s, paper_route=%s)",
+            arb_executor._enabled,
+            arb_executor._paper_route,
+        )
 
         # FeedPublisher — subscribes to the same `arb.spread` EventBus
         # topic ArbExecutor uses, re-applies the CostModel gate, and

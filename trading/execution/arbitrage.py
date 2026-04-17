@@ -122,8 +122,17 @@ class ArbCoordinator:
                     )
                     return False
 
-            # 2. Pre-flight slippage check
-            if not await self._check_preflight_slippage(trade):
+            # 2. Pre-flight slippage check. Skipped when both legs route
+            # to paper brokers — paper brokers synthesize fills from the
+            # best-available mid, not from the live order book, so a
+            # missing live quote isn't a real-money risk. The guard still
+            # fires for live-routed legs. Keying on the "_paper" suffix
+            # matches the translation in ArbExecutor._resolve_broker_id.
+            _both_paper = (
+                trade.leg_a.broker_id.endswith("_paper")
+                and trade.leg_b.broker_id.endswith("_paper")
+            )
+            if not _both_paper and not await self._check_preflight_slippage(trade):
                 logger.warning(
                     f"ArbCoordinator: Aborting {trade.id} due to excessive estimated slippage."
                 )
@@ -341,7 +350,10 @@ class ArbCoordinator:
         broker = self._brokers.get(leg.broker_id)
 
         if not broker:
-            logger.error(f"Broker {leg.broker_id} not found for {leg_name}")
+            logger.error(
+                f"Broker {leg.broker_id} not found for {leg_name} "
+                f"(available: {list(self._brokers.keys())})"
+            )
             return False
 
         try:
@@ -368,6 +380,16 @@ class ArbCoordinator:
                         order_result.filled_quantity or leg.order.quantity
                     )
                     leg.status = "submitted"
+                else:
+                    # Anything other than FILLED/SUBMITTED — log loudly so
+                    # the reason is visible. Prior behavior silently returned
+                    # False, masking paper-broker rejects as "Both legs failed".
+                    logger.warning(
+                        f"ArbCoordinator: Leg {leg_name} rejected "
+                        f"(broker={leg.broker_id}, status={order_result.status.value}, "
+                        f"order_id={order_result.order_id}, "
+                        f"err={getattr(order_result, 'error', None)})"
+                    )
 
                 await self._store.update_leg_atomic(trade.id, leg_name, leg)
                 return order_result.status in (
@@ -376,10 +398,13 @@ class ArbCoordinator:
                 )
 
         except TimeoutError:
-            logger.error(f"ArbCoordinator: Leg {leg_name} timed out")
+            logger.error(f"ArbCoordinator: Leg {leg_name} timed out (broker={leg.broker_id})")
             return False
         except Exception as e:
-            logger.error(f"ArbCoordinator: Leg {leg_name} failed: {e}")
+            logger.error(
+                f"ArbCoordinator: Leg {leg_name} failed (broker={leg.broker_id}): {e}",
+                exc_info=True,
+            )
             return False
 
     async def _unwind_leg(self, trade: ArbTrade, leg_name: str):

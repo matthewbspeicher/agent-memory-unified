@@ -1195,6 +1195,35 @@ async def init_db_postgres(db) -> None:
         except Exception:
             pass
 
+    # opportunities.created_at / updated_at DEFAULT drift fix.
+    #
+    # The SQLite _INIT_DDL declares:
+    #   created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    #   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    # Live Postgres has the columns but without a default, so every
+    # INSERT from OpportunityStore.save() lands with created_at=NULL.
+    # 1286 rows accumulated with NULL timestamps, breaking time-based
+    # analytics. Fix: backfill NULLs from updated_at or NOW(), then set
+    # the column defaults so future inserts work.
+    for alter_sql in (
+        # Backfill NULLs before changing the default so we don't leave
+        # orphaned history. Use updated_at if available, else NOW().
+        "UPDATE opportunities SET created_at = COALESCE(updated_at, NOW()) WHERE created_at IS NULL",
+        "UPDATE opportunities SET updated_at = COALESCE(created_at, NOW()) WHERE updated_at IS NULL",
+        "ALTER TABLE opportunities ALTER COLUMN created_at SET DEFAULT NOW()",
+        "ALTER TABLE opportunities ALTER COLUMN updated_at SET DEFAULT NOW()",
+    ):
+        try:
+            await db.execute(alter_sql)
+        except Exception as _opp_ts_exc:
+            # SQLite doesn't support ALTER COLUMN SET DEFAULT; the
+            # declarations in _INIT_DDL already do the right thing there.
+            # Non-fatal in all environments.
+            logger.debug(
+                "opportunities created_at/updated_at fixup step skipped: %s",
+                _opp_ts_exc,
+            )
+
 
 async def get_db(path: str = "data.db") -> aiosqlite.Connection:
     db = await aiosqlite.connect(path)

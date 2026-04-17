@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
@@ -22,7 +23,20 @@ logger = logging.getLogger(__name__)
 
 
 class ArbExecutor:
-    """Subscribes to arb.spread events and auto-executes profitable opportunities."""
+    """Subscribes to arb.spread events and auto-executes profitable opportunities.
+
+    Paper-routing safety: when `paper_route=True` (default), every outgoing
+    leg has its broker_id rewritten from "kalshi"/"polymarket" to
+    "kalshi_paper"/"polymarket_paper" before the coordinator sees it.
+    This keeps the live market-data clients (needed for the matching
+    universe — the demo Kalshi has different tickers) while routing fills
+    through in-process paper brokers. Setting `paper_route=False` sends
+    real orders; only do so after explicit operator review.
+
+    If paper_route=True but the coordinator's broker map does not contain
+    the *_paper entries, the executor refuses to execute and logs a loud
+    error. Fail-closed: never silently fall through to a live broker.
+    """
 
     def __init__(
         self,
@@ -33,6 +47,7 @@ class ArbExecutor:
         min_profit_bps: float = 5.0,
         max_position_usd: float = 100.0,
         enabled: bool = False,
+        paper_route: bool = True,
         sizing_engine: SizingEngine | None = None,
         bankroll_usd: Decimal | float = Decimal("100"),
         agent_name: str = "cross_platform_arb",
@@ -45,6 +60,10 @@ class ArbExecutor:
         self._min_profit_bps = min_profit_bps
         self._max_position_usd = max_position_usd
         self._enabled = enabled
+        self._paper_route = paper_route
+        # First-miss log flag for the per-event paper-broker availability
+        # check. Prevents log spam if paper brokers never get wired.
+        self._paper_missing_logged = False
         self._active_trades: dict[str, bool] = {}
         # Sizing — when SizingEngine is provided, use Kelly + trust scaling;
         # otherwise fall back to the minimum-size floor (Decimal("1")), which
@@ -56,16 +75,70 @@ class ArbExecutor:
         self._agent_name = agent_name
         self._trust_level = trust_level
 
+    def _resolve_broker_id(self, venue: str) -> str:
+        """Apply paper-route translation to a venue name.
+
+        In paper_route mode: kalshi -> kalshi_paper, polymarket -> polymarket_paper.
+        In live-route mode: passthrough. Used by _execute_arb when building
+        ArbLeg objects so the translation happens exactly once, at the
+        executor boundary, and is auditable from the leg's broker_id.
+        """
+        if not self._paper_route:
+            return venue
+        return f"{venue}_paper"
+
+    def _paper_brokers_available(self) -> bool:
+        """Verify the paper brokers exist in the coordinator's broker map
+        before placing a trade. Fail-closed: if either is missing, we
+        refuse to route. Prevents the coordinator from silently dropping
+        a kalshi_paper leg while happily placing the polymarket leg
+        (broken arb that loses the cross-venue hedge)."""
+        brokers = getattr(self._coordinator, "_brokers", {}) or {}
+        return "kalshi_paper" in brokers and "polymarket_paper" in brokers
+
     async def run(self) -> None:
         """Subscribe to spread events and execute when profitable."""
         logger.info(
-            "ArbExecutor: Starting (enabled=%s, min_profit_bps=%.1f, min_gap=%.1f cents)",
+            "ArbExecutor: Starting (enabled=%s, paper_route=%s, min_profit_bps=%.1f, min_gap=%.1f cents)",
             self._enabled,
+            self._paper_route,
             self._min_profit_bps,
             self._cost_model.min_gap_cents(),
         )
+        if self._enabled and not self._paper_route:
+            # Live routing — loud startup warning so the operator who
+            # flipped STA_ARB_ROUTE_LIVE=true sees it in logs.
+            logger.warning(
+                "⚠️  ArbExecutor: LIVE routing active — real orders will be placed. "
+                "kalshi_demo=%s, polymarket_dry_run=%s. Max position per leg: $%.2f.",
+                os.getenv("STA_KALSHI_DEMO", "<unset>"),
+                os.getenv("STA_POLYMARKET_DRY_RUN", "<unset>"),
+                self._max_position_usd,
+            )
         async for event in self._bus.subscribe():
             if event.get("topic") != "arb.spread":
+                continue
+            # Per-event paper-broker check. Was previously done once at
+            # startup, but app.py wires the paper brokers into the
+            # coordinator's broker map AFTER spawning the executor task —
+            # there's a ~25s window where kalshi_paper isn't in the map
+            # yet. Checking per-event lets the executor safely shadow
+            # during that window and start executing once the paper
+            # brokers arrive. Fail-closed posture is preserved: the
+            # default route if the brokers never appear is shadow, not
+            # live. The first-miss log is loud so an operator who left
+            # paper_trading=False notices.
+            if self._enabled and self._paper_route and not self._paper_brokers_available():
+                if not self._paper_missing_logged:
+                    logger.error(
+                        "ArbExecutor: paper_route=True but kalshi_paper / "
+                        "polymarket_paper brokers not in coordinator broker "
+                        "map yet. Running as shadow until they are wired. "
+                        "If this message persists past startup, check "
+                        "config.paper_trading and setup_paper_brokers."
+                    )
+                    self._paper_missing_logged = True
+                await self._log_shadow_decision(event.get("data", {}))
                 continue
             if not self._enabled:
                 await self._log_shadow_decision(event.get("data", {}))
@@ -189,7 +262,7 @@ class ArbExecutor:
     ) -> bool:
         """Execute arbitrage via coordinator."""
         from execution.models import ArbTrade, ArbLeg, SequencingStrategy
-        from broker.models import MarketOrder, OrderSide, Symbol, AssetType
+        from broker.models import LimitOrder, MarketOrder, OrderSide, Symbol, AssetType
 
         trade_id = f"arb-{uuid4().hex[:12]}"
         quantity = await self._compute_quantity(kalshi_cents, poly_cents)
@@ -200,26 +273,49 @@ class ArbExecutor:
         kalshi_side = OrderSide.SELL if gap_cents > 0 else OrderSide.BUY
         poly_side = OrderSide.BUY if gap_cents > 0 else OrderSide.SELL
 
-        leg_a = ArbLeg(
-            broker_id="kalshi",
-            order=MarketOrder(
-                symbol=Symbol(ticker=kalshi_ticker, asset_type=AssetType.PREDICTION),
-                side=kalshi_side,
+        # Order type depends on routing. Paper brokers (KalshiPaperBroker,
+        # PolymarketPaperBroker) only accept LimitOrder — they need an
+        # explicit price to synthesize a fill. Live routing keeps
+        # MarketOrder so we take the best available price at submission.
+        # Observed spread prices come from the scan (kalshi_cents /
+        # poly_cents) and are in 0–99¢ space; we divide by 100 to land in
+        # the Decimal dollars the LimitOrder expects.
+        def _build_order(ticker: str, side: OrderSide, cents: int | None):
+            sym = Symbol(ticker=ticker, asset_type=AssetType.PREDICTION)
+            if self._paper_route:
+                # Fall back to 50¢ if the observation didn't carry a
+                # price. This is defensive — real paths always have cents.
+                price = Decimal(str((cents or 50) / 100.0))
+                return LimitOrder(
+                    symbol=sym,
+                    side=side,
+                    quantity=quantity,
+                    limit_price=price,
+                    account_id="default",
+                    signal_id=signal_id,
+                )
+            return MarketOrder(
+                symbol=sym,
+                side=side,
                 quantity=quantity,
                 account_id="default",
                 signal_id=signal_id,
-            ),
+            )
+
+        # Paper-route translation happens here, at the executor boundary.
+        # _resolve_broker_id("kalshi") → "kalshi_paper" when self._paper_route,
+        # "kalshi" when self._paper_route is False. The leg's broker_id is
+        # what the ArbCoordinator routes by, so translating once at leg
+        # construction guarantees the downstream coordinator + broker
+        # clients never see a mixed/ambiguous routing state.
+        leg_a = ArbLeg(
+            broker_id=self._resolve_broker_id("kalshi"),
+            order=_build_order(kalshi_ticker, kalshi_side, kalshi_cents),
         )
 
         leg_b = ArbLeg(
-            broker_id="polymarket",
-            order=MarketOrder(
-                symbol=Symbol(ticker=poly_ticker, asset_type=AssetType.PREDICTION),
-                side=poly_side,
-                quantity=quantity,
-                account_id="default",
-                signal_id=signal_id,
-            ),
+            broker_id=self._resolve_broker_id("polymarket"),
+            order=_build_order(poly_ticker, poly_side, poly_cents),
         )
 
         trade = ArbTrade(

@@ -22,6 +22,16 @@ class ArbStore:
     async def save_trade(self, trade: ArbTrade) -> None:
         """Persist a new arbitrage trade and its legs."""
         try:
+            # arb_trades.created_at/updated_at are TIMESTAMP WITHOUT TIME ZONE
+            # on Postgres — asyncpg rejects both ISO strings and tz-aware
+            # datetimes ("can't subtract offset-naive and offset-aware"),
+            # so normalize to naive UTC at the boundary. SQLite accepts.
+            _created = trade.created_at
+            if _created.tzinfo is not None:
+                _created = _created.astimezone(timezone.utc).replace(tzinfo=None)
+            _updated = trade.updated_at
+            if _updated.tzinfo is not None:
+                _updated = _updated.astimezone(timezone.utc).replace(tzinfo=None)
             # 1. Save main trade record
             await self._db.execute(
                 """INSERT INTO arb_trades
@@ -35,8 +45,8 @@ class ArbStore:
                     trade.sequencing.value,
                     trade.state.value,
                     trade.error_message,
-                    trade.created_at.isoformat(),
-                    trade.updated_at.isoformat(),
+                    _created,
+                    _updated,
                 ),
             )
 
@@ -79,7 +89,9 @@ class ArbStore:
         self, trade_id: str, state: ArbState, error_message: Optional[str] = None
     ) -> None:
         """Update the state of an existing trade."""
-        now = datetime.now(timezone.utc).isoformat()
+        # Naive UTC — see save_trade() note on asyncpg's TIMESTAMP WITHOUT
+        # TIME ZONE handling.
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
         await self._db.execute(
             "UPDATE arb_trades SET state = ?, error_message = ?, updated_at = ? WHERE id = ?",
             (state.value, error_message, now, trade_id),
@@ -108,7 +120,8 @@ class ArbStore:
     ) -> None:
         """Atomic, column-level update for a specific leg and marks trade as updated."""
         try:
-            now = datetime.now(timezone.utc).isoformat()
+            # Naive UTC for Postgres TIMESTAMP WITHOUT TIME ZONE column.
+            now = datetime.now(timezone.utc).replace(tzinfo=None)
 
             # 1. Update the leg columns
             await self._db.execute(
@@ -181,7 +194,17 @@ class ArbStore:
             expected_profit_bps=row["expected_profit_bps"],
             sequencing=SequencingStrategy(row["sequencing"]),
             state=ArbState(row["state"]),
-            created_at=datetime.fromisoformat(row["created_at"]),
-            updated_at=datetime.fromisoformat(row["updated_at"]),
+            # asyncpg returns datetime objects; aiosqlite returns strings.
+            # Handle both.
+            created_at=(
+                row["created_at"]
+                if isinstance(row["created_at"], datetime)
+                else datetime.fromisoformat(row["created_at"])
+            ),
+            updated_at=(
+                row["updated_at"]
+                if isinstance(row["updated_at"], datetime)
+                else datetime.fromisoformat(row["updated_at"])
+            ),
             error_message=row["error_message"],
         )

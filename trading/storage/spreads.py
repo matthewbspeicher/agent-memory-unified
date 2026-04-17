@@ -143,7 +143,7 @@ class SpreadStore:
                     AND o.poly_ticker   = l.poly_ticker
                     AND o.observed_at  = l.max_ts
                    WHERE o.gap_cents >= ?
-                     AND (o.is_claimed = 0 OR o.claimed_at < datetime('now', '-2 minutes'))
+                     AND (o.is_claimed = FALSE OR o.claimed_at < datetime('now', '-2 minutes'))
                    ORDER BY o.gap_cents DESC
                    LIMIT ?""",
                 (min_gap, limit),
@@ -200,20 +200,38 @@ class SpreadStore:
         Attempt to atomically claim a spread for arbitrage.
         Returns True if successful.
         """
-        now = datetime.now(timezone.utc).isoformat()
-        cursor = await self._db.execute(
+        # Pass a naive UTC datetime. asyncpg rejects ISO strings ("expected
+        # a datetime") and also rejects tz-aware datetimes against the
+        # claimed_at column which was created as TIMESTAMP WITHOUT TIME
+        # ZONE ("can't subtract offset-naive and offset-aware datetimes").
+        # Stripping tzinfo lands naive UTC in the column — SQLite accepts
+        # this form too. Column should eventually migrate to TIMESTAMPTZ
+        # for consistency with other feed tables; until then, normalize at
+        # the call site.
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        # RETURNING id — the Postgres shim's _PostgresCursor doesn't
+        # expose rowcount (asyncpg's status string isn't parsed), so we
+        # use "RETURNING id" and count the returned rows. SQLite also
+        # supports RETURNING since 3.35 (2021). Boolean literals written
+        # as TRUE / FALSE so they parse on Postgres (BOOLEAN column) and
+        # SQLite (which accepts the keywords). Prior `is_claimed = 0/1`
+        # tripped Postgres with `operator does not exist: boolean = integer`.
+        async with self._db.execute(
             """UPDATE arb_spread_observations
-               SET is_claimed = 1, claimed_at = ?, claimed_by = ?
-               WHERE id = ? AND (is_claimed = 0 OR claimed_at < datetime('now', '-2 minutes'))""",
+               SET is_claimed = TRUE, claimed_at = ?, claimed_by = ?
+               WHERE id = ?
+                 AND (is_claimed = FALSE OR claimed_at < datetime('now', '-2 minutes'))
+               RETURNING id""",
             (now, claimant, observation_id),
-        )
+        ) as cursor:
+            row = await cursor.fetchone()
         await self._db.commit()
-        return cursor.rowcount > 0
+        return row is not None
 
     async def release_spread(self, observation_id: int) -> None:
         """Release a claimed spread."""
         await self._db.execute(
-            "UPDATE arb_spread_observations SET is_claimed = 0 WHERE id = ?",
+            "UPDATE arb_spread_observations SET is_claimed = FALSE WHERE id = ?",
             (observation_id,),
         )
         await self._db.commit()

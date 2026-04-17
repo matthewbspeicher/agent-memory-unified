@@ -38,12 +38,13 @@ services:
     env_file:
       - ./trading/.env
     environment:
+      # Infra-only overrides. Compose service DNS (postgres/redis) beats
+      # whatever's in .env, which is why these live here. Everything else —
+      # especially STA_ARB_* — flows from trading/.env so the executor
+      # toggle lives in one place.
       STA_DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-secret}@postgres:5432/agent_memory
       STA_DATABASE_SSL: "false"
       STA_REDIS_URL: redis://redis:6379
-      STA_ARB_AUTO_EXECUTE: "false"
-      STA_ARB_MIN_PROFIT_BPS: "5.0"
-      STA_ARB_MAX_POSITION_USD: "100.0"
     depends_on:
       postgres:
         condition: service_healthy
