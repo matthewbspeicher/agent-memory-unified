@@ -1,0 +1,21 @@
+# Grafana dashboard provisioning (Phase D5).
+#
+# Grafana auto-loads dashboard JSON files from the `path` below on
+# startup and every `updateIntervalSeconds`. New dashboards: drop the
+# JSON here and they show up in the UI after a poll cycle, no manual
+# import.
+#
+# Mounted at /etc/grafana/provisioning/dashboards in docker-compose.yml.
+
+apiVersion: 1
+
+providers:
+  - name: 'feed-arb-dashboards'
+    orgId: 1
+    folder: 'Feed Arb'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards

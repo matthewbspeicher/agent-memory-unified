@@ -15,16 +15,17 @@ groups:
   # ────────────────────────────────────────────────────────────────────────
   # D3 — Attribution stall
   # ────────────────────────────────────────────────────────────────────────
-  # Fires when the attribution job stops writing feed_arb_pnl_rollup rows
-  # despite having written rollups in the past. Gated on
-  # feed_arb_pnl_rollup_writes_total > 0 so fresh deployments with no
-  # fills yet don't page.
+  # Fires when the attribution *tick loop* stops running. Keys off
+  # feed_arb_pnl_rollup_last_tick_ts_seconds (updated every tick in a
+  # finally: block) rather than _last_ts_seconds (updated only on
+  # successful rollup writes). The honest-tracker rule correctly skips
+  # rollups on no-fill ticks — keying D3 off rollup writes would have
+  # paged on every quiet market, which is a false alarm.
   #
   # Tuning:
-  #   - Attribution tick interval defaults to 60s (STA_FEED_ATTRIBUTION_
-  #     INTERVAL_SECONDS). Two consecutive missed ticks + one scrape
-  #     margin ≈ 180s; we use 300s per spec §11 to also absorb short
-  #     no-fills windows during quiet markets without false-paging.
+  #   - Tick interval defaults to 60s (STA_FEED_ATTRIBUTION_INTERVAL_
+  #     SECONDS). Two consecutive missed ticks + one scrape margin
+  #     ≈ 180s; we use 300s per spec §11 as the stall threshold.
   #   - `for: 1m` prevents flap-paging on a single slow tick.
   #
   # Attach `runbook_url` when the runbook lands at docs/runbooks/ (v1.1).
@@ -32,35 +33,158 @@ groups:
     rules:
       - alert: FeedArbAttributionStall
         expr: |
-          feed_arb_pnl_rollup_writes_total > 0
-          and
-          (time() - feed_arb_pnl_rollup_last_ts_seconds) > 300
+          (time() - feed_arb_pnl_rollup_last_tick_ts_seconds) > 300
         for: 1m
         labels:
           severity: page
           component: feed_arb_attribution
           feed: arb
         annotations:
-          summary: "Arb feed attribution job has stalled"
+          summary: "Arb feed attribution tick loop has stalled"
           description: |
-            No feed_arb_pnl_rollup row written in the last {{ $value | humanizeDuration }}.
-            Expected: a rollup every 60s when fills are flowing (spec §3.1).
+            FeedArbPnLAttribution.tick() hasn't completed in the last
+            {{ $value | humanizeDuration }}. Expected: a tick every 60s
+            regardless of whether fills exist (honest-tracker rule: no
+            fills → no rollup, but the tick still runs).
 
             Start here:
               1. Is the trading container up? `docker ps | grep trading`
-              2. Is FeedArbPnLAttribution still a live task? Look for
-                 log lines from `feeds.pnl_attribution` — should tick
-                 every 60s.
-              3. Are arb fills still landing in arb_legs? Query:
-                   SELECT COUNT(*) FROM arb_legs
-                   WHERE status = 'filled' AND broker_id LIKE '%_paper'
-                     AND rowid IN (last N).
-                 If zero, the executor is the fault — not attribution.
-              4. Check `feed_arb_pnl_rollup_writes_total` — is it still
-                 incrementing? If yes, rollups ARE writing but something
-                 broke the gauge publish path.
+              2. Look for `feeds.pnl_attribution` log lines — tick()
+                 errors log at ERROR via log_event("error", ...).
+              3. Is the background task itself dead? The task_mgr
+                 registers `feed_pnl_attribution` at startup; if it
+                 hit an unhandled cancellation it'll show in trading
+                 logs as "Background task 'feed_pnl_attribution' ...".
+              4. Is asyncio.sleep hanging? Rare but possible on
+                 event-loop starvation — check CPU/worker saturation.
 
             Public dashboard implication: `/api/v1/feeds/arb/public`
             continues to serve the last cached rollup until the 10s
             Redis TTL expires, then falls back to DB. Users see stale
             PnL until remediated.
+
+  # ────────────────────────────────────────────────────────────────────────
+  # D4 — Publisher-side failures
+  # ────────────────────────────────────────────────────────────────────────
+  # Two rules, one class of risk (Risk #1 in the plan: silent-failure in
+  # the arb pipeline). A0 shipped four silent-failure fixes — these rules
+  # catch the next one.
+  - name: feed_arb_publisher
+    rules:
+      # Dropped-signal rate alert. `below_min_profit_bps` is normal
+      # churn (most opportunities don't clear the cost model); filter
+      # it out so it doesn't mask real errors. Any other reason is a
+      # real drop — store_error, missing_observation_id, missing_tickers.
+      - alert: FeedArbPublisherDroppedSignalsElevated
+        expr: |
+          sum by (reason) (
+            rate(feed_arb_signals_dropped_total{reason!="below_min_profit_bps"}[5m])
+          ) > 0.1
+        for: 5m
+        labels:
+          severity: ticket
+          component: feed_arb_publisher
+          feed: arb
+        annotations:
+          summary: "Arb feed publisher dropping signals ({{ $labels.reason }})"
+          description: |
+            feed_arb_signals_dropped_total{reason={{ $labels.reason }}} is
+            incrementing at {{ $value | humanize }}/s averaged over 5m.
+
+            Reason breakdown:
+              - store_error            → DB write failed; check postgres
+              - missing_observation_id → upstream arb.spread event shape
+                                         broke; check cross_platform_arb
+              - missing_tickers        → same as above
+              - (below_min_profit_bps  → normal — excluded from this alert)
+
+            Check:
+              1. `docker logs trading --since=15m | grep feed_arb`
+              2. Is `feed_arb_signals_published_total` still incrementing?
+                 If yes, some signals are landing — this is partial loss.
+                 If no, see FeedArbPublisherZeroPublish.
+
+      # Sustained-zero-publish alert — the Risk #1 mitigation the plan
+      # flags as "owed" from A0. The cross_platform_arb cron runs every
+      # 30 min (spec); 2h of zero publishes means ≥4 consecutive cron
+      # cycles produced nothing. Gated on
+      # `feed_arb_signals_published_total > 0` so fresh deploys don't
+      # page during the first cycle. `increase([...][2h]) == 0` catches
+      # the silent-failure class even when the publisher task is still
+      # looping happily (i.e. logs look fine but nothing lands).
+      - alert: FeedArbPublisherZeroPublish
+        expr: |
+          feed_arb_signals_published_total > 0
+          and
+          increase(feed_arb_signals_published_total[2h]) == 0
+        for: 5m
+        labels:
+          severity: page
+          component: feed_arb_publisher
+          feed: arb
+        annotations:
+          summary: "Arb feed publisher has published nothing in 2h"
+          description: |
+            feed_arb_signals_published_total hasn't moved in 2h despite
+            having published signals in the past. This is the silent-
+            failure class A0 hit — adapter returns zero candidates,
+            scheduler placeholder set to None, type translation gap, or
+            store write swallowing exceptions.
+
+            Triage ladder:
+              1. Does `cross_platform_arb` scan return opportunities?
+                   curl -H "X-API-Key: $KEY" \
+                        -X POST http://trading:8080/agents/cross_platform_arb/scan
+                 If empty: adapter/data layer issue.
+              2. Are `arb.spread` EventBus events firing?
+                   Check `arb_spread_observations` row count in last 30m.
+                 If empty but scan works: publisher isn't subscribing or
+                 CostModel is rejecting everything.
+              3. Are `feed_arb_signals_dropped_total{reason!="below_min_profit_bps"}`
+                 incrementing? If yes: see FeedArbPublisherDroppedSignalsElevated.
+              4. If signals are in `arb_spread_observations` but not
+                 `feed_arb_signals`, the FeedPublisher loop is stalled.
+
+  # ────────────────────────────────────────────────────────────────────────
+  # D6 — Subscriber churn
+  # ────────────────────────────────────────────────────────────────────────
+  # Alerts when paying subscribers who've been polling suddenly stop.
+  # v1 uses aggregate request rate (not per-subscriber) — per-API-key
+  # cardinality would bloat metrics storage. Gated on
+  # `handler="/api/v1/feeds/arb/signals"` (the auth'd subscriber route,
+  # not the public dashboard), and on
+  # `rate([24h]) > 0` so the alert only arms after the first paid
+  # customer starts polling. Pre-launch, when nobody's subscribed yet,
+  # the aggregate rate is zero so the gate keeps this quiet.
+  - name: feed_arb_subscriber
+    rules:
+      - alert: FeedArbSubscriberChurn
+        expr: |
+          rate(http_requests_total{handler="/api/v1/feeds/arb/signals",status=~"2.."}[24h]) > 0
+          and
+          rate(http_requests_total{handler="/api/v1/feeds/arb/signals",status=~"2.."}[10m]) == 0
+        for: 5m
+        labels:
+          severity: ticket
+          component: feed_arb_subscriber
+          feed: arb
+        annotations:
+          summary: "Arb feed paid subscribers stopped polling"
+          description: |
+            /api/v1/feeds/arb/signals saw traffic in the last 24h but
+            zero requests in the last 10m. Either subscribers bailed,
+            we broke the API, or rate-limiter is blanket-rejecting.
+
+            Ship-launch note: this alert becomes meaningful only after
+            paid tier opens (G5 / week 11). Before then, the 24h gate
+            keeps it quiet — no polls → no alert.
+
+            Triage:
+              1. Is the route actually up?
+                   curl -s -o /dev/null -w '%{http_code}' \
+                     http://localhost:8080/api/v1/feeds/arb/signals
+                 401 is expected (auth gate); anything else is bad.
+              2. Are subscriber API keys still valid?
+                 Check identity_store for any scope=read:feeds.arb rows
+                 flipped to revoked in the last day.
+              3. Check rate-limiter metrics for sustained 429s.

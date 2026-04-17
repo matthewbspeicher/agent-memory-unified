@@ -124,22 +124,37 @@ FEED_ARB_PUBLIC_CACHE_MISSES_TOTAL = Counter(
     "Redis cache misses on /api/v1/feeds/arb/public (served from DB)",
 )
 
-# D3 attribution-stall SLI (spec §11). Gauge holds the unix timestamp of
-# the most recent feed_arb_pnl_rollup write; paired counter lets the
-# alert rule gate on "has ever written" so fresh deployments don't page
-# during the no-fills-yet window. Alert rule: attribution-stall.yml.
+# D3 attribution SLIs (spec §11). Three metrics, two purposes:
+#
+#   *_last_tick_ts_seconds (gauge, updated every tick whether or not a
+#    rollup is written) is the D3 alert source — it fires when the tick
+#    loop itself stops. Rollup writes are gated by the honest-tracker
+#    rule (no rollup on zero fills), so a quiet market correctly shows
+#    last_ts flat while last_tick keeps advancing.
+#
+#   *_last_ts_seconds (gauge) + *_writes_total (counter) remain for
+#    diagnostic panels — they answer "when did a rollup last land?" and
+#    "how many have we written?" without pretending stale values mean
+#    stall.
+FEED_ARB_PNL_ROLLUP_LAST_TICK_TS_SECONDS = Gauge(
+    "feed_arb_pnl_rollup_last_tick_ts_seconds",
+    "Unix timestamp of the most recent FeedArbPnLAttribution.tick() "
+    "completion. Updated on every tick, regardless of whether a rollup "
+    "was written. D3 alert source: if this falls >300s behind, the "
+    "attribution loop is genuinely stuck.",
+)
+
 FEED_ARB_PNL_ROLLUP_LAST_TS_SECONDS = Gauge(
     "feed_arb_pnl_rollup_last_ts_seconds",
-    "Unix timestamp of the most recent feed_arb_pnl_rollup write. "
-    "Paired with feed_arb_pnl_rollup_writes_total so the D3 alert rule "
-    "can gate on writes>0 and avoid false alarms during cold boot.",
+    "Unix timestamp of the most recent feed_arb_pnl_rollup row actually "
+    "written. Diagnostic — NOT alert-load-bearing. Stale values here "
+    "during quiet markets are correct (honest-tracker rule).",
 )
 
 FEED_ARB_PNL_ROLLUP_WRITES_TOTAL = Counter(
     "feed_arb_pnl_rollup_writes_total",
     "Total feed_arb_pnl_rollup rows written by FeedArbPnLAttribution. "
-    "Only increments when a tick has real fills — honest-tracker rule. "
-    "Used by the D3 alert to distinguish 'stalled' from 'never started'.",
+    "Only increments when a tick has real fills — honest-tracker rule.",
 )
 
 

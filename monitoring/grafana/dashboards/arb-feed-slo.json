@@ -1,0 +1,195 @@
+{
+  "__comment": "D5 — Public-endpoint SLO dashboard for the PM arb signal feed. Spec §11. Tracks latency (p50/p95/p99), cache hit ratio, and req/s for the two feed routes: /api/v1/feeds/arb/public (unauthed dashboard) and /api/v1/feeds/arb/signals (auth'd subscriber API). Auto-provisioned by monitoring/grafana/dashboards/dashboards.yml.",
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "title": "Request rate — feed routes",
+      "description": "Per-endpoint QPS on the two feed-arb routes. A drop on /signals during a paid window triggers FeedArbSubscriberChurn (D6). /public staying flat while /signals falls is expected during alpha.",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": { "lineInterpolation": "smooth", "fillOpacity": 10 }
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (handler) (rate(http_requests_total{handler=~\"/api/v1/feeds/arb/(public|signals)\"}[5m]))",
+          "legendFormat": "{{ handler }}"
+        }
+      ]
+    },
+    {
+      "title": "Latency p95 — feed routes",
+      "description": "95th-percentile request latency per endpoint. Spec §11 SLO: p95 < 250ms on /public (Redis cache TTL=10s), p95 < 500ms on /signals (DB-hit every call, no cache).",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "lineInterpolation": "smooth", "fillOpacity": 5 },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.25 },
+              { "color": "red", "value": 0.5 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (handler, le) (rate(http_request_duration_seconds_bucket{handler=~\"/api/v1/feeds/arb/(public|signals)\"}[5m])))",
+          "legendFormat": "p95 {{ handler }}"
+        }
+      ]
+    },
+    {
+      "title": "Latency p50 / p99 — /public",
+      "description": "Tail-latency view on the public dashboard route. p99 divergence from p95 suggests cache-miss bursts or DB contention.",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "fieldConfig": {
+        "defaults": { "unit": "s", "custom": { "lineInterpolation": "smooth" } }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(http_request_duration_seconds_bucket{handler=\"/api/v1/feeds/arb/public\"}[5m])))",
+          "legendFormat": "p50"
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{handler=\"/api/v1/feeds/arb/public\"}[5m])))",
+          "legendFormat": "p95"
+        },
+        {
+          "refId": "C",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(http_request_duration_seconds_bucket{handler=\"/api/v1/feeds/arb/public\"}[5m])))",
+          "legendFormat": "p99"
+        }
+      ]
+    },
+    {
+      "title": "Cache hit ratio — /public",
+      "description": "hits / (hits + misses) on the Redis-backed 10s-TTL cache. A sustained drop indicates Redis outages or TTL churn; the route falls back to DB and latency will spike (see panel above).",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 0.5 },
+              { "color": "green", "value": 0.85 }
+            ]
+          }
+        }
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "reduceOptions": { "calcs": ["lastNotNull"] }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(feed_arb_public_cache_hits_total[5m])) / (sum(rate(feed_arb_public_cache_hits_total[5m])) + sum(rate(feed_arb_public_cache_misses_total[5m])))"
+        }
+      ]
+    },
+    {
+      "title": "Cache hits vs misses — /public",
+      "description": "Raw rates for the cache counters.",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 8 },
+      "fieldConfig": {
+        "defaults": { "unit": "reqps", "custom": { "fillOpacity": 20, "lineInterpolation": "stepAfter" } }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(feed_arb_public_cache_hits_total[5m]))",
+          "legendFormat": "hits/s"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(rate(feed_arb_public_cache_misses_total[5m]))",
+          "legendFormat": "misses/s"
+        }
+      ]
+    },
+    {
+      "title": "Status-code mix — feed routes",
+      "description": "Per-status-class breakdown. A spike in 5xx means the route itself is failing; a spike in 4xx/429 means auth/rate-limit issues.",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "fieldConfig": {
+        "defaults": { "unit": "reqps", "custom": { "stacking": { "mode": "normal" } } }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (status) (rate(http_requests_total{handler=~\"/api/v1/feeds/arb/(public|signals)\"}[5m]))",
+          "legendFormat": "{{ status }}"
+        }
+      ]
+    },
+    {
+      "title": "Signals published + filled — rate",
+      "description": "Upstream health markers. If published rate is zero but dashboard traffic is live, D4 FeedArbPublisherZeroPublish should already be firing — cross-check there.",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "fieldConfig": {
+        "defaults": { "unit": "cps", "custom": { "lineInterpolation": "smooth", "fillOpacity": 10 } }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(feed_arb_signals_published_total[5m])",
+          "legendFormat": "published/s"
+        },
+        {
+          "refId": "B",
+          "expr": "rate(feed_arb_pnl_rollup_writes_total[5m])",
+          "legendFormat": "rollup_writes/s"
+        }
+      ]
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["feed-arb", "slo", "d5"],
+  "templating": { "list": [] },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Arb Feed — Public Endpoint SLO",
+  "uid": "feed-arb-slo",
+  "version": 1,
+  "weekStart": ""
+}

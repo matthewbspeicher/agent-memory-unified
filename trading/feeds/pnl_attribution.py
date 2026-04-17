@@ -175,6 +175,26 @@ class FeedArbPnLAttribution:
     async def tick(self) -> RollupAccumulator | None:
         """Run one attribution cycle. Returns the rollup row written
         (if any) so tests can assert on it."""
+        try:
+            return await self._tick_inner()
+        finally:
+            # Alive-signal gauge update — the D3 alert source. Runs on
+            # every tick completion (including exception paths and
+            # no-fills ticks) so a stale value unambiguously means the
+            # loop itself is stuck. Import late so this module stays
+            # importable in bare test contexts.
+            try:
+                from utils.metrics import (
+                    FEED_ARB_PNL_ROLLUP_LAST_TICK_TS_SECONDS,
+                )
+
+                FEED_ARB_PNL_ROLLUP_LAST_TICK_TS_SECONDS.set(
+                    self._clock().timestamp()
+                )
+            except Exception:
+                pass
+
+    async def _tick_inner(self) -> RollupAccumulator | None:
         now = self._clock()
 
         # 1. Mark expired signals as 'missed'. Runs unconditionally —

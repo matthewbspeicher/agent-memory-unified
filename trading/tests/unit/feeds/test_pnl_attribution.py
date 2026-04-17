@@ -858,10 +858,15 @@ class TestCollectPaperFills:
 
 
 class TestAttributionStallMetrics:
-    """The D3 Prometheus alert rule keys off two metrics emitted by
-    _write_rollup: `feed_arb_pnl_rollup_last_ts_seconds` (gauge) and
-    `feed_arb_pnl_rollup_writes_total` (counter). The alert is gated on
-    writes_total>0, so a fresh deploy with zero fills never pages."""
+    """Three metrics surface here:
+      - feed_arb_pnl_rollup_last_tick_ts_seconds (gauge, every tick) —
+        D3 alert source. Stays fresh even on quiet-market ticks that
+        write no rollup, so quiet markets don't false-alarm.
+      - feed_arb_pnl_rollup_last_ts_seconds (gauge, on rollup only) —
+        diagnostic.
+      - feed_arb_pnl_rollup_writes_total (counter, on rollup only) —
+        diagnostic.
+    """
 
     async def test_rollup_write_updates_gauge_and_counter(self, db):
         from utils.metrics import (
@@ -903,10 +908,10 @@ class TestAttributionStallMetrics:
         gauge_val = FEED_ARB_PNL_ROLLUP_LAST_TS_SECONDS._value.get()
         assert gauge_val == now.timestamp()
 
-    async def test_no_fills_no_metric_update(self, db):
-        """Honest-tracker contract: no fills → no rollup → counter does
-        NOT advance. The D3 alert's `writes_total > 0` gate relies on
-        this — a fresh deploy with zero fills should never page."""
+    async def test_no_fills_no_rollup_write(self, db):
+        """Honest-tracker contract: no fills → no rollup → writes
+        counter does NOT advance. Quiet markets are correct here —
+        the alert rule keys off the tick gauge (below), not this."""
         from utils.metrics import FEED_ARB_PNL_ROLLUP_WRITES_TOTAL
 
         now = datetime(2026, 4, 16, 12, 0, 0, tzinfo=timezone.utc)
@@ -918,3 +923,53 @@ class TestAttributionStallMetrics:
         assert result is None
         writes_after = FEED_ARB_PNL_ROLLUP_WRITES_TOTAL._value.get()
         assert writes_after == writes_before
+
+    async def test_tick_gauge_updates_even_on_no_fill_tick(self, db):
+        """The D3 alert fires on tick-gauge staleness. A quiet-market
+        tick (zero fills, no rollup written) must STILL advance the
+        tick gauge so the alert doesn't falsely page on quiet markets."""
+        from utils.metrics import FEED_ARB_PNL_ROLLUP_LAST_TICK_TS_SECONDS
+
+        now = datetime(2026, 4, 16, 12, 0, 0, tzinfo=timezone.utc)
+        job = FeedArbPnLAttribution(db=db, clock=lambda: now)
+        result = await job.tick()
+
+        # No fills → no rollup — but the tick gauge MUST advance.
+        assert result is None
+        assert (
+            FEED_ARB_PNL_ROLLUP_LAST_TICK_TS_SECONDS._value.get()
+            == now.timestamp()
+        )
+
+    async def test_tick_gauge_updates_on_tick_with_fills(self, db):
+        """Sanity check: the tick gauge also advances on a productive
+        tick that writes a rollup."""
+        from utils.metrics import FEED_ARB_PNL_ROLLUP_LAST_TICK_TS_SECONDS
+
+        now = datetime(2026, 4, 16, 13, 0, 0, tzinfo=timezone.utc)
+        signal_id = "01TICKFULL000000000000000A"
+        await _seed_signal(
+            db,
+            signal_id,
+            ts=now - timedelta(seconds=30),
+            expires_at=now + timedelta(minutes=5),
+            edge_cents=10.0,
+            max_size_usd=100.0,
+        )
+        await _seed_arb_trade_with_leg(
+            db,
+            trade_id="arb-tickfull-001",
+            signal_id=signal_id,
+            broker_id="kalshi_paper",
+            status="filled",
+            fill_price="1.0",
+            fill_quantity="50",
+            updated_at=now,
+        )
+        job = FeedArbPnLAttribution(db=db, clock=lambda: now)
+        await job.tick()
+
+        assert (
+            FEED_ARB_PNL_ROLLUP_LAST_TICK_TS_SECONDS._value.get()
+            == now.timestamp()
+        )
