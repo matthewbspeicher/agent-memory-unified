@@ -579,3 +579,274 @@ class TestScaledAndCumulative:
         # Each tick realizes 1.25; cumulative at t0 = 1.25, at t1 = 2.50
         assert Decimal(str(r0["cumulative_pnl_usd"])) == Decimal("1.25")
         assert Decimal(str(r1["cumulative_pnl_usd"])) == Decimal("2.50")
+
+
+# ---------------------------------------------------------------------------
+# Paper-fill collection (ArbExecutor paper_route=True path)
+# ---------------------------------------------------------------------------
+
+
+async def _seed_arb_trade_with_leg(
+    db,
+    *,
+    trade_id: str,
+    signal_id: str,
+    broker_id: str,
+    status: str,
+    fill_price: str,
+    fill_quantity: str,
+    updated_at: datetime,
+    ticker: str = "KXTEST",
+) -> None:
+    """Seed a minimal arb_trades + arb_legs pair matching what
+    ArbExecutor (paper_route=True) writes via ArbStore.save_trade +
+    update_leg_atomic. Used by _collect_paper_fills tests."""
+    import json as _json
+
+    # Match ArbStore.save_trade's production shape: naive-UTC datetime
+    # bound directly (sqlite3's default adapter stringifies it). Using
+    # isoformat() with tz suffix would make string comparison against
+    # sqlite3's naive-datetime stringification unstable across cursor
+    # windows.
+    ts_naive = (
+        updated_at.astimezone(timezone.utc).replace(tzinfo=None)
+        if updated_at.tzinfo is not None
+        else updated_at
+    )
+    await db.execute(
+        "INSERT INTO arb_trades "
+        "(id, symbol_a, symbol_b, expected_profit_bps, sequencing, state, "
+        " created_at, updated_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (trade_id, ticker, "0x" + "a" * 64, 10, "less_liquid_first",
+         "COMPLETE", ts_naive, ts_naive),
+    )
+    order_data = _json.dumps({
+        "signal_id": signal_id,
+        "symbol": {"ticker": ticker, "asset_type": "PREDICTION"},
+        "side": "BUY",
+        "quantity": fill_quantity,
+    })
+    await db.execute(
+        "INSERT INTO arb_legs "
+        "(trade_id, leg_name, broker_id, order_data, fill_price, "
+        " fill_quantity, status) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (trade_id, "leg_a", broker_id, order_data, fill_price,
+         fill_quantity, status),
+    )
+    await db.commit()
+
+
+class TestCollectPaperFills:
+    """The paper-route path doesn't go through live Kalshi/Polymarket
+    clients. `_collect_paper_fills` reads arb_legs directly, joined to
+    arb_trades for the timestamp, and extracts signal_id from
+    order_data. Watermark advances via _last_fill_cursor so later ticks
+    don't re-count earlier fills."""
+
+    async def test_filled_kalshi_paper_leg_is_picked_up(self, db):
+        now = datetime(2026, 4, 16, 12, 0, 0, tzinfo=timezone.utc)
+        await _seed_arb_trade_with_leg(
+            db,
+            trade_id="arb-paper-001",
+            signal_id="01PAPER000000000000000000K",
+            broker_id="kalshi_paper",
+            status="filled",
+            fill_price="0.15",
+            fill_quantity="1.0",
+            updated_at=now,
+        )
+
+        job = FeedArbPnLAttribution(db=db, clock=lambda: now)
+        fills = await job._collect_paper_fills()
+
+        assert len(fills) == 1
+        f = fills[0]
+        assert f.signal_id == "01PAPER000000000000000000K"
+        assert f.venue == "kalshi"
+        assert f.filled_qty == Decimal("1.0")
+        assert f.avg_price_usd == Decimal("0.15")
+
+    async def test_filled_polymarket_paper_leg_is_picked_up(self, db):
+        now = datetime(2026, 4, 16, 12, 0, 0, tzinfo=timezone.utc)
+        await _seed_arb_trade_with_leg(
+            db,
+            trade_id="arb-paper-002",
+            signal_id="01PAPER000000000000000000P",
+            broker_id="polymarket_paper",
+            status="filled",
+            fill_price="0.25",
+            fill_quantity="2.0",
+            updated_at=now,
+        )
+
+        job = FeedArbPnLAttribution(db=db, clock=lambda: now)
+        fills = await job._collect_paper_fills()
+
+        assert len(fills) == 1
+        assert fills[0].venue == "polymarket"
+
+    async def test_rejected_leg_is_skipped(self, db):
+        """Paper brokers emit status=REJECTED on invalid orders; those
+        must not be attributed."""
+        now = datetime(2026, 4, 16, 12, 0, 0, tzinfo=timezone.utc)
+        await _seed_arb_trade_with_leg(
+            db,
+            trade_id="arb-paper-rej",
+            signal_id="01REJECT0000000000000000AA",
+            broker_id="kalshi_paper",
+            status="REJECTED",
+            fill_price="0",
+            fill_quantity="0",
+            updated_at=now,
+        )
+
+        job = FeedArbPnLAttribution(db=db, clock=lambda: now)
+        fills = await job._collect_paper_fills()
+        assert fills == []
+
+    async def test_live_broker_leg_is_skipped(self, db):
+        """Only broker_ids matching kalshi_paper / polymarket_paper are
+        paper fills. Live-broker rows (if any ever co-exist) must be
+        routed through the venue-specific collectors, not here."""
+        now = datetime(2026, 4, 16, 12, 0, 0, tzinfo=timezone.utc)
+        await _seed_arb_trade_with_leg(
+            db,
+            trade_id="arb-live-001",
+            signal_id="01LIVE000000000000000000AA",
+            broker_id="kalshi",  # NOT kalshi_paper
+            status="filled",
+            fill_price="0.15",
+            fill_quantity="1.0",
+            updated_at=now,
+        )
+
+        job = FeedArbPnLAttribution(db=db, clock=lambda: now)
+        fills = await job._collect_paper_fills()
+        assert fills == []
+
+    async def test_missing_signal_id_in_order_data_is_skipped(self, db):
+        """Older ArbExecutor paths or hand-seeded trades may lack
+        signal_id in order_data. Skip rather than misattribute."""
+        import json as _json
+
+        now = datetime(2026, 4, 16, 12, 0, 0, tzinfo=timezone.utc)
+        ts_naive = now.replace(tzinfo=None)
+        await db.execute(
+            "INSERT INTO arb_trades "
+            "(id, symbol_a, symbol_b, expected_profit_bps, sequencing, "
+            " state, created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            ("arb-no-sig", "KXTEST", "0x" + "a" * 64, 10,
+             "less_liquid_first", "COMPLETE", ts_naive, ts_naive),
+        )
+        await db.execute(
+            "INSERT INTO arb_legs "
+            "(trade_id, leg_name, broker_id, order_data, fill_price, "
+            " fill_quantity, status) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            ("arb-no-sig", "leg_a", "kalshi_paper",
+             _json.dumps({"symbol": {"ticker": "KXTEST"}}),
+             "0.15", "1.0", "filled"),
+        )
+        await db.commit()
+
+        job = FeedArbPnLAttribution(db=db, clock=lambda: now)
+        fills = await job._collect_paper_fills()
+        assert fills == []
+
+    async def test_cursor_advances_to_latest_fill(self, db):
+        """After a successful collect, _last_fill_cursor should be at the
+        max updated_at we observed. Subsequent ticks with the same data
+        return zero new fills."""
+        t0 = datetime(2026, 4, 16, 12, 0, 0, tzinfo=timezone.utc)
+        await _seed_arb_trade_with_leg(
+            db,
+            trade_id="arb-cursor-001",
+            signal_id="01CURSOR00000000000000000A",
+            broker_id="kalshi_paper",
+            status="filled",
+            fill_price="0.20",
+            fill_quantity="1.0",
+            updated_at=t0,
+        )
+
+        job = FeedArbPnLAttribution(db=db, clock=lambda: t0)
+        first = await job._collect_paper_fills()
+        assert len(first) == 1
+        assert job._last_fill_cursor is not None
+
+        # Second call — cursor filters out the prior fill.
+        second = await job._collect_paper_fills()
+        assert second == []
+
+    async def test_new_fill_after_cursor_is_picked_up(self, db):
+        """A fill arriving after the cursor must be collected on the
+        next tick."""
+        t0 = datetime(2026, 4, 16, 12, 0, 0, tzinfo=timezone.utc)
+        t1 = t0 + timedelta(seconds=30)
+        await _seed_arb_trade_with_leg(
+            db,
+            trade_id="arb-cursor-002",
+            signal_id="01FIRST000000000000000000A",
+            broker_id="kalshi_paper",
+            status="filled",
+            fill_price="0.20",
+            fill_quantity="1.0",
+            updated_at=t0,
+        )
+
+        job = FeedArbPnLAttribution(db=db, clock=lambda: t0)
+        first = await job._collect_paper_fills()
+        assert len(first) == 1
+
+        # Now a new fill lands after the cursor.
+        await _seed_arb_trade_with_leg(
+            db,
+            trade_id="arb-cursor-003",
+            signal_id="01SECOND00000000000000000A",
+            broker_id="polymarket_paper",
+            status="filled",
+            fill_price="0.40",
+            fill_quantity="1.0",
+            updated_at=t1,
+        )
+        second = await job._collect_paper_fills()
+        assert len(second) == 1
+        assert second[0].signal_id == "01SECOND00000000000000000A"
+
+    async def test_paper_fills_integrate_through_tick(self, db):
+        """End-to-end: a paper fill on an active signal produces a
+        rollup row and flips outcome to 'filled'."""
+        now = datetime(2026, 4, 16, 12, 0, 0, tzinfo=timezone.utc)
+        signal_id = "01E2EPAPER00000000000000AA"
+
+        # Signal is active (expires in 5 min).
+        await _seed_signal(
+            db,
+            signal_id,
+            ts=now - timedelta(seconds=30),
+            expires_at=now + timedelta(minutes=5),
+            edge_cents=10.0,
+            max_size_usd=100.0,
+        )
+        # Paper fill arrives.
+        await _seed_arb_trade_with_leg(
+            db,
+            trade_id="arb-e2e-paper",
+            signal_id=signal_id,
+            broker_id="kalshi_paper",
+            status="filled",
+            fill_price="1.0",
+            fill_quantity="50",
+            updated_at=now,
+        )
+
+        job = FeedArbPnLAttribution(db=db, clock=lambda: now)
+        result = await job.tick()
+
+        assert result is not None
+        assert signal_id in result.filled_signal_ids
+        assert await _outcome(db, signal_id) == "filled"
+        assert await _rollup_count(db) == 1

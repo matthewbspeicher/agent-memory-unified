@@ -190,11 +190,16 @@ class FeedArbPnLAttribution:
                 data={"count": expired_count},
             )
 
-        # 2. Pull fills from both venues. When brokers are not configured
-        #    (paper/dev mode), the helpers return empty lists cleanly.
+        # 2. Pull fills from all sources. When live brokers aren't
+        #    configured (paper/dev mode), the venue-specific helpers
+        #    return empty lists cleanly. The paper path reads from
+        #    arb_legs directly (paper brokers don't expose a fill-history
+        #    API) and is the source of truth when ArbExecutor is running
+        #    with paper_route=True.
         kalshi_fills = await self._collect_kalshi_fills()
         poly_fills = await self._collect_polymarket_fills()
-        all_fills = kalshi_fills + poly_fills
+        paper_fills = await self._collect_paper_fills()
+        all_fills = kalshi_fills + poly_fills + paper_fills
 
         if not all_fills:
             # No fills this tick. Honest-tracker brand: do NOT write
@@ -449,6 +454,147 @@ class FeedArbPnLAttribution:
                     filled_at=filled_at,
                 )
             )
+        return fills
+
+    async def _collect_paper_fills(self) -> list[RealizedFill]:
+        """Pull filled paper-broker legs from arb_legs. Paper brokers
+        don't expose a fill-history API (unlike Kalshi/Polymarket live
+        clients), so we read directly from the coordinator's persistence
+        layer. arb_legs.order_data is the full order JSON; signal_id is
+        set by ArbExecutor at leg construction, so extraction is trivial.
+        Watermark is arb_trades.updated_at — set on every leg update via
+        ArbStore.update_leg_atomic, so it moves forward on each new fill
+        batch. _last_fill_cursor prevents re-counting the same fills on
+        the next tick.
+        """
+        cursor = self._last_fill_cursor
+        # Cast cursor to naive UTC for Postgres TIMESTAMP WITHOUT TIME
+        # ZONE columns (arb_trades.updated_at). SQLite accepts both.
+        cursor_param: Any = None
+        if cursor is not None:
+            cursor_param = (
+                cursor.replace(tzinfo=None) if cursor.tzinfo else cursor
+            )
+
+        # Explicit broker_id IN (...) instead of LIKE escape. SQLite's
+        # default LIKE doesn't escape underscores without an ESCAPE clause,
+        # which would make 'kalshi_paper' match 'kalshiXpaper' too. The
+        # paper-broker universe is small and stable, so enumerate.
+        # order_data is JSONB on Postgres; we pull it out as a dict/str
+        # and parse in Python for portability.
+        base_sql = (
+            "SELECT l.trade_id, l.leg_name, l.broker_id, l.order_data, "
+            "       l.fill_price, l.fill_quantity, t.updated_at AS ts "
+            "FROM arb_legs l "
+            "JOIN arb_trades t ON l.trade_id = t.id "
+            "WHERE l.status = 'filled' "
+            "  AND l.broker_id IN ('kalshi_paper', 'polymarket_paper') "
+        )
+        if cursor_param is not None:
+            sql = base_sql + "  AND t.updated_at > ? ORDER BY t.updated_at ASC"
+            params: tuple = (cursor_param,)
+        else:
+            sql = base_sql + "ORDER BY t.updated_at ASC"
+            params = ()
+
+        try:
+            if hasattr(self._db, "fetchall"):
+                rows = await self._db.fetchall(sql, params)
+            else:
+                cur = await self._db.execute(sql, params)
+                rows = await cur.fetchall()
+        except Exception as exc:
+            log_event(
+                logger,
+                logging.WARNING,
+                "error",
+                "FeedArbPnLAttribution: paper-fill fetch failed: %s" % exc,
+                data={
+                    "component": "feed_pnl_attribution",
+                    "venue": "paper",
+                    "exception_type": type(exc).__name__,
+                },
+            )
+            return []
+
+        fills: list[RealizedFill] = []
+        new_cursor = cursor
+        for r in rows or []:
+            # Support dict-row (Postgres shim) and sqlite3.Row / tuple.
+            def _g(key: str, idx: int) -> Any:
+                try:
+                    return r[key]
+                except Exception:
+                    try:
+                        return r[idx]
+                    except Exception:
+                        return None
+
+            order_data = _g("order_data", 3)
+            # order_data may be a dict (Postgres JSONB) or a string
+            # (SQLite). Normalize.
+            if isinstance(order_data, str):
+                try:
+                    order_data = json.loads(order_data)
+                except Exception:
+                    continue
+            if not isinstance(order_data, dict):
+                continue
+            signal_id = order_data.get("signal_id")
+            if not signal_id:
+                # ArbExecutor paths before the signal_id plumbing shipped
+                # won't have one — skip cleanly rather than misattribute.
+                continue
+
+            broker_id = str(_g("broker_id", 2) or "")
+            venue = "kalshi" if broker_id.startswith("kalshi") else "polymarket"
+            fill_price_raw = _g("fill_price", 4)
+            fill_qty_raw = _g("fill_quantity", 5)
+            ts_raw = _g("ts", 6)
+
+            try:
+                fill_price = Decimal(str(fill_price_raw or 0))
+                fill_qty = Decimal(str(fill_qty_raw or 0))
+            except Exception:
+                continue
+            if fill_qty <= 0:
+                continue
+
+            ts = _parse_iso(ts_raw) if not isinstance(ts_raw, datetime) else (
+                ts_raw if ts_raw.tzinfo else ts_raw.replace(tzinfo=timezone.utc)
+            )
+            if ts is None:
+                # No timestamp → can't advance the cursor. Skip rather
+                # than double-count on the next tick.
+                continue
+
+            ticker = (
+                (order_data.get("symbol") or {}).get("ticker")
+                if isinstance(order_data.get("symbol"), dict)
+                else order_data.get("symbol")
+            )
+            fills.append(
+                RealizedFill(
+                    signal_id=str(signal_id),
+                    venue=venue,
+                    ticker_or_token=str(ticker or ""),
+                    filled_qty=fill_qty,
+                    avg_price_usd=fill_price,
+                    # Paper brokers don't model fees; v1.1 can wire a
+                    # config-driven fee schedule here if desired.
+                    fees_usd=Decimal("0"),
+                    filled_at=ts,
+                )
+            )
+            if new_cursor is None or ts > new_cursor:
+                new_cursor = ts
+
+        # Advance cursor only on success — if the query crashed above we
+        # kept _last_fill_cursor at its prior value and will retry.
+        if new_cursor is not None and (
+            self._last_fill_cursor is None or new_cursor > self._last_fill_cursor
+        ):
+            self._last_fill_cursor = new_cursor
         return fills
 
     async def _lookup_signal_id(self, order_hash: str) -> str | None:
