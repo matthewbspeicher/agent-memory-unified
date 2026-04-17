@@ -205,3 +205,76 @@ class TestAgentStoreSeedFromYAML:
         await store.seed_from_yaml(yaml_agents)
         agent = await store.get("shadow_agent")
         assert agent["shadow_mode"] == True  # noqa: E712
+
+    async def test_seed_from_yaml_pauses_orphan_rows(self, store: AgentStore):
+        """Rows in the registry whose name is NOT in the current yaml
+        get marked status=paused. Covers the paper-vs-live yaml switch
+        where live-only agents leak into a paper-mode DB and the runner
+        log-spams 'no parameters.cron' every 60s for them.
+        """
+        # First seed: live-style yaml with a cron agent.
+        await store.seed_from_yaml(
+            [
+                {
+                    "name": "live_only",
+                    "strategy": "kalshi_calibration",
+                    "schedule": "cron",
+                    "cron": "0 */6 * * *",
+                }
+            ]
+        )
+        assert (await store.get("live_only"))["status"] == "active"
+
+        # Second seed: paper-style yaml that doesn't include live_only.
+        # The orphan sweep should pause it. staple_agent stays active.
+        await store.seed_from_yaml(
+            [{"name": "staple_agent", "strategy": "rsi", "interval": 60}]
+        )
+        assert (await store.get("live_only"))["status"] == "paused"
+        assert (await store.get("staple_agent"))["status"] == "active"
+
+    async def test_seed_from_yaml_does_not_pause_non_human_agents(
+        self, store: AgentStore
+    ):
+        """Evolution-spawned agents (created_by != 'human') must survive
+        the orphan sweep even though they're not in yaml. They're owned
+        by the evolution subsystem, not the yaml."""
+        # Create an evolution-spawned agent directly (not via yaml).
+        await store.create(
+            {
+                "name": "evolved_child",
+                "strategy": "rsi",
+                "schedule": "continuous",
+                "interval_or_cron": 60,
+                "universe": [],
+                "parameters": {},
+                "status": "active",
+                "trust_level": "monitored",
+                "runtime_overrides": {},
+                "shadow_mode": False,
+                "created_by": "evolution",
+                "parent_name": "rsi_v1",
+                "generation": 2,
+                "creation_context": {},
+            }
+        )
+        # Now seed a yaml that doesn't mention it.
+        await store.seed_from_yaml(
+            [{"name": "different_agent", "strategy": "rsi", "interval": 60}]
+        )
+        assert (await store.get("evolved_child"))["status"] == "active"
+
+    async def test_seed_from_yaml_skips_already_paused_on_orphan_sweep(
+        self, store: AgentStore
+    ):
+        """An agent already at status=paused or archived stays put —
+        the sweep is idempotent and doesn't flap those statuses."""
+        await store.seed_from_yaml(
+            [{"name": "old_agent", "strategy": "rsi", "interval": 60}]
+        )
+        await store.update("old_agent", {"status": "archived"})
+        # Re-seed without old_agent; sweep should skip archived rows.
+        await store.seed_from_yaml(
+            [{"name": "new_agent", "strategy": "rsi", "interval": 60}]
+        )
+        assert (await store.get("old_agent"))["status"] == "archived"

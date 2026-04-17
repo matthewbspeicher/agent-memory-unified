@@ -40,6 +40,7 @@ groups:
           component: feed_arb_attribution
           feed: arb
         annotations:
+          runbook_url: "https://github.com/remembr-dev/agent-memory-unified/blob/main/docs/runbooks/feed-arb-alerts.md#d3--feedarbattributionstall"
           summary: "Arb feed attribution tick loop has stalled"
           description: |
             FeedArbPnLAttribution.tick() hasn't completed in the last
@@ -86,6 +87,7 @@ groups:
           component: feed_arb_publisher
           feed: arb
         annotations:
+          runbook_url: "https://github.com/remembr-dev/agent-memory-unified/blob/main/docs/runbooks/feed-arb-alerts.md#d4a--feedarbpublisherdroppedsignalselevated"
           summary: "Arb feed publisher dropping signals ({{ $labels.reason }})"
           description: |
             feed_arb_signals_dropped_total{reason={{ $labels.reason }}} is
@@ -123,6 +125,7 @@ groups:
           component: feed_arb_publisher
           feed: arb
         annotations:
+          runbook_url: "https://github.com/remembr-dev/agent-memory-unified/blob/main/docs/runbooks/feed-arb-alerts.md#d4b--feedarbpublisherzeropublish"
           summary: "Arb feed publisher has published nothing in 2h"
           description: |
             feed_arb_signals_published_total hasn't moved in 2h despite
@@ -169,6 +172,7 @@ groups:
           component: feed_arb_subscriber
           feed: arb
         annotations:
+          runbook_url: "https://github.com/remembr-dev/agent-memory-unified/blob/main/docs/runbooks/feed-arb-alerts.md#d6--feedarbsubscriberchurn"
           summary: "Arb feed paid subscribers stopped polling"
           description: |
             /api/v1/feeds/arb/signals saw traffic in the last 24h but

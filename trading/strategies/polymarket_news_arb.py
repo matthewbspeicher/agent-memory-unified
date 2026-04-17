@@ -229,7 +229,10 @@ class PolymarketNewsArbAgent(StructuredAgent):
         import httpx
         import xml.etree.ElementTree as ET
 
-        async with httpx.AsyncClient() as client:
+        # follow_redirects=True matches the kalshi_news_arb sibling agent
+        # — BBC/Reuters/etc. frequently 302 http → https, and the default
+        # httpx client treats that as failure and drops the feed silently.
+        async with httpx.AsyncClient(follow_redirects=True) as client:
             for feed in self.rss_feeds:
                 try:
                     resp = await client.get(feed, timeout=5.0)

@@ -121,6 +121,12 @@ class AgentRunner:
         self._poll_task: asyncio.Task | None = None
         # Snapshot of registry configs for change detection (warm-restart)
         self._registry_configs: dict[str, dict] = {}
+        # Tracks names we've already logged the "missing parameters.cron"
+        # warning for. The reconcile loop runs every ~60s, so without
+        # this the warning spams the logs for orphan rows until someone
+        # notices and pauses them. With it, each orphan gets exactly one
+        # WARNING on first sighting; subsequent sightings demote to DEBUG.
+        self._missing_cron_logged: set[str] = set()
         self._scan_semaphore = asyncio.Semaphore(max_concurrent_scans)
         self._default_scan_timeout = default_scan_timeout
 
@@ -656,10 +662,22 @@ class AgentRunner:
                 _params = entry.get("parameters") or {}
                 _cron_expr = _params.get("cron") if schedule == "cron" else None
                 if schedule == "cron" and not _cron_expr:
-                    logger.warning(
-                        "Registry entry for '%s' has schedule=cron but no parameters.cron; skipping registry-driven start (yaml seed path still works)",
-                        name,
-                    )
+                    if name not in self._missing_cron_logged:
+                        logger.warning(
+                            "Registry entry for '%s' has schedule=cron but no "
+                            "parameters.cron; skipping registry-driven start. "
+                            "If this agent isn't in the current yaml, the "
+                            "seed path should have paused it. If it IS in "
+                            "yaml, the cron field is likely at the wrong "
+                            "nesting level.",
+                            name,
+                        )
+                        self._missing_cron_logged.add(name)
+                    else:
+                        logger.debug(
+                            "Registry entry for '%s' still missing parameters.cron",
+                            name,
+                        )
                     continue
 
                 agent_config = AgentConfig(

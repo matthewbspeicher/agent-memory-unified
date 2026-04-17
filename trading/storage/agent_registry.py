@@ -262,7 +262,15 @@ class AgentStore:
 
         This is called once on first boot when the table is empty.
         After seeding, the database becomes the authoritative source.
+
+        Also reconciles orphan rows: any existing registry entry whose
+        name isn't in the current YAML gets marked `status='paused'`.
+        Without this pass, agents defined in an old yaml (e.g. agents.yaml
+        for live mode) persist in the DB when paper mode boots from
+        agents.paper.yaml, and the reconcile loop log-spams "no
+        parameters.cron" every 60s for entries nobody intends to run.
         """
+        yaml_names = {a.get("name") for a in yaml_agents if a.get("name")}
         count = 0
         for agent in yaml_agents:
             name = agent.get("name")
@@ -317,6 +325,34 @@ class AgentStore:
             }
             await self.create({"name": name, **entry})
             count += 1
+
+        # Orphan sweep — pause registry rows whose name is NOT in the
+        # yaml we just seeded. Skips agents with a non-human created_by
+        # (evolution spawns) and agents already paused/archived so this
+        # doesn't churn. Idempotent: re-seeding the same yaml reconciles
+        # the same set each boot.
+        paused = 0
+        try:
+            all_rows = await self.list_all()
+            for row in all_rows:
+                row_name = row.get("name")
+                if not row_name or row_name in yaml_names:
+                    continue
+                if row.get("created_by") != "human":
+                    continue
+                if row.get("status") in ("paused", "archived"):
+                    continue
+                await self.update(row_name, {"status": "paused"})
+                paused += 1
+            if paused > 0:
+                logger.info(
+                    "Paused %d orphan agent_registry row(s) not present in YAML",
+                    paused,
+                )
+        except Exception as exc:
+            # Don't let the orphan sweep break the boot — it's a
+            # housekeeping pass, not load-bearing.
+            logger.warning("Orphan sweep failed (non-fatal): %s", exc)
 
         if count > 0:
             logger.info(f"Seeded {count} agents from YAML into agent_registry")

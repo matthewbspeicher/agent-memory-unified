@@ -34,8 +34,13 @@ agents:
     trust_level: autonomous
     parameters:
       categories: ["economics", "climate"]
-      threshold_cents: 8
-      min_confidence: 45
+      # Loosened from 8¢/45-conf → 5¢/30-conf on 2026-04-16 after 24h
+      # of zero-output scans with 15 headlines per tick. Paper-mode is
+      # learning-friendly: we want observed fills to tune the filter
+      # off, not pre-emptive tight filters that see nothing. Ratchet
+      # back up when signal quality is validated post-compliance.
+      threshold_cents: 5
+      min_confidence: 30
       max_markets_per_scan: 20
       rss_feeds:
         - http://feeds.bbci.co.uk/news/world/rss.xml
@@ -53,8 +58,9 @@ agents:
     trust_level: autonomous
     parameters:
       tags: ["politics", "crypto"]
-      threshold_cents: 8
-      min_confidence: 45
+      # Same loosening as kalshi_news_arb — see note there.
+      threshold_cents: 5
+      min_confidence: 30
       max_markets_per_scan: 20
       rss_feeds:
         - http://feeds.bbci.co.uk/news/world/rss.xml
