@@ -133,10 +133,12 @@ def _ensure_strategies_registered() -> None:
     from strategies.kalshi_calibration import KalshiCalibrationAgent
     from strategies.exit_monitor import ExitMonitorAgent
     from strategies.react_analyst import ReactAnalystAgent
+    from strategies.debate_analyst import DebateAnalystAgent
 
     register_strategy("rsi", RSIAgent)
     register_strategy("volume_spike", VolumeSpikeAgent)
     register_strategy("llm", LLMAnalystAgent)
+    register_strategy("debate_analyst", DebateAnalystAgent)
     register_strategy("position_monitor", PositionMonitorAgent)
     register_strategy("tax_loss", TaxLossHarvestingAgent)
     register_strategy("kalshi_news_arb", KalshiNewsArbAgent)

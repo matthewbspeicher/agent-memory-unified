@@ -191,18 +191,14 @@ async def test_deep_reflection_triggered_when_pnl_exceeds_multiplier(memory_clie
         deep_reflection_loss_multiplier=1.5,
     )
     mock_llm_client = AsyncMock()
-    mock_llm_client.complete = AsyncMock(
-        return_value=MagicMock(
-            text=(
-                "What happened: AAPL surged on earnings beat.\n"
-                "What triggered the signal: RSI breakout above 70.\n"
-                "What worked: Momentum entry timed well.\n"
-                "What I would do differently: N/A\n"
-                "Market conditions at entry: Bullish, tech sector strong.\n"
-                "Key lesson: Momentum works on earnings beats.\n"
-                "Market observation: AAPL tends to run +3% on earnings beat days."
-            )
-        )
+    mock_llm_client.structured_complete = AsyncMock(
+        return_value={
+            "belief": "RSI breakout would continue higher.",
+            "feature": "Higher-timeframe trend alignment",
+            "lesson": "When RSI breaks 70 with HTF uptrend, prefer full-size entry.",
+            "category": "feature",
+            "market_observation": "AAPL tends to run +3% on earnings beat days.",
+        }
     )
     reflector._llm = mock_llm_client
 
@@ -218,6 +214,13 @@ async def test_deep_reflection_triggered_when_pnl_exceeds_multiplier(memory_clie
     # lightweight + deep narrative + shared observation = 3 store calls
     assert memory_client.store_private.await_count == 2
     assert memory_client.store_shared.await_count == 1
+    # Tags on the deep-reflection private write must include the category
+    deep_call = memory_client.store_private.call_args_list[1]
+    assert "deep_reflection" in deep_call.kwargs["tags"]
+    assert "feature" in deep_call.kwargs["tags"]
+    payload = json.loads(deep_call.kwargs["content"])
+    assert payload["category"] == "feature"
+    assert payload["surprise_ratio"] > 0  # 15 vs 6 expected is a big surprise
 
 
 @pytest.mark.asyncio
@@ -228,18 +231,14 @@ async def test_deep_reflection_triggered_on_large_loss(memory_client):
         deep_reflection_loss_multiplier=1.5,
     )
     mock_llm_client = AsyncMock()
-    mock_llm_client.complete = AsyncMock(
-        return_value=MagicMock(
-            text=(
-                "What happened: Stop blew through.\n"
-                "What triggered the signal: Volume spike misread.\n"
-                "What worked: N/A\n"
-                "What I would do differently: Tighten stop earlier.\n"
-                "Market conditions at entry: High volatility day.\n"
-                "Key lesson: Wider stops in volatile regimes.\n"
-                "Market observation: none"
-            )
-        )
+    mock_llm_client.structured_complete = AsyncMock(
+        return_value={
+            "belief": "Volume spike meant continuation.",
+            "feature": "Regime volatility at entry",
+            "lesson": "When intraday vol > 2x 20d avg, prefer wider stops.",
+            "category": "risk",
+            "market_observation": "",
+        }
     )
     reflector._llm = mock_llm_client
 
@@ -252,9 +251,59 @@ async def test_deep_reflection_triggered_on_large_loss(memory_client):
 
     await reflector.reflect(trade, "test_agent")
 
-    # lightweight + deep narrative; "none" observation → NOT stored to shared
+    # lightweight + deep narrative; empty observation → NOT stored to shared
     assert memory_client.store_private.await_count == 2
     assert memory_client.store_shared.await_count == 0
+
+
+@pytest.mark.asyncio
+async def test_deep_reflection_handles_null_structured_output(memory_client):
+    """LLM returning None (all providers failed) must not crash or write."""
+    reflector = TradeReflector(
+        memory_client=memory_client,
+        deep_reflection_loss_multiplier=1.5,
+    )
+    mock_llm_client = AsyncMock()
+    mock_llm_client.structured_complete = AsyncMock(return_value=None)
+    reflector._llm = mock_llm_client
+
+    trade = make_closed_trade(
+        pnl=Decimal("15.00"),
+        expected_pnl=Decimal("6.00"),
+        stop_loss=Decimal("-4.00"),
+        outcome="win",
+    )
+
+    await reflector.reflect(trade, "test_agent")
+
+    # Lightweight write happened; deep-reflection write did NOT.
+    assert memory_client.store_private.await_count == 1
+    assert memory_client.store_shared.await_count == 0
+
+
+@pytest.mark.asyncio
+async def test_deep_reflection_swallows_llm_exception(memory_client):
+    """LLM raising must be caught — the close flow must not fail."""
+    reflector = TradeReflector(
+        memory_client=memory_client,
+        deep_reflection_loss_multiplier=1.5,
+    )
+    mock_llm_client = AsyncMock()
+    mock_llm_client.structured_complete = AsyncMock(
+        side_effect=RuntimeError("upstream timeout")
+    )
+    reflector._llm = mock_llm_client
+
+    trade = make_closed_trade(
+        pnl=Decimal("15.00"),
+        expected_pnl=Decimal("6.00"),
+        stop_loss=Decimal("-4.00"),
+        outcome="win",
+    )
+
+    # Must not raise.
+    await reflector.reflect(trade, "test_agent")
+    assert memory_client.store_private.await_count == 1
 
 
 @pytest.mark.asyncio
