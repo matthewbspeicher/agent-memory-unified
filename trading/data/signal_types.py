@@ -171,6 +171,27 @@ class SentimentSpikePayload(SignalPayload):
     source: str = ""
 
 
+class IntelSentimentPayload(SignalPayload):
+    """Payload for `signal_type="intel_sentiment"`.
+
+    Emitted by the IntelligenceLayer whenever the SentimentProvider produces
+    a fresh aggregate score for a symbol.  Distinct from `sentiment_spike`
+    (which is a social-only burst event); this is the normalized aggregate
+    of Fear & Greed + LunarCrush + Alpha Vantage AI sentiment.
+
+    Consumers (e.g. persona agents, bittensor_alpha_ensemble's
+    `intel_weights.sentiment`) read the latest published payload for an
+    asset via `Agent.consume_sentiment(symbol)`.  See ADR-0011.
+    """
+
+    symbol: str
+    score: float = Field(ge=-1.0, le=1.0)
+    confidence: float = Field(ge=0.0, le=1.0)
+    sources: dict = Field(
+        default_factory=dict
+    )  # provider-specific raw values (fear_greed_value, lunarcrush_galaxy_score, …)
+
+
 class SpreadConvergencePayload(SignalPayload):
     """Payload for `signal_type="spread_convergence"`.
 
@@ -269,5 +290,6 @@ registry.register("news_event", NewsEventPayload)
 registry.register("volume_anomaly", VolumeAnomalyPayload)
 registry.register("price_dislocation", PriceDislocationPayload)
 registry.register("sentiment_spike", SentimentSpikePayload)
+registry.register("intel_sentiment", IntelSentimentPayload)
 registry.register("spread_convergence", SpreadConvergencePayload)
 registry.register("close", CloseSignalPayload)

@@ -60,7 +60,11 @@ def _make_agent_info(
     info.name = name
     info.description = description
     info.status = status
-    info.last_run = last_run or datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    # Honour explicit None — caller may want to test the "never ran" branch.
+    if last_run is None:
+        info.last_run = None
+    else:
+        info.last_run = last_run
     info.error_count = error_count
     return info
 
@@ -392,13 +396,15 @@ class TestGetRegime:
 
     @pytest.mark.asyncio
     async def test_exception_in_current_state_returns_error(self):
-        regime = MagicMock()
-        regime.__class__ = type(regime)
+        # MagicMock can't model a raising property descriptor reliably —
+        # use a real class with @property so attribute access actually
+        # invokes the raise.
+        class _RegimeStub:
+            @property
+            def current_state(self):
+                raise RuntimeError("state unavailable")
 
-        def _raise_current(self):
-            raise RuntimeError("state unavailable")
-
-        type(regime).current_state = _raise_current
+        regime = _RegimeStub()
         server = create_mcp_server(regime_manager=regime)
         tool_fn = server._tool_manager._tools["get_regime"].fn
 

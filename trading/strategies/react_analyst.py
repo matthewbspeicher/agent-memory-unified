@@ -184,8 +184,12 @@ Respond with JSON:
 
         if self._llm_client:
             self.increment_llm_call_count()
+            # Layer persona (config.system_prompt, if set) on top of the
+            # JSON-only directive so YAML-configured personas (Buffett,
+            # Graham, etc.) actually influence action selection.
+            persona = (self.system_prompt + "\n\n") if self.system_prompt else ""
             result = await self._llm_client.chat(
-                system="You are a trading analyst. Respond with valid JSON only.",
+                system=f"{persona}You are a trading analyst. Respond with valid JSON only.",
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=200,
             )
@@ -269,8 +273,10 @@ Only generate if confidence >= {confidence_threshold} and signal is clear."""
             return None
 
         self.increment_llm_call_count()
+        # Same persona-layer pattern as _generate_action above.
+        persona = (self.system_prompt + "\n\n") if self.system_prompt else ""
         result = await self._llm_client.chat(
-            system="You are a trading analyst. Respond with valid JSON only.",
+            system=f"{persona}You are a trading analyst. Respond with valid JSON only.",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=300,
         )

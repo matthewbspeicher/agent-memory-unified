@@ -2328,6 +2328,7 @@ async def lifespan(app: FastAPI):
             agent_runner=runner,
             broker=broker,
             regime_manager=getattr(regime_filter, "_regime_manager", None),
+            app_state=app.state,
         )
         mcp_app = mcp.http_app(path="/mcp")
         app.mount("/mcp", mcp_app)

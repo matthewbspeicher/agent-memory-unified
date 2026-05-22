@@ -210,6 +210,18 @@ class IntelligenceLayer:
                 else:
                     reports.append(result)
 
+        # Publish per-provider topics (currently sentiment only) regardless of
+        # whether another provider vetoed the enrichment.  Downstream consumers
+        # (persona agents, bittensor_alpha) should still see fresh sentiment
+        # even when a separate on-chain/risk veto fires.  See ADR-0011.
+        for result in results:
+            if (
+                isinstance(result, IntelReport)
+                and not result.veto
+                and result.source == "sentiment"
+            ):
+                await self._publish_sentiment(result)
+
         if vetoes:
             if len(vetoes) > 1:
                 logger.warning(
@@ -219,6 +231,30 @@ class IntelligenceLayer:
             return vetoes
 
         return reports
+
+    async def _publish_sentiment(self, report: IntelReport) -> None:
+        """Publish a normalized `intel_sentiment` signal for downstream
+        consumers.  Validated against `IntelSentimentPayload` in
+        `data/signal_types.py`.
+        """
+        try:
+            signal = AgentSignal(
+                source_agent="intelligence_layer",
+                signal_type="intel_sentiment",
+                payload={
+                    "symbol": report.symbol,
+                    "score": float(report.score),
+                    "confidence": float(report.confidence),
+                    "sources": report.details,
+                },
+                expires_at=datetime.now(timezone.utc) + timedelta(minutes=15),
+            )
+            await self.signal_bus.publish(signal)
+        except Exception as exc:
+            # Best-effort: never break enrichment because the topic failed.
+            logger.warning(
+                "Failed to publish intel_sentiment for %s: %s", report.symbol, exc
+            )
 
     async def _publish_enriched(
         self,

@@ -154,13 +154,30 @@ class LLMAnalystAgent(LLMAgent):
 
     async def _build_market_summary(self, data: DataBus, symbols: list[Symbol]) -> str:
         lines = []
+        # Optional sentiment overlay (ADR-0011).  Personas opt in via
+        # ``parameters.consume_sentiment: true``.  No-op for symbols
+        # without a fresh intel_sentiment topic entry.
+        params = self._config.parameters or {}
+        consume_sent = bool(params.get("consume_sentiment", False))
+        max_age = int(params.get("sentiment_max_age_seconds", 600))
         for symbol in symbols:
             try:
                 quote = await data.get_quote(symbol)
                 rsi = await data.get_rsi(symbol, 14)
-                lines.append(
-                    f"{symbol.ticker}: last={quote.last}, RSI(14)={rsi:.1f}, vol={quote.volume:,}"
+                line = (
+                    f"{symbol.ticker}: last={quote.last}, RSI(14)={rsi:.1f}, "
+                    f"vol={quote.volume:,}"
                 )
+                if consume_sent:
+                    sentiment = self.consume_sentiment(
+                        symbol.ticker, max_age_seconds=max_age
+                    )
+                    if sentiment:
+                        line += (
+                            f", sentiment_score={sentiment['score']:+.2f}"
+                            f" (conf {sentiment['confidence']:.0%})"
+                        )
+                lines.append(line)
             except Exception:
                 continue
         return "\n".join(lines)

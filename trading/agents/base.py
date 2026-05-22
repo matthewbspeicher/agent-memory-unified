@@ -1,5 +1,6 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
 from agents.models import ActionLevel, AgentConfig, Opportunity
@@ -80,6 +81,38 @@ class Agent(ABC):
                 f"Agent {self.name} exceeded max LLM calls per scan "
                 f"({self._llm_call_count} > {self._config.max_calls_per_scan})"
             )
+
+    def consume_sentiment(
+        self,
+        symbol: str,
+        max_age_seconds: int = 300,
+    ) -> dict | None:
+        """Return the freshest `intel_sentiment` payload for *symbol*, or None.
+
+        Reads the normalized sentiment topic published by the IntelligenceLayer
+        (see ADR-0011 and `intelligence.layer._publish_sentiment`).  Returns
+        ``None`` when:
+
+        - No SignalBus is attached (test contexts, isolated invocations).
+        - No `intel_sentiment` signal has been published for *symbol*.
+        - The freshest matching signal is older than *max_age_seconds*.
+
+        Payload shape: ``{"symbol", "score" (-1..1), "confidence" (0..1),
+        "sources": {provider_specific_raw_values}}``.
+        """
+        if self.signal_bus is None:
+            return None
+        signals = self.signal_bus.query(signal_type="intel_sentiment")
+        if not signals:
+            return None
+        matching = [s for s in signals if s.payload.get("symbol") == symbol]
+        if not matching:
+            return None
+        newest = max(matching, key=lambda s: s.timestamp)
+        age = (datetime.now(timezone.utc) - newest.timestamp).total_seconds()
+        if age > max_age_seconds:
+            return None
+        return newest.payload
 
 
 class StructuredAgent(Agent):
