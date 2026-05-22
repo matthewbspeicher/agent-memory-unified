@@ -1,5 +1,6 @@
 # agents/config.py
 from __future__ import annotations
+import importlib
 import logging
 from collections.abc import Callable
 from typing import Any, Literal
@@ -11,6 +12,51 @@ from agents.models import ActionLevel, AgentConfig, TrustLevel
 from storage.agent_registry import AgentStore
 
 logger = logging.getLogger(__name__)
+
+
+_PROMPT_MODULE_PREFIX = "module:"
+
+
+def _resolve_prompt_reference(value: str | None) -> str | None:
+    """Resolve a ``module:`` sentinel in a YAML ``system_prompt`` field.
+
+    If *value* starts with ``module:``, the remainder must be a
+    ``dotted.module:CONSTANT_NAME`` reference (e.g.
+    ``strategies.prompts.personas:BUFFETT_VALUE``).  The referenced
+    constant is imported and returned as a string.  Other values pass
+    through unchanged.
+
+    Raises ValueError on malformed references or missing attributes —
+    the loader surfaces this as an invalid-config error, so typos in
+    YAML fail fast at startup instead of at first scan.
+    """
+    if value is None or not value.startswith(_PROMPT_MODULE_PREFIX):
+        return value
+    spec = value[len(_PROMPT_MODULE_PREFIX) :].strip()
+    if ":" not in spec:
+        raise ValueError(
+            f"system_prompt module reference {value!r} must be "
+            f"'module:dotted.module:CONSTANT_NAME'"
+        )
+    module_path, const_name = spec.split(":", 1)
+    try:
+        module = importlib.import_module(module_path)
+    except ImportError as exc:
+        raise ValueError(
+            f"system_prompt references unknown module {module_path!r}: {exc}"
+        ) from exc
+    if not hasattr(module, const_name):
+        raise ValueError(
+            f"module {module_path!r} has no attribute {const_name!r} "
+            f"(referenced by system_prompt={value!r})"
+        )
+    resolved = getattr(module, const_name)
+    if not isinstance(resolved, str):
+        raise ValueError(
+            f"{module_path}:{const_name} resolved to {type(resolved).__name__}, "
+            "expected str"
+        )
+    return resolved
 
 # Strategy registry — maps strategy names to classes or factory callables
 _STRATEGY_REGISTRY: dict[str, type[Agent] | Callable[[AgentConfig], Agent]] = {}
@@ -134,11 +180,13 @@ def _ensure_strategies_registered() -> None:
     from strategies.exit_monitor import ExitMonitorAgent
     from strategies.react_analyst import ReactAnalystAgent
     from strategies.debate_analyst import DebateAnalystAgent
+    from strategies.persona_panel import PersonaPanelAgent
 
     register_strategy("rsi", RSIAgent)
     register_strategy("volume_spike", VolumeSpikeAgent)
     register_strategy("llm", LLMAnalystAgent)
     register_strategy("debate_analyst", DebateAnalystAgent)
+    register_strategy("persona_panel", PersonaPanelAgent)
     register_strategy("position_monitor", PositionMonitorAgent)
     register_strategy("tax_loss", TaxLossHarvestingAgent)
     register_strategy("kalshi_news_arb", KalshiNewsArbAgent)
@@ -249,7 +297,7 @@ def load_agents_config(
             universe=entry.universe,
             parameters=entry.parameters,
             model=entry.model,
-            system_prompt=entry.system_prompt,
+            system_prompt=_resolve_prompt_reference(entry.system_prompt),
             tools=entry.tools,
             trust_level=TrustLevel(entry.trust_level),
             remembr_api_token=entry.remembr_api_token,

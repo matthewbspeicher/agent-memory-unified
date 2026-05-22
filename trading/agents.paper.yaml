@@ -165,10 +165,11 @@ agents:
   # -------------------------------------------------------------------------
   # Investor-persona LLM agents (paper-only per ADR-0010).
   #
-  # Six divergent value-investor lenses, each layered on top of llm_analyst's
-  # base market-summary prompt via system_prompt.  Opt in to the intel_sentiment
-  # SignalBus topic (ADR-0011) via parameters.consume_sentiment.  Schedules are
-  # widely-spaced (4h-24h) because these are long-horizon analyses, not tick
+  # Six divergent value-investor lenses.  System prompts live in
+  # trading/strategies/prompts/personas.py and are referenced via the
+  # "module:" sentinel (resolved by agents/config._resolve_prompt_reference).
+  # Opt in to the intel_sentiment topic (ADR-0011) via consume_sentiment.
+  # Schedules are widely-spaced — these are long-horizon analyses, not tick
   # responders, and the LLM bill matters.
   #
   # Promotion to live (agents.yaml) is gated by ADR-0010.
@@ -177,21 +178,12 @@ agents:
   - name: buffett_value
     strategy: llm
     schedule: cron
-    cron: "30 13 * * 1-5"   # 13:30 UTC = ~08:30 ET (Tue-Sat post-close cycle ok with cron weekdays)
+    cron: "30 13 * * 1-5"   # 13:30 UTC = ~08:30 ET
     action_level: notify
     trust_level: monitored
     model: claude-sonnet-4-6
     universe: ["AAPL", "MSFT", "GOOGL", "BRK.B", "KO", "AXP", "MCO", "OXY", "CVX"]
-    system_prompt: |
-      You are Warren Buffett. Apply long-horizon value investing.
-      Look for businesses with durable competitive moats, owner-earnings
-      power, and predictable free-cash-flow generation. Prefer ROIC above
-      the cost of capital sustained over a decade. Avoid: high leverage,
-      capital-intensive commodity producers without scale advantage, and
-      anything you do not understand. A great business at a fair price
-      beats a fair business at a great price. Only flag opportunities when
-      a 5-10 year holding period looks attractive at the current quote.
-      Be patient. Confidence below 0.7 means "wait."
+    system_prompt: "module:strategies.prompts.personas:BUFFETT_VALUE"
     parameters:
       consume_sentiment: true
       sentiment_max_age_seconds: 900
@@ -199,40 +191,24 @@ agents:
   - name: graham_deep_value
     strategy: llm
     schedule: cron
-    cron: "0 14 * * 1-5"   # 14:00 UTC daily weekdays
+    cron: "0 14 * * 1-5"
     action_level: notify
     trust_level: monitored
     model: claude-sonnet-4-6
     universe: ["F", "GM", "HPQ", "DELL", "WBA", "PFE", "BMY", "VZ", "T", "INTC"]
-    system_prompt: |
-      You are Benjamin Graham. Apply the deep-value/margin-of-safety
-      discipline. Calculate net-net working capital (NCAV) where possible.
-      Prefer P/B below 1.0, P/E below 15, dividends paid for 10+ years,
-      and current ratio above 2.0. Treat short-term price action as noise;
-      Mr. Market is irrational and your job is to wait for his price to
-      dislocate from intrinsic value. Reject growth stories without
-      tangible asset backing. Confidence reflects margin of safety —
-      below 0.6 means insufficient.
+    system_prompt: "module:strategies.prompts.personas:GRAHAM_DEEP_VALUE"
     parameters:
       consume_sentiment: false   # Graham distrusts sentiment
 
   - name: lynch_growth
     strategy: llm
     schedule: cron
-    cron: "0 15 * * 1-5"   # 15:00 UTC daily weekdays
+    cron: "0 15 * * 1-5"
     action_level: notify
     trust_level: monitored
     model: claude-sonnet-4-6
     universe: ["NVDA", "META", "TSLA", "AMD", "CRWD", "PLTR", "SHOP", "AVGO", "ANET", "CRM"]
-    system_prompt: |
-      You are Peter Lynch. Look for "ten-baggers" — category leaders
-      growing earnings at 15-25% annually with PEG below 1.0, that you
-      can describe in two sentences. Favor stalwarts and fast-growers in
-      industries you understand. Avoid: turnarounds without insider
-      buying, diworsification stories, hot tips. The story matters: what
-      is this company doing that the market underestimates? Recent
-      revenue acceleration with stable margins is the strongest signal.
-      Confidence below 0.65 means the story is unclear.
+    system_prompt: "module:strategies.prompts.personas:LYNCH_GROWTH"
     parameters:
       consume_sentiment: true
       sentiment_max_age_seconds: 600
@@ -240,42 +216,24 @@ agents:
   - name: munger_quality
     strategy: llm
     schedule: cron
-    cron: "0 16 * * 1-5"   # 16:00 UTC daily weekdays
+    cron: "0 16 * * 1-5"
     action_level: notify
     trust_level: monitored
     model: claude-sonnet-4-6
     universe: ["BRK.B", "COST", "V", "MA", "ASML", "TSM", "ADBE", "GOOGL", "MSFT", "MCO"]
-    system_prompt: |
-      You are Charlie Munger. Invert: what would make this investment
-      fail? Apply mental models from multiple disciplines — psychology
-      (incentive bias), microeconomics (durable moats), and accounting
-      (cash conversion). Demand a high-quality business: returns on
-      tangible capital above 20% sustained, capital allocators with
-      skin in the game, and a customer-side moat (network, switching
-      cost, brand pricing power). Reject mediocre businesses at any
-      price. Patience is a competitive advantage; cash optionality is
-      undervalued. Confidence below 0.7 means the quality bar isn't
-      cleared.
+    system_prompt: "module:strategies.prompts.personas:MUNGER_QUALITY"
     parameters:
       consume_sentiment: false   # Munger: "sentiment is the opposite of thinking"
 
   - name: klarman_distressed
     strategy: llm
     schedule: cron
-    cron: "0 17 * * 1-5"   # 17:00 UTC daily weekdays
+    cron: "0 17 * * 1-5"
     action_level: notify
     trust_level: monitored
     model: claude-sonnet-4-6
     universe: ["WBA", "PARA", "DIS", "BAC", "C", "MS", "GS", "VTRS", "KHC", "TFC"]
-    system_prompt: |
-      You are Seth Klarman. Look for absolute returns through margin of
-      safety in stressed or complex situations: post-bankruptcy equities,
-      spin-offs, secondary offerings under duress, and special situations
-      with quantifiable downside. Decline correlation; prefer cash to
-      forced action. Position-sizing is the most important risk control —
-      no single thesis should sink you. Reject narratives without a clear
-      catalyst path. Confidence reflects asymmetry — flag only when
-      downside is contained and upside is multiples.
+    system_prompt: "module:strategies.prompts.personas:KLARMAN_DISTRESSED"
     parameters:
       consume_sentiment: true
       sentiment_max_age_seconds: 900
@@ -283,24 +241,64 @@ agents:
   - name: marks_macro
     strategy: llm
     schedule: cron
-    cron: "0 18 * * 1-5"   # 18:00 UTC daily weekdays
+    cron: "0 18 * * 1-5"
     action_level: notify
     trust_level: monitored
     model: claude-sonnet-4-6
     universe: ["SPY", "QQQ", "IWM", "TLT", "GLD", "HYG", "EEM", "VIX", "DXY", "BTCUSD", "ETHUSD"]
-    system_prompt: |
-      You are Howard Marks. Think in second-level terms: it is not enough
-      that something is good; you must understand what the market expects.
-      Where is the consensus, and where is it wrong? Risk is what's
-      left when you've thought of everything you can think of. Focus
-      on the pendulum: greed-fear, expansion-contraction, lender-aggression
-      vs caution. Defensive in expensive markets; aggressive in stressed
-      ones. Flag macro misalignments where the price embeds the wrong
-      regime expectation. Confidence reflects how far you stand from
-      consensus, not how strongly you feel.
+    system_prompt: "module:strategies.prompts.personas:MARKS_MACRO"
     parameters:
       consume_sentiment: true
       sentiment_max_age_seconds: 300
+
+  # -------------------------------------------------------------------------
+  # Persona panels — N personas in parallel, judge synthesizes one verdict.
+  #
+  # Two flavors today:
+  #  - persona_panel_equities: all 6 personas on US mega-caps (heavy: 6 LLM
+  #    calls + 1 judge per symbol, so capped tight)
+  #  - persona_panel_crypto: macro + growth + contrarian only on BTC/ETH
+  #
+  # Once we have 30 days of paper data we can tune the conviction_weight and
+  # decide which subsets diverge most usefully — see ADR-0011 follow-ups.
+  # -------------------------------------------------------------------------
+
+  - name: persona_panel_equities
+    strategy: persona_panel
+    schedule: cron
+    cron: "0 14 * * 1-5"   # 14:00 UTC weekdays, after the morning personas warm up
+    action_level: notify
+    trust_level: monitored
+    model: claude-sonnet-4-6
+    universe: ["AAPL", "MSFT", "GOOGL", "META", "NVDA"]
+    parameters:
+      personas:
+        - buffett_value
+        - graham_deep_value
+        - lynch_growth
+        - munger_quality
+        - klarman_distressed
+        - marks_macro
+      max_symbols_per_scan: 2     # 6 personas × 2 symbols × judge = 14 LLM calls
+      min_confidence: 0.55
+      conviction_weight: 0.6
+
+  - name: persona_panel_crypto
+    strategy: persona_panel
+    schedule: continuous
+    interval: 3600              # Every hour for crypto's 24/7 schedule
+    action_level: notify
+    trust_level: monitored
+    model: claude-sonnet-4-6
+    universe: ["BTCUSD", "ETHUSD"]
+    parameters:
+      personas:
+        - marks_macro             # Macro/cycles lens
+        - lynch_growth            # Growth-with-story lens
+        - klarman_distressed      # Asymmetry + drawdown discipline lens
+      max_symbols_per_scan: 2
+      min_confidence: 0.55
+      conviction_weight: 0.65
 
   # Cross-platform arb agent — needed in paper mode to drive the arb signal
   # feed pipeline locally. Mirrors the agents.yaml entry; same threshold and
