@@ -142,54 +142,89 @@ class TradeReflector:
         )
 
     async def _reflect_deep(self, trade: ClosedTrade, agent_name: str) -> None:
-        """Claude haiku writes a narrative lesson; extracts market observations."""
-        tm = trade.trade_memory
-        regime = (
-            trade.trade_memory.data.get("regime", {})
-            if hasattr(trade.trade_memory, "data")
-            else {}
-        )
-        regime_str = f"Regime: {regime.get('market_phase', 'unknown')} | Volatility: {regime.get('volatility', 'unknown')}"
+        """Ask the LLM for a structured, falsifiable lesson.
 
-        prompt = (
-            f"You are a trading mentor reviewing a significant trade outcome.\n\n"
-            f"Agent: {agent_name} | {regime_str}\n"
-            f"Symbol: {tm.symbol} | Direction: {tm.direction}\n"
-            f"Entry: {tm.entry_price} | Exit: {tm.exit_price} | P&L: {tm.pnl}\n"
-            f"Signal strength: {tm.signal_strength} | Hold: {tm.hold_duration_mins} min\n"
-            f"Outcome: {tm.outcome} | Slippage: {tm.slippage_bps} bps\n\n"
-            f"Write a structured reflection with these sections:\n"
-            f"What happened: <one sentence summary of price action>\n"
-            f"What triggered the signal: <one sentence technical/fundamental reason>\n"
-            f"What worked: <if win, else 'N/A'>\n"
-            f"What I would do differently: <specific adjustment to parameters or timing>\n"
-            f"Market conditions: <regime, sector context, relevant news if known>\n"
-            f"Key lesson: <one high-level takeaway for this agent>\n"
-            f"Market observation: <one FACTUAL, reusable insight for ALL agents, e.g., 'AAPL liquidity dries up 10m before close' or 'Volatility spikes in this regime often lead to false breakouts'>\n\n"
-            f"Respond in plain text following exactly those section headers."
+        Produces a JSON object with a categorized lesson, pushes it into the
+        private ledger, and extracts any reusable market observation into the
+        shared namespace. Uses surprise_ratio to flag lucky wins so the agent
+        does not over-update on them.
+        """
+        from strategies.prompts.reflection import (
+            REFLECTION_SCHEMA,
+            REFLECTION_SYSTEM,
+            REFLECTION_USER_TEMPLATE,
+        )
+
+        tm = trade.trade_memory
+        regime = tm.data.get("regime", {}) if isinstance(tm.data, dict) else {}
+        regime_str = (
+            f"phase={regime.get('market_phase', 'unknown')} "
+            f"vol={regime.get('volatility', 'unknown')}"
         )
 
         try:
-            result = await self._llm.complete(prompt, max_tokens=512)
-            narrative = result.text or "No reflection generated."
+            expected_abs = abs(trade.expected_pnl) or Decimal("1")
+            surprise_ratio = float(abs(tm.pnl - trade.expected_pnl) / expected_abs)
+        except Exception:
+            surprise_ratio = 0.0
+
+        prompt = REFLECTION_USER_TEMPLATE.format(
+            agent_name=agent_name,
+            symbol=tm.symbol,
+            direction=tm.direction,
+            entry_price=tm.entry_price,
+            exit_price=tm.exit_price,
+            pnl=tm.pnl,
+            expected_pnl=trade.expected_pnl,
+            surprise_ratio=f"{surprise_ratio:.2f}",
+            outcome=tm.outcome,
+            signal_strength=tm.signal_strength,
+            hold_minutes=tm.hold_duration_mins,
+            slippage_bps=tm.slippage_bps,
+            regime=regime_str,
+        )
+
+        try:
+            parsed = await self._llm.structured_complete(
+                prompt=prompt,
+                schema=REFLECTION_SCHEMA,
+                system=REFLECTION_SYSTEM,
+                max_tokens=512,
+            )
         except Exception as e:
             logger.warning("Deep reflection LLM call failed: %s", e)
             return
 
-        # Store full narrative in private namespace
-        tags = [tm.symbol, agent_name, tm.outcome, "deep_reflection"]
+        if not parsed:
+            logger.warning(
+                "Deep reflection returned no structured output for %s", agent_name
+            )
+            return
+
+        lesson = (parsed.get("lesson") or "").strip()
+        category = (parsed.get("category") or "feature").strip()
+        belief = (parsed.get("belief") or "").strip()
+        feature = (parsed.get("feature") or "").strip()
+        observation = (parsed.get("market_observation") or "").strip()
+
+        narrative = json.dumps(
+            {
+                "belief": belief,
+                "feature": feature,
+                "lesson": lesson,
+                "category": category,
+                "market_observation": observation,
+                "surprise_ratio": surprise_ratio,
+            }
+        )
+        tags = [tm.symbol, agent_name, tm.outcome, "deep_reflection", category]
         await self._client.store_private(content=narrative, tags=tags)
 
-        # Extract market observation line and push to shared namespace
-        for line in narrative.splitlines():
-            if line.startswith("Market observation"):
-                observation = line.split(":", 1)[-1].strip()
-                if observation and observation.lower() != "none":
-                    await self._client.store_shared(
-                        content=observation,
-                        tags=[tm.symbol, "market_observation"],
-                    )
-                break
+        if observation and observation.lower() != "none":
+            await self._client.store_shared(
+                content=observation,
+                tags=[tm.symbol, "market_observation"],
+            )
 
     async def query(
         self, symbol: str, context: str, agent_name: str, top_k: int = 5
