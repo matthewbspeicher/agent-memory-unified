@@ -271,6 +271,10 @@ agents:
     trust_level: monitored
     model: claude-sonnet-4-6
     universe: ["AAPL", "MSFT", "GOOGL", "META", "NVDA"]
+    # Worst case: 6 personas + 1 judge per symbol × 2 symbols = 14 LLM calls.
+    # AgentConfig.max_calls_per_scan defaults to 5 — too low for the panel
+    # pattern.  20 gives headroom for retries without uncapping spend.
+    max_calls_per_scan: 20
     parameters:
       personas:
         - buffett_value
@@ -279,7 +283,7 @@ agents:
         - munger_quality
         - klarman_distressed
         - marks_macro
-      max_symbols_per_scan: 2     # 6 personas × 2 symbols × judge = 14 LLM calls
+      max_symbols_per_scan: 2
       min_confidence: 0.55
       conviction_weight: 0.6
 
@@ -291,6 +295,9 @@ agents:
     trust_level: monitored
     model: claude-sonnet-4-6
     universe: ["BTCUSD", "ETHUSD"]
+    # Worst case: 3 personas + 1 judge × 2 symbols = 8 LLM calls.  12 gives
+    # headroom (see equities note above).
+    max_calls_per_scan: 12
     parameters:
       personas:
         - marks_macro             # Macro/cycles lens
