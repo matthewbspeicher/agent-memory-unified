@@ -92,6 +92,8 @@ class LLMConfig(BaseModel):
     groq_api_key: str | None = None
     gemini_api_key: str | None = None
     cerebras_api_key: str | None = None
+    mistral_api_key: str | None = None
+    openrouter_api_key: str | None = None
     ollama_base_url: str = "http://localhost:11434"
     bedrock_region: str | None = None
     bedrock_access_key_id: str | None = None
@@ -104,6 +106,8 @@ class LLMConfig(BaseModel):
             "groq",
             "cerebras",
             "gemini",
+            "mistral",
+            "openrouter",
             "ollama",
             "rule-based",
         ]
@@ -220,6 +224,8 @@ class Config(BaseModel):
     groq_api_key: str | None = None
     gemini_api_key: str | None = None
     cerebras_api_key: str | None = None
+    mistral_api_key: str | None = None
+    openrouter_api_key: str | None = None
     ollama_base_url: str | None = None
     bedrock_region: str | None = None
     bedrock_model: str | None = None

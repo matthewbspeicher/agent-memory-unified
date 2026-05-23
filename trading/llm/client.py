@@ -30,7 +30,9 @@ from .providers import (
     GeminiProvider,
     GroqProvider,
     LLMResult,
+    MistralProvider,
     OllamaProvider,
+    OpenRouterProvider,
     ProviderName,
     ProviderRegistry,
 )
@@ -282,6 +284,8 @@ class LLMClient:
         groq_key: str | None = None,
         gemini_key: str | None = None,
         cerebras_key: str | None = None,
+        mistral_key: str | None = None,
+        openrouter_key: str | None = None,
         ollama_url: str = "http://localhost:11434",
         bedrock_region: str | None = None,
         bedrock_access_key_id: str | None = None,
@@ -291,6 +295,8 @@ class LLMClient:
         groq_model: str = "llama-3.3-70b-versatile",
         gemini_model: str = "gemini-2.5-flash",
         cerebras_model: str = "llama-3.3-70b",
+        mistral_model: str = "mistral-small-latest",
+        openrouter_model: str = "meta-llama/llama-3.1-8b-instruct:free",
         ollama_model: str = "llama3.2:3b",
         bedrock_model: str = "anthropic.claude-3-haiku-20240307-v1:0",
         agent_name: str = "unknown",
@@ -298,15 +304,19 @@ class LLMClient:
         notifier: "Notifier | None" = None,
     ) -> None:
         # Default chain order: paid (highest quality) → free-tier hosted
-        # (cerebras+gemini are fast and have generous free limits) → local
-        # ollama → deterministic rule-based.  This keeps cost low *and*
-        # gives a working fallback when paid providers hit billing limits.
+        # (cerebras/gemini/mistral fast with generous free limits; openrouter
+        # is a meta-provider catch-all) → local ollama → deterministic
+        # rule-based.  Diversifying across Llama-family (cerebras/groq) AND
+        # Gemini AND Mistral AND OpenRouter avoids correlated failures from
+        # a single upstream incident.
         self._chain: list[str] = chain or [
             "anthropic",
             "bedrock",
             "groq",
             "cerebras",
             "gemini",
+            "mistral",
+            "openrouter",
             "ollama",
             "rule-based",
         ]
@@ -342,6 +352,16 @@ class LLMClient:
 
         if gemini_key:
             self.registry.register(GeminiProvider(api_key=gemini_key, model=gemini_model))
+
+        if mistral_key:
+            self.registry.register(
+                MistralProvider(api_key=mistral_key, model=mistral_model)
+            )
+
+        if openrouter_key:
+            self.registry.register(
+                OpenRouterProvider(api_key=openrouter_key, model=openrouter_model)
+            )
 
         self.registry.register(OllamaProvider(base_url=ollama_url, model=ollama_model))
 

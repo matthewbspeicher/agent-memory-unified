@@ -1080,6 +1080,8 @@ async def lifespan(app: FastAPI):
             groq_key=config.groq_api_key,
             gemini_key=config.gemini_api_key,
             cerebras_key=config.cerebras_api_key,
+            mistral_key=config.mistral_api_key,
+            openrouter_key=config.openrouter_api_key,
             ollama_url=config.ollama_base_url,
             bedrock_region=config.bedrock_region,
             bedrock_model=config.bedrock_model,

@@ -11,6 +11,8 @@ ProviderName = Literal[
     "groq",
     "gemini",
     "cerebras",
+    "mistral",
+    "openrouter",
     "ollama",
     "rule-based",
 ]
@@ -480,6 +482,197 @@ class CerebrasProvider(BaseProvider):
             )
         except Exception as exc:
             logger.warning("Cerebras chat failed: %s", exc)
+            return None
+
+
+class MistralProvider(BaseProvider):
+    """Mistral La Plateforme via OpenAI-compatible endpoint.
+
+    Free tier on small models (mistral-small-latest, open-mistral-7b).
+    Useful as a different model-family fallback — Llama-shaped failures
+    sometimes correlate across Groq/Cerebras/OpenRouter (same underlying
+    weights), Mistral diversifies.  Sign up at https://console.mistral.ai
+    — no credit card required.
+    """
+
+    name = "mistral"
+
+    def __init__(self, api_key: str, model: str = "mistral-small-latest"):
+        self.api_key = api_key
+        self.model = model
+
+    async def complete(self, prompt: str, **kwargs) -> LLMResult | None:
+        max_tokens = kwargs.get("max_tokens", 200)
+        system = kwargs.get("system") or ""
+        try:
+            import openai
+            import time
+
+            start = time.monotonic()
+            async with openai.AsyncOpenAI(
+                base_url="https://api.mistral.ai/v1",
+                api_key=self.api_key,
+            ) as client:
+                full_messages = _openai_messages(
+                    system, [{"role": "user", "content": prompt}]
+                )
+                resp = await client.chat.completions.create(
+                    model=self.model,
+                    max_tokens=max_tokens,
+                    messages=full_messages,
+                )
+            latency = (time.monotonic() - start) * 1000
+            usage = getattr(resp, "usage", None)
+            return LLMResult(
+                text=_openai_message_text(resp),
+                provider="mistral",
+                model=self.model,
+                latency_ms=round(latency),
+                input_tokens=getattr(usage, "prompt_tokens", None) if usage else None,
+                output_tokens=getattr(usage, "completion_tokens", None)
+                if usage
+                else None,
+            )
+        except Exception as exc:
+            logger.warning("Mistral failed: %s", exc)
+            return None
+
+    async def chat(
+        self, system: str, messages: list[dict[str, str]], **kwargs
+    ) -> LLMResult | None:
+        max_tokens = kwargs.get("max_tokens", 500)
+        try:
+            import openai
+            import time
+
+            start = time.monotonic()
+            async with openai.AsyncOpenAI(
+                base_url="https://api.mistral.ai/v1",
+                api_key=self.api_key,
+            ) as client:
+                full_messages = _openai_messages(system, messages)
+                resp = await client.chat.completions.create(
+                    model=self.model,
+                    max_tokens=max_tokens,
+                    messages=full_messages,
+                )
+            latency = (time.monotonic() - start) * 1000
+            usage = getattr(resp, "usage", None)
+            return LLMResult(
+                text=_openai_message_text(resp),
+                provider="mistral",
+                model=self.model,
+                latency_ms=round(latency),
+                input_tokens=getattr(usage, "prompt_tokens", None) if usage else None,
+                output_tokens=getattr(usage, "completion_tokens", None)
+                if usage
+                else None,
+            )
+        except Exception as exc:
+            logger.warning("Mistral chat failed: %s", exc)
+            return None
+
+
+class OpenRouterProvider(BaseProvider):
+    """OpenRouter — meta-provider routing to many backends.
+
+    OpenAI-compatible endpoint exposing dozens of free and paid models
+    (Llama, Qwen, Mistral, DeepSeek, Gemini variants, ...).  Free model
+    names end in ``:free``.  One integration, many fallback options.
+    Sign up at https://openrouter.ai — no credit card required for free
+    models.
+
+    The ``http_referer`` and ``app_title`` kwargs are optional but
+    recommended by OpenRouter for free-tier attribution.
+    """
+
+    name = "openrouter"
+
+    def __init__(
+        self,
+        api_key: str,
+        model: str = "meta-llama/llama-3.1-8b-instruct:free",
+        http_referer: str = "https://github.com/matthewbspeicher/agent-memory-unified",
+        app_title: str = "agent-memory-unified trading engine",
+    ):
+        self.api_key = api_key
+        self.model = model
+        self._headers = {
+            "HTTP-Referer": http_referer,
+            "X-Title": app_title,
+        }
+
+    async def complete(self, prompt: str, **kwargs) -> LLMResult | None:
+        max_tokens = kwargs.get("max_tokens", 200)
+        system = kwargs.get("system") or ""
+        try:
+            import openai
+            import time
+
+            start = time.monotonic()
+            async with openai.AsyncOpenAI(
+                base_url="https://openrouter.ai/api/v1",
+                api_key=self.api_key,
+                default_headers=self._headers,
+            ) as client:
+                full_messages = _openai_messages(
+                    system, [{"role": "user", "content": prompt}]
+                )
+                resp = await client.chat.completions.create(
+                    model=self.model,
+                    max_tokens=max_tokens,
+                    messages=full_messages,
+                )
+            latency = (time.monotonic() - start) * 1000
+            usage = getattr(resp, "usage", None)
+            return LLMResult(
+                text=_openai_message_text(resp),
+                provider="openrouter",
+                model=self.model,
+                latency_ms=round(latency),
+                input_tokens=getattr(usage, "prompt_tokens", None) if usage else None,
+                output_tokens=getattr(usage, "completion_tokens", None)
+                if usage
+                else None,
+            )
+        except Exception as exc:
+            logger.warning("OpenRouter failed: %s", exc)
+            return None
+
+    async def chat(
+        self, system: str, messages: list[dict[str, str]], **kwargs
+    ) -> LLMResult | None:
+        max_tokens = kwargs.get("max_tokens", 500)
+        try:
+            import openai
+            import time
+
+            start = time.monotonic()
+            async with openai.AsyncOpenAI(
+                base_url="https://openrouter.ai/api/v1",
+                api_key=self.api_key,
+                default_headers=self._headers,
+            ) as client:
+                full_messages = _openai_messages(system, messages)
+                resp = await client.chat.completions.create(
+                    model=self.model,
+                    max_tokens=max_tokens,
+                    messages=full_messages,
+                )
+            latency = (time.monotonic() - start) * 1000
+            usage = getattr(resp, "usage", None)
+            return LLMResult(
+                text=_openai_message_text(resp),
+                provider="openrouter",
+                model=self.model,
+                latency_ms=round(latency),
+                input_tokens=getattr(usage, "prompt_tokens", None) if usage else None,
+                output_tokens=getattr(usage, "completion_tokens", None)
+                if usage
+                else None,
+            )
+        except Exception as exc:
+            logger.warning("OpenRouter chat failed: %s", exc)
             return None
 
 
