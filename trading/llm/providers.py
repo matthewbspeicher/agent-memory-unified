@@ -5,7 +5,15 @@ from typing import TYPE_CHECKING, Any, Literal
 
 logger = logging.getLogger(__name__)
 
-ProviderName = Literal["anthropic", "bedrock", "groq", "ollama", "rule-based"]
+ProviderName = Literal[
+    "anthropic",
+    "bedrock",
+    "groq",
+    "gemini",
+    "cerebras",
+    "ollama",
+    "rule-based",
+]
 
 if TYPE_CHECKING:
     from anthropic.types import MessageParam
@@ -386,6 +394,92 @@ class GroqProvider(BaseProvider):
             )
         except Exception as exc:
             logger.warning("Groq chat failed: %s", exc)
+            return None
+
+
+class CerebrasProvider(BaseProvider):
+    """Cerebras Cloud via OpenAI-compatible endpoint.
+
+    Free tier offers very fast inference (~2000 tok/s) on Llama models.
+    Useful as a fallback when paid providers hit billing caps and Ollama
+    is offline.  Sign up at https://cloud.cerebras.ai/ — no credit card.
+    """
+
+    name = "cerebras"
+
+    def __init__(self, api_key: str, model: str = "llama-3.3-70b"):
+        self.api_key = api_key
+        self.model = model
+
+    async def complete(self, prompt: str, **kwargs) -> LLMResult | None:
+        max_tokens = kwargs.get("max_tokens", 200)
+        system = kwargs.get("system") or ""
+        try:
+            import openai
+            import time
+
+            start = time.monotonic()
+            async with openai.AsyncOpenAI(
+                base_url="https://api.cerebras.ai/v1",
+                api_key=self.api_key,
+            ) as client:
+                full_messages = _openai_messages(
+                    system, [{"role": "user", "content": prompt}]
+                )
+                resp = await client.chat.completions.create(
+                    model=self.model,
+                    max_tokens=max_tokens,
+                    messages=full_messages,
+                )
+            latency = (time.monotonic() - start) * 1000
+            usage = getattr(resp, "usage", None)
+            return LLMResult(
+                text=_openai_message_text(resp),
+                provider="cerebras",
+                model=self.model,
+                latency_ms=round(latency),
+                input_tokens=getattr(usage, "prompt_tokens", None) if usage else None,
+                output_tokens=getattr(usage, "completion_tokens", None)
+                if usage
+                else None,
+            )
+        except Exception as exc:
+            logger.warning("Cerebras failed: %s", exc)
+            return None
+
+    async def chat(
+        self, system: str, messages: list[dict[str, str]], **kwargs
+    ) -> LLMResult | None:
+        max_tokens = kwargs.get("max_tokens", 500)
+        try:
+            import openai
+            import time
+
+            start = time.monotonic()
+            async with openai.AsyncOpenAI(
+                base_url="https://api.cerebras.ai/v1",
+                api_key=self.api_key,
+            ) as client:
+                full_messages = _openai_messages(system, messages)
+                resp = await client.chat.completions.create(
+                    model=self.model,
+                    max_tokens=max_tokens,
+                    messages=full_messages,
+                )
+            latency = (time.monotonic() - start) * 1000
+            usage = getattr(resp, "usage", None)
+            return LLMResult(
+                text=_openai_message_text(resp),
+                provider="cerebras",
+                model=self.model,
+                latency_ms=round(latency),
+                input_tokens=getattr(usage, "prompt_tokens", None) if usage else None,
+                output_tokens=getattr(usage, "completion_tokens", None)
+                if usage
+                else None,
+            )
+        except Exception as exc:
+            logger.warning("Cerebras chat failed: %s", exc)
             return None
 
 

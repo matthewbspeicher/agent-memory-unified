@@ -26,6 +26,7 @@ from dataclasses import dataclass
 from .providers import (
     AnthropicProvider,
     BedrockProvider,
+    CerebrasProvider,
     GeminiProvider,
     GroqProvider,
     LLMResult,
@@ -280,6 +281,7 @@ class LLMClient:
         anthropic_key: str | None = None,
         groq_key: str | None = None,
         gemini_key: str | None = None,
+        cerebras_key: str | None = None,
         ollama_url: str = "http://localhost:11434",
         bedrock_region: str | None = None,
         bedrock_access_key_id: str | None = None,
@@ -288,16 +290,23 @@ class LLMClient:
         anthropic_model: str = "claude-haiku-4-5-20251001",
         groq_model: str = "llama-3.3-70b-versatile",
         gemini_model: str = "gemini-2.5-flash",
+        cerebras_model: str = "llama-3.3-70b",
         ollama_model: str = "llama3.2:3b",
         bedrock_model: str = "anthropic.claude-3-haiku-20240307-v1:0",
         agent_name: str = "unknown",
         cost_ledger: "CostLedger | None" = None,
         notifier: "Notifier | None" = None,
     ) -> None:
+        # Default chain order: paid (highest quality) → free-tier hosted
+        # (cerebras+gemini are fast and have generous free limits) → local
+        # ollama → deterministic rule-based.  This keeps cost low *and*
+        # gives a working fallback when paid providers hit billing limits.
         self._chain: list[str] = chain or [
             "anthropic",
             "bedrock",
             "groq",
+            "cerebras",
+            "gemini",
             "ollama",
             "rule-based",
         ]
@@ -325,6 +334,11 @@ class LLMClient:
 
         if groq_key:
             self.registry.register(GroqProvider(api_key=groq_key, model=groq_model))
+
+        if cerebras_key:
+            self.registry.register(
+                CerebrasProvider(api_key=cerebras_key, model=cerebras_model)
+            )
 
         if gemini_key:
             self.registry.register(GeminiProvider(api_key=gemini_key, model=gemini_model))

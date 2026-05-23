@@ -91,13 +91,22 @@ class LLMConfig(BaseModel):
     anthropic_api_key: str | None = None
     groq_api_key: str | None = None
     gemini_api_key: str | None = None
+    cerebras_api_key: str | None = None
     ollama_base_url: str = "http://localhost:11434"
     bedrock_region: str | None = None
     bedrock_access_key_id: str | None = None
     bedrock_secret_access_key: str | None = None
     bedrock_model: str = "anthropic.claude-3-haiku-20240307-v1:0"
     fallback_chain: list[str] = Field(
-        default_factory=lambda: ["anthropic", "bedrock", "groq", "ollama", "rule-based"]
+        default_factory=lambda: [
+            "anthropic",
+            "bedrock",
+            "groq",
+            "cerebras",
+            "gemini",
+            "ollama",
+            "rule-based",
+        ]
     )
 
     # Cost control
@@ -210,6 +219,7 @@ class Config(BaseModel):
     anthropic_api_key: str | None = None
     groq_api_key: str | None = None
     gemini_api_key: str | None = None
+    cerebras_api_key: str | None = None
     ollama_base_url: str | None = None
     bedrock_region: str | None = None
     bedrock_model: str | None = None
