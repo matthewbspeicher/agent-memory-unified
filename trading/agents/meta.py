@@ -39,6 +39,19 @@ class MetaAgent(ManagerAgent):
         )
         self._boost_ttl_minutes: int = config.parameters.get("boost_ttl_minutes", 15)
 
+        # agent_convergence gates (ADR-0013).  A strong convergence — many
+        # agents, high avg_confidence — gets a larger-than-default boost so
+        # the router pays attention to coalition signals.
+        self._convergence_min_agents: int = int(
+            config.parameters.get("convergence_min_agents", 3)
+        )
+        self._convergence_min_confidence: float = float(
+            config.parameters.get("convergence_min_confidence", 0.65)
+        )
+        self._convergence_boost_mult_base: float = float(
+            config.parameters.get("convergence_boost_mult_base", 1.5)
+        )
+
         # Track active boosts: {agent_name: [(delta, expires_at, baseline_before_boost)]}
         self._active_boosts: dict[str, list[tuple[float, datetime, float]]] = {}
         # Signal cache for opportunity annotation: {ticker: [AgentSignal]}
@@ -57,14 +70,90 @@ class MetaAgent(ManagerAgent):
             "signal_tickers": list(self._signal_cache.keys()),
         }
 
-    async def handle_signal(self, signal: AgentSignal) -> None:
+    def _normalize_for_boost(
+        self, signal: AgentSignal
+    ) -> tuple[str, str, float] | None:
+        """Return ``(ticker, direction, boost_mult)`` or None to skip.
+
+        Centralizes the per-signal-type quality gates and multiplier rules
+        so ``handle_signal`` itself stays a single loop over agents.
+
+        - bittensor_consensus: payload.direction is bullish/bearish;
+          multiplier scales by reported confidence (up to 2x default).
+        - agent_convergence (ADR-0013): payload.direction is BUY/SELL,
+          gated by configured min_agents and min_confidence.  Multiplier
+          scales by agent count (above the floor) and avg_confidence.
+        - everything else: payload.direction must be bullish/bearish
+          and multiplier is 1.0.
+        """
+        # agent_convergence — gated, mapped, scaled
+        if signal.signal_type == "agent_convergence":
+            agents = signal.payload.get("agents") or []
+            avg_conf = float(signal.payload.get("avg_confidence", 0.0))
+            if len(agents) < self._convergence_min_agents:
+                logger.debug(
+                    "MetaAgent: convergence below min_agents floor (%d < %d), skipping",
+                    len(agents),
+                    self._convergence_min_agents,
+                )
+                return None
+            if avg_conf < self._convergence_min_confidence:
+                logger.debug(
+                    "MetaAgent: convergence below min_confidence floor (%.2f < %.2f), skipping",
+                    avg_conf,
+                    self._convergence_min_confidence,
+                )
+                return None
+            raw_dir = signal.payload.get("direction")
+            if raw_dir == "BUY":
+                direction = "bullish"
+            elif raw_dir == "SELL":
+                direction = "bearish"
+            else:
+                return None
+            ticker = signal.payload.get("symbol")
+            if not ticker:
+                return None
+            # Scale: base multiplier × (1 + extra_agents_above_floor × 0.25)
+            #      × (avg_confidence rebased on min_confidence as 0)
+            extra_agents = len(agents) - self._convergence_min_agents
+            conf_factor = max(
+                0.0,
+                (avg_conf - self._convergence_min_confidence)
+                / (1.0 - self._convergence_min_confidence),
+            )
+            boost_mult = (
+                self._convergence_boost_mult_base
+                * (1.0 + 0.25 * extra_agents)
+                * (1.0 + conf_factor)
+            )
+            return ticker, direction, boost_mult
+
+        # Default path — direction must already be bullish/bearish
         ticker = signal.payload.get("ticker") or signal.payload.get("symbol")
         if not ticker:
-            return
-
+            return None
         direction = signal.payload.get("direction")
         if direction not in ("bullish", "bearish"):
+            return None
+
+        # bittensor_consensus: scale by reported confidence
+        if signal.signal_type == "bittensor_consensus":
+            boost_mult = signal.payload.get("confidence", 1.0) * 2.0
+        else:
+            boost_mult = 1.0
+
+        return ticker, direction, boost_mult
+
+    async def handle_signal(self, signal: AgentSignal) -> None:
+        # Normalize the signal: produce (ticker, direction, boost_mult) for
+        # the standard boost loop below.  Different signal types take
+        # different paths to get here — convergence and bittensor have
+        # special quality gates and multiplier rules.
+        normalized = self._normalize_for_boost(signal)
+        if normalized is None:
             return
+        ticker, direction, boost_mult = normalized
 
         # Cache for annotation
         self._signal_cache.setdefault(ticker, []).append(signal)
@@ -97,14 +186,6 @@ class MetaAgent(ManagerAgent):
                     cumulative,
                 )
                 continue
-
-            # Special multiplier for Bittensor consensus
-            boost_mult = 1.0
-            if signal.signal_type == "bittensor_consensus":
-                # Scale boost by consensus agreement ratio
-                boost_mult = (
-                    signal.payload.get("confidence", 1.0) * 2.0
-                )  # up to 2x normal boost
 
             if direction == "bullish":
                 delta = -self._boost_delta * boost_mult
