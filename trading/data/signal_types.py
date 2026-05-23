@@ -192,6 +192,29 @@ class IntelSentimentPayload(SignalPayload):
     )  # provider-specific raw values (fear_greed_value, lunarcrush_galaxy_score, …)
 
 
+class AgentConvergencePayload(SignalPayload):
+    """Payload for `signal_type="agent_convergence"`.
+
+    Emitted by ``WarRoomEngine`` when ≥2 agents independently flag the same
+    ``(symbol, direction)`` within a time window.  Useful for ensemble
+    weighting and panel-of-judges synthesis (e.g. ``meta_agent`` boosting
+    consensus signals; ``PersonaPanelAgent`` taking convergence as an
+    additional input).  See ADR-0013.
+
+    ``convergence_id`` is a stable hash of ``symbol:direction:first_seen``;
+    consumers should dedupe on it.
+    """
+
+    convergence_id: str
+    symbol: str
+    direction: Literal["BUY", "SELL"]
+    agents: list[str]
+    opportunity_ids: list[str]
+    avg_confidence: float = Field(ge=0.0, le=1.0)
+    first_seen: str  # ISO-8601 timestamp string
+    synthesis: str = ""  # may be empty if LLM synthesis hasn't been generated yet
+
+
 class SpreadConvergencePayload(SignalPayload):
     """Payload for `signal_type="spread_convergence"`.
 
@@ -291,5 +314,6 @@ registry.register("volume_anomaly", VolumeAnomalyPayload)
 registry.register("price_dislocation", PriceDislocationPayload)
 registry.register("sentiment_spike", SentimentSpikePayload)
 registry.register("intel_sentiment", IntelSentimentPayload)
+registry.register("agent_convergence", AgentConvergencePayload)
 registry.register("spread_convergence", SpreadConvergencePayload)
 registry.register("close", CloseSignalPayload)

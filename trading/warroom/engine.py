@@ -4,20 +4,31 @@ Agent War Room — convergence signal detection across agents.
 Detects when 2+ agents flag the same symbol in the same direction within a time window.
 On-demand LLM synthesis reads both agents' reasoning and produces combined analysis.
 Uses unified LLMClient.
+
+Per ADR-0013, when a ``SignalBus`` is injected the engine publishes each newly
+detected convergence as an ``agent_convergence`` signal so other agents
+(``meta_agent``, ``PersonaPanelAgent``, future ensemble logic) can react.  The
+engine dedupes by ``convergence_id`` so repeated ``detect_convergences()``
+calls don't flood the bus.
 """
 
 from __future__ import annotations
 import hashlib
 import logging
+from collections import deque
 from dataclasses import dataclass, asdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     import aiosqlite
+    from data.signal_bus import SignalBus
     from llm.client import LLMClient
 
 logger = logging.getLogger(__name__)
+
+# Cap the dedupe set so a long-running process can't grow unbounded.
+_PUBLISHED_IDS_MAX = 10_000
 
 SYNTHESIS_PROMPT = """You are a trading analyst. Two or more agents have independently identified the same trading signal. Synthesize their reasoning into a combined analysis.
 
@@ -49,6 +60,7 @@ class WarRoomEngine:
         self,
         db: aiosqlite.Connection,
         llm: LLMClient | None = None,
+        signal_bus: SignalBus | None = None,
     ) -> None:
         self._db = db
         if llm is not None:
@@ -57,6 +69,13 @@ class WarRoomEngine:
             from llm.client import LLMClient as _LLMClient
 
             self._llm = _LLMClient()
+        # ADR-0013: optional SignalBus for agent_convergence topic.
+        # Engine is fully functional without it (back-compat for callers
+        # that only want the HTTP/route surface).
+        self._signal_bus = signal_bus
+        # Dedupe across calls.  deque-backed so we can FIFO-evict at the cap.
+        self._published_ids: set[str] = set()
+        self._published_order: deque[str] = deque(maxlen=_PUBLISHED_IDS_MAX)
 
     async def detect_convergences(self, hours: int = 4) -> list[ConvergenceSignal]:
         """Find symbols where 2+ agents agree on direction within the time window."""
@@ -123,7 +142,61 @@ class WarRoomEngine:
                 )
             )
 
+        # Publish newly-detected convergences as agent_convergence signals
+        # so downstream agents can react.  See ADR-0013.  Best-effort: a
+        # publish failure never breaks detection (HTTP routes still get
+        # the full convergence list).
+        if self._signal_bus is not None:
+            for conv in convergences:
+                if conv.id in self._published_ids:
+                    continue
+                try:
+                    await self._publish_convergence(conv)
+                except Exception as exc:
+                    logger.warning(
+                        "WarRoom: failed to publish convergence %s: %s",
+                        conv.id,
+                        exc,
+                    )
+                self._mark_published(conv.id)
+
         return sorted(convergences, key=lambda c: c.first_seen, reverse=True)
+
+    async def _publish_convergence(self, conv: ConvergenceSignal) -> None:
+        """Publish a single ConvergenceSignal as an agent_convergence topic."""
+        # Lazy imports to avoid cyclic deps (signal_bus → agents.models →
+        # broker.models → … and this module is imported during app init).
+        from agents.models import AgentSignal
+
+        signal = AgentSignal(
+            source_agent="warroom_engine",
+            signal_type="agent_convergence",
+            payload={
+                "convergence_id": conv.id,
+                "symbol": conv.symbol,
+                "direction": conv.direction,
+                "agents": conv.agents,
+                "opportunity_ids": conv.opportunity_ids,
+                "avg_confidence": float(conv.avg_confidence),
+                "first_seen": conv.first_seen,
+                "synthesis": conv.synthesis or "",
+            },
+            expires_at=datetime.now(timezone.utc) + timedelta(hours=4),
+        )
+        assert self._signal_bus is not None  # type-guard for mypy
+        await self._signal_bus.publish(signal)
+
+    def _mark_published(self, conv_id: str) -> None:
+        """Record a convergence id as published; FIFO-evict the oldest when
+        the dedupe set exceeds its cap."""
+        if conv_id in self._published_ids:
+            return
+        # deque(maxlen=...) automatically drops the oldest when full.
+        if len(self._published_order) == self._published_order.maxlen:
+            oldest = self._published_order[0]
+            self._published_ids.discard(oldest)
+        self._published_order.append(conv_id)
+        self._published_ids.add(conv_id)
 
     async def get_synthesis(self, convergence_id: str, hours: int = 4) -> str | None:
         """Get or generate combined reasoning for a convergence."""

@@ -274,6 +274,7 @@ async def _setup_operator_services(
     llm_client,
     journal_manager,
     data_bus=None,
+    signal_bus=None,
 ):
     from leaderboard.engine import LeaderboardEngine
     from journal.autopsy import AutopsyGenerator
@@ -352,6 +353,7 @@ async def _setup_operator_services(
     warroom_engine = WarRoomEngine(
         db=db,
         llm=llm_client,
+        signal_bus=signal_bus,  # ADR-0013: publishes agent_convergence topic
     )
     app.state.warroom_engine = warroom_engine
 
@@ -2149,6 +2151,7 @@ async def lifespan(app: FastAPI):
             llm_client=llm_client,
             journal_manager=journal_manager,
             data_bus=data_bus,
+            signal_bus=signal_bus,
         )
 
         # Tournament Engine (optional — only if learning config has tournament.enabled)

@@ -579,12 +579,13 @@ class TestSignalTypeRegistry:
     """Test SignalTypeRegistry validation and registration."""
 
     def test_registry_has_all_types(self):
-        """Global registry has all 11 signal types registered."""
+        """Global registry has all 12 signal types registered."""
         expected_types = [
             "bittensor_miner_position",
             "bittensor_consensus",
             "intel_enriched_consensus",
             "intel_sentiment",
+            "agent_convergence",
             "regime_update",
             "news_event",
             "volume_anomaly",
@@ -594,7 +595,7 @@ class TestSignalTypeRegistry:
             "close",
         ]
         known = registry.known_types()
-        assert len(known) == 11
+        assert len(known) == 12
         for signal_type in expected_types:
             assert signal_type in known
 
