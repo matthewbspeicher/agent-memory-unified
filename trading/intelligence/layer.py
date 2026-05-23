@@ -77,14 +77,37 @@ class IntelligenceLayer:
         self._vetos_issued = 0
         self._provider_failures = 0
         self._total_calls = 0
+        self._equity_sentiment_polls = 0
+        self._equity_sentiment_published = 0
+
+        # Background poller for equity sentiment (ADR-0011 follow-up).
+        self._equity_sentiment_task: asyncio.Task | None = None
 
     async def start(self) -> None:
         self._running = True
         self.signal_bus.subscribe(self._handle_consensus)
+        if self._should_run_equity_poller():
+            self._equity_sentiment_task = asyncio.create_task(
+                self._equity_sentiment_loop(),
+                name="intel.equity_sentiment_loop",
+            )
+            logger.info(
+                "IntelligenceLayer equity sentiment poller started "
+                "(universe=%d symbols, interval=%ds)",
+                len(self.config.equity_sentiment_universe),
+                self.config.equity_sentiment_interval_seconds,
+            )
         logger.info("IntelligenceLayer started (enabled=%s)", self.config.enabled)
 
     async def stop(self) -> None:
         self._running = False
+        if self._equity_sentiment_task is not None:
+            self._equity_sentiment_task.cancel()
+            try:
+                await self._equity_sentiment_task
+            except (asyncio.CancelledError, Exception):
+                pass
+            self._equity_sentiment_task = None
         if hasattr(self._anomaly, "close"):
             await self._anomaly.close()
         if hasattr(self._order_flow, "close"):
@@ -93,6 +116,73 @@ class IntelligenceLayer:
             await self._derivatives.close()
         if hasattr(self._regime, "close"):
             await self._regime.close()
+
+    def _should_run_equity_poller(self) -> bool:
+        return (
+            self.config.enabled
+            and bool(self.config.equity_sentiment_universe)
+            and self.config.equity_sentiment_interval_seconds > 0
+        )
+
+    async def _equity_sentiment_loop(self) -> None:
+        """Periodically poll SentimentProvider for the configured equity
+        universe and publish each result as an ``intel_sentiment`` signal.
+
+        Bounded concurrency via ``equity_sentiment_max_concurrency`` so we
+        don't hammer Fear & Greed / LunarCrush / AV simultaneously for a
+        large equity universe.  Per-symbol failures degrade gracefully —
+        the loop never raises out of itself.  See ADR-0011 follow-ups.
+        """
+        interval = max(60, int(self.config.equity_sentiment_interval_seconds))
+        max_conc = max(1, int(self.config.equity_sentiment_max_concurrency))
+        universe = list(self.config.equity_sentiment_universe)
+        sem = asyncio.Semaphore(max_conc)
+
+        async def _poll_one(symbol: str) -> None:
+            async with sem:
+                self._equity_sentiment_polls += 1
+                breaker = self._breakers["sentiment"]
+                try:
+                    report = await breaker.call(
+                        lambda: self._sentiment.analyze(symbol)
+                    )
+                except CircuitOpenError:
+                    logger.debug(
+                        "Equity sentiment: circuit open for %s, skipping",
+                        symbol,
+                    )
+                    return
+                except Exception as exc:
+                    self._provider_failures += 1
+                    logger.debug(
+                        "Equity sentiment: provider failed for %s: %s",
+                        symbol,
+                        exc,
+                    )
+                    return
+                if report is None or report.veto:
+                    return
+                await self._publish_sentiment(report)
+                self._equity_sentiment_published += 1
+
+        while self._running:
+            try:
+                await asyncio.gather(
+                    *(_poll_one(sym) for sym in universe),
+                    return_exceptions=True,
+                )
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                # Defensive: any unexpected fault inside the loop should
+                # not kill the loop itself — log and continue to the next cycle.
+                logger.warning(
+                    "Equity sentiment loop iteration failed: %s", exc
+                )
+            try:
+                await asyncio.sleep(interval)
+            except asyncio.CancelledError:
+                raise
 
     async def _handle_consensus(self, signal: AgentSignal) -> None:
         if signal.signal_type != "bittensor_consensus":
@@ -290,4 +380,13 @@ class IntelligenceLayer:
             "vetos_issued": self._vetos_issued,
             "provider_failures": self._provider_failures,
             "total_calls": self._total_calls,
+            "equity_sentiment": {
+                "enabled": self._should_run_equity_poller(),
+                "running": self._equity_sentiment_task is not None
+                and not self._equity_sentiment_task.done(),
+                "universe_size": len(self.config.equity_sentiment_universe),
+                "interval_seconds": self.config.equity_sentiment_interval_seconds,
+                "polls_total": self._equity_sentiment_polls,
+                "published_total": self._equity_sentiment_published,
+            },
         }

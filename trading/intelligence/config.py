@@ -33,3 +33,13 @@ class IntelligenceConfig(BaseModel):
     glassnode_api_key: str | None = None
     lunarcrush_api_key: str | None = None
     santiment_api_key: str | None = None
+
+    # Equity sentiment poller (ADR-0011 follow-up).
+    # Drives the `intel_sentiment` topic on a configured equity universe so
+    # personas like Buffett/Graham/Lynch — whose universe contains AAPL/MSFT
+    # etc., not BTCUSD/ETHUSD — actually receive sentiment data.  Off by
+    # default (empty list).  Setting equity_sentiment_universe enables the
+    # background poller in `IntelligenceLayer.start()`.
+    equity_sentiment_universe: list[str] = Field(default_factory=list)
+    equity_sentiment_interval_seconds: int = 900  # 15 minutes
+    equity_sentiment_max_concurrency: int = 3
