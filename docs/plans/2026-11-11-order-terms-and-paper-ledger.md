@@ -142,7 +142,8 @@ Each commit leaves the suite green.
 - **A human rejection is not sticky.** If an Agent routes a rejected or expired id again it becomes pending and is offered again; it still needs a fresh approval to execute. Making a human "no" final needs its own status, which the frontend also reads.
 - **Opportunities left `approved` are not swept.** Shadow mode, or execution stopping before submission, leaves the status `approved` with no order.
 - **Slack approval buttons cannot work.** Slack is given the signed approve link as a URL button, which opens it as a browser GET, but the route accepts only POST and requires a `write:orders` identity. Needs a decision on how a click from Slack proves who clicked.
-- **`SpreadTracker` has no notifier.** It is constructed with `notifier=None` and a comment promising later wiring that does not exist.
+- **`SpreadTracker` has no notifier, on purpose for now.** It would send an alert for every Polymarket quote whose gap exceeds the threshold, with no cooldown, so wiring it as it stands would flood the notification channels. Enabling alerts needs a per-pair cooldown first. The comment that promised wiring is corrected.
+- **`SimulatedBroker` stays.** Nothing in production constructs it, but `tests/integration/test_paper_resting_recovery.py`, which CI runs, is built on it.
 - **REAL versus Decimal columns** in the ledger tables.
 
 The wider review these came from is not in the repository; ask for it if needed.
