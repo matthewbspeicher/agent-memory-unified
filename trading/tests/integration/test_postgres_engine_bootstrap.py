@@ -156,3 +156,20 @@ async def test_a_spread_can_be_recorded_found_and_claimed_once(empty):
     assert await spreads.get_top_spreads(min_gap=1) == []
     await spreads.release_spread(observation)
     assert await spreads.claim_spread(observation, "second") is True
+
+
+async def test_one_rejected_statement_does_not_lose_the_others(empty, caplog):
+    """An existing table that lacks a column an index needs, as seen in production."""
+    db, schema, admin = empty
+    await admin.execute(
+        f'CREATE TABLE "{schema}".arb_spread_observations'
+        " (id SERIAL PRIMARY KEY, kalshi_ticker TEXT, poly_ticker TEXT, gap_cents INT)"
+    )
+    with caplog.at_level(logging.WARNING, logger="storage.db"):
+        await init_db_postgres(db)
+    messages = [r.getMessage() for r in caplog.records]
+    failed = [m for m in messages if "statement failed" in m]
+    assert failed and all("arb_spread" in m for m in failed)
+    assert any(f"{len(failed)} of " in m for m in messages)
+    # Every other table was still created.
+    assert CORE_TABLES <= await tables(admin, schema)

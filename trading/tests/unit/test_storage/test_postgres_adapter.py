@@ -459,3 +459,37 @@ class TestEngineDdl:
         from storage.db import _INIT_DDL
 
         assert re.findall(r"BOOLEAN[^,\n]*DEFAULT\s+[01]\b", _INIT_DDL, re.I) == []
+
+    def test_the_engine_ddl_splits_into_plain_create_statements(self):
+        from storage.db import _INIT_DDL, ddl_statements
+
+        statements = ddl_statements(_INIT_DDL)
+        assert len(statements) > 100
+        assert all(s.upper().startswith("CREATE ") for s in statements)
+        assert not any("--" in s or ";" in s for s in statements)
+
+    async def test_a_failing_statement_is_logged_and_the_rest_still_run(self, caplog):
+        import logging
+
+        from storage.db import _INIT_DDL, ddl_statements, init_db_postgres
+
+        class Db:
+            def __init__(self):
+                self.ran = []
+
+            async def execute(self, sql, params=None):
+                self.ran.append(sql)
+                if "arb_spread_observations (" in sql and "CREATE TABLE" in sql:
+                    raise RuntimeError("rejected")
+
+            async def executescript(self, sql):
+                raise AssertionError("the engine DDL must not run as one script")
+
+        db = Db()
+        with caplog.at_level(logging.WARNING, logger="storage.db"):
+            await init_db_postgres(db)
+        statements = ddl_statements(_INIT_DDL)
+        assert db.ran[: len(statements)] == statements
+        messages = [r.getMessage() for r in caplog.records]
+        assert any("arb_spread_observations" in m and "rejected" in m for m in messages)
+        assert any(f"1 of {len(statements)} statements failed" in m for m in messages)
