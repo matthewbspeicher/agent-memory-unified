@@ -33,8 +33,8 @@ from execution.service import (
     ExecutionService,
     ExecutionRejected,
     ExecutionUnavailable,
-    _decode,
 )
+from broker.order_terms import decode_order
 from risk.engine import RiskEngine
 from risk.kill_switch import KillSwitch
 from risk.rules import MaxPositionSize, MaxDailyTrades, PortfolioContext
@@ -243,7 +243,7 @@ class VenueOrders:
             attempt["dispatch_id"],
             attempt["account"],
             attempt["operation"],
-            _decode(attempt["order"]),
+            decode_order(attempt["order"]),
             attempt["order_id"],
             attempt["epoch"],
             datetime.now(timezone.utc),

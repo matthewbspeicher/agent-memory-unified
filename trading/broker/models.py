@@ -143,6 +143,22 @@ class Quote:
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
+QUOTE_MAX_AGE_SECONDS = 30
+QUOTE_MAX_FUTURE_SECONDS = 5
+
+
+def timestamp_age_seconds(timestamp: datetime) -> float:
+    """Seconds since the timestamp; a naive timestamp is read as local time."""
+    return (
+        datetime.now(timezone.utc) - timestamp.astimezone(timezone.utc)
+    ).total_seconds()
+
+
+def is_stale(age_seconds: float, max_age: float = QUOTE_MAX_AGE_SECONDS) -> bool:
+    """True when a timestamp is too old, or further in the future than clock skew."""
+    return age_seconds < -QUOTE_MAX_FUTURE_SECONDS or age_seconds > max_age
+
+
 @dataclass(frozen=True)
 class Bar:
     symbol: Symbol

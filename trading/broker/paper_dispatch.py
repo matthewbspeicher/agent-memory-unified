@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 
 from broker.models import OrderResult, OrderStatus
+from broker.order_terms import decode_order, order_payload
 from broker.paper_matching import PaperMatchingMixin
 from execution.context import OrderSnapshot
 from execution.dispatch import DispatchEvidence
@@ -22,9 +23,7 @@ class PaperDispatchMixin(PaperMatchingMixin):
             return OrderResult("", OrderStatus.REJECTED, message=str(exc))
 
     async def _submit_dispatch(self, account_id, order, dispatch_id, epoch):
-        from execution.service import _encode
-
-        payload = json.dumps(_encode(order), default=str, sort_keys=True)
+        payload = order_payload(order)
         async with self._store.transaction() as db:
             await self._dispatch_epoch(db, account_id, epoch)
             row = await self._dispatch_row(db, dispatch_id)
@@ -72,14 +71,12 @@ class PaperDispatchMixin(PaperMatchingMixin):
             return result
 
     async def amend_dispatch(self, order_id, changes, dispatch_id, epoch):
-        from execution.service import _encode, _decode
-
         async with self._store.transaction() as db:
             snap = await self._snapshot(order_id)
             await self._dispatch_epoch(db, snap.order.account_id, epoch)
             row = await self._dispatch_row(db, dispatch_id)
             if row:
-                candidate = _decode(json.loads(row["order_payload"]))
+                candidate = decode_order(json.loads(row["order_payload"]))
                 if row["operation"] != "amend" or row["original_order_id"] != order_id:
                     raise ValueError("Dispatch identity reused for another operation")
                 if any(
@@ -101,7 +98,7 @@ class PaperDispatchMixin(PaperMatchingMixin):
                 if not hasattr(candidate, key):
                     raise ValueError("Unsupported amendment field")
                 setattr(candidate, key, value)
-            payload = json.dumps(_encode(candidate), default=str, sort_keys=True)
+            payload = order_payload(candidate)
             result = await self.modify_order(order_id, changes)
             await db.execute(
                 "INSERT INTO paper_dispatches (dispatch_id, account_id, order_payload, epoch, result_payload, operation, original_order_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -118,12 +115,10 @@ class PaperDispatchMixin(PaperMatchingMixin):
             return result
 
     async def reconcile_dispatch(self, attempt):
-        from execution.service import _decode, _encode
-
         if attempt["operation"] not in {"submit", "amend"}:
             raise ValueError("Unsupported dispatch operation")
-        order = _decode(attempt["order"])
-        payload = json.dumps(_encode(order), default=str, sort_keys=True)
+        order = decode_order(attempt["order"])
+        payload = order_payload(order)
         account, epoch = attempt["account"], attempt["epoch"]
         dispatch_id = attempt["dispatch_id"]
         async with self._store.transaction() as db:

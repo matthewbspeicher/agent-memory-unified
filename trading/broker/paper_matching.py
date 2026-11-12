@@ -19,7 +19,10 @@ from broker.models import (
     StopOrder,
     StopLimitOrder,
     TIF,
+    is_stale,
+    timestamp_age_seconds,
 )
+from broker.order_terms import validate_order_terms
 
 _OPEN = {OrderStatus.SUBMITTED, OrderStatus.PARTIAL}
 
@@ -28,10 +31,8 @@ class PaperMatchingMixin:
     paper_account_id = "PAPER"
 
     async def place_order(self, account_id, order):
-        from execution.service import ExecutionService
-
         order = deepcopy(order)
-        ExecutionService._validate_order(None, account_id, order)
+        validate_order_terms(account_id, order)
         if account_id != self.paper_account_id:
             return OrderResult(
                 "", OrderStatus.REJECTED, message="Paper account mismatch"
@@ -85,8 +86,6 @@ class PaperMatchingMixin:
         return snap
 
     async def modify_order(self, order_id, changes):
-        from execution.service import ExecutionService
-
         if not changes or set(changes) - {"quantity", "limit_price", "stop_price"}:
             raise ValueError("Unsupported amendment fields")
         async with self._store.transaction() as db:
@@ -100,7 +99,7 @@ class PaperMatchingMixin:
                 if not hasattr(order, key):
                     raise ValueError("Amendment field does not apply to order")
                 setattr(order, key, value)
-            ExecutionService._validate_order(None, order.account_id, order)
+            validate_order_terms(order.account_id, order)
             if order.quantity <= snap.filled_quantity:
                 return OrderResult(
                     "",
@@ -196,9 +195,7 @@ class PaperMatchingMixin:
         if quote.timestamp.tzinfo is None or quote.timestamp.utcoffset() is None:
             raise ValueError("Matching tick requires a timezone")
         tick_id = json.dumps([self.paper_account_id, tick_id])
-        age = (
-            datetime.now(timezone.utc) - quote.timestamp.astimezone(timezone.utc)
-        ).total_seconds()
+        age = timestamp_age_seconds(quote.timestamp)
         sizes = {}
         for side, value in ((OrderSide.BUY, ask_size), (OrderSide.SELL, bid_size)):
             if isinstance(value, bool):
@@ -247,7 +244,7 @@ class PaperMatchingMixin:
                     self._dispatch_result({"result_payload": json.dumps(r)})
                     for r in payload["results"]
                 ]
-            if age < -5 or age > 30:
+            if is_stale(age):
                 raise ValueError("Stale matching tick")
             rows = await (
                 await db.execute(

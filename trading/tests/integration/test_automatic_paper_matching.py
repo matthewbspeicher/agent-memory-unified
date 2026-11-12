@@ -132,13 +132,13 @@ async def test_halt_or_missing_control_blocks_matching_but_not_expiry(
         snapshot = await paper.get_order_snapshot(receipt.order_id)
         snapshot.order.time_in_force = TIF.DAY
         yesterday = datetime.now(timezone.utc) - timedelta(days=1)
-        from execution.service import _encode
+        from broker.order_terms import encode_order
         import json
 
         await db.execute(
             "UPDATE paper_order_terms SET order_payload=?,submitted_at=? WHERE order_id=?",
             (
-                json.dumps(_encode(snapshot.order), default=str),
+                json.dumps(encode_order(snapshot.order), default=str),
                 yesterday.isoformat(),
                 receipt.order_id,
             ),
@@ -246,7 +246,7 @@ async def test_reset_while_quote_is_in_flight_cannot_apply_old_generation(
 
 
 async def test_expiry_preserves_partial_fills_fees_and_gtc(projection, paper, control):
-    from execution.service import _encode
+    from broker.order_terms import encode_order
     import json
 
     driver, broker, order, receipt, positions = await setup(projection, paper, control)
@@ -264,7 +264,7 @@ async def test_expiry_preserves_partial_fills_fees_and_gtc(projection, paper, co
         await db.execute(
             "UPDATE paper_order_terms SET order_payload=?,submitted_at=? WHERE order_id=?",
             (
-                json.dumps(_encode(snapshot.order), default=str),
+                json.dumps(encode_order(snapshot.order), default=str),
                 yesterday.isoformat(),
                 receipt.order_id,
             ),
@@ -311,7 +311,7 @@ async def test_broken_symbol_does_not_stop_other_symbols(projection, paper, cont
 async def test_clock_expiry_runs_while_quote_lookup_is_waiting(
     projection, paper, control
 ):
-    from execution.service import _encode
+    from broker.order_terms import encode_order
     import json
 
     driver, broker, order, receipt, positions = await setup(projection, paper, control)
@@ -333,7 +333,7 @@ async def test_clock_expiry_runs_while_quote_lookup_is_waiting(
             await db.execute(
                 "UPDATE paper_order_terms SET order_payload=?,submitted_at=? WHERE order_id=?",
                 (
-                    json.dumps(_encode(snapshot.order), default=str),
+                    json.dumps(encode_order(snapshot.order), default=str),
                     yesterday.isoformat(),
                     receipt.order_id,
                 ),
