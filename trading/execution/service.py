@@ -11,8 +11,8 @@ from __future__ import annotations
 import asyncio
 from contextlib import asynccontextmanager
 from copy import deepcopy
-from dataclasses import asdict, replace
-from datetime import date, datetime, timezone
+from dataclasses import replace
+from datetime import datetime, timezone
 from decimal import Decimal
 import json
 import uuid
@@ -20,19 +20,20 @@ import uuid
 from broker.models import (
     AssetType,
     Symbol,
-    OptionRight,
     OrderBase,
     MarketOrder,
-    LimitOrder,
-    StopOrder,
-    StopLimitOrder,
     TrailingStopOrder,
     OrderSide,
     OrderStatus,
-    TIF,
     Position,
     Quote,
     OrderResult,
+)
+from broker.order_terms import (
+    InvalidOrderTerms,
+    decode_order,
+    encode_order,
+    validate_order_terms,
 )
 from execution.context import AccountRiskState, OrderSnapshot
 
@@ -49,10 +50,6 @@ class ExecutionUnavailable(ExecutionRejected):
         self.outcome_unknown = outcome_unknown
 
 
-_TYPES = {
-    c.__name__: c
-    for c in (MarketOrder, LimitOrder, StopOrder, StopLimitOrder, TrailingStopOrder)
-}
 _OPEN = {OrderStatus.SUBMITTED, OrderStatus.PARTIAL}
 _LOCK = "execution:admission:lock"
 _JOURNAL = "execution:admission:reservations"
@@ -69,35 +66,6 @@ def _decimal(value, name, *, positive=True):
     if not result.is_finite() or (positive and result <= 0):
         raise ExecutionRejected(f"Invalid {name}")
     return result
-
-
-def _encode(order):
-    return {"type": type(order).__name__, "data": asdict(order)}
-
-
-def _decode(payload):
-    values = payload["data"].copy()
-    symbol = values.pop("symbol").copy()
-    symbol["asset_type"] = AssetType(symbol["asset_type"])
-    if symbol.get("expiry"):
-        symbol["expiry"] = date.fromisoformat(symbol["expiry"])
-    if symbol.get("strike") is not None:
-        symbol["strike"] = Decimal(symbol["strike"])
-    if symbol.get("right"):
-        symbol["right"] = OptionRight(symbol["right"])
-    values["symbol"] = Symbol(**symbol)
-    values["side"] = OrderSide(values["side"])
-    values["time_in_force"] = TIF(values["time_in_force"])
-    for key in (
-        "quantity",
-        "limit_price",
-        "stop_price",
-        "trail_amount",
-        "trail_percent",
-    ):
-        if values.get(key) is not None:
-            values[key] = Decimal(values[key])
-    return _TYPES[payload["type"]](**values)
 
 
 class ExecutionService:
@@ -193,25 +161,10 @@ class ExecutionService:
             raise ExecutionUnavailable(f"Stale or future {what}")
 
     def _validate_order(self, account, order):
-        if type(order).__name__ not in _TYPES or type(order) not in _TYPES.values():
-            raise ExecutionRejected("Order type has no complete execution risk model")
-        if not account or order.account_id != account:
-            raise ExecutionRejected("Order account mismatch")
-        if not isinstance(order.symbol, Symbol) or not order.symbol.ticker:
-            raise ExecutionRejected("Invalid order symbol")
-        if not isinstance(order.side, OrderSide) or not isinstance(
-            order.time_in_force, TIF
-        ):
-            raise ExecutionRejected("Invalid order side or duration")
-        order.quantity = _decimal(order.quantity, "quantity")
-        for key in ("limit_price", "stop_price", "trail_amount", "trail_percent"):
-            if hasattr(order, key) and getattr(order, key) is not None:
-                setattr(order, key, _decimal(getattr(order, key), key))
-        if isinstance(order, TrailingStopOrder):
-            if (order.trail_amount is None) == (order.trail_percent is None):
-                raise ExecutionRejected("Exactly one trailing distance is required")
-            if order.trail_percent is not None and order.trail_percent > 100:
-                raise ExecutionRejected("Invalid trailing percentage")
+        try:
+            validate_order_terms(account, order)
+        except InvalidOrderTerms as exc:
+            raise ExecutionRejected(str(exc)) from exc
 
     async def _state(self, broker, account):
         try:
@@ -344,7 +297,7 @@ class ExecutionService:
                 and r["id"] not in pending
             ):
                 pending[r["id"]] = OrderSnapshot(
-                    r["id"], _decode(r["order"]), OrderStatus.SUBMITTED
+                    r["id"], decode_order(r["order"]), OrderStatus.SUBMITTED
                 )
         ctx = state.context
         counted = next((o for o in state.orders if o.order_id == exclude), None)
@@ -501,7 +454,7 @@ class ExecutionService:
                     "broker": name,
                     "account": account,
                     "id": result.order_id,
-                    "order": _encode(order),
+                    "order": encode_order(order),
                     "epoch": epoch,
                 }
             )
@@ -518,7 +471,7 @@ class ExecutionService:
             "account": account,
             "operation": operation,
             "order_id": order_id,
-            "order": _encode(order),
+            "order": encode_order(order),
             "prepared_at": datetime.now(timezone.utc).isoformat(),
             "status": "prepared",
         }
@@ -698,14 +651,14 @@ class ExecutionService:
                 ) from exc
             if not isinstance(evidence, DispatchEvidence) or evidence.final is not True:
                 raise ExecutionRejected("Dispatch outcome remains uncertain")
-            order = _decode(attempt["order"])
+            order = decode_order(attempt["order"])
             if (
                 evidence.dispatch_id != token
                 or evidence.account_id != attempt["account"]
                 or evidence.operation != attempt["operation"]
                 or evidence.original_order_id != attempt.get("order_id")
                 or evidence.epoch != attempt.get("epoch", "")
-                or _encode(evidence.order) != _encode(order)
+                or encode_order(evidence.order) != encode_order(order)
             ):
                 raise ExecutionRejected("Dispatch evidence identity mismatch")
             self._fresh(evidence.observed_at, "dispatch evidence")
@@ -725,7 +678,7 @@ class ExecutionService:
             else:
                 if not isinstance(snap, OrderSnapshot) or not snap.order_id:
                     raise ExecutionRejected("Missing authoritative order snapshot")
-                if _encode(snap.order) != _encode(order):
+                if encode_order(snap.order) != encode_order(order):
                     raise ExecutionRejected("Reconciled order terms differ")
                 filled = _decimal(
                     snap.filled_quantity, "reconciled fill", positive=False
@@ -744,7 +697,7 @@ class ExecutionService:
                         current is None
                         or current.status != snap.status
                         or current.filled_quantity != filled
-                        or _encode(current.order) != _encode(order)
+                        or encode_order(current.order) != encode_order(order)
                     ):
                         raise ExecutionRejected(
                             "Open order does not match account snapshot"
@@ -778,7 +731,7 @@ class ExecutionService:
                             "broker": attempt["broker"],
                             "account": attempt["account"],
                             "id": result_id,
-                            "order": _encode(order),
+                            "order": encode_order(order),
                             "epoch": state.epoch,
                             "dispatch_id": token,
                         }
@@ -894,7 +847,7 @@ class ExecutionService:
             if current is None:
                 raise ExecutionRejected("Order is not authoritatively amendable")
             order = deepcopy(current.order)
-            if _encode(order) != _encode(_decode(original["order"])):
+            if encode_order(order) != encode_order(decode_order(original["order"])):
                 raise ExecutionUnavailable(
                     "Order changed outside execution boundary; reconcile first"
                 )

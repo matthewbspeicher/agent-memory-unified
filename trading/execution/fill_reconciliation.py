@@ -18,7 +18,7 @@ from uuid import uuid4
 from agents.models import OpportunityStatus
 from broker.models import OrderStatus, AssetType
 from broker.paper_dispatch import PaperDispatchMixin
-from execution.service import _encode, _decode
+from broker.order_terms import decode_order, encode_order
 from exits.rules import parse_rule
 
 log = logging.getLogger(__name__)
@@ -267,7 +267,7 @@ class PaperFillReconciler:
                         "Tracked position already has an outstanding execution"
                     )
             payload = {
-                "order": _encode(order),
+                "order": encode_order(order),
                 "epoch": coverage["generation"],
                 "agent_name": opportunity.agent_name,
                 "exit_reason": opportunity.data.get("exit_rule", "exit_position"),
@@ -323,7 +323,7 @@ class PaperFillReconciler:
 
     async def _reconcile(self, job):
         payload = json.loads(job["payload"])
-        expected = _decode(payload["order"])
+        expected = decode_order(payload["order"])
         async with self.paper.transaction() as db:
             generation = await (
                 await db.execute(
@@ -344,7 +344,7 @@ class PaperFillReconciler:
             matches = [
                 r
                 for r in rows
-                if _decode(json.loads(r["order_payload"])).signal_id == job["signal_id"]
+                if decode_order(json.loads(r["order_payload"])).signal_id == job["signal_id"]
             ]
             if not matches:
                 # Recovery may have fenced a request before acceptance. Only its
@@ -356,7 +356,7 @@ class PaperFillReconciler:
                     )
                 ).fetchall()
                 for receipt in rejected:
-                    request = _decode(json.loads(receipt["order_payload"]))
+                    request = decode_order(json.loads(receipt["order_payload"]))
                     outcome = PaperDispatchMixin._dispatch_result(receipt)
                     if (
                         request.signal_id == job["signal_id"]

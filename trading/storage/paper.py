@@ -14,6 +14,7 @@ from broker.models import (
     OrderStatus,
     OrderSide,
 )
+from broker.order_terms import decode_order, encode_order, order_payload
 
 import aiosqlite
 from storage.postgres import PostgresDB
@@ -542,8 +543,6 @@ class PaperStore:
         submitted_at: datetime | None = None,
         epoch: str | None = None,
     ) -> None:
-        from execution.service import _encode
-
         async with self.transaction() as db:
             coverage = await (
                 await db.execute(
@@ -584,7 +583,7 @@ class PaperStore:
                 (
                     order_id,
                     order.account_id,
-                    json.dumps(_encode(order), default=str, sort_keys=True),
+                    order_payload(order),
                     stamp,
                     actual_epoch,
                 ),
@@ -592,7 +591,6 @@ class PaperStore:
 
     async def get_order_snapshot(self, order_id: str):
         from execution.context import OrderSnapshot
-        from execution.service import _decode
 
         db = await self._get_db()
         row = await (
@@ -603,7 +601,7 @@ class PaperStore:
         ).fetchone()
         if not row:
             return None
-        order = _decode(json.loads(row["order_payload"]))
+        order = decode_order(json.loads(row["order_payload"]))
         if (
             order.account_id != row["account_id"]
             or order.quantity != Decimal(str(row["quantity"]))
@@ -659,11 +657,9 @@ class PaperStore:
         price: Decimal,
         commission: Decimal = Decimal("0"),
     ) -> OrderResult:
-        from execution.service import _encode
-
         async with self.transaction() as db:
             snapshot = await self.get_order_snapshot(order_id)
-            if snapshot is None or _encode(snapshot.order) != _encode(order):
+            if snapshot is None or encode_order(snapshot.order) != encode_order(order):
                 raise ValueError("Paper fill terms do not match accepted order")
             if snapshot.status not in {OrderStatus.SUBMITTED, OrderStatus.PARTIAL}:
                 raise ValueError("Paper order is no longer open")

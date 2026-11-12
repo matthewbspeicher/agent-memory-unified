@@ -20,6 +20,7 @@ from broker.models import (
     StopLimitOrder,
     TIF,
 )
+from broker.order_terms import validate_order_terms
 
 _OPEN = {OrderStatus.SUBMITTED, OrderStatus.PARTIAL}
 
@@ -28,10 +29,8 @@ class PaperMatchingMixin:
     paper_account_id = "PAPER"
 
     async def place_order(self, account_id, order):
-        from execution.service import ExecutionService
-
         order = deepcopy(order)
-        ExecutionService._validate_order(None, account_id, order)
+        validate_order_terms(account_id, order)
         if account_id != self.paper_account_id:
             return OrderResult(
                 "", OrderStatus.REJECTED, message="Paper account mismatch"
@@ -85,8 +84,6 @@ class PaperMatchingMixin:
         return snap
 
     async def modify_order(self, order_id, changes):
-        from execution.service import ExecutionService
-
         if not changes or set(changes) - {"quantity", "limit_price", "stop_price"}:
             raise ValueError("Unsupported amendment fields")
         async with self._store.transaction() as db:
@@ -100,7 +97,7 @@ class PaperMatchingMixin:
                 if not hasattr(order, key):
                     raise ValueError("Amendment field does not apply to order")
                 setattr(order, key, value)
-            ExecutionService._validate_order(None, order.account_id, order)
+            validate_order_terms(order.account_id, order)
             if order.quantity <= snap.filled_quantity:
                 return OrderResult(
                     "",

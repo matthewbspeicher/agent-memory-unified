@@ -22,12 +22,12 @@ from broker.models import (
     TIF,
     TrailingStopOrder,
 )
-from execution.service import _decode as decode_order
-from execution.service import _encode as encode_order
-
-
-def order_payload(order):
-    return json.dumps(encode_order(order), default=str, sort_keys=True)
+from broker.order_terms import (
+    InvalidOrderTerms,
+    decode_order,
+    order_payload,
+    validate_order_terms,
+)
 
 
 STOCK = Symbol("AAPL")
@@ -122,3 +122,19 @@ def test_stored_payload_is_pinned(name):
 def test_stored_payload_round_trips(name):
     order, expected = PINNED[name]
     assert decode_order(json.loads(expected)) == order
+
+
+def test_validation_normalises_in_place():
+    order = LimitOrder(STOCK, OrderSide.BUY, "2", "PAPER", limit_price=3)
+    validate_order_terms("PAPER", order)
+    assert (order.quantity, order.limit_price) == (Decimal("2"), Decimal("3"))
+
+
+@pytest.mark.parametrize(
+    "account, quantity, message",
+    [("OTHER", Decimal("1"), "account"), ("PAPER", Decimal("0"), "quantity")],
+)
+def test_invalid_terms_are_refused(account, quantity, message):
+    order = MarketOrder(STOCK, OrderSide.BUY, quantity, "PAPER")
+    with pytest.raises(InvalidOrderTerms, match=message):
+        validate_order_terms(account, order)
