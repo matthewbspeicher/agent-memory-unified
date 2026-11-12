@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from decimal import Decimal
-from datetime import datetime
+from datetime import datetime, timezone
 from collections.abc import Callable
 from typing import Any
 
@@ -251,7 +251,11 @@ class BitGetMarketData(MarketDataProvider):
                 bars.append(
                     Bar(
                         symbol=symbol,
-                        timestamp=datetime.fromtimestamp(int(k[0]) / 1000),
+                        # Epoch milliseconds are an instant; without a zone this
+                        # would be the host's local time.
+                        timestamp=datetime.fromtimestamp(
+                            int(k[0]) / 1000, tz=timezone.utc
+                        ),
                         open=Decimal(str(k[1])),
                         high=Decimal(str(k[2])),
                         low=Decimal(str(k[3])),

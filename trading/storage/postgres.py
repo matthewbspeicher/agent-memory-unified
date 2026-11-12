@@ -100,9 +100,14 @@ async def _run(call, sql, params, learned):
 class _Row(dict):
     """A result row readable by column name or, like an aiosqlite row, by position."""
 
+    def __init__(self, record) -> None:
+        super().__init__(record)
+        # Kept apart from the mapping: two columns may share a name.
+        self._positional = tuple(record.values())
+
     def __getitem__(self, key):
         if isinstance(key, int) and not isinstance(key, bool):
-            return list(self.values())[key]
+            return self._positional[key]
         return super().__getitem__(key)
 
 
