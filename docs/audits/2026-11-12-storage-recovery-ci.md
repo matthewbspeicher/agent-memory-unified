@@ -35,6 +35,22 @@ application database, start the trading engine or load broker credentials.
 Missing services or failures fail the job. No test step uses `continue-on-error`
 or suppresses pytest's status.
 
+## Storage fixture correction exposed by CI
+
+The first GitHub run passed all 237 recovery cases, but failed five newly selected
+storage cases at `await connection.execute(...)`. Their spec-derived connection
+mocks supplied a non-awaitable `MagicMock` on Python 3.12.16. The local Python
+3.13.12 mock supplied an `AsyncMock`; both environments used aiosqlite 0.22.1.
+The real connection path passed in both environments.
+
+The affected SQLite connection tests now use disposable in-memory connections
+rather than inferring an awaitable interface from a mock spec. Original connection,
+row-factory, initialization and store-injection checks remain; the tests additionally
+exercise row access and failure to execute after context-manager closure. No test
+was removed or skipped, and no production connection code or dependency changed.
+All 20 storage cases pass locally after this correction. The first failing CI
+receipt is retained with the qualification artifacts.
+
 ## Local qualification
 
 Validation read the pytest commands directly from the changed workflow. It used

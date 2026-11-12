@@ -55,12 +55,7 @@ class TestStoresWorkWithDatabaseConnection:
         config = Config(db_path=":memory:")
         db_conn = DatabaseConnection(config)
 
-        with patch(
-            "storage.db.aiosqlite.connect", new_callable=AsyncMock
-        ) as mock_connect:
-            mock_db = AsyncMock(spec=aiosqlite.Connection)
-            mock_connect.return_value = mock_db
-
+        try:
             with patch("storage.db.init_db", new_callable=AsyncMock):
                 db = await db_conn.connect()
 
@@ -76,3 +71,5 @@ class TestStoresWorkWithDatabaseConnection:
                 assert perf_store._db == db
                 assert agent_store._db == db
                 assert paper_store._db == db
+        finally:
+            await db_conn.close()
