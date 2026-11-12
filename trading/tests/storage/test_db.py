@@ -37,18 +37,18 @@ class TestDatabaseConnectionConnect:
         config = Config(db_path=":memory:")
         db_conn = DatabaseConnection(config)
 
-        with patch(
-            "storage.db.aiosqlite.connect", new_callable=AsyncMock
-        ) as mock_connect:
-            mock_db = AsyncMock(spec=aiosqlite.Connection)
-            mock_connect.return_value = mock_db
+        with patch("storage.db.aiosqlite.connect", wraps=aiosqlite.connect) as connect:
+            try:
+                with patch("storage.db.init_db", new_callable=AsyncMock):
+                    db = await db_conn.connect()
 
-            with patch("storage.db.init_db", new_callable=AsyncMock):
-                db = await db_conn.connect()
-
-            mock_connect.assert_called_once_with(":memory:")
-            assert db == mock_db
-            assert db_conn.connection == mock_db
+                connect.assert_called_once_with(":memory:")
+                assert isinstance(db, aiosqlite.Connection)
+                assert db_conn.connection is db
+                row = await (await db.execute("PRAGMA busy_timeout")).fetchone()
+                assert row[0] == 5000
+            finally:
+                await db_conn.close()
 
     @pytest.mark.asyncio
     async def test_connect_postgres_when_database_url_set(self):
@@ -134,33 +134,27 @@ class TestDatabaseConnectionConnect:
         config = Config(db_path=":memory:")
         db_conn = DatabaseConnection(config)
 
-        with patch(
-            "storage.db.aiosqlite.connect", new_callable=AsyncMock
-        ) as mock_connect:
-            mock_db = AsyncMock(spec=aiosqlite.Connection)
-            mock_connect.return_value = mock_db
-
+        try:
             with patch("storage.db.init_db", new_callable=AsyncMock):
-                await db_conn.connect()
+                db = await db_conn.connect()
 
-                # Check row_factory was set
-                assert mock_db.row_factory == aiosqlite.Row
+            assert db.row_factory is aiosqlite.Row
+            row = await (await db.execute("SELECT 1 AS value")).fetchone()
+            assert row["value"] == 1
+        finally:
+            await db_conn.close()
 
     @pytest.mark.asyncio
     async def test_connect_calls_init_db_for_sqlite(self):
         config = Config(db_path=":memory:")
         db_conn = DatabaseConnection(config)
 
-        with patch(
-            "storage.db.aiosqlite.connect", new_callable=AsyncMock
-        ) as mock_connect:
-            mock_db = AsyncMock(spec=aiosqlite.Connection)
-            mock_connect.return_value = mock_db
-
-            with patch("storage.db.init_db", new_callable=AsyncMock) as mock_init:
-                await db_conn.connect()
-
-                mock_init.assert_called_once_with(mock_db)
+        try:
+            with patch("storage.db.init_db", new_callable=AsyncMock) as init:
+                db = await db_conn.connect()
+                init.assert_awaited_once_with(db)
+        finally:
+            await db_conn.close()
 
 
 class TestDatabaseConnectionClose:
@@ -209,16 +203,13 @@ class TestDatabaseConnectionContextManager:
         config = Config(db_path=":memory:")
         db_conn = DatabaseConnection(config)
 
-        with patch(
-            "storage.db.aiosqlite.connect", new_callable=AsyncMock
-        ) as mock_connect:
-            mock_db = AsyncMock(spec=aiosqlite.Connection)
-            mock_connect.return_value = mock_db
-
+        try:
             with patch("storage.db.init_db", new_callable=AsyncMock):
                 async with db_conn as db:
-                    assert db == mock_db
-                    mock_connect.assert_called_once()
+                    assert db is db_conn.connection
+                    await db.execute("SELECT 1")
 
-                # After exiting context, close should be called
-                mock_db.close.assert_called_once()
+                with pytest.raises(ValueError):
+                    await db.execute("SELECT 1")
+        finally:
+            await db_conn.close()
