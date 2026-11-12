@@ -421,6 +421,31 @@ class TestTemporalArguments:
         assert "ON CONFLICT (miner_hotkey) DO UPDATE SET" in connection.ran[1]
         assert len([r for r in caplog.records if "unique key differs" in r.getMessage()]) == 1
 
+    async def test_the_older_key_is_remembered_only_once_it_has_worked(self):
+        from storage.postgres import PostgresDB, _run
+
+        sql = PostgresDB._translate(
+            "INSERT OR REPLACE INTO bittensor_miner_rankings (miner_hotkey, symbol, hybrid_score)"
+            " VALUES (?, ?, ?)"
+        )
+
+        class NoMatchingKey(Exception):
+            sqlstate = "42P10"
+
+        ran = []
+
+        async def neither_key_exists(statement, *args):
+            ran.append(statement)
+            raise NoMatchingKey("no unique or exclusion constraint matching")
+
+        learned = {}
+        for _ in range(2):
+            with pytest.raises(NoMatchingKey):
+                await _run(neither_key_exists, sql, ("m", "aggregate", 0.5), learned)
+        assert learned == {}
+        # Each call tried the registered key first, then the older one.
+        assert ["(miner_hotkey, symbol)" in s for s in ran] == [True, False, True, False]
+
     async def test_the_same_error_on_another_statement_is_raised(self):
         from storage.postgres import _run
 

@@ -152,6 +152,7 @@ async def _run(call, sql, params, learned, suffix=""):
     if plan:
         args = [_convert(arg, plan.get(i)) for i, arg in enumerate(args)]
     corrections = {}
+    replaced = None
     while True:
         try:
             sent = sql.rstrip().rstrip(";") + suffix if suffix else sql
@@ -167,13 +168,15 @@ async def _run(call, sql, params, learned, suffix=""):
                     " definition; replacing on the first column instead: %s",
                     " ".join(sql.split())[:90],
                 )
-                learned[(_NO_MATCHING_KEY, sql)] = older
-                sql = older
+                replaced, sql = sql, older
                 continue
             step = _correction(error, args)
             if step is None:
                 raise
             index, args[index], corrections[index] = step
+    if replaced is not None:
+        # Remembered only now that the older key has worked.
+        learned[(_NO_MATCHING_KEY, replaced)] = sql
     if corrections:
         if len(learned) >= _MAX_LEARNED_STATEMENTS:
             learned.clear()
