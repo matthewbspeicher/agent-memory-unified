@@ -16,6 +16,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
+from storage.temporal import stored_datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
@@ -245,7 +246,7 @@ class StrategyHealthEngine:
         # Cooldown guard: don't transition again until cooldown expires
         if existing and existing.get("cooldown_until"):
             try:
-                cooldown_until = datetime.fromisoformat(existing["cooldown_until"])
+                cooldown_until = stored_datetime(existing["cooldown_until"])
                 if not cooldown_until.tzinfo:
                     cooldown_until = cooldown_until.replace(tzinfo=timezone.utc)
                 if datetime.now(timezone.utc) < cooldown_until:

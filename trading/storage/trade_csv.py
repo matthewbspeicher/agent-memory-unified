@@ -211,7 +211,9 @@ class TaxExporter:
                     exit_fees,
                     net_pnl,
                     hold_minutes,
-                ) = row
+                    # A PostgreSQL row is a mapping, which unpacks to its column
+                    # names; a SQLite row unpacks to its values.
+                ) = row.values() if isinstance(row, dict) else row
 
                 cost_basis = (
                     Decimal(str(entry_price)) * Decimal(str(quantity))

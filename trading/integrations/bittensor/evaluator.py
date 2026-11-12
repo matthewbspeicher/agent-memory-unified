@@ -21,6 +21,7 @@ from integrations.bittensor.models import (
 )
 from integrations.bittensor.ranking import compute_rankings, DIRECTION_HEAVY
 from storage.bittensor import BittensorStore
+from storage.temporal import stored_utc
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +106,22 @@ class MinerEvaluator:
 
         # 2. Extract realized path
         # Find bars that match the prediction window
-        window_bars = [b for b in bars if b.timestamp >= window.collected_at]
+        # Some bar sources give times without a zone. Compare instants, reading
+        # a time without a zone as UTC, as stored times are.
+        collected_at = stored_utc(window.collected_at)
+        if min(stored_utc(b.timestamp) for b in bars) > collected_at:
+            # The history starts after the window did, so the bars that
+            # follow are not the ones the miners forecast. Scoring them
+            # would rank miners against the wrong prices.
+            self.metrics.windows_skipped += 1
+            self.metrics.last_skip_reason = "bars_start_after_window"
+            logger.warning(
+                "Bars for %s start after window %s was collected, skipping",
+                window.symbol,
+                window.window_id,
+            )
+            return
+        window_bars = [b for b in bars if stored_utc(b.timestamp) >= collected_at]
         if len(window_bars) < window.prediction_size:
             self.metrics.windows_skipped += 1
             self.metrics.last_skip_reason = "insufficient_bars"

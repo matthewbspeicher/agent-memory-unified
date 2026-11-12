@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from api.auth import verify_api_key
 from api.identity.dependencies import require_scope
 from storage.signal_features import SignalFeatureStore
+from storage.temporal import stored_utc
 
 router = APIRouter(prefix="/analytics/signal-features", tags=["signal-features"])
 
@@ -168,9 +169,7 @@ def _row_to_opportunity(row: dict[str, Any]) -> Any:
         sym = Symbol(ticker=ticker, asset_type=asset_type or AssetType.STOCK)
         ts_str = row.get("created_at", "")
         try:
-            ts = datetime.fromisoformat(ts_str)
-            if not ts.tzinfo:
-                ts = ts.replace(tzinfo=timezone.utc)
+            ts = stored_utc(ts_str)
         except Exception:
             ts = datetime.now(timezone.utc)
         return Opportunity(

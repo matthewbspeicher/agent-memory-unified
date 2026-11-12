@@ -2,6 +2,23 @@
 
 **Date:** 2026-11-12. **Scope:** every SQL statement in `trading/` outside tests. **Read-only:** no source was changed.
 
+## Status: fixed in the facade
+
+The write side is fixed in `trading/storage/postgres.py`. The facade converts a date or time argument the driver refuses (ISO text, or an aware datetime for a `TIMESTAMP` column) and remembers the conversion for that statement. Bound through the facade, all 108 parameters below now accept text. `executemany` is not covered.
+
+The read side was then audited, because writes that succeed fill columns whose readers expected text:
+
+- **Fixed:** 15 readers that parsed a stored time with `datetime.fromisoformat` or compared it as a string now use `trading/storage/temporal.py`. They are in `storage/performance.py`, `storage/bittensor.py` (6), `execution/shadow.py`, `learning/strategy_health.py`, `learning/confidence_calibration.py`, `analytics/strategy_scorecard.py`, `journal/service.py`, `journal/autopsy.py`, `api/routes/signal_features.py`, `leaderboard/engine.py`, `storage/external.py` and `strategies/portfolio.py`.
+- **Fixed:** facade rows can be read by position as well as by name. Stores written for SQLite read `row[0]`, which raised `KeyError` on PostgreSQL in `storage/spreads.py`, `brief/generator.py`, `warroom/engine.py`, `storage/external.py`, `learning/optimizer.py` and `learning/tournament.py`.
+- **Fixed:** `storage/trade_csv.py` (`TaxExporter.export_tax_report`) unpacked a row into variables, which yields column names on PostgreSQL and values on SQLite.
+- **Fixed:** `integrations/bittensor/evaluator.py` compared bar times with a window's collection time. Tradier and Bitget bars had no zone and the collection time has one, so the comparison raised on either backend. It now compares instants, and Bitget bars carry UTC instead of the host's local time. A window is skipped when the bar history starts after the window was collected, so late-starting history is not scored as if it were the forecast period.
+- **Still open:** bar sources that return a different bar size than asked for, or times in an exchange's local zone. Tradier maps `5m` to daily bars and IBKR's intraday times are in the gateway's local zone; both are read as UTC. They only reach the evaluator when that broker is primary and Yahoo fails.
+- **Still open:** the pool does not pin the session time zone. `NOW()` and column defaults write session-local time into `TIMESTAMP` columns, while stores write UTC. They agree only when the server's zone is UTC. Pinning it is a one-line change to the production connection, left for a decision.
+- **Still open:** a naive `datetime` object bound to a `TIMESTAMPTZ` column is read by the driver as the host's local time, while naive text is read as UTC. `competition/store.py` binds `datetime.utcnow()` this way.
+- **Not traced:** `events/publisher.py`, `data/redis_bridge.py`, `scripts/`, and `storage/arbitrage.py` (already has its own handling).
+
+The findings below are as they were before the fix.
+
 ## Finding
 
 On a PostgreSQL database with the column types of `scripts/init-trading-tables.sql`, **51 call sites in 21 files** bind a value the driver refuses for a date or timestamp parameter. One of them is a fallback attempt that is caught and then succeeds; the other 50 are refused with nothing after them that works. The same bug was fixed for `OpportunityStore.save` in pull request 11.

@@ -2,6 +2,113 @@ from __future__ import annotations
 
 import re
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
+
+# Stores are written for SQLite, where dates and times are ISO text. asyncpg
+# takes only date/datetime objects for DATE, TIMESTAMP and TIMESTAMPTZ
+# parameters, and only naive datetimes for TIMESTAMP. It refuses anything else
+# while encoding the arguments, before the statement is run, and names the
+# argument. _run converts that argument and tries again, then remembers the
+# conversion for the statement so later calls bind correctly first time.
+_REFUSED_ARGUMENT = re.compile(r"invalid input for query argument \$(\d+):")
+_WANTS_DATETIME = "expected a datetime"
+_WANTS_DATE = "has no attribute 'toordinal'"
+_WANTS_NAIVE = "offset-naive and offset-aware"
+_AWARE, _NAIVE, _DATE = "aware", "naive", "date"
+_MAX_LEARNED_STATEMENTS = 4096
+
+
+def _as_aware(value):
+    """ISO text as a UTC-aware datetime, or None if it is not ISO text."""
+    if not isinstance(value, str):
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+
+def _convert(value, mode):
+    """Apply a remembered conversion; values it does not fit are left alone."""
+    if mode is None or value is None:
+        return value
+    if isinstance(value, str):
+        parsed = _as_aware(value.strip())
+        if parsed is None:
+            return value
+        # A DATE column takes the calendar date as written, not shifted to UTC.
+        value = parsed.date() if mode == _DATE else parsed
+    if mode == _NAIVE and isinstance(value, datetime) and value.tzinfo is not None:
+        # A TIMESTAMP column has no time zone; it holds UTC.
+        return value.astimezone(timezone.utc).replace(tzinfo=None)
+    return value
+
+
+def _correction(error, args):
+    """(index, converted value, mode) for a temporal argument the driver refused."""
+    if type(error).__name__ != "DataError":
+        return None
+    message = str(error)
+    match = _REFUSED_ARGUMENT.search(message)
+    if match is None or not 0 < int(match.group(1)) <= len(args):
+        return None
+    index = int(match.group(1)) - 1
+    value = args[index]
+    if isinstance(value, str):
+        mode = (
+            _AWARE
+            if _WANTS_DATETIME in message
+            else _DATE
+            if _WANTS_DATE in message
+            else None
+        )
+        converted = _convert(value, mode)
+        return None if converted is value else (index, converted, mode)
+    if (
+        isinstance(value, datetime)
+        and value.tzinfo is not None
+        and _WANTS_NAIVE in message
+    ):
+        return index, _convert(value, _NAIVE), _NAIVE
+    return None
+
+
+async def _run(call, sql, params, learned):
+    """Call an asyncpg method, converting date and time arguments it refuses."""
+    args = list(params or [])
+    plan = learned.get(sql)
+    if plan:
+        args = [_convert(arg, plan.get(i)) for i, arg in enumerate(args)]
+    corrections = {}
+    while True:
+        try:
+            result = await call(sql, *args)
+            break
+        except Exception as error:
+            step = _correction(error, args)
+            if step is None:
+                raise
+            index, args[index], corrections[index] = step
+    if corrections:
+        if len(learned) >= _MAX_LEARNED_STATEMENTS:
+            learned.clear()
+        learned[sql] = {**learned.get(sql, {}), **corrections}
+    return result
+
+
+class _Row(dict):
+    """A result row readable by column name or, like an aiosqlite row, by position."""
+
+    def __init__(self, record) -> None:
+        super().__init__(record)
+        # Kept apart from the mapping: two columns may share a name.
+        self._positional = tuple(record.values())
+
+    def __getitem__(self, key):
+        if isinstance(key, int) and not isinstance(key, bool):
+            return self._positional[key]
+        return super().__getitem__(key)
 
 
 class _PostgresCursor:
@@ -41,10 +148,11 @@ class _PostgresContextManager:
     and ``__aenter__``/``__aexit__`` (so ``async with`` works).
     """
 
-    def __init__(self, pool, sql: str, params) -> None:
+    def __init__(self, pool, sql: str, params, learned) -> None:
         self._pool = pool
         self._sql = sql
         self._params = params
+        self._learned = learned
 
     # -- awaitable (``await db.execute(...)``) -------------------------
 
@@ -55,17 +163,17 @@ class _PostgresContextManager:
         async with self._pool.acquire() as conn:
             sql_stripped = self._sql.strip().upper()
             if sql_stripped.startswith(("SELECT", "WITH")):
-                rows = await conn.fetch(self._sql, *(self._params or []))
-                return _PostgresCursor([dict(r) for r in rows])
-            await conn.execute(self._sql, *(self._params or []))
+                rows = await _run(conn.fetch, self._sql, self._params, self._learned)
+                return _PostgresCursor([_Row(r) for r in rows])
+            await _run(conn.execute, self._sql, self._params, self._learned)
             return _PostgresCursor([])
 
     # -- async context manager (``async with db.execute(...) as cur:``) --
 
     async def __aenter__(self) -> _PostgresCursor:
         async with self._pool.acquire() as conn:
-            rows = await conn.fetch(self._sql, *(self._params or []))
-        return _PostgresCursor([dict(r) for r in rows])
+            rows = await _run(conn.fetch, self._sql, self._params, self._learned)
+        return _PostgresCursor([_Row(r) for r in rows])
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         return None
@@ -94,10 +202,16 @@ class PostgresDB:
     - ``INSERT OR REPLACE INTO`` → ``INSERT INTO … ON CONFLICT DO UPDATE``
     - ``INSERT OR IGNORE INTO`` → ``INSERT INTO … ON CONFLICT DO NOTHING``
     - ``datetime('now')`` → ``NOW()``
+
+    Date and time arguments bound as ISO text, or as aware datetimes for a
+    column without a time zone, are converted to what the column takes (see
+    ``_run``). ``executemany`` is not covered.
     """
 
-    def __init__(self, pool) -> None:
+    def __init__(self, pool, _learned: dict | None = None) -> None:
         self._pool = pool
+        # Statement -> {argument index: conversion}, shared with transactions.
+        self._learned: dict = {} if _learned is None else _learned
 
     @property
     def pool(self):
@@ -112,7 +226,7 @@ class PostgresDB:
         """
         async with self._pool.acquire(timeout=10) as connection:
             async with connection.transaction():
-                yield PostgresDB(_BoundConnection(connection))
+                yield PostgresDB(_BoundConnection(connection), self._learned)
 
     # ------------------------------------------------------------------
     # Public interface (mirrors aiosqlite.Connection)
@@ -127,19 +241,19 @@ class PostgresDB:
         interface that aiosqlite exposes.
         """
         sql = self._translate(sql)
-        return _PostgresContextManager(self._pool, sql, params)
+        return _PostgresContextManager(self._pool, sql, params, self._learned)
 
     async def fetchone(self, sql: str, params=None) -> dict | None:
         sql = self._translate(sql)
         async with self._pool.acquire() as conn:
-            row = await conn.fetchrow(sql, *(params or []))
-            return dict(row) if row else None
+            row = await _run(conn.fetchrow, sql, params, self._learned)
+            return _Row(row) if row else None
 
     async def fetchall(self, sql: str, params=None) -> list[dict]:
         sql = self._translate(sql)
         async with self._pool.acquire() as conn:
-            rows = await conn.fetch(sql, *(params or []))
-            return [dict(r) for r in rows]
+            rows = await _run(conn.fetch, sql, params, self._learned)
+            return [_Row(r) for r in rows]
 
     async def fetch(self, sql: str, *args) -> list[dict]:
         """asyncpg-compatible fetch with positional args.

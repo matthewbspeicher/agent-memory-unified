@@ -4,6 +4,8 @@ from datetime import datetime, timedelta
 
 import aiosqlite
 
+from storage.temporal import stored_datetime
+
 from integrations.bittensor.models import (
     BittensorEvaluationWindow,
     DerivedBittensorView,
@@ -88,7 +90,7 @@ class BittensorStore:
         return RawMinerForecast(
             window_id=r["window_id"],
             request_uuid=r["request_uuid"],
-            collected_at=datetime.fromisoformat(r["collected_at"]),
+            collected_at=stored_datetime(r["collected_at"]),
             miner_uid=r["miner_uid"],
             miner_hotkey=r["miner_hotkey"],
             stream_id=r["stream_id"],
@@ -208,7 +210,7 @@ class BittensorStore:
             window_id=r["window_id"],
             symbol=r["symbol"],
             timeframe=r["timeframe"],
-            timestamp=datetime.fromisoformat(r["timestamp"]),
+            timestamp=stored_datetime(r["timestamp"]),
             responder_count=r["responder_count"],
             bullish_count=r["bullish_count"],
             bearish_count=r["bearish_count"],
@@ -266,7 +268,7 @@ class BittensorStore:
                     window_id=r["window_id"],
                     symbol=r["symbol"],
                     timeframe=r["timeframe"],
-                    collected_at=datetime.fromisoformat(r["timestamp"]),
+                    collected_at=stored_datetime(r["timestamp"]),
                     prediction_size=r["prediction_size"]
                     if r["prediction_size"] is not None
                     else prediction_size,
@@ -308,7 +310,7 @@ class BittensorStore:
             realized_return=r["realized_return"],
             bars_used=r["bars_used"],
             source=r["source"],
-            captured_at=datetime.fromisoformat(r["captured_at"]),
+            captured_at=stored_datetime(r["captured_at"]),
         )
 
     # ------------------------------------------------------------------
@@ -494,7 +496,7 @@ class BittensorStore:
             path_correlation=r["path_correlation"],
             outcome_bars=r["outcome_bars"],
             scoring_version=r["scoring_version"],
-            evaluated_at=datetime.fromisoformat(r["evaluated_at"]),
+            evaluated_at=stored_datetime(r["evaluated_at"]),
         )
 
     # ------------------------------------------------------------------
@@ -592,7 +594,7 @@ class BittensorStore:
             latest_incentive_score=r["latest_incentive_score"],
             hybrid_score=r["hybrid_score"],
             alpha_used=r["alpha_used"],
-            updated_at=datetime.fromisoformat(r["updated_at"]),
+            updated_at=stored_datetime(r["updated_at"]),
         )
 
     # ------------------------------------------------------------------

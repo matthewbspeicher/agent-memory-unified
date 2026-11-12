@@ -19,6 +19,7 @@ import logging
 import math
 from dataclasses import dataclass, asdict
 from datetime import datetime, timezone
+from storage.temporal import stored_utc
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -238,6 +239,9 @@ class LeaderboardEngine:
             cached_ts = (
                 row["last_processed_snapshot_at"] if isinstance(row, dict) else row[0]
             )
-            return latest_ts != cached_ts
+            if cached_ts is None:
+                return True
+            # Text on SQLite, a datetime on PostgreSQL: compare the instants.
+            return stored_utc(latest_ts) != stored_utc(cached_ts)
         except Exception:
             return True

@@ -14,7 +14,7 @@ Cached in trade_autopsies table after first generation.
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from storage.temporal import stored_utc
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
@@ -44,8 +44,8 @@ def _compute_pnl(position: dict) -> tuple[Decimal, float]:
 def _compute_duration(position: dict) -> str:
     """Human-readable duration string."""
     try:
-        entry_t = datetime.fromisoformat(position["entry_time"])
-        exit_t = datetime.fromisoformat(position["exit_time"])
+        entry_t = stored_utc(position["entry_time"])
+        exit_t = stored_utc(position["exit_time"])
         hours = (exit_t - entry_t).total_seconds() / 3600
         if hours < 24:
             return f"{hours:.1f} hours"

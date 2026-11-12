@@ -7,7 +7,7 @@ Consumed by WhatsApp /journal and GET /journal API.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from storage.temporal import stored_utc
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
@@ -103,8 +103,8 @@ class JournalService:
 
         # Duration in hours
         try:
-            entry_t = datetime.fromisoformat(position["entry_time"])
-            exit_t = datetime.fromisoformat(position["exit_time"])
+            entry_t = stored_utc(position["entry_time"])
+            exit_t = stored_utc(position["exit_time"])
             duration_hours = (exit_t - entry_t).total_seconds() / 3600
         except Exception:
             duration_hours = 0.0

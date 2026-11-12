@@ -12,6 +12,7 @@ from uuid import uuid4
 from agents.models import ActionLevel, Opportunity
 from broker.models import Bar, OrderSide, Quote
 from storage.shadow import ShadowExecutionStore
+from storage.temporal import stored_datetime
 
 
 class ShadowDecisionStatus(str, Enum):
@@ -266,10 +267,10 @@ class ShadowOutcomeResolver:
             timeframe="1m",
             period="1d",
         )
-        opened_at = datetime.fromisoformat(record["opened_at"]).replace(
+        opened_at = stored_datetime(record["opened_at"]).replace(
             tzinfo=timezone.utc
         )
-        resolve_after = datetime.fromisoformat(record["resolve_after"]).replace(
+        resolve_after = stored_datetime(record["resolve_after"]).replace(
             tzinfo=timezone.utc
         )
         resolution_bar = self._resolution_bar(bars, resolve_after=resolve_after)
