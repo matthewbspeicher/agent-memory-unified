@@ -42,6 +42,7 @@ if TYPE_CHECKING:
     from rules.engine import RulesEngine
     from achievements.tracker import AchievementTracker
 
+from execution.outcome import failure_facts, receipt_facts
 from execution.shadow import ShadowDecisionStatus
 from storage.opportunities import REVISION_KEY
 
@@ -1246,9 +1247,10 @@ class OpportunityRouter:
                 order_result = await self._execution.submit(
                     broker, dispatch_order.account_id, dispatch_order,
                 )
+                facts = receipt_facts(order_result)
                 if registered_paper_job:
                     from broker.models import OrderStatus
-                    if order_result.status == OrderStatus.REJECTED and order_result.filled_quantity == 0:
+                    if facts.zero_fill_rejection:
                         await self._fill_reconciler.rejected(opportunity.id)
                         await self._store.update_status(opportunity.id, OpportunityStatus.REJECTED)
                     else:
@@ -1269,24 +1271,12 @@ class OpportunityRouter:
                 from broker.models import OrderStatus
                 from decimal import Decimal as _D
 
-                if (
-                    order_result.status in (OrderStatus.REJECTED, OrderStatus.CANCELLED)
-                    and order_result.filled_quantity == 0
-                ):
+                if facts.zero_fill_refusal:
                     raise RuntimeError(f"Broker did not accept order: {order_result.status.value}")
                 broker_submission_observed = True
                 filled_quantity = order_result.filled_quantity
                 fill_price = order_result.avg_fill_price
-                complete_priced_fill = (
-                    order_result.status == OrderStatus.FILLED
-                    and isinstance(filled_quantity, _D)
-                    and filled_quantity.is_finite()
-                    and filled_quantity > 0
-                    and isinstance(fill_price, _D)
-                    and fill_price.is_finite()
-                    and fill_price > 0
-                )
-                if not complete_priced_fill:
+                if not facts.complete_priced_fill:
                     # Accepted/partial is an order receipt, not a completed trade.
                     # Existing trackers close whole positions and cannot safely
                     # account for incremental fills. Retain measured evidence for
@@ -1642,12 +1632,10 @@ class OpportunityRouter:
                 span.record_exception(e)
                 span.set_status(trace.StatusCode.ERROR, str(e))
                 logger.error("Trade execution failed for %s: %s", opportunity.id, e)
-                from execution.service import ExecutionUnavailable
-
                 status = (
                     OpportunityStatus.RECONCILIATION_REQUIRED
                     if broker_submission_observed or (
-                        isinstance(e, ExecutionUnavailable) and e.outcome_unknown
+                        failure_facts(e).outcome_unknown is True
                     )
                     else OpportunityStatus.REJECTED
                 )

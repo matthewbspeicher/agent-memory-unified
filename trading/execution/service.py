@@ -38,36 +38,19 @@ from broker.order_terms import (
     validate_order_terms,
 )
 from execution.context import AccountRiskState, OrderSnapshot
-
-
-class ExecutionRejected(RuntimeError):
-    """No broker mutation occurred: policy or input rejected the request."""
-
-
-class ExecutionUnavailable(ExecutionRejected):
-    """Admission is unavailable; outcome_unknown forbids assuming rejection."""
-
-    def __init__(self, message, *, outcome_unknown=False):
-        super().__init__(message)
-        self.outcome_unknown = outcome_unknown
+from execution.outcome import (
+    ExecutionRejected,
+    ExecutionUnavailable,
+    _decimal,
+    receipt_facts,
+    validate_receipt,
+)
 
 
 _OPEN = {OrderStatus.SUBMITTED, OrderStatus.PARTIAL}
 _LOCK = "execution:admission:lock"
 _JOURNAL = "execution:admission:reservations"
 _ATTEMPT = "execution:admission:attempt"
-
-
-def _decimal(value, name, *, positive=True):
-    if isinstance(value, bool):
-        raise ExecutionRejected(f"Invalid {name}")
-    try:
-        result = Decimal(str(value))
-    except Exception as exc:
-        raise ExecutionRejected(f"Invalid {name}") from exc
-    if not result.is_finite() or (positive and result <= 0):
-        raise ExecutionRejected(f"Invalid {name}")
-    return result
 
 
 class ExecutionService:
@@ -420,25 +403,10 @@ class ExecutionService:
     async def _save_result(
         self, journal, name, account, order, result, *, replaced=None, epoch=""
     ):
-        if (
-            isinstance(result, OrderResult)
-            and result.status == OrderStatus.REJECTED
-            and result.filled_quantity == 0
-        ):
+        validate_receipt(result, admitted_quantity=order.quantity)
+        facts = receipt_facts(result)
+        if facts.zero_fill_rejection:
             return result
-        if not isinstance(result, OrderResult) or not result.order_id:
-            raise ExecutionUnavailable("Broker returned no authoritative order receipt")
-        if result.status not in set(OrderStatus):
-            raise ExecutionUnavailable("Broker returned unknown order status")
-        filled = _decimal(
-            result.filled_quantity, "receipt filled quantity", positive=False
-        )
-        if (
-            filled < 0
-            or filled > order.quantity
-            or (result.status == OrderStatus.FILLED and filled != order.quantity)
-        ):
-            raise ExecutionUnavailable("Broker returned inconsistent fill receipt")
         if replaced:
             journal[:] = [
                 r
@@ -450,7 +418,7 @@ class ExecutionService:
                 )
             ]
         # Filled orders also reserve until a fresh provider snapshot observes them.
-        if result.status in (_OPEN | {OrderStatus.FILLED}):
+        if facts.open_order or result.status == OrderStatus.FILLED:
             journal.append(
                 {
                     "broker": name,
@@ -895,8 +863,7 @@ class ExecutionService:
                 )
                 if (
                     isinstance(result, OrderResult)
-                    and result.status == OrderStatus.REJECTED
-                    and result.filled_quantity == 0
+                    and receipt_facts(result).zero_fill_rejection
                 ):
                     # Original order may remain active after rejected amendment.
                     await self._acknowledge_attempt(receipt, result)

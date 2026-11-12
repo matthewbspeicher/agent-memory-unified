@@ -375,6 +375,29 @@ async def test_boundary_rejection_does_not_place_whatsapp_order(assistant, deps)
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("failure,unknown", [
+    ("rejected", False), ("unavailable", False), ("unavailable", True),
+])
+async def test_confirmed_order_failure_message_contract(assistant, deps, failure, unknown):
+    from types import SimpleNamespace
+    from execution.service import ExecutionRejected, ExecutionUnavailable
+
+    error = (
+        ExecutionRejected("existing detail") if failure == "rejected"
+        else ExecutionUnavailable("existing detail", outcome_unknown=unknown)
+    )
+    assistant._execution.submit.side_effect = error
+    action = SimpleNamespace(
+        action_type="place_order",
+        data={"symbol": "AAPL", "side": "BUY", "quantity": "2"},
+    )
+    await assistant._execute_confirmed("15551234567", action)
+    deps[0].send_text.assert_awaited_once_with(
+        "15551234567", "Order failed: existing detail"
+    )
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("enabled", [True, False])
 async def test_confirmed_halt_toggle_uses_persisted_control(assistant, deps, enabled):
     from types import SimpleNamespace

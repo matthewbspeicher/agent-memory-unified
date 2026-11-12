@@ -34,6 +34,34 @@ def measured_account(mock_broker):
 HEADERS = {"X-API-Key": "test-key"}
 
 
+@pytest.mark.parametrize("failure,unknown,http_status", [
+    ("rejected", False, 409),
+    ("unavailable", False, 503),
+    ("unavailable", True, 503),
+])
+def test_execution_failure_response_contract(
+    client, mock_broker, failure, unknown, http_status
+):
+    from types import SimpleNamespace
+    from execution.service import ExecutionRejected, ExecutionUnavailable
+
+    error = (
+        ExecutionRejected("existing detail") if failure == "rejected"
+        else ExecutionUnavailable("existing detail", outcome_unknown=unknown)
+    )
+    client.app.state.execution_service = SimpleNamespace(
+        submit=AsyncMock(side_effect=error)
+    )
+    mock_broker.orders.place_order = AsyncMock()
+    response = client.post("/orders", headers=HEADERS, json={
+        "symbol": {"ticker": "AAPL"}, "side": "BUY", "quantity": "1",
+        "account_id": "U12345", "order_type": "market",
+    })
+    assert response.status_code == http_status
+    assert response.json() == {"detail": "existing detail"}
+    mock_broker.orders.place_order.assert_not_awaited()
+
+
 def test_place_market_order(client, mock_broker):
     mock_broker.orders.place_order = AsyncMock(
         return_value=OrderResult(

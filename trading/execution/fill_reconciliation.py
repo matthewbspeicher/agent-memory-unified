@@ -20,8 +20,10 @@ from broker.models import OrderStatus, AssetType
 from broker.paper_dispatch import PaperDispatchMixin
 from broker.order_terms import decode_order, encode_order
 from exits.rules import parse_rule
+from execution.outcome import receipt_facts
 
 log = logging.getLogger(__name__)
+
 _TERMINAL = {OrderStatus.FILLED, OrderStatus.CANCELLED, OrderStatus.REJECTED}
 
 
@@ -327,8 +329,7 @@ class PaperFillReconciler:
                     outcome = PaperDispatchMixin._dispatch_result(receipt)
                     if (
                         request.signal_id == job["signal_id"]
-                        and outcome.status == OrderStatus.REJECTED
-                        and outcome.filled_quantity == 0
+                        and receipt_facts(outcome).zero_fill_rejection
                     ):
                         await db.execute(
                             "UPDATE opportunities SET status=?,updated_at=datetime('now') WHERE id=?",
@@ -464,6 +465,7 @@ class PaperFillReconciler:
                 if isinstance(stored["data"], str)
                 else dict(stored["data"])
             )
+            facts = receipt_facts(result)
             data["execution_receipt"] = {
                 "order_id": order_id,
                 "status": result.status.value,
@@ -472,11 +474,11 @@ class PaperFillReconciler:
                 if result.avg_fill_price is not None
                 else None,
                 "commission": str(result.commission),
-                "requires_fill_reconciliation": result.status not in _TERMINAL,
+                "requires_fill_reconciliation": not facts.terminal_order,
             }
             if position:
                 data["tracked_position_id"] = position["id"]
-            terminal = result.status in _TERMINAL
+            terminal = facts.terminal_order
             status = (
                 (
                     OpportunityStatus.EXECUTED
