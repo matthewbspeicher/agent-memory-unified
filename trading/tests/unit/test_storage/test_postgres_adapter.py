@@ -552,3 +552,48 @@ class TestEngineDdl:
         messages = [r.getMessage() for r in caplog.records]
         assert any("arb_spread_observations" in m and "rejected" in m for m in messages)
         assert any(f"1 of {len(statements)} statements failed" in m for m in messages)
+
+
+class TestCursorCounts:
+    def test_rows_affected_are_read_from_the_status(self):
+        from storage.postgres import _affected
+
+        assert _affected("UPDATE 3") == 3
+        assert _affected("INSERT 0 1") == 1
+        assert _affected("DELETE 0") == 0
+        assert _affected("CREATE TABLE") == -1
+        assert _affected(None) == -1
+
+    async def test_an_update_reports_its_rowcount(self):
+        db, pool, conn = _make_db()
+        conn.execute.return_value = "UPDATE 2"
+        cursor = await db.execute("UPDATE trades SET status = ? WHERE id > ?", ["x", 1])
+        assert cursor.rowcount == 2 and cursor.lastrowid is None
+
+    async def test_an_insert_asks_for_the_generated_id_once_per_table(self):
+        db, pool, conn = _make_db()
+        conn.fetchrow.return_value = {"found": True, "name": "id"}
+        conn.fetch.return_value = [{"id": 41}]
+        first = await db.execute("INSERT INTO trades (symbol) VALUES (?);", ["AAPL"])
+        conn.fetch.return_value = [{"id": 42}]
+        second = await db.execute("INSERT INTO trades (symbol) VALUES (?)", ["MSFT"])
+        assert (first.lastrowid, second.lastrowid) == (41, 42)
+        assert conn.fetch.await_args_list[0].args[0].endswith('VALUES ($1) RETURNING "id"')
+        assert conn.fetchrow.await_count == 1
+        conn.execute.assert_not_awaited()
+
+    async def test_an_insert_into_a_table_without_one_is_sent_unchanged(self):
+        db, pool, conn = _make_db()
+        conn.fetchrow.return_value = {"found": True, "name": None}
+        conn.execute.return_value = "INSERT 0 1"
+        cursor = await db.execute("INSERT INTO settings (k, v) VALUES (?, ?)", ["a", "b"])
+        assert conn.execute.await_args.args[0] == "INSERT INTO settings (k, v) VALUES ($1, $2)"
+        assert (cursor.rowcount, cursor.lastrowid) == (1, None)
+
+    async def test_a_statement_with_its_own_returning_is_not_changed(self):
+        db, pool, conn = _make_db()
+        conn.fetch.return_value = [{"id": 7}]
+        cursor = await db.execute("INSERT INTO trades (symbol) VALUES (?) RETURNING id", ["A"])
+        assert conn.fetch.await_args.args[0].count("RETURNING") == 1
+        conn.fetchrow.assert_not_awaited()
+        assert (await cursor.fetchone())["id"] == 7

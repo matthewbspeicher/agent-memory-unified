@@ -99,8 +99,53 @@ def _correction(error, args):
     return None
 
 
-async def _run(call, sql, params, learned):
-    """Call an asyncpg method, converting date and time arguments it refuses."""
+_INSERT_INTO = re.compile(r'\s*INSERT\s+INTO\s+([\w."]+)', re.IGNORECASE)
+_RETURNING = re.compile(r"\bRETURNING\b", re.IGNORECASE)
+_RETURNS_ROWS = ("SELECT", "WITH", "VALUES", "SHOW", "TABLE")
+# Whether the table exists, and its first serial or identity column.
+_SERIAL_COLUMN = """
+    SELECT to_regclass($1) IS NOT NULL AS found,
+           (SELECT a.attname FROM pg_attribute a
+             WHERE a.attrelid = to_regclass($1) AND a.attnum > 0 AND NOT a.attisdropped
+               AND (a.attidentity <> ''
+                    OR pg_get_serial_sequence($1, a.attname) IS NOT NULL)
+             ORDER BY a.attnum LIMIT 1) AS name
+"""
+
+
+async def _serial_column(conn, sql, serials):
+    """The generated-id column of the table an INSERT writes to, if it has one.
+
+    SQLite reports the new row's id as ``cursor.lastrowid``. PostgreSQL only
+    gives it back when the statement asks, so the facade asks for this column.
+    """
+    match = _INSERT_INTO.match(sql)
+    if match is None or _RETURNING.search(sql):
+        return None
+    table = match.group(1)
+    if table not in serials:
+        try:
+            row = await conn.fetchrow(_SERIAL_COLUMN, table)
+        except Exception:
+            return None  # the insert itself will report what is wrong
+        if not row or not row["found"]:
+            return None  # not remembered: the table may be created later
+        serials[table] = row["name"]
+    return serials[table]
+
+
+def _affected(status) -> int:
+    """Rows affected, from a status such as ``UPDATE 3`` or ``INSERT 0 1``."""
+    last = str(status).rsplit(" ", 1)[-1]
+    return int(last) if last.isdigit() else -1
+
+
+async def _run(call, sql, params, learned, suffix=""):
+    """Call an asyncpg method, converting date and time arguments it refuses.
+
+    ``suffix`` is appended to the statement as it is sent, so what was learned
+    about the statement stays keyed by the statement itself.
+    """
     args = list(params or [])
     sql = learned.get((_NO_MATCHING_KEY, sql), sql)
     plan = learned.get(sql)
@@ -109,7 +154,8 @@ async def _run(call, sql, params, learned):
     corrections = {}
     while True:
         try:
-            result = await call(sql, *args)
+            sent = sql.rstrip().rstrip(";") + suffix if suffix else sql
+            result = await call(sent, *args)
             break
         except Exception as error:
             older = _FIRST_COLUMN_UPSERTS.get(sql)
@@ -153,13 +199,17 @@ class _PostgresCursor:
     """Mimics an aiosqlite cursor so ``async with db.execute(...) as cur:``
     works identically for both backends.
 
-    Holds the rows returned by a SELECT statement and exposes ``fetchone``
-    and ``fetchall`` matching the aiosqlite cursor interface.
+    Holds the rows a statement returned and exposes ``fetchone`` and
+    ``fetchall`` matching the aiosqlite cursor interface, with ``rowcount``
+    (rows returned or affected) and ``lastrowid`` (the id an INSERT generated,
+    or None when the table generates none or no row was inserted).
     """
 
-    def __init__(self, rows: list[dict]) -> None:
+    def __init__(self, rows: list[dict], rowcount: int = -1, lastrowid=None) -> None:
         self._rows = rows
         self._index = 0
+        self.rowcount = rowcount
+        self.lastrowid = lastrowid
 
     async def fetchone(self) -> dict | None:
         if self._index < len(self._rows):
@@ -186,32 +236,39 @@ class _PostgresContextManager:
     and ``__aenter__``/``__aexit__`` (so ``async with`` works).
     """
 
-    def __init__(self, pool, sql: str, params, learned) -> None:
+    def __init__(self, pool, sql: str, params, learned, serials) -> None:
         self._pool = pool
         self._sql = sql
         self._params = params
         self._learned = learned
+        self._serials = serials
 
     # -- awaitable (``await db.execute(...)``) -------------------------
 
     def __await__(self):
-        return self._do_execute().__await__()
+        return self._execute().__await__()
 
-    async def _do_execute(self):
+    async def _execute(self) -> _PostgresCursor:
+        sql, params, learned = self._sql, self._params, self._learned
         async with self._pool.acquire() as conn:
-            sql_stripped = self._sql.strip().upper()
-            if sql_stripped.startswith(("SELECT", "WITH")):
-                rows = await _run(conn.fetch, self._sql, self._params, self._learned)
-                return _PostgresCursor([_Row(r) for r in rows])
-            await _run(conn.execute, self._sql, self._params, self._learned)
-            return _PostgresCursor([])
+            if sql.lstrip().upper().startswith(_RETURNS_ROWS) or _RETURNING.search(sql):
+                rows = [_Row(r) for r in await _run(conn.fetch, sql, params, learned)]
+                return _PostgresCursor(rows, rowcount=len(rows))
+            column = await _serial_column(conn, sql, self._serials)
+            if column:
+                rows = await _run(
+                    conn.fetch, sql, params, learned, suffix=f' RETURNING "{column}"'
+                )
+                return _PostgresCursor(
+                    [], rowcount=len(rows), lastrowid=rows[-1][column] if rows else None
+                )
+            status = await _run(conn.execute, sql, params, learned)
+            return _PostgresCursor([], rowcount=_affected(status))
 
     # -- async context manager (``async with db.execute(...) as cur:``) --
 
     async def __aenter__(self) -> _PostgresCursor:
-        async with self._pool.acquire() as conn:
-            rows = await _run(conn.fetch, self._sql, self._params, self._learned)
-        return _PostgresCursor([_Row(r) for r in rows])
+        return await self._execute()
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         return None
@@ -246,10 +303,14 @@ class PostgresDB:
     ``_run``). ``executemany`` is not covered.
     """
 
-    def __init__(self, pool, _learned: dict | None = None) -> None:
+    def __init__(
+        self, pool, _learned: dict | None = None, _serials: dict | None = None
+    ) -> None:
         self._pool = pool
         # Statement -> {argument index: conversion}, shared with transactions.
         self._learned: dict = {} if _learned is None else _learned
+        # Table -> its generated-id column, or None. Shared likewise.
+        self._serials: dict = {} if _serials is None else _serials
 
     @property
     def pool(self):
@@ -264,7 +325,9 @@ class PostgresDB:
         """
         async with self._pool.acquire(timeout=10) as connection:
             async with connection.transaction():
-                yield PostgresDB(_BoundConnection(connection), self._learned)
+                yield PostgresDB(
+                    _BoundConnection(connection), self._learned, self._serials
+                )
 
     # ------------------------------------------------------------------
     # Public interface (mirrors aiosqlite.Connection)
@@ -279,7 +342,9 @@ class PostgresDB:
         interface that aiosqlite exposes.
         """
         sql = self._translate(sql)
-        return _PostgresContextManager(self._pool, sql, params, self._learned)
+        return _PostgresContextManager(
+            self._pool, sql, params, self._learned, self._serials
+        )
 
     async def fetchone(self, sql: str, params=None) -> dict | None:
         sql = self._translate(sql)
