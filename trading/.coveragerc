@@ -1,7 +1,6 @@
 [run]
 omit =
     api/app.py
-    api/container.py
     api/startup/brokers.py
     api/startup/integrations.py
     api/startup/observability.py
