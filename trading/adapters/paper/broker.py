@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import logging
 import random
-import uuid
 from collections.abc import Callable
 from decimal import Decimal
 from typing import Any
@@ -39,17 +38,13 @@ from broker.models import (
     OrderHistoryFilter,
     OrderResult,
     OrderSide,
-    OrderStatus,
     Position,
     Quote,
     StopOrder,
     Symbol,
 )
-from broker.paper_dispatch import PaperDispatchMixin
 from storage.paper import PaperStore
-from storage.unit_of_work import PaperWriteNotStarted
-from broker.paper import executable_paper_price, cap_paper_slippage
-from broker.paper_matching import PaperOrderMustRest
+from broker.paper import ImmediatePaperOrderManager
 
 logger = logging.getLogger(__name__)
 
@@ -181,7 +176,7 @@ class PaperMarketData(MarketDataProvider):
 # ---------------------------------------------------------------------------
 
 
-class PaperOrderManager(PaperDispatchMixin, OrderManager):
+class PaperOrderManager(ImmediatePaperOrderManager):
     """Immediate marketable fills plus persisted, explicitly tick-driven orders."""
 
     paper_account_id = "PAPER"
@@ -201,57 +196,10 @@ class PaperOrderManager(PaperDispatchMixin, OrderManager):
             return price + slippage
         return price - slippage
 
-    async def _place_immediate_order(self, account_id: str, order: OrderBase) -> OrderResult:
-        order_id = str(uuid.uuid4())
+    async def _slipped_price(self, order: OrderBase, price: Decimal) -> Decimal:
+        return self._apply_slippage(price, order.side)
 
-        # --- Determine fill price ---
-        quote = await self._market_data.get_quote(order.symbol)
-
-        try:
-            raw_price, limit = executable_paper_price(order, quote)
-        except PaperOrderMustRest:
-            raise  # a ValueError itself, so this must come first
-        except ValueError as exc:
-            return OrderResult(
-                order_id="", status=OrderStatus.REJECTED, message=str(exc)
-            )
-
-        fill_price = cap_paper_slippage(
-            self._apply_slippage(raw_price, order.side), limit, order.side
-        )
-
-        # --- Persist fill + order record via PaperStore ---
-        try:
-            async with self._store.transaction():
-                await self._store.record_fill(
-                    account_id,
-                    order.symbol,
-                    order.side,
-                    order.quantity,
-                    fill_price,
-                    order_id=order_id,
-                )
-                result = OrderResult(
-                    order_id=order_id,
-                    status=OrderStatus.FILLED,
-                    filled_quantity=order.quantity,
-                    avg_fill_price=fill_price,
-                )
-                await self._store.save_order(
-                    order_id,
-                    account_id,
-                    order.symbol,
-                    order.side,
-                    order.quantity,
-                    result.status.value,
-                    result.filled_quantity,
-                    result.avg_fill_price,
-                )
-        except PaperWriteNotStarted as exc:
-            return OrderResult(
-                order_id="", status=OrderStatus.REJECTED, message=str(exc)
-            )
-
+    def _log_fill(self, order, fill_price, order_id, commission) -> None:
         logger.info(
             "PaperBroker: PAPER %s %s x%s @ %.4f (order_id=%s)",
             order.side.value,
@@ -260,15 +208,6 @@ class PaperOrderManager(PaperDispatchMixin, OrderManager):
             fill_price,
             order_id,
         )
-
-        for cb in self._callbacks:
-            cb(result)
-        return result
-
-    def on_order_update(self, callback: Callable[[OrderResult], Any]) -> None:
-        self._callbacks.append(callback)
-
-
 
 
 # ---------------------------------------------------------------------------
