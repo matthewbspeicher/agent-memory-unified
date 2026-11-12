@@ -70,6 +70,9 @@ class OpportunityApprover:
         has its own time, so a different one means the order, broker, exit or
         expiry may no longer be what was shown, and the approval is refused.
         """
+        # The offer is read before the Opportunity it covers: if the Agent
+        # replaces it in between, the check after the claim sees a newer offer.
+        offered_at = await self._store.offered_at(opportunity_id)
         opportunity = await self._store.load(opportunity_id)
         if opportunity is None:
             raise ApprovalRefused("not_found", "Opportunity not found")
@@ -78,7 +81,6 @@ class OpportunityApprover:
                 "not_pending",
                 f"Opportunity is {opportunity.status.value}, not pending",
             )
-        offered_at = await self._store.offered_at(opportunity_id)
         if offered_at is None:
             raise ApprovalRefused(
                 "not_approvable",
@@ -91,6 +93,11 @@ class OpportunityApprover:
                 "Opportunity has no stored order to execute. It proposed no "
                 "trade, or was saved before approvals placed orders.",
             )
+        quantity = opportunity.suggested_trade.quantity
+        if not quantity.is_finite() or quantity < 0:
+            raise ApprovalRefused("not_executable", "Opportunity has no usable quantity")
+        # A suggestion with no quantity leaves it to sizing.
+        ceiling = quantity if quantity > 0 else None
         if shown_offer is not None and offered_at != shown_offer:
             raise ApprovalRefused("changed", _CHANGED)
         deadline = opportunity.expires_at or (offered_at + self._max_age)
@@ -102,12 +109,22 @@ class OpportunityApprover:
                 "expired", f"Opportunity expired at {deadline.isoformat()}"
             )
         # Claim it before executing, so a second approval cannot place a second order.
-        if not await self._store.transition(
-            opportunity_id, OpportunityStatus.PENDING, OpportunityStatus.APPROVED
-        ):
+        claim = asyncio.ensure_future(
+            self._store.transition(
+                opportunity_id, OpportunityStatus.PENDING, OpportunityStatus.APPROVED
+            )
+        )
+        try:
+            claimed = await asyncio.shield(claim)
+        except asyncio.CancelledError:
+            # Cancelled mid-claim: let the claim land, then give it back.
+            await asyncio.wait({claim})
+            if not claim.cancelled() and claim.exception() is None and claim.result():
+                await self._leave_approved(opportunity_id, OpportunityStatus.PENDING)
+            raise
+        if not claimed:
             raise ApprovalRefused("not_pending", "Opportunity is no longer pending")
         opportunity.status = OpportunityStatus.APPROVED
-        quantity = opportunity.suggested_trade.quantity
         started = False
         try:
             # A pending Opportunity can be replaced by its Agent. Once claimed
@@ -115,11 +132,8 @@ class OpportunityApprover:
             if await self._store.offered_at(opportunity_id) == offered_at:
                 started = True
                 # Sizing and risk may reduce the quantity, never raise it above
-                # what was approved. A suggestion with no quantity leaves it
-                # to sizing.
-                await self._router.execute(
-                    opportunity, max_quantity=quantity if quantity > 0 else None
-                )
+                # what was approved.
+                await self._router.execute(opportunity, max_quantity=ceiling)
         except (Exception, asyncio.CancelledError) as error:
             # The router records what it knows before failing. If it left the
             # status untouched, whether an order went out is not known here, so

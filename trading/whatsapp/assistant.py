@@ -196,6 +196,9 @@ class WhatsAppAssistant:
             await self._client.send_text(phone, "\n".join(lines))
 
         elif name == "approve" and args:
+            # Read the offer before the order it covers, so an order replaced
+            # in between is refused at confirmation for its newer offer.
+            offered_at = await self._opp_store.offered_at(args[0])
             opp = await self._opp_store.load(args[0])
             if not opp:
                 await self._client.send_text(phone, f"Opportunity {args[0]} not found.")
@@ -206,7 +209,6 @@ class WhatsAppAssistant:
                     phone, f"Opportunity {args[0]} has no stored order to place."
                 )
                 return
-            offered_at = await self._opp_store.offered_at(args[0])
             if offered_at is None:
                 await self._client.send_text(
                     phone, f"Opportunity {args[0]} was not offered for approval."

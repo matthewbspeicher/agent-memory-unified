@@ -254,8 +254,16 @@ class OpportunityStore:
         # timestamps depend on the database session's time zone.
         data[APPROVABLE_KEY] = datetime.now(timezone.utc).isoformat()
         await self._db.execute(
-            "UPDATE opportunities SET data = ? WHERE id = ? AND status IN (?, ?)",
-            (json.dumps(data, cls=_DecimalEncoder), opportunity_id, *offerable),
+            # Only the row that was read: a save in between must not have its
+            # data overwritten with the earlier Opportunity's.
+            "UPDATE opportunities SET data = ? "
+            "WHERE id = ? AND status IN (?, ?) AND updated_at = ?",
+            (
+                json.dumps(data, cls=_DecimalEncoder),
+                opportunity_id,
+                *offerable,
+                row["updated_at"],
+            ),
         )
         await self._db.commit()
 

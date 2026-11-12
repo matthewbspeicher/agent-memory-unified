@@ -392,6 +392,61 @@ async def test_opportunity_without_expiry_goes_stale_after_the_default_age(store
     assert router.executed == []
 
 
+async def test_cancellation_during_the_claim_gives_the_claim_back(store):
+    await offer(store, opportunity())
+    claim = store.transition
+    landed = asyncio.Event()
+
+    async def slow_claim(*args):
+        store.transition = claim
+        await asyncio.sleep(0.01)
+        changed = await claim(*args)
+        landed.set()
+        return changed
+
+    store.transition = slow_claim
+    router = FakeRouter(store)
+    task = asyncio.ensure_future(approver(store, router).approve("opp-1"))
+    await asyncio.sleep(0.005)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert landed.is_set()
+    assert router.executed == []
+    assert await status_of(store) == "pending"
+
+
+@pytest.mark.parametrize("quantity", ["-5", "NaN", "Infinity"])
+async def test_unusable_quantity_is_not_executable(store, quantity):
+    negative = deepcopy(ORDER)
+    negative.quantity = Decimal(quantity)
+    await offer(store, opportunity(trade=negative))
+    router = FakeRouter(store)
+    with pytest.raises(ApprovalRefused) as refused:
+        await approver(store, router).approve("opp-1")
+    assert refused.value.reason == "not_executable"
+    assert router.executed == []
+
+
+async def test_order_replaced_between_reading_offer_and_order_is_not_executed(store):
+    await offer(store, opportunity())
+    bigger = deepcopy(ORDER)
+    bigger.quantity = Decimal("500")
+    load = store.load
+
+    async def replaced_just_before_the_load(opportunity_id):
+        store.load = load
+        await offer(store, opportunity(trade=bigger))
+        return await load(opportunity_id)
+
+    store.load = replaced_just_before_the_load
+    router = FakeRouter(store)
+    with pytest.raises(ApprovalRefused) as refused:
+        await approver(store, router).approve("opp-1")
+    assert refused.value.reason == "changed"
+    assert router.executed == []
+
+
 async def test_suggestion_without_a_quantity_leaves_it_to_sizing(store):
     unsized = deepcopy(ORDER)
     unsized.quantity = Decimal("0")

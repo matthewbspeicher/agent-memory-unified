@@ -136,6 +136,9 @@ Each commit leaves the suite green.
 - **Rest-or-reject by message text.** `broker/paper_matching.py` decides an order should rest by matching the text of a rejection message. Becomes a small change once Order terms exists.
 - **Typed order outcome.** Definite rejection versus unknown outcome is a convention re-derived in several callers.
 - **Approved Opportunities never execute (done).** Approval now executes through the same path as an auto-executed Opportunity; see `trading/agents/approval.py`.
+- **An Opportunity with an expiry cannot be saved on PostgreSQL.** `OpportunityStore.save` binds `expires_at` as ISO text; asyncpg refuses text for a `TIMESTAMP` column (`DataError`, confirmed against PostgreSQL 17 on 2026-11-12). SQLite accepts it, so no unit test sees it. Already on `main` before approvals. Affects every Agent that sets an expiry (news, Twitter, prediction market, persona panel, debate analyst, manager).
+- **A human rejection is not sticky.** If an Agent routes a rejected or expired id again it becomes pending and is offered again; it still needs a fresh approval to execute. Making a human "no" final needs its own status, which the frontend also reads.
+- **Opportunities left `approved` are not swept.** Shadow mode, or execution stopping before submission, leaves the status `approved` with no order.
 - **Slack approval buttons cannot work.** Slack is given the signed approve link as a URL button, which opens it as a browser GET, but the route accepts only POST and requires a `write:orders` identity. Needs a decision on how a click from Slack proves who clicked.
 - **`SpreadTracker` has no notifier.** It is constructed with `notifier=None` and a comment promising later wiring that does not exist.
 - **REAL versus Decimal columns** in the ledger tables.
