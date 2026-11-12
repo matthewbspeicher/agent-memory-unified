@@ -238,7 +238,98 @@ class PaperMarketData(MarketDataProvider):
 # ---------------------------------------------------------------------------
 
 
-class PaperOrderManager(PaperDispatchMixin, OrderManager):
+class ImmediatePaperOrderManager(PaperDispatchMixin, OrderManager):
+    """Fill a marketable order at once and record it in the Paper ledger.
+
+    One implementation for every paper venue. A venue supplies its slippage and,
+    where it has them, its commission, the orders it refuses outright, the quote
+    errors it treats as a rejection, and its fill log line. Resting, matching,
+    amendment, cancellation and dispatch come from the mixins.
+    """
+
+    # Errors from the quote source that mean "reject this order", not "fail".
+    rejectable_quote_errors: tuple[type[BaseException], ...] = ()
+
+    def _refusal(self, order: OrderBase) -> str | None:
+        """A reason this venue will not take the order at all, or None."""
+        return None
+
+    async def _slipped_price(self, order: OrderBase, price: Decimal) -> Decimal:
+        raise NotImplementedError
+
+    def _commission(self, order: OrderBase, fill_price: Decimal) -> Decimal:
+        return Decimal("0")
+
+    def _log_fill(self, order, fill_price, order_id, commission) -> None:
+        pass
+
+    async def _place_immediate_order(
+        self, account_id: str, order: OrderBase
+    ) -> OrderResult:
+        refusal = self._refusal(order)
+        if refusal is not None:
+            return OrderResult(order_id="", status=OrderStatus.REJECTED, message=refusal)
+        try:
+            quote = await self._market_data.get_quote(order.symbol)
+        except self.rejectable_quote_errors as exc:
+            return OrderResult(
+                order_id="", status=OrderStatus.REJECTED, message=str(exc)
+            )
+        try:
+            price, limit = executable_paper_price(order, quote)
+        except PaperOrderMustRest:
+            raise  # a ValueError itself, so this must come first
+        except ValueError as exc:
+            return OrderResult(
+                order_id="", status=OrderStatus.REJECTED, message=str(exc)
+            )
+        fill_price = cap_paper_slippage(
+            await self._slipped_price(order, price), limit, order.side
+        )
+        commission = self._commission(order, fill_price)
+        order_id = str(uuid.uuid4())
+        try:
+            async with self._store.transaction():
+                await self._store.record_fill(
+                    account_id=account_id,
+                    symbol=order.symbol,
+                    side=order.side,
+                    quantity=order.quantity,
+                    fill_price=fill_price,
+                    commission=commission,
+                    order_id=order_id,
+                )
+                result = OrderResult(
+                    order_id=order_id,
+                    status=OrderStatus.FILLED,
+                    filled_quantity=order.quantity,
+                    avg_fill_price=fill_price,
+                    commission=commission,
+                )
+                await self._store.save_order(
+                    order_id=order_id,
+                    account_id=account_id,
+                    symbol=order.symbol,
+                    side=order.side,
+                    quantity=order.quantity,
+                    status=result.status.value,
+                    filled=result.filled_quantity,
+                    avg_price=result.avg_fill_price,
+                )
+        except PaperWriteNotStarted as exc:
+            return OrderResult(
+                order_id="", status=OrderStatus.REJECTED, message=str(exc)
+            )
+        self._log_fill(order, fill_price, order_id, commission)
+        for cb in self._callbacks:
+            cb(result)
+        return result
+
+    def on_order_update(self, callback: Callable[[OrderResult], Any]) -> None:
+        self._callbacks.append(callback)
+
+
+class PaperOrderManager(ImmediatePaperOrderManager):
     """Immediate marketable fills plus persisted, explicitly tick-driven orders."""
 
     paper_account_id = "PAPER"
@@ -302,64 +393,15 @@ class PaperOrderManager(PaperDispatchMixin, OrderManager):
             )
             return self._apply_slippage(base_price, side)
 
-    async def _place_immediate_order(self, account_id: str, order: OrderBase) -> OrderResult:
-        order_id = str(uuid.uuid4())
-
-        # --- Determine base price ---
-        quote = await self._market_data.get_quote(order.symbol)
-
-        try:
-            raw_price, limit = executable_paper_price(order, quote)
-        except PaperOrderMustRest:
-            raise  # a ValueError itself, so this must come first
-        except ValueError as exc:
-            return OrderResult(
-                order_id="", status=OrderStatus.REJECTED, message=str(exc)
-            )
-
-        # --- Estimate fill price with realistic slippage ---
-        fill_price = await self._estimate_slippage(
-            order.symbol, order.quantity, order.side, raw_price
+    async def _slipped_price(self, order: OrderBase, price: Decimal) -> Decimal:
+        return await self._estimate_slippage(
+            order.symbol, order.quantity, order.side, price
         )
-        fill_price = cap_paper_slippage(fill_price, limit, order.side)
 
-        # Calculate fees
-        commission = self._fee_model.calculate(order, fill_price)
+    def _commission(self, order: OrderBase, fill_price: Decimal) -> Decimal:
+        return self._fee_model.calculate(order, fill_price)
 
-        # --- Persist fill + order record via PaperStore ---
-        try:
-            async with self._store.transaction():
-                await self._store.record_fill(
-                    account_id,
-                    order.symbol,
-                    order.side,
-                    order.quantity,
-                    fill_price,
-                    commission,
-                    order_id=order_id,
-                )
-                result = OrderResult(
-                    order_id=order_id,
-                    status=OrderStatus.FILLED,
-                    filled_quantity=order.quantity,
-                    avg_fill_price=fill_price,
-                    commission=commission,
-                )
-                await self._store.save_order(
-                    order_id,
-                    account_id,
-                    order.symbol,
-                    order.side,
-                    order.quantity,
-                    result.status.value,
-                    result.filled_quantity,
-                    result.avg_fill_price,
-                )
-        except PaperWriteNotStarted as exc:
-            return OrderResult(
-                order_id="", status=OrderStatus.REJECTED, message=str(exc)
-            )
-
+    def _log_fill(self, order, fill_price, order_id, commission) -> None:
         logger.info(
             "PaperBroker: PAPER %s %s x%s @ %.4f (order_id=%s, commission=%.2f)",
             order.side.value,
@@ -369,15 +411,6 @@ class PaperOrderManager(PaperDispatchMixin, OrderManager):
             order_id,
             commission,
         )
-
-        for cb in self._callbacks:
-            cb(result)
-        return result
-
-    def on_order_update(self, callback: Callable[[OrderResult], Any]) -> None:
-        self._callbacks.append(callback)
-
-
 
 
 # ---------------------------------------------------------------------------

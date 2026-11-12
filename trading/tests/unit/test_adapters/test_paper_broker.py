@@ -382,8 +382,8 @@ class TestSimulatedBroker:
         # record_fill must have been called to debit cash
         store.record_fill.assert_called_once()
         call_args = store.record_fill.call_args
-        assert call_args.args[3] == Decimal("10")  # quantity
-        assert call_args.args[2] == OrderSide.BUY
+        assert call_args.kwargs["quantity"] == Decimal("10")
+        assert call_args.kwargs["side"] == OrderSide.BUY
 
     @pytest.mark.asyncio
     async def test_sell_order_calls_record_fill_with_sell_side(self):
@@ -405,4 +405,4 @@ class TestSimulatedBroker:
         assert result.status == OrderStatus.FILLED
         store.record_fill.assert_called_once()
         call_args = store.record_fill.call_args
-        assert call_args.args[2] == OrderSide.SELL
+        assert call_args.kwargs["side"] == OrderSide.SELL
