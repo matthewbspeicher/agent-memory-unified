@@ -43,6 +43,7 @@ class DatabaseConnection:
                 self.config.database_url,
                 ssl=ssl_ctx,
                 statement_cache_size=0,
+                server_settings={"TimeZone": "UTC"},
             )
             self.connection = PostgresDB(pool)
             # Run idempotent table creation (CREATE TABLE IF NOT EXISTS)
