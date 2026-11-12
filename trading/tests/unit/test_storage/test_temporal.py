@@ -113,31 +113,66 @@ async def test_tax_export_reads_rows_from_either_backend(tmp_path, as_mapping):
     assert lines[1] == "AAPL,2026-11-12,2026-11-14,550.00,501.00,49.00,S,,"
 
 
-@pytest.mark.parametrize("bar_zone", [None, UTC])
-async def test_evaluator_compares_bars_with_or_without_a_zone(bar_zone):
-    from decimal import Decimal
+def _evaluator(bars):
     from unittest.mock import AsyncMock, MagicMock
 
-    from broker.models import AssetType, Bar, Symbol
     from integrations.bittensor.evaluator import MinerEvaluator
     from integrations.bittensor.models import BittensorEvaluationWindow, BittensorMetrics
 
-    symbol = Symbol("BTCUSD", AssetType.FOREX)
-    bars = [
-        Bar(symbol, close=Decimal("1"), open=Decimal("1"),
-            timestamp=(AWARE + timedelta(minutes=5 * i)).replace(tzinfo=bar_zone))
-        for i in range(-2, 1)
-    ]
+    store = MagicMock()
+    store.save_realized_window = AsyncMock()
+    store.get_raw_forecasts_by_window = AsyncMock(return_value=[])
+    store.save_accuracy_records = AsyncMock()
+    store.mark_window_evaluated = AsyncMock()
     data_bus = MagicMock()
     data_bus.get_historical = AsyncMock(return_value=bars)
     metrics = BittensorMetrics()
-    evaluator = MinerEvaluator(store=MagicMock(), data_bus=data_bus, metrics=metrics)
     window = BittensorEvaluationWindow(
-        window_id="w", symbol="BTCUSD", timeframe="5m", collected_at=AWARE, prediction_size=12
+        window_id="w", symbol="BTCUSD", timeframe="5m", collected_at=AWARE, prediction_size=2
     )
-    # One bar is at or after the window: the comparison ran, and found too few.
+    return MinerEvaluator(store=store, data_bus=data_bus, metrics=metrics), window, store, metrics
+
+
+def _bars(offsets_minutes, zone):
+    from decimal import Decimal
+
+    from broker.models import AssetType, Bar, Symbol
+
+    symbol = Symbol("BTCUSD", AssetType.FOREX)
+    return [
+        Bar(
+            symbol,
+            open=Decimal(100 + m),
+            close=Decimal(101 + m),
+            timestamp=(AWARE + timedelta(minutes=m)).replace(tzinfo=zone),
+        )
+        for m in offsets_minutes
+    ]
+
+
+@pytest.mark.parametrize("bar_zone", [None, UTC])
+async def test_evaluator_scores_the_bars_from_the_window_start(bar_zone, monkeypatch):
+    import time
+
+    # A host that is not on UTC: a time without a zone must still be read as UTC.
+    monkeypatch.setenv("TZ", "Asia/Tokyo")
+    time.tzset()
+    try:
+        evaluator, window, store, _ = _evaluator(_bars([-10, -5, 0, 5, 10], bar_zone))
+        await evaluator._evaluate_window(window)
+    finally:
+        monkeypatch.undo()
+        time.tzset()
+    snapshot = store.save_realized_window.await_args.args[0]
+    # The bars at the window start and five minutes later, not earlier or later ones.
+    assert snapshot.realized_path == [101.0, 106.0]
+
+
+async def test_evaluator_skips_a_window_its_bars_do_not_reach_back_to():
+    evaluator, window, store, metrics = _evaluator(_bars([50, 55, 60], UTC))
     await evaluator._evaluate_window(window)
-    assert metrics.last_skip_reason == "insufficient_bars"
+    assert metrics.last_skip_reason == "bars_start_after_window"
+    store.save_realized_window.assert_not_awaited()
 
 
 async def test_bitget_bar_times_are_instants():
