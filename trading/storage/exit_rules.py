@@ -41,8 +41,11 @@ class ExitRuleStore:
             if self._closed:
                 raise RuntimeError("ExitRuleStore is closed")
             if self._sync_store is None:
-                self._sync_store = UnitOfWork(self._db)
-                await self._sync_store.adopt_dedicated_connection(busy_timeout=True)
+                # Assign only once adoption succeeded, so a failure is retried
+                # rather than leaving this store on the shared connection.
+                sync_store = UnitOfWork(self._db)
+                await sync_store.adopt_dedicated_connection(busy_timeout=True)
+                self._sync_store = sync_store
             async with self._sync_store.transaction() as db:
                 row = await (await db.execute(
                     "SELECT status FROM tracked_positions WHERE id = ?", (position_id,)

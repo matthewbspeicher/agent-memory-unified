@@ -68,7 +68,7 @@ async def test_stores_sharing_a_unit_of_work_share_its_transaction(db):
 
 async def test_memory_database_keeps_its_connection(db):
     work = UnitOfWork(db)
-    assert await work.adopt_dedicated_connection(busy_timeout=True) is False
+    assert await work.adopt_dedicated_connection(busy_timeout=True) is None
     assert not work.owns_connection
     assert await work.handle() is db
 
@@ -77,10 +77,47 @@ async def test_file_database_gets_a_dedicated_connection(tmp_path):
     shared = await aiosqlite.connect(tmp_path / "ledger.db")
     work = UnitOfWork(shared)
     try:
-        assert await work.adopt_dedicated_connection(busy_timeout=True) is True
+        own = await work.adopt_dedicated_connection(busy_timeout=True)
+        assert own is not None and own is not shared
         assert work.owns_connection
-        assert await work.handle() is not shared
-        assert await work.adopt_dedicated_connection(busy_timeout=True) is False
+        assert await work.handle() is own
+        assert await work.adopt_dedicated_connection(busy_timeout=True) is None
     finally:
         await work.close()
+        await shared.close()
+
+
+async def test_store_without_a_database_resolves_its_transaction_handle(db, monkeypatch):
+    async def fallback():
+        return db
+
+    monkeypatch.setattr("storage.db.get_db", fallback)
+    work = UnitOfWork()
+    async with work.transaction() as handle:
+        assert handle is db
+        assert await work.handle() is handle
+
+
+def test_a_store_takes_a_database_or_a_unit_of_work_not_both(db):
+    with pytest.raises(ValueError):
+        PaperStore(db, unit_of_work=UnitOfWork(db))
+
+
+async def test_failed_adoption_is_retried_by_the_exit_rule_store(tmp_path, monkeypatch):
+    shared = await aiosqlite.connect(tmp_path / "rules.db")
+    shared.row_factory = aiosqlite.Row
+    store = ExitRuleStore(shared)
+    real = UnitOfWork.adopt_dedicated_connection
+
+    async def fail_once(self, *args, **kwargs):
+        monkeypatch.setattr(UnitOfWork, "adopt_dedicated_connection", real)
+        raise OSError("disk unavailable")
+
+    monkeypatch.setattr(UnitOfWork, "adopt_dedicated_connection", fail_once)
+    try:
+        with pytest.raises(OSError):
+            await store.sync_position(1, [])
+        assert store._sync_store is None
+    finally:
+        await store.close()
         await shared.close()

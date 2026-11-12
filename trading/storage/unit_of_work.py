@@ -61,25 +61,26 @@ class UnitOfWork:
         async with self._lock:
             yield
 
-    async def adopt_dedicated_connection(self, source=None, *, busy_timeout: bool) -> bool:
+    async def adopt_dedicated_connection(self, source=None, *, busy_timeout: bool):
         """Switch a file-backed SQLite store to its own connection, once.
 
-        A dedicated connection keeps this unit of work from committing another
-        store's statements. In-memory databases cannot be reopened and are kept.
+        Returns the new connection, or None if nothing changed. A dedicated
+        connection keeps this unit of work from committing another store's
+        statements. In-memory databases cannot be reopened and are kept.
         """
         db = self._db if source is None else source
         if not isinstance(db, aiosqlite.Connection) or self._owns_db:
-            return False
+            return None
         rows = await (await db.execute("PRAGMA database_list")).fetchall()
         filename = next((row[2] for row in rows if row[1] == "main"), "")
         if not filename:
-            return False
+            return None
         self._db = await aiosqlite.connect(filename)
         self._db.row_factory = aiosqlite.Row
         self._owns_db = True
         if busy_timeout:
             await self._db.execute("PRAGMA busy_timeout=5000")
-        return True
+        return self._db
 
     @asynccontextmanager
     async def transaction(self):

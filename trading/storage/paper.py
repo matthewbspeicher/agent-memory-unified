@@ -23,8 +23,14 @@ from storage.unit_of_work import UnitOfWork
 
 class PaperStore:
     def __init__(self, db=None, *, unit_of_work: UnitOfWork | None = None):
+        if db is not None and unit_of_work is not None:
+            raise ValueError("Pass a database or a unit of work, not both")
         self._uow = unit_of_work or UnitOfWork(db)
         self._is_postgres = self._uow.is_postgres
+
+    @property
+    def _db(self):
+        return self._uow._db
 
     async def _get_db(self):
         return await self._uow.handle()
@@ -209,8 +215,9 @@ class PaperStore:
 
     async def _init_tables(self) -> None:
         db = await self._get_db()
-        if await self._uow.adopt_dedicated_connection(db, busy_timeout=True):
-            db = await self._get_db()
+        adopted = await self._uow.adopt_dedicated_connection(db, busy_timeout=True)
+        if adopted is not None:
+            db = adopted
         elif (
             isinstance(db, aiosqlite.Connection)
             and not self._uow.owns_connection
