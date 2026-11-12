@@ -78,6 +78,8 @@ def _utc(value) -> datetime:
 class OpportunityStore:
     def __init__(self, db: aiosqlite.Connection) -> None:
         self._db = db
+        # True once the database has refused expiry as text (see _upsert).
+        self._expiry_is_timestamp = False
 
     async def save(self, opp: Opportunity) -> bool:
         """Store a routed Opportunity; False if an acted-on one already has its id."""
@@ -89,6 +91,33 @@ class OpportunityStore:
             payload[ORDER_TERMS_KEY] = _exact_terms(opp.suggested_trade)
         if opp.is_exit:
             payload[EXIT_KEY] = {"fraction": opp._exit_fraction}
+        try:
+            written = await self._upsert(opp, payload)
+        except Exception as error:
+            # SQLite and a PostgreSQL TEXT column take expiry as ISO text. The
+            # bootstrap script's PostgreSQL column is TIMESTAMP, for which the
+            # driver accepts only a datetime, and refuses before sending anything.
+            if (
+                self._expiry_is_timestamp
+                or opp.expires_at is None
+                or type(error).__name__ != "DataError"
+                or "datetime" not in str(error)
+            ):
+                raise
+            self._expiry_is_timestamp = True
+            written = await self._upsert(opp, payload)
+        await self._db.commit()
+        return written
+
+    def _expiry(self, opp: Opportunity):
+        if opp.expires_at is None:
+            return None
+        if self._expiry_is_timestamp:
+            # The column has no time zone; it holds UTC, as load() reads it.
+            return _utc(opp.expires_at).astimezone(timezone.utc).replace(tzinfo=None)
+        return opp.expires_at.isoformat()
+
+    async def _upsert(self, opp: Opportunity, payload: dict[str, Any]) -> bool:
         # A routed Opportunity replaces an earlier one with the same id that
         # placed no order, and must then be offered again. It never replaces
         # one that was approved or may have an order out.
@@ -119,13 +148,11 @@ class OpportunityStore:
                 opp.reasoning,
                 _serialize_suggested_trade(opp),
                 opp.status.value,
-                opp.expires_at.isoformat() if opp.expires_at else None,
+                self._expiry(opp),
                 json.dumps(payload, cls=_DecimalEncoder),
             ),
         ) as cursor:
-            written = await cursor.fetchone() is not None
-        await self._db.commit()
-        return written
+            return await cursor.fetchone() is not None
 
     async def get(self, opportunity_id: str) -> dict[str, Any] | None:
         cursor = await self._db.execute(
