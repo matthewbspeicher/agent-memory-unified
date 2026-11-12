@@ -17,6 +17,8 @@ def agent_client(mock_broker):
 
     app = create_app(mock_broker)
     app.include_router(agents_router)
+    app.state.redis = AsyncMock()
+    app.state.redis.get.return_value = "false"
 
     runner = MagicMock()
     runner.list_agents.return_value = [

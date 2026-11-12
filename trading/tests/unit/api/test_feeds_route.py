@@ -111,14 +111,7 @@ class _FakeRedis:
 
 
 def _make_app(db, redis=None, *, skip_auth: bool = True, has_scope: bool = True):
-    """Build a FastAPI app with the feeds router, with auth + scope deps
-    dependency-overridden for testability.
-
-    require_scope(s) returns a freshly-built closure each call, so the
-    closure in the registered route's Depends list is NOT the same object
-    the test can rebuild. Walk the router's routes to find it and override
-    that specific callable.
-    """
+    """Use public identity overrides while exercising the real scope gate."""
     app = FastAPI()
     app.state.db = db
     app.state.redis = redis
@@ -129,25 +122,16 @@ def _make_app(db, redis=None, *, skip_auth: bool = True, has_scope: bool = True)
 
         app.dependency_overrides[verify_api_key] = lambda: None
 
-    async def _permit_all():
-        if not has_scope:
-            from fastapi import HTTPException
+    from api.identity.dependencies import Identity, resolve_identity
 
-            raise HTTPException(status_code=403, detail="Forbidden (test)")
-        return None
+    async def _test_identity():
+        return Identity(
+            name="feed-test",
+            scopes=frozenset({"read:feeds.arb"}) if has_scope else frozenset(),
+            tier="subscriber",
+        )
 
-    # Walk every registered route and replace any `require_scope`-produced
-    # checker (its __qualname__ includes "require_scope.<locals>.checker")
-    # with our pass-through. This matches whatever scope strings the route
-    # uses without hardcoding them in the test.
-    for route in app.routes:
-        for dep in getattr(route, "dependencies", []) or []:
-            fn = getattr(dep, "dependency", None)
-            if fn is None:
-                continue
-            qn = getattr(fn, "__qualname__", "")
-            if "require_scope" in qn:
-                app.dependency_overrides[fn] = _permit_all
+    app.dependency_overrides[resolve_identity] = _test_identity
 
     return app
 
@@ -251,9 +235,7 @@ class TestSubscriberRoute:
     def test_invalid_since_returns_400(self, db_with_signals):
         db, _ = db_with_signals
         client = TestClient(_make_app(db))
-        r = client.get(
-            "/api/v1/feeds/arb/signals", params={"since": "not-a-date"}
-        )
+        r = client.get("/api/v1/feeds/arb/signals", params={"since": "not-a-date"})
         assert r.status_code == 400
 
     def test_scope_rejection_returns_403(self, db_with_signals):

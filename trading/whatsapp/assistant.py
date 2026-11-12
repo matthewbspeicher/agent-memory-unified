@@ -78,7 +78,9 @@ class WhatsAppAssistant:
         agent_store=None,
         perf_store=None,
         settings=None,
+        execution_service=None,
     ) -> None:
+        self._execution = execution_service
         self._client = client
         self._broker = broker
         self._runner = runner
@@ -133,19 +135,14 @@ class WhatsAppAssistant:
                 await self._client.send_text(phone, "Cancelled.")
                 return
 
-            pending_action: PendingAction | None = self._confirmation._pending.get(
-                phone
+            # Confirm consumes the phone-scoped token before any execution await,
+            # so simultaneous delivery/replay cannot execute one action twice.
+            confirmed: PendingAction | None = self._confirmation.confirm(
+                phone, text_upper
             )
-            if pending_action:
-                action = pending_action.action_type
-                data = pending_action.data
-            else:
-                confirmed: PendingAction | None = self._confirmation.confirm(
-                    phone, text_upper
-                )
-                if confirmed:
-                    await self._execute_confirmed(phone, confirmed)
-                    return
+            if confirmed:
+                await self._execute_confirmed(phone, confirmed)
+                return
 
         # Tournament override commands — checked before general command parsing
         upper = text.strip().upper()
@@ -503,7 +500,7 @@ class WhatsAppAssistant:
                     quantity=Decimal(action.data["quantity"]),
                     account_id=self._account_id,
                 )
-                result = await self._broker.orders.place_order(self._account_id, order)
+                result = await self._execution.submit(self._broker, self._account_id, order)
                 msg = f"Order placed: {result.status.value}\n{action.data['side']} {action.data['quantity']} {action.data['symbol']}"
                 if result.avg_fill_price:
                     msg += f"\nFill: ${result.avg_fill_price:,.2f}"
@@ -512,12 +509,21 @@ class WhatsAppAssistant:
                 await self._client.send_text(phone, f"Order failed: {e}")
 
         elif action.action_type == "toggle_kill":
-            if action.data["enable"]:
-                self._risk_engine.kill_switch.enable("Enabled via WhatsApp")
-                await self._client.send_text(phone, "Kill switch ENABLED.")
-            else:
-                self._risk_engine.kill_switch.disable()
-                await self._client.send_text(phone, "Kill switch DISABLED.")
+            enabled = action.data["enable"]
+            try:
+                failures = await self._risk_engine.set_halted(
+                    enabled, "Enabled via WhatsApp" if enabled else "Resumed via WhatsApp"
+                )
+            except Exception:
+                logger.exception("WhatsApp trading control update failed")
+                await self._client.send_text(
+                    phone, "Trading control update failed; no successful change was confirmed."
+                )
+                return
+            message = "Kill switch ENABLED." if enabled else "Kill switch DISABLED."
+            if failures:
+                message += " Some open orders could not be cancelled; reconciliation is required."
+            await self._client.send_text(phone, message)
 
         elif action.action_type == "start_agent":
             try:

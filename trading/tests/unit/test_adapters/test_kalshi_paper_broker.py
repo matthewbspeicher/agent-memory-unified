@@ -3,10 +3,32 @@
 from __future__ import annotations
 
 import pytest
+from contextlib import asynccontextmanager
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock
 
 from broker.models import AssetType, LimitOrder, OrderSide, OrderStatus, Symbol, TIF
+
+
+def _quote_for_order(broker, order, price=None):
+    from broker.models import Quote
+
+    price = (
+        Decimal(price)
+        if price is not None
+        else getattr(order, "limit_price", Decimal("0.5"))
+    )
+    broker._market_data.get_quote = AsyncMock(
+        return_value=Quote(order.symbol, bid=price, ask=price, last=price)
+    )
+
+    @asynccontextmanager
+    async def transaction():
+        db = await broker._store._get_db()
+        yield db
+        await db.commit()
+
+    broker._store.transaction = transaction
 
 
 def _prediction_symbol(ticker: str = "HIGHNY-26MAR-B72") -> Symbol:
@@ -39,6 +61,7 @@ class TestKalshiPaperBrokerPlaceOrder:
 
         broker = KalshiPaperBroker(store=store)
         order = _limit_order("MKT-001", OrderSide.BUY, "0.65", qty=10)
+        _quote_for_order(broker, order)
         result = await broker.orders.place_order("KALSHI_PAPER", order)
 
         assert result.status == OrderStatus.FILLED
@@ -58,6 +81,7 @@ class TestKalshiPaperBrokerPlaceOrder:
 
         broker = KalshiPaperBroker(store=store)
         order = _limit_order("MKT-001", OrderSide.BUY, "0.40", qty=5)
+        _quote_for_order(broker, order)
         await broker.orders.place_order("KALSHI_PAPER", order)
 
         store.record_fill.assert_awaited_once()
@@ -143,7 +167,7 @@ class TestKalshiPaperBrokerResolution:
 
     @pytest.mark.asyncio
     async def test_slippage_applied_on_buy(self):
-        """Buy fills at limit_price + slippage_cents/100."""
+        """Buy uses quote plus slippage, bounded by a marketable limit."""
         from adapters.kalshi.paper import KalshiPaperBroker
 
         store = AsyncMock()
@@ -152,14 +176,15 @@ class TestKalshiPaperBrokerResolution:
         store.save_order = AsyncMock()
 
         broker = KalshiPaperBroker(store=store, slippage_cents=2)
-        order = _limit_order("MKT-001", OrderSide.BUY, "0.50", qty=1)
+        order = _limit_order("MKT-001", OrderSide.BUY, "0.55", qty=1)
+        _quote_for_order(broker, order, "0.50")
         result = await broker.orders.place_order("KALSHI_PAPER", order)
 
         assert result.avg_fill_price == Decimal("0.52")
 
     @pytest.mark.asyncio
     async def test_slippage_applied_on_sell(self):
-        """Sell fills at limit_price - slippage_cents/100."""
+        """Sell uses quote minus slippage, bounded by a marketable limit."""
         from adapters.kalshi.paper import KalshiPaperBroker
 
         store = AsyncMock()
@@ -168,7 +193,8 @@ class TestKalshiPaperBrokerResolution:
         store.save_order = AsyncMock()
 
         broker = KalshiPaperBroker(store=store, slippage_cents=2)
-        order = _limit_order("MKT-001", OrderSide.SELL, "0.30", qty=1)
+        order = _limit_order("MKT-001", OrderSide.SELL, "0.25", qty=1)
+        _quote_for_order(broker, order, "0.30")
         result = await broker.orders.place_order("KALSHI_PAPER", order)
 
         assert result.avg_fill_price == Decimal("0.28")
@@ -186,6 +212,7 @@ class TestKalshiPaperBrokerResolution:
             quantity=Decimal("1"),
             account_id="KALSHI_PAPER",
         )
+        _quote_for_order(broker, order)
         result = await broker.orders.place_order("KALSHI_PAPER", order)
         assert result.status == OrderStatus.REJECTED
 
@@ -202,7 +229,10 @@ class TestPaperStoreKalshiResolution:
             db.row_factory = aiosqlite.Row
             store = PaperStore(db=db)
             await store.init_tables()
-            yield store, db
+            try:
+                yield store, await store._get_db()
+            finally:
+                await store.close()
 
     @pytest.mark.asyncio
     async def test_yes_resolution_pnl_calculation(self, store_with_position):

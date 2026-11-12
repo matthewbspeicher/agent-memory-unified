@@ -39,7 +39,7 @@ async def get_active_spreads(request: Request, min_gap: int = 5, limit: int = 50
     dependencies=[Depends(require_scope("write:predictions"))],
 )
 async def execute_arbitrage(req: ExecuteArbRequest, request: Request):
-    """Atomically execute a dual-leg arbitrage trade."""
+    """Submit two independently risk-checked legs; fills are not atomic."""
     spread_store = getattr(request.app.state, "spread_store", None)
     arb_coordinator = getattr(request.app.state, "arb_coordinator", None)
 
@@ -47,6 +47,35 @@ async def execute_arbitrage(req: ExecuteArbRequest, request: Request):
         raise HTTPException(
             status_code=501, detail="Arbitrage executioner not configured"
         )
+
+    config = getattr(request.app.state, "config", None)
+    paper_mode = getattr(config, "paper_trading", None)
+    if type(paper_mode) is not bool:
+        raise HTTPException(503, "Trading mode is not configured")
+    broker_ids = (
+        ("kalshi_paper", "polymarket_paper") if paper_mode else ("kalshi", "polymarket")
+    )
+    brokers = getattr(arb_coordinator, "_brokers", {})
+    if any(broker_id not in brokers for broker_id in broker_ids):
+        raise HTTPException(503, "Required arbitrage brokers are unavailable")
+    if paper_mode:
+        from adapters.kalshi.paper import KALSHI_PAPER_ACCOUNT_ID
+        from adapters.polymarket.paper import POLYMARKET_PAPER_ACCOUNT_ID
+
+        accounts = (KALSHI_PAPER_ACCOUNT_ID, POLYMARKET_PAPER_ACCOUNT_ID)
+    else:
+        resolved_accounts = []
+        for broker_id in broker_ids:
+            try:
+                available = await brokers[broker_id].account.get_accounts()
+            except Exception as exc:
+                raise HTTPException(
+                    503, "Arbitrage account discovery unavailable"
+                ) from exc
+            if len(available) != 1 or not available[0].account_id:
+                raise HTTPException(503, "Arbitrage account is missing or ambiguous")
+            resolved_accounts.append(available[0].account_id)
+        accounts = tuple(resolved_accounts)
 
     # 1. Claim the spread
     success = await spread_store.claim_spread(req.observation_id, req.agent_name)
@@ -57,45 +86,58 @@ async def execute_arbitrage(req: ExecuteArbRequest, request: Request):
         # 2. Fetch observation data
         observation = await spread_store.get_observation(req.observation_id)
         if not observation:
-            await spread_store.release_spread(req.observation_id)
             raise HTTPException(status_code=404, detail="Observation not found")
 
         # 3. Build ArbTrade from observation
         from decimal import Decimal
         from uuid import uuid4
         from execution.models import ArbTrade, ArbLeg, SequencingStrategy
-        from broker.models import MarketOrder, OrderSide, Symbol, AssetType
+        from broker.models import LimitOrder, OrderSide, Symbol, AssetType
 
-        sequencing = SequencingStrategy(req.sequencing)
+        try:
+            sequencing = SequencingStrategy(req.sequencing)
+        except ValueError as exc:
+            raise HTTPException(422, "Invalid arbitrage sequencing") from exc
         trade_id = f"arb-{uuid4().hex[:12]}"
 
         # Determine order sides based on pricing (sell high, buy low)
         kalshi_cents = observation["kalshi_cents"]
         poly_cents = observation["poly_cents"]
+        try:
+            prices = tuple(
+                Decimal(str(cents)) / 100 for cents in (kalshi_cents, poly_cents)
+            )
+            if any(not price.is_finite() or not 0 < price <= 1 for price in prices):
+                raise ValueError("invalid price")
+        except Exception as exc:
+            raise HTTPException(422, "Observed arbitrage prices are invalid") from exc
+        kalshi_price, poly_price = prices
 
         # Leg A: Kalshi
         leg_a = ArbLeg(
-            broker_id="kalshi",
-            order=MarketOrder(
+            broker_id=broker_ids[0],
+            order=LimitOrder(
                 symbol=Symbol(
                     ticker=observation["kalshi_ticker"], asset_type=AssetType.PREDICTION
                 ),
-                side=OrderSide.BUY if kalshi_cents <= poly_cents else OrderSide.SELL,
+                side=OrderSide.BUY if kalshi_price <= poly_price else OrderSide.SELL,
                 quantity=Decimal("1"),
-                account_id="default",
+                account_id=accounts[0],
+                limit_price=kalshi_price,
             ),
         )
 
         # Leg B: Polymarket
         leg_b = ArbLeg(
-            broker_id="polymarket",
-            order=MarketOrder(
+            broker_id=broker_ids[1],
+            order=LimitOrder(
                 symbol=Symbol(
                     ticker=observation["poly_ticker"], asset_type=AssetType.PREDICTION
                 ),
-                side=OrderSide.SELL if kalshi_cents <= poly_cents else OrderSide.BUY,
+                side=OrderSide.SELL if kalshi_price <= poly_price else OrderSide.BUY,
                 quantity=Decimal("1"),
-                account_id="default",
+                account_id=accounts[1],
+                limit_price=poly_price,
             ),
         )
 
@@ -121,9 +163,12 @@ async def execute_arbitrage(req: ExecuteArbRequest, request: Request):
             "expected_profit_bps": trade.expected_profit_bps,
             "state": trade.state.value,
         }
+    except HTTPException:
+        await spread_store.release_spread(req.observation_id)
+        raise
     except Exception as e:
         await spread_store.release_spread(req.observation_id)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/arb/governor/config")

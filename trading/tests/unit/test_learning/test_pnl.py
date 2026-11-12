@@ -76,7 +76,7 @@ async def test_record_entry_creates_tracked_position(tracker, db):
     assert row["symbol"] == "AAPL"
     assert row["side"] == "buy"
     assert row["entry_price"] == "150"
-    assert row["entry_quantity"] == 100
+    assert Decimal(row["entry_quantity"]) == 100
     assert row["entry_fees"] == "1.25"
     assert row["status"] == "open"
     assert row["broker_id"] == "alpaca"
@@ -135,3 +135,18 @@ def test_compute_pnl_sell_side():
     )
     assert result["gross_pnl"] == Decimal("500")
     assert result["net_pnl"] == Decimal("500")
+
+
+@pytest.mark.asyncio
+async def test_record_entry_preserves_fractional_quantity(tracker, db):
+    position_id = await tracker.record_entry(
+        make_opportunity(), make_order_result(qty="0.125"), "buy"
+    )
+    row = await (
+        await db.execute(
+            "SELECT entry_quantity, remaining_quantity FROM tracked_positions WHERE id=?",
+            (position_id,),
+        )
+    ).fetchone()
+    assert Decimal(row["entry_quantity"]) == Decimal("0.125")
+    assert Decimal(row["remaining_quantity"]) == Decimal("0.125")

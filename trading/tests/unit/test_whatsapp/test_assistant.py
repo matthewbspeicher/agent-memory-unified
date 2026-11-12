@@ -5,6 +5,17 @@ from whatsapp.assistant import WhatsAppAssistant
 from broker.models import Position, Symbol, AssetType, AccountBalance
 
 
+def _execution_service():
+    """Inject the admission seam while preserving assistant transport assertions."""
+
+    async def submit(broker, account_id, order):
+        return await broker.orders.place_order(account_id, order)
+
+    service = MagicMock()
+    service.submit = AsyncMock(side_effect=submit)
+    return service
+
+
 @pytest.fixture
 def deps():
     client = AsyncMock()
@@ -38,6 +49,7 @@ def deps():
     opp_store = AsyncMock()
     opp_store.list = AsyncMock(return_value=[])
     risk_engine = MagicMock()
+    risk_engine.set_halted = AsyncMock(return_value=[])
 
     return client, broker, runner, opp_store, risk_engine
 
@@ -52,6 +64,7 @@ def assistant(deps):
         opp_store=opp_store,
         risk_engine=risk_engine,
         account_id="U123",
+        execution_service=_execution_service(),
     )
 
 
@@ -96,6 +109,7 @@ def assistant_with_external(deps, external_store):
         opp_store=opp_store,
         risk_engine=risk_engine,
         account_id="U123",
+        execution_service=_execution_service(),
         external_store=external_store,
     )
 
@@ -169,6 +183,7 @@ async def test_portfolio_staleness_warning(deps):
         opp_store=opp_store,
         risk_engine=risk_engine,
         account_id="U123",
+        execution_service=_execution_service(),
         external_store=store,
     )
     await a.handle("15551234567", "/portfolio", "msg-1")
@@ -213,3 +228,205 @@ async def test_unknown_text_falls_back_to_no_llm_message(assistant, deps):
     client.send_text.assert_called()
     msg = client.send_text.call_args[0][1]
     assert "/help" in msg.lower() or "command" in msg.lower()
+
+
+@pytest.mark.asyncio
+async def test_confirmed_order_uses_execution_boundary(assistant, deps):
+    from types import SimpleNamespace
+    from broker.models import OrderResult, OrderStatus
+
+    broker = deps[1]
+    broker.orders.place_order = AsyncMock(
+        return_value=OrderResult(
+            "checked", OrderStatus.FILLED, Decimal("2"), Decimal("100")
+        )
+    )
+    action = SimpleNamespace(
+        action_type="place_order",
+        data={"symbol": "AAPL", "side": "BUY", "quantity": "2"},
+    )
+    await assistant._execute_confirmed("15551234567", action)
+    assistant._execution.submit.assert_awaited_once()
+    called_broker, account_id, order = assistant._execution.submit.await_args.args
+    assert called_broker is broker
+    assert account_id == "U123"
+    assert order.quantity == Decimal("2")
+    broker.orders.place_order.assert_awaited_once_with(account_id, order)
+
+
+@pytest.mark.asyncio
+async def test_boundary_rejection_does_not_place_whatsapp_order(assistant, deps):
+    from types import SimpleNamespace
+
+    broker = deps[1]
+    broker.orders.place_order = AsyncMock()
+    assistant._execution.submit.side_effect = RuntimeError("Risk denied")
+    action = SimpleNamespace(
+        action_type="place_order",
+        data={"symbol": "AAPL", "side": "BUY", "quantity": "2"},
+    )
+    await assistant._execute_confirmed("15551234567", action)
+    broker.orders.place_order.assert_not_awaited()
+    assert "Order failed: Risk denied" in deps[0].send_text.await_args.args[1]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("enabled", [True, False])
+async def test_confirmed_halt_toggle_uses_persisted_control(assistant, deps, enabled):
+    from types import SimpleNamespace
+
+    await assistant._execute_confirmed(
+        "15551234567",
+        SimpleNamespace(action_type="toggle_kill", data={"enable": enabled}),
+    )
+    deps[4].set_halted.assert_awaited_once_with(
+        enabled, "Enabled via WhatsApp" if enabled else "Resumed via WhatsApp"
+    )
+    deps[4].kill_switch.enable.assert_not_called()
+    deps[4].kill_switch.disable.assert_not_called()
+
+
+def _reply_token(client):
+    import re
+
+    return re.search(r"Reply \*([^*]+)\*", client.send_text.await_args.args[1]).group(1)
+
+
+@pytest.mark.asyncio
+async def test_handle_confirmation_consumes_token_before_concurrent_execution(
+    assistant, deps
+):
+    import asyncio
+    from broker.models import OrderResult, OrderStatus
+
+    broker = deps[1]
+    broker.orders.place_order = AsyncMock(
+        return_value=OrderResult("accepted", OrderStatus.SUBMITTED)
+    )
+    await assistant.handle("phone-a", "/buy AAPL 2", "create")
+    token = _reply_token(deps[0])
+    assistant._execution.submit.assert_not_awaited()
+    await asyncio.gather(
+        assistant.handle("phone-a", token, "confirm-1"),
+        assistant.handle("phone-a", token, "confirm-duplicate"),
+    )
+    assistant._execution.submit.assert_awaited_once()
+    broker.orders.place_order.assert_awaited_once()
+    assert not assistant._confirmation.has_pending("phone-a")
+
+
+@pytest.mark.asyncio
+async def test_handle_confirmation_is_phone_scoped(assistant, deps):
+    from broker.models import OrderResult, OrderStatus
+
+    deps[1].orders.place_order = AsyncMock(
+        return_value=OrderResult("accepted", OrderStatus.SUBMITTED)
+    )
+    await assistant.handle("phone-a", "/buy AAPL 2", "create")
+    token = _reply_token(deps[0])
+    await assistant.handle("phone-b", token, "wrong-phone")
+    assistant._execution.submit.assert_not_awaited()
+    assert assistant._confirmation.has_pending("phone-a")
+    await assistant.handle("phone-a", token, "correct-phone")
+    assistant._execution.submit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_expired_handle_confirmation_never_reaches_boundary(
+    assistant, deps, monkeypatch
+):
+    import time
+
+    await assistant.handle("phone-a", "/buy AAPL 2", "create")
+    token = _reply_token(deps[0])
+    expired_time = time.time() + 301
+    monkeypatch.setattr("whatsapp.confirmation.time.time", lambda: expired_time)
+    await assistant.handle("phone-a", token, "expired")
+    assistant._execution.submit.assert_not_awaited()
+    assert not assistant._confirmation.has_pending("phone-a")
+
+
+@pytest.mark.asyncio
+async def test_cancelled_handle_confirmation_cannot_be_replayed(assistant, deps):
+    await assistant.handle("phone-a", "/buy AAPL 2", "create")
+    token = _reply_token(deps[0])
+    await assistant.handle("phone-a", "CANCEL", "cancel")
+    await assistant.handle("phone-a", token, "replay")
+    assistant._execution.submit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_handle_token_reaches_real_boundary_and_halt_blocks_transport(
+    assistant, deps
+):
+    from datetime import datetime, timezone
+    from broker.models import Quote
+    from execution.context import AccountRiskState
+    from execution.service import ExecutionService
+    from risk.engine import RiskEngine
+    from risk.kill_switch import KillSwitch
+    from risk.rules import MaxDailyLoss, PortfolioContext
+
+    class ControlStore:
+        def __init__(self):
+            self.data = {"kill_switch:active": "true"}
+
+        async def get(self, key):
+            return self.data.get(key)
+
+        async def set(self, key, value, nx=False):
+            if nx and key in self.data:
+                return False
+            self.data[key] = value
+            return True
+
+        async def delete(self, key):
+            self.data.pop(key, None)
+
+    broker = deps[1]
+    state = AccountRiskState(
+        PortfolioContext(
+            [],
+            await broker.account.get_balances("U123"),
+            daily_pnl=Decimal("0"),
+            daily_trade_count=0,
+        ),
+        datetime.now(timezone.utc),
+        [],
+        "isolated-test-ledger",
+    )
+    broker.account.get_risk_state = AsyncMock(return_value=state)
+    broker.market_data.get_quote = AsyncMock(
+        return_value=Quote(Symbol("AAPL"), last=Decimal("100"))
+    )
+    broker.orders.place_order = AsyncMock()
+    engine = RiskEngine([MaxDailyLoss(1000)], KillSwitch())
+    service = ExecutionService(engine, ControlStore())
+    service.register_brokers({"test": broker})
+    assistant._execution = service
+    assistant._risk_engine = engine
+    await assistant.handle("phone-a", "/buy AAPL 2", "create")
+    token = _reply_token(deps[0])
+    await assistant.handle("phone-a", token, "confirm")
+    broker.account.get_risk_state.assert_awaited_once_with("U123")
+    broker.orders.place_order.assert_not_awaited()
+    assert "Order failed:" in deps[0].send_text.await_args.args[1]
+    assert "Kill switch" in deps[0].send_text.await_args.args[1]
+    assert not assistant._confirmation.has_pending("phone-a")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("command", ["/kill", "/unkill"])
+async def test_handle_control_persistence_failure_never_reports_success(
+    assistant, deps, command
+):
+    deps[4].set_halted.side_effect = ConnectionError("control unavailable")
+    await assistant.handle("phone-a", command, "create")
+    token = _reply_token(deps[0])
+    deps[0].send_text.reset_mock()
+    await assistant.handle("phone-a", token, "confirm")
+    deps[4].set_halted.assert_awaited_once()
+    assert deps[0].send_text.await_count == 1
+    message = deps[0].send_text.await_args.args[1]
+    assert "update failed" in message
+    assert "ENABLED" not in message and "DISABLED" not in message

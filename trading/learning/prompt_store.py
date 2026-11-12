@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import json
+import asyncio
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 import aiosqlite
+
+if TYPE_CHECKING:
+    from storage.postgres import PostgresDB
 
 
 class PromptStore(ABC):

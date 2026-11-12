@@ -54,6 +54,30 @@ def _balance() -> AccountBalance:
     )
 
 
+def _execution_service(risk_engine, data_bus):
+    """Router unit seam; full admission behavior is covered by boundary tests."""
+    from risk.rules import PortfolioContext
+
+    async def preview(broker, account_id, order):
+        ctx = PortfolioContext(
+            positions=await data_bus.get_positions(),
+            balance=await data_bus.get_balances(),
+            daily_pnl=Decimal("0"),
+            daily_trade_count=0,
+        )
+        return await risk_engine.evaluate(
+            order, await data_bus.get_quote(order.symbol), ctx
+        )
+
+    async def submit(broker, account_id, order):
+        return await broker.orders.place_order(account_id, order)
+
+    service = MagicMock()
+    service.preview = AsyncMock(side_effect=preview)
+    service.submit = AsyncMock(side_effect=submit)
+    return service
+
+
 class TestOpportunityRouter:
     @pytest.mark.asyncio
     async def test_notify_logs_and_stores(self) -> None:
@@ -110,6 +134,7 @@ class TestOpportunityRouter:
             risk_engine=risk_engine,
             broker=broker,
             data_bus=data_bus,
+            execution_service=_execution_service(risk_engine, data_bus),
         )
         opp = _opp()
         opp.suggested_trade = MarketOrder(
@@ -186,6 +211,7 @@ async def test_try_execute_places_order() -> None:
         broker=broker,
         trade_store=trade_store,
         data_bus=data_bus,
+        execution_service=_execution_service(risk_engine, data_bus),
     )
 
     await router._try_execute(opp)
@@ -242,6 +268,7 @@ async def test_try_execute_records_entry_in_trade_tracker() -> None:
         broker=broker,
         trade_store=trade_store,
         data_bus=data_bus,
+        execution_service=_execution_service(risk_engine, data_bus),
         trade_tracker=tracker,
     )
 
@@ -297,6 +324,7 @@ async def test_try_execute_allows_zero_placeholder_quantity_when_sizing_engine_s
         risk_engine=risk_engine,
         broker=broker,
         data_bus=data_bus,
+        execution_service=_execution_service(risk_engine, data_bus),
         sizing_engine=sizing_engine,
     )
 
@@ -343,6 +371,7 @@ async def test_try_execute_rejects_when_sizing_leaves_zero_quantity() -> None:
         risk_engine=risk_engine,
         broker=broker,
         data_bus=data_bus,
+        execution_service=_execution_service(risk_engine, data_bus),
         sizing_engine=sizing_engine,
     )
 
@@ -406,6 +435,7 @@ async def test_try_execute_attaches_exits_to_tracked_position_id() -> None:
         broker=broker,
         trade_store=trade_store,
         data_bus=data_bus,
+        execution_service=_execution_service(risk_engine, data_bus),
         trade_tracker=tracker,
         exit_manager=exit_manager,
     )
@@ -468,6 +498,7 @@ async def test_try_execute_exit_records_exit_and_detaches() -> None:
         broker=broker,
         trade_store=trade_store,
         data_bus=data_bus,
+        execution_service=_execution_service(risk_engine, data_bus),
         trade_tracker=tracker,
         exit_manager=exit_manager,
     )
@@ -544,6 +575,7 @@ async def test_try_execute_rejects_when_confidence_calibration_rejects() -> None
         risk_engine=risk_engine,
         broker=broker,
         data_bus=data_bus,
+        execution_service=_execution_service(risk_engine, data_bus),
         confidence_calibration_store=calibration_store,
         confidence_calibration_config=ConfidenceCalibrationConfig(allow_reject=True),
     )
@@ -624,6 +656,7 @@ async def test_try_execute_scales_quantity_from_confidence_calibration() -> None
         risk_engine=risk_engine,
         broker=broker,
         data_bus=data_bus,
+        execution_service=_execution_service(risk_engine, data_bus),
         confidence_calibration_store=calibration_store,
         confidence_calibration_config=ConfidenceCalibrationConfig(),
     )
@@ -703,6 +736,7 @@ async def test_route_shadow_auto_execute_records_allowed_shadow_instead_of_order
         risk_engine=risk_engine,
         broker=broker,
         data_bus=data_bus,
+        execution_service=_execution_service(risk_engine, data_bus),
         sizing_engine=sizing_engine,
         health_engine=health_engine,
         confidence_calibration_store=calibration_store,
@@ -788,6 +822,7 @@ async def test_route_shadow_auto_execute_records_blocked_shadow_when_risk_fails(
         risk_engine=risk_engine,
         broker=broker,
         data_bus=data_bus,
+        execution_service=_execution_service(risk_engine, data_bus),
         shadow_executor=shadow_executor,
         runner=runner,
     )
@@ -960,6 +995,7 @@ async def test_router_triggers_shadow_for_registry_shadow_mode() -> None:
         risk_engine=risk_engine,
         broker=broker,
         data_bus=data_bus,
+        execution_service=_execution_service(risk_engine, data_bus),
         health_engine=health_engine,
         shadow_executor=shadow_executor,
         runner=runner,
@@ -1075,6 +1111,7 @@ async def test_route_shadow_auto_execute_records_blocked_shadow_when_calibration
         risk_engine=risk_engine,
         broker=broker,
         data_bus=data_bus,
+        execution_service=_execution_service(risk_engine, data_bus),
         confidence_calibration_store=calibration_store,
         confidence_calibration_config=ConfidenceCalibrationConfig(allow_reject=True),
         shadow_executor=shadow_executor,
@@ -1139,6 +1176,7 @@ async def test_route_shadow_auto_execute_records_blocked_shadow_when_throttle_ze
         risk_engine=risk_engine,
         broker=broker,
         data_bus=data_bus,
+        execution_service=_execution_service(risk_engine, data_bus),
         health_engine=health_engine,
         shadow_executor=shadow_executor,
         runner=runner,
@@ -1250,6 +1288,7 @@ async def test_route_shadow_auto_execute_records_blocked_shadow_for_post_risk_ze
         risk_engine=risk_engine,
         broker=broker,
         data_bus=data_bus,
+        execution_service=_execution_service(risk_engine, data_bus),
         shadow_executor=shadow_executor,
         runner=runner,
     )
@@ -1262,3 +1301,231 @@ async def test_route_shadow_auto_execute_records_blocked_shadow_for_post_risk_ze
         == ShadowDecisionStatus.BLOCKED_INVALID_QUANTITY
     )
     broker.orders.place_order.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_uncertain_execution_requires_reconciliation() -> None:
+    """Regression test for the indentation bug that skipped broker order placement."""
+    store = AsyncMock()
+    store.update_status = AsyncMock()
+    notifier = AsyncMock()
+
+    trade = MarketOrder(
+        symbol=Symbol(ticker="AAPL", asset_type=AssetType.STOCK),
+        side=OrderSide.BUY,
+        quantity=Decimal("100"),
+        account_id="U123",
+    )
+    opp = _opp()
+    opp.suggested_trade = trade
+
+    broker = MagicMock()
+    broker.orders = MagicMock()
+    broker.orders.place_order = AsyncMock(
+        return_value=OrderResult(
+            order_id="ord-1",
+            status=OrderStatus.FILLED,
+            filled_quantity=Decimal("100"),
+            avg_fill_price=Decimal("150.00"),
+        )
+    )
+
+    risk_engine = MagicMock()
+    risk_engine.evaluate = AsyncMock(
+        return_value=MagicMock(passed=True, adjusted_quantity=None)
+    )
+
+    data_bus = AsyncMock()
+    data_bus.get_quote = AsyncMock(
+        return_value=Quote(
+            symbol=Symbol(ticker="AAPL", asset_type=AssetType.STOCK),
+            bid=Decimal("149.50"),
+            ask=Decimal("150.50"),
+            last=Decimal("150.00"),
+            volume=1_000_000,
+        )
+    )
+    data_bus.get_positions = AsyncMock(return_value=[])
+    data_bus.get_balances = AsyncMock(
+        return_value=AccountBalance(
+            account_id="U123",
+            net_liquidation=Decimal("100000"),
+            buying_power=Decimal("50000"),
+            cash=Decimal("50000"),
+            maintenance_margin=Decimal("0"),
+        )
+    )
+
+    trade_store = AsyncMock()
+
+    router = OpportunityRouter(
+        store=store,
+        notifier=notifier,
+        risk_engine=risk_engine,
+        broker=broker,
+        trade_store=trade_store,
+        data_bus=data_bus,
+        execution_service=_execution_service(risk_engine, data_bus),
+    )
+
+    from execution.service import ExecutionUnavailable
+
+    router._execution.submit.side_effect = ExecutionUnavailable(
+        "Order outcome unknown", outcome_unknown=True
+    )
+    await router._try_execute(opp)
+    store.update_status.assert_awaited_with(
+        "test-1", OpportunityStatus.RECONCILIATION_REQUIRED
+    )
+
+
+def _router_for_receipt(receipt, *, is_exit=False):
+    """Isolate router receipt handling from admission and broker implementation."""
+    from types import SimpleNamespace
+    from risk.rules import RiskResult
+
+    opportunity = _opp()
+    opportunity.suggested_trade = MarketOrder(
+        opportunity.symbol,
+        OrderSide.SELL if is_exit else OrderSide.BUY,
+        Decimal("10"),
+        "U123",
+    )
+    opportunity.is_exit = is_exit
+    opportunity.data = (
+        {"tracked_position_id": 7, "exit_rule": "stop_loss"} if is_exit else {}
+    )
+    store, trades = AsyncMock(), AsyncMock()
+    broker = MagicMock()
+    broker.connection.is_connected.return_value = True
+    data_bus = AsyncMock()
+    data_bus.get_quote.return_value = _quote()
+    data_bus.get_positions.return_value = []
+    data_bus.get_balances.return_value = _balance()
+    execution = MagicMock()
+    execution.preview = AsyncMock(return_value=RiskResult(passed=True))
+    execution.submit = AsyncMock(return_value=receipt)
+    tracker = AsyncMock()
+    tracker.record_entry.return_value = 42
+    exits = MagicMock()
+    exits.attach, exits.detach = AsyncMock(), AsyncMock()
+    exits.compute_default_exits.return_value = []
+    quality, costs, slippage, reflector = (
+        AsyncMock(),
+        AsyncMock(),
+        AsyncMock(),
+        AsyncMock(),
+    )
+    slippage.check_agent.return_value = None
+    achievements = MagicMock()
+    router = OpportunityRouter(
+        store=store,
+        notifier=AsyncMock(),
+        risk_engine=MagicMock(),
+        broker=broker,
+        trade_store=trades,
+        data_bus=data_bus,
+        execution_service=execution,
+        trade_tracker=tracker,
+        exit_manager=exits,
+        execution_tracker=quality,
+        execution_cost_store=costs,
+        slippage_loop=slippage,
+        trade_reflector=reflector,
+        achievement_tracker=achievements,
+    )
+    return SimpleNamespace(
+        router=router,
+        opportunity=opportunity,
+        store=store,
+        trades=trades,
+        execution=execution,
+        tracker=tracker,
+        exits=exits,
+        quality=quality,
+        costs=costs,
+        slippage=slippage,
+        reflector=reflector,
+        achievements=achievements,
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("is_exit", [False, True])
+@pytest.mark.parametrize(
+    "status,filled,price",
+    [
+        (OrderStatus.SUBMITTED, "0", None),
+        (OrderStatus.PARTIAL, "3", "149"),
+        (OrderStatus.CANCELLED, "3", "149"),
+        (OrderStatus.FILLED, "10", None),
+        (OrderStatus.FILLED, "10", "NaN"),
+        (OrderStatus.FILLED, "0", "149"),
+    ],
+)
+async def test_unsettled_receipt_never_fabricates_full_trade_lifecycle(
+    status, filled, price, is_exit
+):
+    receipt = OrderResult(
+        "resting-order",
+        status,
+        Decimal(filled),
+        Decimal(price) if price is not None else None,
+    )
+    rig = _router_for_receipt(receipt, is_exit=is_exit)
+    await rig.router._try_execute(rig.opportunity)
+
+    rig.store.update_status.assert_awaited_with(
+        "test-1", OpportunityStatus.RECONCILIATION_REQUIRED
+    )
+    saved = rig.store.update_data.await_args.args[1]["execution_receipt"]
+    assert saved["order_id"] == "resting-order"
+    assert saved["status"] == status.value
+    assert saved["filled_quantity"] == filled
+    assert saved["avg_fill_price"] == price
+    assert saved["requires_fill_reconciliation"] is True
+    assert rig.trades.save_trade.await_args.args[1] == saved
+    rig.tracker.record_entry.assert_not_awaited()
+    rig.tracker.record_exit.assert_not_awaited()
+    rig.exits.attach.assert_not_awaited()
+    rig.exits.detach.assert_not_awaited()
+    rig.quality.record_fill.assert_not_awaited()
+    rig.costs.insert.assert_not_awaited()
+    rig.slippage.check_agent.assert_not_awaited()
+    rig.reflector.reflect.assert_not_awaited()
+    rig.achievements.check_and_update.assert_not_called()
+    # A second router pass must not submit the outstanding intent again.
+    await rig.router._try_execute(rig.opportunity)
+    rig.execution.submit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_filled_receipt_uses_actual_approved_fill_quantity_for_quality():
+    receipt = OrderResult(
+        "sized-order", OrderStatus.FILLED, Decimal("3"), Decimal("149")
+    )
+    rig = _router_for_receipt(receipt)
+    # Avoid the unrelated asynchronous reflection hook in this focused test.
+    rig.router._trade_reflector = None
+    await rig.router._try_execute(rig.opportunity)
+    rig.store.update_status.assert_awaited_with("test-1", OpportunityStatus.EXECUTED)
+    rig.tracker.record_entry.assert_awaited_once()
+    rig.exits.attach.assert_awaited_once_with(position_id=42, rules=[])
+    assert rig.quality.record_fill.await_args.kwargs["quantity"] == Decimal("3")
+    assert rig.quality.record_fill.await_args.kwargs["actual_price"] == Decimal("149")
+    assert rig.achievements.check_and_update.call_args.args[0]["quantity"] == 3.0
+    await rig.router._try_execute(rig.opportunity)
+    rig.execution.submit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_receipt_persistence_failure_does_not_turn_accepted_order_into_rejection():
+    rig = _router_for_receipt(OrderResult("accepted", OrderStatus.SUBMITTED))
+    rig.store.update_data.side_effect = RuntimeError("metadata store unavailable")
+    await rig.router._try_execute(rig.opportunity)
+    assert all(
+        call.args[1] == OpportunityStatus.RECONCILIATION_REQUIRED
+        for call in rig.store.update_status.await_args_list
+    )
+    rig.tracker.record_entry.assert_not_awaited()
+    rig.execution.submit.assert_awaited_once()

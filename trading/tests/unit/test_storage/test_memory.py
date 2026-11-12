@@ -90,12 +90,13 @@ class TestLocalMemoryStore:
         assert len(public_results) == 1
         assert public_results[0].visibility == "public"
 
-        private_results = await memory_store_with_data.list(visibility="private")
-        assert len(private_results) == 2
+        private_results = await memory_store_with_data.list(visibility="private", agent_id="rsi_agent")
+        assert len(private_results) == 1
+        assert await memory_store_with_data.list(visibility="private") == []
 
     async def test_search_finds_keyword(self, memory_store_with_data):
         """Test keyword search finds matching memories."""
-        results = await memory_store_with_data.search(query="RSI")
+        results = await memory_store_with_data.search(query="RSI", agent_id="rsi_agent")
         assert len(results) >= 1
         assert "RSI" in results[0]["value"]
 

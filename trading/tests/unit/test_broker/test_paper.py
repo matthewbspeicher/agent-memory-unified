@@ -100,8 +100,8 @@ def paper_broker(paper_store):
 
 
 @pytest.mark.asyncio
-async def test_paper_order_raises_on_no_price():
-    """Paper broker should raise when no market data is available."""
+async def test_paper_order_rejects_on_no_price():
+    """Paper broker rejects without writing when market data is unavailable."""
     market_data = AsyncMock()
     market_data.get_quote = AsyncMock(
         return_value=Quote(
@@ -113,6 +113,11 @@ async def test_paper_order_raises_on_no_price():
         )
     )
     store = AsyncMock()
+    from contextlib import asynccontextmanager
+    @asynccontextmanager
+    async def transaction():
+        yield
+    store.transaction = transaction
 
     mgr = PaperOrderManager(market_data, store, max_slippage=0)
     order = MarketOrder(
@@ -122,8 +127,9 @@ async def test_paper_order_raises_on_no_price():
         account_id="PAPER",
     )
 
-    with pytest.raises(ValueError, match="market data"):
-        await mgr.place_order("PAPER", order)
+    result = await mgr.place_order("PAPER", order)
+    assert result.status.value == "REJECTED"
+    store.record_fill.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -187,7 +193,12 @@ class TestPaperBroker:
             ),
         )
 
-        # Sell 5 @ 160.0 (simulated via limit order at 160.0)
+        # Sell 5 after the market actually moves to 160.0.
+        paper_broker.market_data.get_quote = AsyncMock(
+            return_value=Quote(
+                sym, bid=Decimal("160"), ask=Decimal("160.1"), last=Decimal("160")
+            )
+        )
         await paper_broker.orders.place_order(
             "PAPER",
             LimitOrder(

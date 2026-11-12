@@ -88,15 +88,16 @@ async def check_kill_switch(request: Request):
     """
     Dependency to block mutations if the global kill-switch is active in Redis.
     """
-    redis = get_redis(request)
-    is_active = await redis.get("kill_switch:active")
-    if is_active == "true":
-        # Check if route is allowlisted (only GET usually, but double check)
-        if request.method != "GET":
-            raise HTTPException(
-                status_code=503, 
-                detail="Trading is currently halted via global kill-switch"
-            )
+    try:
+        engine = get_risk_engine(request)
+        engine.bind_control_store(get_redis(request))
+        await engine.sync_halt()
+        if engine.check_kill_active():
+            raise HTTPException(503, "Trading is currently halted via global kill-switch")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(503, "Trading control state unavailable") from exc
 
 
 async def get_current_user(
@@ -147,3 +148,18 @@ def require_scope(required_scope: str):
         return user
 
     return check
+
+
+def get_execution_service(request: Request):
+    """Use the single application admission service, including lifespan-free tests."""
+    service = getattr(request.app.state, "execution_service", None)
+    if service is None:
+        from execution.service import ExecutionService
+        service = ExecutionService(get_risk_engine(request), get_redis(request))
+        brokers = dict(getattr(request.app.state, "brokers", {}) or {})
+        broker = getattr(request.app.state, "broker", None)
+        if broker is not None and all(b is not broker for b in brokers.values()):
+            brokers["primary"] = broker
+        service.register_brokers(brokers)
+        request.app.state.execution_service = service
+    return service

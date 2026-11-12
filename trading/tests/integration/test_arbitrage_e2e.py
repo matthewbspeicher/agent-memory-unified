@@ -9,13 +9,53 @@ from execution.arbitrage import (
     ArbState,
     SequencingStrategy,
 )
-from broker.models import Symbol, AssetType, LimitOrder, OrderSide, TIF
+from broker.models import Symbol, AssetType, LimitOrder, OrderSide, TIF, Quote
+from execution.service import ExecutionService
+from risk.engine import RiskEngine
+from risk.kill_switch import KillSwitch
+from risk.rules import MaxPositionSize, MaxDailyLoss, MaxDailyTrades
 from adapters.kalshi.paper import KalshiPaperBroker, KALSHI_PAPER_ACCOUNT_ID
 from adapters.polymarket.paper import PolymarketPaperBroker, POLYMARKET_PAPER_ACCOUNT_ID
 from storage.paper import PaperStore
 from storage.arbitrage import ArbStore
 import aiosqlite
 from config import Config
+
+
+from tests.execution_controls import AdmissionLuaDouble
+
+
+class InMemoryControlStore(AdmissionLuaDouble):
+    """Redis semantics needed by admission, retained across both leg requests."""
+
+    def __init__(self, halted=False):
+        self.data = {"kill_switch:active": "true" if halted else "false"}
+
+    async def get(self, key):
+        return self.data.get(key)
+
+    async def set(self, key, value, nx=False):
+        if nx and key in self.data:
+            return False
+        self.data[key] = value
+        return True
+
+    async def delete(self, key):
+        self.data.pop(key, None)
+
+
+class DeterministicQuotes:
+    async def get_quote(self, symbol):
+        # Executable limit prices, with fresh timestamps on every observation.
+        if symbol.ticker == "TEST-YES":
+            return Quote(
+                symbol, bid=Decimal("0.43"), ask=Decimal("0.44"), last=Decimal("0.44")
+            )
+        if symbol.ticker == "0x123":
+            return Quote(
+                symbol, bid=Decimal("0.56"), ask=Decimal("0.57"), last=Decimal("0.56")
+            )
+        raise ValueError(f"Unexpected test symbol {symbol}")
 
 
 @pytest.fixture
@@ -65,19 +105,34 @@ async def arb_store():
 
 
 @pytest.mark.asyncio
-async def test_arbitrage_e2e_dual_paper(paper_store, arb_store):
-    kalshi_broker = KalshiPaperBroker(store=paper_store)
+@pytest.mark.parametrize("halted", [False, True])
+async def test_arbitrage_e2e_dual_paper(paper_store, arb_store, halted):
+    # Fresh temporary accounts provide reconciled daily metrics from the real
+    # paper ledger. Only prices and the persistent-control transport are fakes.
+    for account in (KALSHI_PAPER_ACCOUNT_ID, POLYMARKET_PAPER_ACCOUNT_ID):
+        await paper_store.ensure_account(account, Decimal("10000"))
+    quotes = DeterministicQuotes()
+    kalshi_broker = KalshiPaperBroker(store=paper_store, market_data=quotes)
     await kalshi_broker.connection.connect()
 
-    poly_broker = PolymarketPaperBroker(store=paper_store)
+    poly_broker = PolymarketPaperBroker(store=paper_store, market_data=quotes)
     await poly_broker.connection.connect()
 
     settings = Config()
 
+    brokers = {"kalshi_paper": kalshi_broker, "polymarket_paper": poly_broker}
+    control = InMemoryControlStore(halted)
+    risk = RiskEngine(
+        [MaxPositionSize(100, 100), MaxDailyLoss(100), MaxDailyTrades(10)],
+        KillSwitch(),
+    )
+    execution = ExecutionService(risk, control)
+    execution.register_brokers(brokers)
     coordinator = ArbCoordinator(
-        brokers={"kalshi": kalshi_broker, "polymarket": poly_broker},
+        brokers=brokers,
         store=arb_store,
         config=settings,
+        execution_service=execution,
     )
 
     sym_a = Symbol(ticker="TEST-YES", asset_type=AssetType.PREDICTION)
@@ -101,8 +156,8 @@ async def test_arbitrage_e2e_dual_paper(paper_store, arb_store):
         time_in_force=TIF.GTC,
     )
 
-    leg_a = ArbLeg(broker_id="kalshi", order=order_a)
-    leg_b = ArbLeg(broker_id="polymarket", order=order_b)
+    leg_a = ArbLeg(broker_id="kalshi_paper", order=order_a)
+    leg_b = ArbLeg(broker_id="polymarket_paper", order=order_b)
 
     trade = ArbTrade(
         id=str(uuid.uuid4()),
@@ -116,9 +171,34 @@ async def test_arbitrage_e2e_dual_paper(paper_store, arb_store):
 
     # Execute the arb
     success = await coordinator.execute_arbitrage(trade)
-    assert success is True
-
-    # Verify the final state
-    assert trade.state == ArbState.COMPLETED
-    assert trade.leg_a.status == "filled"
-    assert trade.leg_b.status == "filled"
+    if halted:
+        assert success is False
+        assert trade.state == ArbState.FAILED
+        for account in (KALSHI_PAPER_ACCOUNT_ID, POLYMARKET_PAPER_ACCOUNT_ID):
+            assert await paper_store.get_order_history(account) == []
+            assert await paper_store.get_positions(account) == []
+            assert (await paper_store.get_balance(account)).cash == Decimal("10000")
+    else:
+        assert success is True
+        assert trade.state == ArbState.COMPLETED
+        assert trade.leg_a.status == "filled"
+        assert trade.leg_b.status == "filled"
+        assert trade.leg_a.fill_quantity == trade.leg_b.fill_quantity == Decimal("10")
+        for broker, account, expected_qty in (
+            (kalshi_broker, KALSHI_PAPER_ACCOUNT_ID, Decimal("10")),
+            (poly_broker, POLYMARKET_PAPER_ACCOUNT_ID, Decimal("-10")),
+        ):
+            history = await paper_store.get_order_history(account)
+            assert len(history) == 1
+            assert history[0].filled_quantity == Decimal("10")
+            assert (await paper_store.get_positions(account))[
+                0
+            ].quantity == expected_qty
+            state = await broker.account.get_risk_state(account)
+            assert state.complete is True
+            assert state.context.daily_trade_count == 1
+            assert state.context.daily_pnl is not None
+        diagnostics = await execution.reconciliation_status()
+        assert len(diagnostics["reservations"]) == 2
+        assert diagnostics["attempt"]["status"] == "acknowledged"
+    assert await control.get("execution:admission:lock") is None

@@ -63,27 +63,54 @@ class TradingMemoryClient:
         """Search private namespace and shared commons; combine results."""
         private_results: list[dict] = []
         shared_results: list[dict] = []
+        failures = 0
         try:
             private_results = await self._private.search(q=query, limit=top_k)
         except Exception as e:
             logger.warning("Private memory search failed: %s", e)
+            failures += 1
         try:
             shared_results = await self._shared.search_commons(q=query, limit=top_k)
         except Exception as e:
             logger.warning("Shared memory search failed: %s", e)
+            failures += 1
+        if failures == 2:
+            raise RuntimeError("Both remote memory namespaces are unavailable")
         # Combine: private first (agent-specific lessons take precedence)
         seen: set[str] = set()
         combined: list[dict] = []
         for r in private_results + shared_results:
-            key = r.get("value", "")[:80]
+            key = r.get("value", "")
             if key not in seen:
                 seen.add(key)
                 combined.append(r)
         return combined[:top_k]
 
+    async def health_check(self) -> dict:
+        """Probe each namespace without confusing an outage with an empty result."""
+        checks = {}
+        for name, search in (
+            ("private", self._private.search),
+            ("shared", self._shared.search_commons),
+        ):
+            try:
+                await search(q="health", limit=1)
+                checks[name] = True
+            except Exception:
+                checks[name] = False
+        healthy = all(checks.values())
+        return {
+            "healthy": healthy,
+            "status": "healthy"
+            if healthy
+            else ("degraded" if any(checks.values()) else "unavailable"),
+            "checks": checks,
+        }
+
     async def get_index(self) -> list[dict]:
         """Fetch compressed index of strategies."""
         from learning.strategy_index import MemoryIndexService
+
         index_service = MemoryIndexService(self)
         return await index_service.get_compressed_index()
 
@@ -109,7 +136,12 @@ class HybridTradingMemoryClient:
         self,
         remote_client: TradingMemoryClient,
         local_store: Any | None = None,
+        *,
+        agent_id: str | None = None,
     ) -> None:
+        if local_store is not None and not agent_id:
+            raise ValueError("agent_id is required for local memory fallback")
+        self._agent_id = agent_id
         self._remote = remote_client
         self._local = local_store
         self._use_local = False
@@ -124,6 +156,8 @@ class HybridTradingMemoryClient:
                 return await self._local.store(
                     value=content,
                     visibility="private",
+                    agent_id=self._agent_id,
+                    ttl=self._remote._ttl,
                     tags=tags,
                 )
             raise
@@ -138,6 +172,8 @@ class HybridTradingMemoryClient:
                 return await self._local.store(
                     value=content,
                     visibility="public",
+                    agent_id=self._agent_id,
+                    ttl=self._remote._ttl,
                     tags=tags,
                 )
             raise
@@ -156,15 +192,20 @@ class HybridTradingMemoryClient:
         # Try local as supplement/fallback
         if self._local:
             try:
-                local_results = await self._local.search(query, limit=top_k)
+                local_results = await self._local.search(
+                    query, agent_id=self._agent_id, limit=top_k
+                )
+                local_results += await self._local.search(
+                    query, visibility="public", limit=top_k
+                )
             except Exception as e:
                 logger.warning("Local search failed: %s", e)
 
         # Combine results (remote takes precedence)
         combined = remote_results.copy()
-        seen = {r.get("value", "")[:80] for r in remote_results}
+        seen = {r.get("value", "") for r in remote_results}
         for r in local_results:
-            key = r.get("value", "")[:80]
+            key = r.get("value", "")
             if key not in seen:
                 combined.append(r)
                 seen.add(key)
@@ -178,9 +219,10 @@ class HybridTradingMemoryClient:
 
         # Check remote
         try:
-            # Simple check - try a search
-            await self._remote.search_both("health", top_k=1)
-            remote_health = {"healthy": True, "backend": "remembr.dev"}
+            remote_health = {
+                **await self._remote.health_check(),
+                "backend": "remembr.dev",
+            }
         except Exception as e:
             remote_health = {
                 "healthy": False,
@@ -198,7 +240,7 @@ class HybridTradingMemoryClient:
         return {
             "remote": remote_health,
             "local": local_health,
-            "using": "local"
-            if not remote_health.get("healthy") and local_health.get("healthy")
-            else "remote",
+            "using": "remote"
+            if remote_health.get("healthy")
+            else ("local" if local_health.get("healthy") else "unavailable"),
         }

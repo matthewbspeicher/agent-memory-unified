@@ -21,14 +21,18 @@ class RiskResult:
 class PortfolioContext:
     positions: list[Position]
     balance: AccountBalance
-    daily_pnl: Decimal = Decimal("0")
-    daily_trade_count: int = 0
+    # Unknown account-day metrics must not be treated as measured zero.
+    daily_pnl: Decimal | None = None
+    daily_trade_count: int | None = None
     sectors: dict[str, Decimal] = field(default_factory=dict)  # sector → market value
     external_positions: list[dict] = field(default_factory=list)
     external_balances: list[dict] = field(default_factory=list)
     price_histories: dict[str, list[Decimal]] = field(
         default_factory=dict
     )  # ticker -> price series
+    exposure_positions: list[Position] | None = None
+    pending_exposure: list[tuple[OrderBase, Decimal]] = field(default_factory=list)
+    exposure_prices: dict[Any, Decimal] = field(default_factory=dict)
 
 
 class RiskRule(ABC):
@@ -61,8 +65,8 @@ class MaxPositionSize(RiskRule):
         from broker.models import OrderSide
 
         symbol_ticker = trade.symbol.ticker
-        ibkr_qty = next(
-            (p.quantity for p in ctx.positions if p.symbol.ticker == symbol_ticker),
+        ibkr_qty = sum(
+            (p.quantity for p in ctx.positions if p.symbol == trade.symbol),
             Decimal("0"),
         )
         external_qty = sum(
@@ -71,24 +75,24 @@ class MaxPositionSize(RiskRule):
             if p.get("symbol") == symbol_ticker
         )
         total_qty = ibkr_qty + external_qty
-        # SELLs reduce exposure; BUYs increase it
+        # Either side can increase absolute exposure or cross through zero.
         side = getattr(trade, "side", None)
         if side == OrderSide.SELL:
             projected_qty = total_qty - trade.quantity
         else:
             projected_qty = total_qty + trade.quantity
-        if projected_qty > self.max_shares:
+        if abs(projected_qty) > self.max_shares:
             return RiskResult(
                 passed=False,
                 rule_name=self.name,
                 reason=f"Total quantity {projected_qty} exceeds max shares {self.max_shares}",
             )
-        trade_value = trade.quantity * (quote.last or Decimal("0"))
-        if trade_value > self.max_dollars:
+        projected_value = abs(projected_qty) * (quote.last or Decimal("0"))
+        if projected_value > self.max_dollars:
             return RiskResult(
                 passed=False,
                 rule_name=self.name,
-                reason=f"Trade value ${trade_value:.2f} exceeds max dollars ${self.max_dollars}",
+                reason=f"Projected position value ${projected_value:.2f} exceeds max dollars ${self.max_dollars}",
             )
         return RiskResult(passed=True, rule_name=self.name)
 
@@ -108,8 +112,8 @@ class MaxPredictionExposure(RiskRule):
             return RiskResult(passed=True, rule_name=self.name)
 
         symbol_ticker = trade.symbol.ticker
-        ibkr_qty = next(
-            (p.quantity for p in ctx.positions if p.symbol.ticker == symbol_ticker),
+        ibkr_qty = sum(
+            (p.quantity for p in ctx.positions if p.symbol == trade.symbol),
             Decimal("0"),
         )
         external_qty = sum(
@@ -119,14 +123,14 @@ class MaxPredictionExposure(RiskRule):
         )
         total_qty = ibkr_qty + external_qty
 
-        # SELLs reduce exposure; BUYs increase it
+        # Either side can increase absolute exposure or cross through zero.
         side = getattr(trade, "side", None)
         if side == OrderSide.SELL:
             projected_qty = total_qty - trade.quantity
         else:
             projected_qty = total_qty + trade.quantity
 
-        projected_exposure = projected_qty * (quote.last or Decimal("0"))
+        projected_exposure = abs(projected_qty) * (quote.last or Decimal("0"))
 
         if projected_exposure > self.max_dollars:
             return RiskResult(
@@ -146,24 +150,90 @@ class MaxPortfolioExposure(RiskRule):
     def evaluate(
         self, trade: OrderBase, quote: Quote, ctx: PortfolioContext
     ) -> RiskResult:
-        trade_value = trade.quantity * (quote.last or Decimal("0"))
-        ibkr_net_liq = ctx.balance.net_liquidation
-        external_value = sum(
-            Decimal(str(b.get("net_liquidation", 0))) for b in ctx.external_balances
-        )
-        total_portfolio = ibkr_net_liq + external_value
-        if total_portfolio == 0:
-            return RiskResult(
-                passed=False, rule_name=self.name, reason="Portfolio value is zero"
+        from broker.models import OrderSide
+
+        def measured(value, label, *, positive=False):
+            amount = Decimal(str(value))
+            if not amount.is_finite() or (positive and amount <= 0):
+                raise ValueError(f"Invalid {label}")
+            return amount
+
+        try:
+            cap = measured(self.max_percent, "exposure limit", positive=True)
+            equity = measured(ctx.balance.net_liquidation, "account equity") + sum(
+                (
+                    measured(b.get("net_liquidation"), "external equity")
+                    for b in ctx.external_balances
+                ),
+                Decimal(0),
             )
-        exposure = (trade_value / total_portfolio) * 100
-        if exposure > self.max_percent:
-            return RiskResult(
-                passed=False,
-                rule_name=self.name,
-                reason=f"Exposure {exposure:.1f}% exceeds max {self.max_percent}%",
+            if equity <= 0:
+                raise ValueError("Portfolio equity must be positive")
+            held, buys, sells = {}, {}, {}
+            prices = {
+                symbol: measured(price, "exposure price", positive=True)
+                for symbol, price in ctx.exposure_prices.items()
+            }
+            positions = (
+                ctx.exposure_positions
+                if ctx.exposure_positions is not None
+                else ctx.positions
             )
-        return RiskResult(passed=True, rule_name=self.name)
+            for pos in positions:
+                qty = measured(pos.quantity, "held quantity")
+                if qty == 0:
+                    continue
+                value = abs(measured(pos.market_value, "held market value"))
+                if value <= 0:
+                    raise ValueError("Held position has no measured market value")
+                held[pos.symbol] = held.get(pos.symbol, Decimal(0)) + qty
+                prices[pos.symbol] = max(
+                    prices.get(pos.symbol, Decimal(0)), value / abs(qty)
+                )
+            candidate_price = measured(quote.last, "candidate price", positive=True)
+            prices[trade.symbol] = max(
+                prices.get(trade.symbol, Decimal(0)), candidate_price
+            )
+            for order, remaining in [*ctx.pending_exposure, (trade, trade.quantity)]:
+                qty = measured(remaining, "remaining quantity", positive=True)
+                if order.side not in {OrderSide.BUY, OrderSide.SELL}:
+                    raise ValueError("Invalid exposure side")
+                if order.symbol not in prices:
+                    raise ValueError("Outstanding order has no measured exposure price")
+                totals = buys if order.side == OrderSide.BUY else sells
+                totals[order.symbol] = totals.get(order.symbol, Decimal(0)) + qty
+            gross = Decimal(0)
+            for symbol in held.keys() | buys.keys() | sells.keys():
+                current = held.get(symbol, Decimal(0))
+                worst = max(
+                    abs(current),
+                    abs(current + buys.get(symbol, Decimal(0))),
+                    abs(current - sells.get(symbol, Decimal(0))),
+                )
+                gross += worst * prices[symbol]
+            for pos in ctx.external_positions:
+                qty = measured(pos.get("quantity"), "external quantity")
+                if qty:
+                    value = abs(
+                        measured(pos.get("market_value"), "external market value")
+                    )
+                    if value <= 0:
+                        raise ValueError(
+                            "External position has no measured market value"
+                        )
+                    gross += value
+            exposure = gross / equity * 100
+        except (ValueError, TypeError, ArithmeticError) as exc:
+            return RiskResult(
+                False, self.name, f"Portfolio exposure unavailable: {exc}"
+            )
+        if exposure > cap:
+            return RiskResult(
+                False,
+                self.name,
+                f"Cumulative exposure {exposure:.2f}% (${gross:.2f}) exceeds max {cap}%",
+            )
+        return RiskResult(True, self.name)
 
 
 class MaxDailyLoss(RiskRule):
@@ -176,6 +246,12 @@ class MaxDailyLoss(RiskRule):
     def evaluate(
         self, trade: OrderBase, quote: Quote, ctx: PortfolioContext
     ) -> RiskResult:
+        if not isinstance(ctx.daily_pnl, Decimal) or not ctx.daily_pnl.is_finite():
+            return RiskResult(
+                passed=False,
+                rule_name=self.name,
+                reason="Daily PnL is unavailable or invalid",
+            )
         if ctx.daily_pnl < -self.max_dollars:
             return RiskResult(
                 passed=False,
@@ -194,11 +270,21 @@ class MaxOpenPositions(RiskRule):
     def evaluate(
         self, trade: OrderBase, quote: Quote, ctx: PortfolioContext
     ) -> RiskResult:
-        if len(ctx.positions) >= self.max_count:
+        # Existing holdings may be reduced or amended at the position-count cap.
+        # Exposure limits, rather than the count limit, govern their quantities.
+        quantities: dict = {}
+        for position in ctx.positions:
+            quantities[position.symbol] = (
+                quantities.get(position.symbol, Decimal("0")) + position.quantity
+            )
+        open_symbols = {
+            symbol for symbol, quantity in quantities.items() if quantity != 0
+        }
+        if trade.symbol not in open_symbols and len(open_symbols) + 1 > self.max_count:
             return RiskResult(
                 passed=False,
                 rule_name=self.name,
-                reason=f"Open positions {len(ctx.positions)} >= max {self.max_count}",
+                reason=f"Projected open positions {len(open_symbols) + 1} exceeds max {self.max_count}",
             )
         return RiskResult(passed=True, rule_name=self.name)
 
@@ -212,6 +298,12 @@ class MaxDailyTrades(RiskRule):
     def evaluate(
         self, trade: OrderBase, quote: Quote, ctx: PortfolioContext
     ) -> RiskResult:
+        if type(ctx.daily_trade_count) is not int or ctx.daily_trade_count < 0:
+            return RiskResult(
+                passed=False,
+                rule_name=self.name,
+                reason="Daily trade count is unavailable or invalid",
+            )
         if ctx.daily_trade_count >= self.max_count:
             return RiskResult(
                 passed=False,

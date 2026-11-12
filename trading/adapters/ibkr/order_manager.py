@@ -1,4 +1,5 @@
 import asyncio
+from copy import deepcopy
 from collections.abc import Callable
 from typing import Any
 
@@ -52,9 +53,12 @@ class IBKROrderManager(OrderManager):
 
             raise BrokerError(f"Order {order_id} not found")
 
+        fields = {"quantity": "totalQuantity", "limit_price": "lmtPrice", "stop_price": "auxPrice"}
+        if not changes or set(changes) - fields.keys():
+            raise ValueError("Unsupported canonical amendment fields")
+        amended_order = deepcopy(trade.order)
         for key, value in changes.items():
-            if hasattr(trade.order, key):
-                setattr(trade.order, key, value)
+            setattr(amended_order, fields[key], float(value))
 
         ack_states = {"Submitted", "PreSubmitted"}
         event = asyncio.Event()
@@ -70,10 +74,10 @@ class IBKROrderManager(OrderManager):
         trade.statusEvent += on_status
         self._ib.errorEvent += on_error
         try:
-            self._ib.placeOrder(trade.contract, trade.order)
+            self._ib.placeOrder(trade.contract, amended_order)
             await asyncio.wait_for(event.wait(), timeout=self._order_timeout)
         except asyncio.TimeoutError:
-            pass
+            raise TimeoutError("Amendment acknowledgement unavailable; reconcile before retry")
         finally:
             trade.statusEvent -= on_status
             self._ib.errorEvent -= on_error

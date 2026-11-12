@@ -82,7 +82,11 @@ class OpportunityRouter:
         journal_manager=None,
         rules_engine: "RulesEngine" | None = None,
         achievement_tracker: "AchievementTracker" | None = None,
+        execution_service=None,
+        fill_reconciler=None,
     ) -> None:
+        self._execution = execution_service
+        self._fill_reconciler = fill_reconciler
         self._store = store
         self._notifier = notifier
         self._risk_engine = risk_engine
@@ -601,6 +605,11 @@ class OpportunityRouter:
                 await self._try_execute(opportunity)
 
     async def _try_execute(self, opportunity: Opportunity) -> None:
+        if opportunity.status in (
+            OpportunityStatus.EXECUTED,
+            OpportunityStatus.RECONCILIATION_REQUIRED,
+        ):
+            return  # Never resubmit an observed order while awaiting its fills.
         with tracer.start_as_current_span("try_execute_trade") as span:
             shadow_mode = self._is_shadow_mode(opportunity)
             health_snapshot: dict | None = None
@@ -753,6 +762,15 @@ class OpportunityRouter:
                         return
             except TypeError:
                 pass  # quantity type not comparable (e.g., in tests with mocks)
+
+            if opportunity.is_exit and self._fill_reconciler is not None and not shadow_mode:
+                from broker.paper_dispatch import PaperDispatchMixin
+                if isinstance(broker.orders, PaperDispatchMixin):
+                    try:
+                        await self._fill_reconciler.prepare_exit(opportunity, broker, self._execution._broker_name(broker))
+                    except Exception as exc:
+                        logger.warning("Entry-to-exit handoff pending for %s: %s", opportunity.id, exc)
+                        return
 
             # Build portfolio context for risk evaluation
             quote = None
@@ -1004,9 +1022,14 @@ class OpportunityRouter:
                 except Exception as _pex:
                     logger.warning("Partial exit quantity override failed: %s", _pex)
 
-            ctx = PortfolioContext(positions=positions, balance=balance)
-            result = await self._risk_engine.evaluate(
-                opportunity.suggested_trade, quote, ctx
+            from risk.rules import RiskResult
+            result = (
+                await self._execution.preview(
+                    broker, opportunity.suggested_trade.account_id,
+                    opportunity.suggested_trade,
+                ) if self._execution is not None else RiskResult(
+                    passed=False, rule_name="execution", reason="Execution service unavailable"
+                )
             )
             sizing_snapshot = None
             if opportunity.suggested_trade is not None:
@@ -1087,6 +1110,10 @@ class OpportunityRouter:
                 ):
                     return
 
+            broker_submission_observed = False
+            registered_paper_job = False
+            projected_position_id = None
+            projected_position_closed = False
             try:
                 # Log to Journal Manager
                 if self._journal_manager:
@@ -1123,14 +1150,95 @@ class OpportunityRouter:
                         )
                     )
 
-                order_result = await broker.orders.place_order(
-                    opportunity.suggested_trade.account_id,
-                    opportunity.suggested_trade,
+                dispatch_order = opportunity.suggested_trade
+                from broker.paper_dispatch import PaperDispatchMixin
+                if self._fill_reconciler is not None and isinstance(broker.orders, PaperDispatchMixin):
+                    agent = self._runner.get_agent(opportunity.agent_name) if self._runner else None
+                    configured_exits = getattr(getattr(agent, "config", None), "exit_rules", None)
+                    dispatch_order = await self._fill_reconciler.register(
+                        opportunity, broker, exit_rules=configured_exits,
+                        broker_id=self._execution._broker_name(broker),
+                    )
+                    registered_paper_job = True
+                    if dispatch_order is None:
+                        await self._fill_reconciler.reconcile_once()
+                        return
+                order_result = await self._execution.submit(
+                    broker, dispatch_order.account_id, dispatch_order,
                 )
+                if registered_paper_job:
+                    from broker.models import OrderStatus
+                    if order_result.status == OrderStatus.REJECTED and order_result.filled_quantity == 0:
+                        await self._fill_reconciler.rejected(opportunity.id)
+                        await self._store.update_status(opportunity.id, OpportunityStatus.REJECTED)
+                    else:
+                        broker_submission_observed = True
+                        opportunity.status = OpportunityStatus.RECONCILIATION_REQUIRED
+                        await self._store.update_status(opportunity.id, opportunity.status)
+                        await self._fill_reconciler.reconcile_once()
+                        projected = await self._store.get(opportunity.id)
+                        if projected and projected["status"] == OpportunityStatus.EXECUTED.value:
+                            import json
+                            projected_data = json.loads(projected["data"]) if isinstance(projected["data"], str) else projected["data"]
+                            projected_position_id = projected_data.get("tracked_position_id")
+                            if projected_position_id:
+                                projected_position = await self._fill_reconciler.positions.get(projected_position_id)
+                                projected_position_closed = bool(projected_position and projected_position["status"] == "closed")
+                    if order_result.status != OrderStatus.FILLED or projected_position_id is None:
+                        return
+                from broker.models import OrderStatus
+                from decimal import Decimal as _D
+
+                if (
+                    order_result.status in (OrderStatus.REJECTED, OrderStatus.CANCELLED)
+                    and order_result.filled_quantity == 0
+                ):
+                    raise RuntimeError(f"Broker did not accept order: {order_result.status.value}")
+                broker_submission_observed = True
+                filled_quantity = order_result.filled_quantity
+                fill_price = order_result.avg_fill_price
+                complete_priced_fill = (
+                    order_result.status == OrderStatus.FILLED
+                    and isinstance(filled_quantity, _D)
+                    and filled_quantity.is_finite()
+                    and filled_quantity > 0
+                    and isinstance(fill_price, _D)
+                    and fill_price.is_finite()
+                    and fill_price > 0
+                )
+                if not complete_priced_fill:
+                    # Accepted/partial is an order receipt, not a completed trade.
+                    # Existing trackers close whole positions and cannot safely
+                    # account for incremental fills. Retain measured evidence for
+                    # reconciliation, leaving entry/exit lifecycle hooks untouched.
+                    receipt = {
+                        "order_id": order_result.order_id,
+                        "status": order_result.status.value,
+                        "filled_quantity": str(filled_quantity),
+                        "avg_fill_price": str(fill_price) if fill_price is not None else None,
+                        "commission": str(order_result.commission),
+                        "filled_at": order_result.filled_at.isoformat() if order_result.filled_at else None,
+                        "requires_fill_reconciliation": True,
+                    }
+                    opportunity.data["execution_receipt"] = receipt
+                    opportunity.status = OpportunityStatus.RECONCILIATION_REQUIRED
+                    await self._store.update_status(opportunity.id, opportunity.status)
+                    await self._store.update_data(opportunity.id, opportunity.data)
+                    if self._trade_store:
+                        await self._trade_store.save_trade(
+                            opportunity.id, receipt, {"passed": True},
+                        )
+                    logger.info(
+                        "Order %s for opportunity %s awaits fill reconciliation (%s, filled=%s)",
+                        order_result.order_id, opportunity.id,
+                        order_result.status.value, filled_quantity,
+                    )
+                    return
+                opportunity.status = OpportunityStatus.EXECUTED
                 await self._store.update_status(
-                    opportunity.id, OpportunityStatus.EXECUTED
+                    opportunity.id, opportunity.status
                 )
-                if self._trade_store:
+                if self._trade_store and not registered_paper_job:
                     await self._trade_store.save_trade(
                         opportunity.id,
                         {
@@ -1147,14 +1255,14 @@ class OpportunityRouter:
                             "agent_name": opportunity.agent_name,
                             "symbol": opportunity.symbol.ticker,
                             "side": opportunity.suggested_trade.side.value,
-                            "quantity": float(opportunity.suggested_trade.quantity),
+                            "quantity": float(order_result.filled_quantity),
                             "confidence": opportunity.confidence,
                         }
                         self._achievement_tracker.check_and_update(context)
                     except Exception as exc:
                         logger.warning("Achievement check failed: %s", exc)
-                tracked_position_id = None
-                if self._trade_tracker:
+                tracked_position_id = projected_position_id
+                if self._trade_tracker and not registered_paper_job:
                     if opportunity.is_exit:
                         tracked_id = opportunity.data.get(
                             "tracked_position_id"
@@ -1199,7 +1307,7 @@ class OpportunityRouter:
                             )
                 # Record exit lifecycle for tracked positions
                 if opportunity.is_exit:
-                    if tracked_position_id and self._exit_manager:
+                    if tracked_position_id and self._exit_manager and not registered_paper_job:
                         try:
                             await self._exit_manager.detach(tracked_position_id)
                         except Exception as exc:
@@ -1225,7 +1333,7 @@ class OpportunityRouter:
                             broker_id=opportunity.broker_id or "ibkr",
                             expected_price=quote.last or _D("0"),
                             actual_price=actual_price,
-                            quantity=opportunity.suggested_trade.quantity,
+                            quantity=order_result.filled_quantity,
                             side="BUY"
                             if opportunity.suggested_trade.side == OrderSide.BUY
                             else "SELL",
@@ -1322,6 +1430,7 @@ class OpportunityRouter:
                 # Attach exit rules after successful fill
                 if (
                     self._exit_manager
+                    and not registered_paper_job
                     and not opportunity.is_exit
                     and tracked_position_id
                 ):
@@ -1391,7 +1500,7 @@ class OpportunityRouter:
                             "Failed to attach exits for %s: %s", opportunity.id, exc
                         )
                 # Kick off post-fill memory hook (lightweight, best-effort)
-                if self._trade_reflector and self._trade_tracker:
+                if self._trade_reflector and self._trade_tracker and (not registered_paper_job or projected_position_closed):
                     try:
                         from learning.trade_memory import ClosedTrade, TradeMemory
                         from decimal import Decimal as _D
@@ -1441,7 +1550,7 @@ class OpportunityRouter:
                 # Kick off health recompute after trade closes (non-blocking, best-effort)
                 # Same pattern as trade_reflector above. Reads PerformanceStore.get_latest()
                 # which is maintained by the mark-to-market scheduler.
-                if self._health_engine and opportunity.is_exit:
+                if self._health_engine and opportunity.is_exit and (not registered_paper_job or projected_position_closed):
                     asyncio.create_task(
                         self._health_engine.on_trade_closed(opportunity.agent_name)
                     )
@@ -1449,9 +1558,18 @@ class OpportunityRouter:
                 span.record_exception(e)
                 span.set_status(trace.StatusCode.ERROR, str(e))
                 logger.error("Trade execution failed for %s: %s", opportunity.id, e)
-                await self._store.update_status(
-                    opportunity.id, OpportunityStatus.REJECTED
+                from execution.service import ExecutionUnavailable
+
+                status = (
+                    OpportunityStatus.RECONCILIATION_REQUIRED
+                    if broker_submission_observed or (
+                        isinstance(e, ExecutionUnavailable) and e.outcome_unknown
+                    )
+                    else OpportunityStatus.REJECTED
                 )
+                if registered_paper_job and status == OpportunityStatus.REJECTED:
+                    await self._fill_reconciler.rejected(opportunity.id)
+                await self._store.update_status(opportunity.id, status)
 
     def _apply_bias_alignment(
         self, opportunity: Opportunity, session_bias: str

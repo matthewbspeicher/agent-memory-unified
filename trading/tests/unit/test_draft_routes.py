@@ -98,13 +98,14 @@ def test_list_drafts_requires_auth(client):
 
 
 class TestBacktestEngine:
-    """Test that the backtest endpoint uses the real engine."""
+    """Test that the demonstration engine reports synthetic provenance."""
 
-    def test_backtest_returns_real_status(self):
+    def test_backtest_returns_synthetic_status(self):
         from backtest.engine import run_backtest
 
         result = run_backtest(symbols=["BTC"], days=10)
-        assert result["status"] == "real"
+        assert result["status"] == "synthetic"
+        assert result["deployment_eligible"] is False
         assert "sharpe_ratio" in result
         assert "equity_curve" in result
 

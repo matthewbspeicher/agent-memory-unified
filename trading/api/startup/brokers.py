@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+
+import aiosqlite
+from storage.postgres import PostgresDB
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -41,13 +44,24 @@ async def setup_brokers(
         _initial = config.paper_trading_initial_balance
         await db.execute(
             """
-            INSERT OR REPLACE INTO paper_accounts
+            INSERT INTO paper_accounts
                 (account_id, net_liquidation, buying_power, cash, maintenance_margin)
             VALUES ('PAPER', ?, ?, ?, 0.0)
+            ON CONFLICT(account_id) DO NOTHING
             """,
             (_initial, _initial, _initial),
         )
         await db.commit()
+        paper_db = await _paper_store._get_db()
+        if isinstance(paper_db, (aiosqlite.Connection, PostgresDB)):
+            for prediction_account in ("KALSHI_PAPER", "POLYMARKET_PAPER"):
+                await _paper_store.ensure_account(prediction_account, _initial)
+        else:
+            # Unknown storage cannot supply a transaction-bound paper ledger.
+            logger.warning(
+                "Paper execution unavailable: supported transactional risk context is required; "
+                "prediction accounts were not initialized"
+            )
 
         # market_data is required for PaperBroker; we'll use a placeholder or
         # ensure it's wired correctly. Since real_broker might be None,

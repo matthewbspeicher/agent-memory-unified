@@ -9,7 +9,7 @@ async def test_memory_linter_detects_stale_and_orphans():
     mock_shared = MagicMock()
     mock_shared.search_commons = AsyncMock(return_value=[
         {"id": "1", "expires_at": "2026-01-01T00:00:00Z", "access_count": 5},  # Stale
-        {"id": "2", "access_count": 0},  # Orphan
+        {"id": "2", "access_count": 0, "metadata": {"source_ids": []}},  # Orphan
         {"id": "3", "access_count": 10},  # Healthy
     ])
     mock_client._shared = mock_shared

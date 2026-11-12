@@ -18,13 +18,13 @@ def risk_client(mock_broker):
     app = create_app(mock_broker)
     app.include_router(risk_router)
     ks = KillSwitch()
-    engine = MagicMock()
-    engine.kill_switch = ks
-    engine.rules = [MaxPositionSize(max_dollars=5000, max_shares=500)]
+    from risk.engine import RiskEngine
+    engine = RiskEngine([MaxPositionSize(max_dollars=5000, max_shares=500)], ks)
+    mock_broker.orders.cancel_all_orders = AsyncMock()
     app.state.risk_engine = engine
     # Mock Redis for kill-switch routes
     mock_redis = AsyncMock()
-    mock_redis.get = AsyncMock(return_value=None)
+    mock_redis.get = AsyncMock(return_value="false")
     mock_redis.set = AsyncMock()
     mock_redis.setex = AsyncMock()
     mock_redis.delete = AsyncMock()

@@ -16,7 +16,7 @@ class TestRunBacktest:
 
     def test_status_is_real(self):
         result = run_backtest(symbols=["BTC"], days=30)
-        assert result["status"] == "real"
+        assert result["status"] == "synthetic"
 
     def test_equity_curve_has_correct_length(self):
         result = run_backtest(symbols=["BTC"], days=60)
@@ -52,9 +52,9 @@ class TestRunBacktest:
             "volatile": {"technical": 0.2, "sentiment": 0.3, "whale": 0.3, "momentum": 0.2},
         }
         result = run_backtest(symbols=["BTC"], days=30, regime_weights=custom)
-        assert result["status"] == "real"
+        assert result["status"] == "synthetic"
 
     def test_defaults_work(self):
         result = run_backtest()
-        assert result["status"] == "real"
+        assert result["status"] == "synthetic"
         assert len(result["equity_curve"]) == 90  # default days
