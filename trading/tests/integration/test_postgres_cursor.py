@@ -84,7 +84,40 @@ async def test_update_and_delete_report_the_rows_they_changed(db):
     async with db.execute("DELETE FROM items WHERE n = ?", (1,)) as deleted:
         assert deleted.rowcount == 2
     selected = await db.execute("SELECT * FROM items")
-    assert selected.rowcount == 1 and len(await selected.fetchall()) == 1
+    assert selected.rowcount == -1 and len(await selected.fetchall()) == 1
+
+
+async def test_keywords_inside_text_and_comments_are_not_read_as_sql(db):
+    text = await db.execute("INSERT INTO items (name) VALUES ('returning to base')")
+    commented = await db.execute(
+        "-- add one\nINSERT INTO items (name) VALUES (?) -- the name", ("b",)
+    )
+    updated = await db.execute("UPDATE items SET name = 'x RETURNING y' WHERE id = 1")
+    assert (text.lastrowid, commented.lastrowid) == (1, 2)
+    assert (text.rowcount, commented.rowcount, updated.rowcount) == (1, 1, 1)
+
+
+@pytest.mark.parametrize(
+    "sql, expected",
+    [
+        ("-- every item\nSELECT name FROM items", 1),
+        ("(SELECT 1) UNION (SELECT 2)", 2),
+        ("EXPLAIN SELECT 1", 1),
+    ],
+)
+async def test_an_opened_cursor_gets_rows_from_any_statement(db, sql, expected):
+    await db.execute("INSERT INTO items (name) VALUES (?)", ("a",))
+    async with db.execute(sql) as cursor:
+        assert len(await cursor.fetchall()) == expected
+
+
+async def test_a_renamed_id_column_is_looked_up_again(db):
+    await db.execute("INSERT INTO items (name) VALUES (?)", ("a",))
+    await db.execute("ALTER TABLE items RENAME COLUMN id TO item_id")
+    with pytest.raises(asyncpg.UndefinedColumnError):
+        await db.execute("INSERT INTO items (name) VALUES (?)", ("b",))
+    cursor = await db.execute("INSERT INTO items (name) VALUES (?)", ("c",))
+    assert cursor.lastrowid is not None
 
 
 async def test_a_statement_that_asks_for_rows_still_gets_them(db):

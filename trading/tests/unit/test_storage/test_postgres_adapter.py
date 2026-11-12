@@ -603,7 +603,7 @@ class TestCursorCounts:
         conn.fetch.return_value = [{"id": 42}]
         second = await db.execute("INSERT INTO trades (symbol) VALUES (?)", ["MSFT"])
         assert (first.lastrowid, second.lastrowid) == (41, 42)
-        assert conn.fetch.await_args_list[0].args[0].endswith('VALUES ($1) RETURNING "id"')
+        assert conn.fetch.await_args_list[0].args[0].endswith('VALUES ($1)\nRETURNING "id"')
         assert conn.fetchrow.await_count == 1
         conn.execute.assert_not_awaited()
 

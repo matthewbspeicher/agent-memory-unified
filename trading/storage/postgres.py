@@ -102,6 +102,16 @@ def _correction(error, args):
 _INSERT_INTO = re.compile(r'\s*INSERT\s+INTO\s+([\w."]+)', re.IGNORECASE)
 _RETURNING = re.compile(r"\bRETURNING\b", re.IGNORECASE)
 _RETURNS_ROWS = ("SELECT", "WITH", "VALUES", "SHOW", "TABLE")
+_WRITES = ("INSERT", "UPDATE", "DELETE", "MERGE")
+_LITERAL_OR_COMMENT = re.compile(r"'(?:[^']|'')*'|--[^\n]*|/\*.*?\*/", re.DOTALL)
+_UNDEFINED_COLUMN = "42703"
+
+
+def _bare(sql: str) -> str:
+    """The statement without string literals and comments, to read keywords from."""
+    return _LITERAL_OR_COMMENT.sub(
+        lambda found: "''" if found.group().startswith("'") else " ", sql
+    ).strip()
 # Whether the table exists, and its first serial or identity column.
 _SERIAL_COLUMN = """
     SELECT to_regclass($1) IS NOT NULL AS found,
@@ -113,14 +123,15 @@ _SERIAL_COLUMN = """
 """
 
 
-async def _serial_column(conn, sql, serials):
+async def _serial_column(conn, bare, serials):
     """The generated-id column of the table an INSERT writes to, if it has one.
 
     SQLite reports the new row's id as ``cursor.lastrowid``. PostgreSQL only
     gives it back when the statement asks, so the facade asks for this column.
+    ``bare`` is the statement as ``_bare`` leaves it.
     """
-    match = _INSERT_INTO.match(sql)
-    if match is None or _RETURNING.search(sql):
+    match = _INSERT_INTO.match(bare)
+    if match is None:
         return None
     table = match.group(1)
     if table not in serials:
@@ -249,19 +260,32 @@ class _PostgresContextManager:
     # -- awaitable (``await db.execute(...)``) -------------------------
 
     def __await__(self):
-        return self._execute().__await__()
+        return self._execute(reading=False).__await__()
 
-    async def _execute(self) -> _PostgresCursor:
+    async def _execute(self, reading: bool) -> _PostgresCursor:
+        """Run the statement. ``reading`` is whether the caller opened a cursor,
+        which decides how a statement of no recognised kind is sent."""
         sql, params, learned = self._sql, self._params, self._learned
+        bare = _bare(sql)
+        verb = bare.lstrip("(").split(None, 1)[0].upper() if bare else ""
+        writes = verb in _WRITES
+        returning = bool(_RETURNING.search(bare))
         async with self._pool.acquire() as conn:
-            if sql.lstrip().upper().startswith(_RETURNS_ROWS) or _RETURNING.search(sql):
+            if returning or (not writes and (reading or verb in _RETURNS_ROWS)):
                 rows = [_Row(r) for r in await _run(conn.fetch, sql, params, learned)]
-                return _PostgresCursor(rows, rowcount=len(rows))
-            column = await _serial_column(conn, sql, self._serials)
+                # Like SQLite, a statement that only reads reports no count.
+                return _PostgresCursor(rows, rowcount=len(rows) if writes else -1)
+            column = await _serial_column(conn, bare, self._serials) if writes else None
             if column:
-                rows = await _run(
-                    conn.fetch, sql, params, learned, suffix=f' RETURNING "{column}"'
-                )
+                try:
+                    # On its own line, so a trailing comment cannot swallow it.
+                    rows = await _run(
+                        conn.fetch, sql, params, learned, f'\nRETURNING "{column}"'
+                    )
+                except Exception as error:
+                    if getattr(error, "sqlstate", None) == _UNDEFINED_COLUMN:
+                        self._serials.clear()  # the table may have changed
+                    raise
                 return _PostgresCursor(
                     [], rowcount=len(rows), lastrowid=rows[-1][column] if rows else None
                 )
@@ -271,7 +295,7 @@ class _PostgresContextManager:
     # -- async context manager (``async with db.execute(...) as cur:``) --
 
     async def __aenter__(self) -> _PostgresCursor:
-        return await self._execute()
+        return await self._execute(reading=True)
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         return None
