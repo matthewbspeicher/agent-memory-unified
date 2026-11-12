@@ -1,6 +1,6 @@
 # Order terms module and Paper ledger ownership
 
-**Status:** design agreed 2026-11-11, not started.
+**Status:** original refactors and follow-ups implemented in merged pull requests #3–#7. Remaining follow-ups are listed below.
 **Implementer:** Claude, coordinating with Codex. **Reviewer:** an independent read-only review per pull request.
 **Vocabulary:** see `CONTEXT.md` for *Order terms*, *Paper ledger* and *Account generation*. Paths below are relative to `trading/`.
 
@@ -132,8 +132,8 @@ Each commit leaves the suite green.
 ## Out of scope, recorded as follow-ups
 
 - **Transaction machinery extraction (done as a third pull request).** `TrackedPositionStore` subclassed `PaperStore`, and `storage/exit_rules.py` constructed one, only to borrow its transaction. The machinery now lives in `storage/unit_of_work.py`; each store holds a `UnitOfWork`, and the tracked-position store reads the ledger through a `PaperStore` bound to its own unit of work.
-- **Ignored paper initial balance.** `init_tables` seeds `PAPER` at 100,000 before startup tries to insert the configured `paper_trading_initial_balance`, so the configured value is ignored on a fresh database. Needs a decision, since fixing it changes what a new paper account starts with.
-- **Rest-or-reject by message text.** `broker/paper_matching.py` decides an order should rest by matching the text of a rejection message. Becomes a small change once Order terms exists.
+- **Configured paper initial balance (implemented in the starting-balance follow-up).** Startup supplies `paper_trading_initial_balance` when initializing a missing `PAPER` account. Existing balances and coverage are preserved. See [qualification](../audits/2026-11-12-paper-starting-balance.md).
+- **Typed rest-or-reject (done in pull request #6).** `PaperOrderMustRest` replaces message matching and preserves the stop-limit trigger flag. Pull request #7 consolidates the immediate-fill implementation across venues.
 - **Typed order outcome.** Definite rejection versus unknown outcome is a convention re-derived in several callers.
 - **Approved Opportunities never execute.** `OpportunityStatus.APPROVED` is written by the approval routes and WhatsApp and read by nothing that executes.
 - **`SpreadTracker` has no notifier.** It is constructed with `notifier=None` and a comment promising later wiring that does not exist.

@@ -194,16 +194,25 @@ async def test_startup_preserves_accounts_and_initializes_predictions(ledger):
     from config import Config, BrokerConfig
 
     store, db, _ = ledger
-    await db.execute("UPDATE paper_accounts SET cash=12345 WHERE account_id='PAPER'")
+    generation = await store.account_generation("PAPER")
+    await db.execute(
+        "UPDATE paper_accounts SET cash=12345, net_liquidation=12500, buying_power=1000, maintenance_margin=50 WHERE account_id='PAPER'"
+    )
     config = Config(
-        paper_trading=True, worker_mode=True, broker=BrokerConfig(ib_host="")
+        paper_trading=True,
+        paper_trading_initial_balance=25000.25,
+        worker_mode=True,
+        broker=BrokerConfig(ib_host=""),
     )
     _, _, initialized = await setup_brokers(config, db, None)
-    assert (await initialized.get_balance("PAPER")).cash == 12345
+    funds = await initialized.get_balance("PAPER")
+    assert (funds.cash, funds.net_liquidation, funds.buying_power, funds.maintenance_margin) == (12345, 12500, 1000, 50)
+    assert await initialized.account_generation("PAPER") == generation
     for account in ("KALSHI_PAPER", "POLYMARKET_PAPER"):
         state = await initialized.get_risk_state(account, None)
         assert state.complete and state.epoch
         assert state.context.daily_trade_count == 0
+        assert state.context.balance.cash == D("25000.25")
     await initialized.close()
 
 

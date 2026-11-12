@@ -205,15 +205,20 @@ class PaperStore:
             )
         return await cursor.fetchall()
 
-    async def init_tables(self) -> None:
+    async def init_tables(self, *, initial_balance=100000.0) -> None:
+        """Initialize the ledger and seed a missing default account only.
+
+        Existing balances and risk coverage are preserved. Callers without an
+        explicit starting balance retain the historical standalone default.
+        """
         db = await self._get_db()
         if isinstance(db, PostgresDB):
             async with self.transaction():
-                await self._init_tables()
+                await self._init_tables(initial_balance)
         else:
-            await self._init_tables()
+            await self._init_tables(initial_balance)
 
-    async def _init_tables(self) -> None:
+    async def _init_tables(self, initial_balance) -> None:
         db = await self._get_db()
         adopted = await self._uow.adopt_dedicated_connection(db, busy_timeout=True)
         if adopted is not None:
@@ -363,13 +368,14 @@ class PaperStore:
             await self.initialize_risk_coverage(existing["account_id"], fresh=False)
 
         # Ensure default paper account exists
+        initial = float(initial_balance)
         await db.execute(
             """
             INSERT INTO paper_accounts (account_id, net_liquidation, buying_power, cash, maintenance_margin)
             VALUES (?, ?, ?, ?, ?)
             ON CONFLICT (account_id) DO NOTHING
             """,
-            ("PAPER", 100000.0, 100000.0, 100000.0, 0.0),
+            ("PAPER", initial, initial, initial, 0.0),
         )
         if not any(row["account_id"] == "PAPER" for row in existing_accounts):
             await self.initialize_risk_coverage("PAPER", fresh=True)

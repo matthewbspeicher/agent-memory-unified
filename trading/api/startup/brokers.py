@@ -27,7 +27,9 @@ async def setup_brokers(
     """
     from broker.paper import PaperBroker
 
-    if isinstance(broker, PaperBroker):
+    # In configured paper mode this broker is replaced below. Do not seed its
+    # default balance before the configured account initialization gets a turn.
+    if isinstance(broker, PaperBroker) and not config.paper_trading:
         await broker.orders.store.init_tables()
 
     # --- Paper trading mode: replace broker with PaperBroker ---
@@ -37,9 +39,8 @@ async def setup_brokers(
         from storage.paper import PaperStore
 
         _paper_store = PaperStore(db)
-        await _paper_store.init_tables()
-
         _initial = config.paper_trading_initial_balance
+        await _paper_store.init_tables(initial_balance=_initial)
         await db.commit()
         if await _paper_store.supports_transactions():
             for prediction_account in ("PAPER", "KALSHI_PAPER", "POLYMARKET_PAPER"):
