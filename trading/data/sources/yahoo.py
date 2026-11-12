@@ -1,6 +1,6 @@
 from __future__ import annotations
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
 
@@ -34,7 +34,7 @@ class YahooFinanceSource(DataSource):
         if symbol.asset_type.value in self._YAHOO_UNSUPPORTED_TYPES:
             return Quote(
                 symbol=symbol, bid=Decimal(0), ask=Decimal(0),
-                last=Decimal(0), volume=0, timestamp=datetime.utcnow(),
+                last=Decimal(0), volume=0, timestamp=datetime.now(timezone.utc),
             )
 
         def _fetch():
@@ -47,7 +47,7 @@ class YahooFinanceSource(DataSource):
                 ask=Decimal(str(getattr(info, "ask", 0) or 0)),
                 last=Decimal(str(getattr(info, "last_price", 0) or 0)),
                 volume=int(getattr(info, "last_volume", 0) or 0),
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(timezone.utc),
             )
 
         return await asyncio.to_thread(_fetch)

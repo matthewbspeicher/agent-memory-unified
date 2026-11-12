@@ -11,7 +11,10 @@ from utils.background_tasks import BackgroundTaskManager
 
 
 @pytest.mark.integration
-def test_agent_framework_startup_loads_shared_learning_config(tmp_path) -> None:
+@pytest.mark.parametrize("matching", [True, False])
+def test_agent_framework_startup_loads_shared_learning_config(
+    tmp_path, matching
+) -> None:
     agents_path = tmp_path / "agents.empty.yaml"
     agents_path.write_text("agents: []\n")
 
@@ -27,12 +30,24 @@ def test_agent_framework_startup_loads_shared_learning_config(tmp_path) -> None:
         db_path=str(db_path),
         database_url=None,
         paper_trading=True,
+        paper_matching_enabled=matching,
         broker=BrokerConfig(ib_host=""),
     )
 
     app = create_app(enable_agent_framework=True, config=config)
 
     with TestClient(app) as client:
+        if matching:
+            assert client.app.state.paper_matching_driver is not None
+            assert "paper_matching_driver" in client.app.state.task_manager.active_tasks
+        else:
+            assert not hasattr(client.app.state, "paper_matching_driver")
+            assert (
+                "paper_matching_driver"
+                not in client.app.state.task_manager.active_tasks
+            )
+        assert client.app.state.paper_fill_reconciler is not None
+        assert "paper_fill_reconciliation" in client.app.state.task_manager.active_tasks
         assert client.app.state.learning_config is not None
         assert client.app.state.health_engine is not None
         assert client.app.state.confidence_calibration_store is not None

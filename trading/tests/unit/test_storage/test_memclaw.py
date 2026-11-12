@@ -179,6 +179,7 @@ class TestVisibilityScope:
         # Search with scope_team filter
         results = await memory_store_with_memclaw_data.search(
             query="",
+            agent_id="trader_1",
             visibility_scope="scope_team",
             limit=10,
         )
@@ -188,6 +189,7 @@ class TestVisibilityScope:
         """Test search can filter by memory_type."""
         results = await memory_store_with_memclaw_data.search(
             query="",
+            agent_id="trader_1",
             memory_type_filter="fact",
             limit=10,
         )
@@ -203,6 +205,7 @@ class TestVisibilityScope:
 
         results = await memory_store.search(
             query="Test",
+            agent_id="test",
             status_filter="confirmed",
             limit=10,
         )
@@ -213,6 +216,7 @@ class TestVisibilityScope:
         """Test search can filter by minimum weight."""
         results = await memory_store_with_memclaw_data.search(
             query="",
+            agent_id="trader_1",
             min_weight=0.7,
             limit=10,
         )

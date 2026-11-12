@@ -86,6 +86,7 @@ async def test_triggered_stop_emits_sell_opportunity():
     await exit_manager.attach(42, [stop])
 
     position_store = AsyncMock()
+    position_store.has_pending_execution = AsyncMock(return_value=False)
     position_store.list_open = AsyncMock(return_value=[position])
 
     config = _make_config()
@@ -121,6 +122,7 @@ async def test_exit_uses_persisted_account_id():
     await exit_manager.attach(42, [StopLoss(stop_price=Decimal("95.00"), side="BUY")])
 
     position_store = AsyncMock()
+    position_store.has_pending_execution = AsyncMock(return_value=False)
     position_store.list_open = AsyncMock(return_value=[position])
 
     agent = ExitMonitorAgent(
@@ -144,6 +146,7 @@ async def test_no_trigger_returns_empty():
     await exit_manager.attach(1, [stop])
 
     position_store = AsyncMock()
+    position_store.has_pending_execution = AsyncMock(return_value=False)
     position_store.list_open = AsyncMock(return_value=[position])
 
     config = _make_config()
@@ -173,6 +176,7 @@ async def test_multiple_positions_only_triggered_emits():
     await exit_manager.attach(2, [StopLoss(stop_price=Decimal("180.00"), side="BUY")])
 
     position_store = AsyncMock()
+    position_store.has_pending_execution = AsyncMock(return_value=False)
     position_store.list_open = AsyncMock(return_value=[pos1, pos2])
 
     config = _make_config()
@@ -190,6 +194,7 @@ async def test_multiple_positions_only_triggered_emits():
 async def test_missing_exit_manager_returns_empty():
     """Agent without exit_manager warns and returns empty list."""
     position_store = AsyncMock()
+    position_store.has_pending_execution = AsyncMock(return_value=False)
     position_store.list_open = AsyncMock(return_value=[_make_position()])
 
     config = _make_config()
@@ -205,6 +210,7 @@ async def test_no_open_positions_returns_empty():
     """When there are no open positions, scan returns empty."""
     exit_manager = ExitManager()
     position_store = AsyncMock()
+    position_store.has_pending_execution = AsyncMock(return_value=False)
     position_store.list_open = AsyncMock(return_value=[])
 
     config = _make_config()
@@ -234,6 +240,7 @@ async def test_sell_position_emits_buy_opportunity():
     await exit_manager.attach(7, [stop])
 
     position_store = AsyncMock()
+    position_store.has_pending_execution = AsyncMock(return_value=False)
     position_store.list_open = AsyncMock(return_value=[position])
 
     config = _make_config()
@@ -258,6 +265,7 @@ async def test_lowercase_buy_side_is_normalized():
     await exit_manager.attach(8, [StopLoss(stop_price=Decimal("95.00"), side="BUY")])
 
     position_store = AsyncMock()
+    position_store.has_pending_execution = AsyncMock(return_value=False)
     position_store.list_open = AsyncMock(return_value=[position])
 
     agent = ExitMonitorAgent(
@@ -279,6 +287,7 @@ async def test_trailing_stop_updates_and_triggers():
     await exit_manager.attach(9, [trail])
 
     position_store = AsyncMock()
+    position_store.has_pending_execution = AsyncMock(return_value=False)
     position_store.list_open = AsyncMock(return_value=[position])
 
     agent = ExitMonitorAgent(
@@ -377,6 +386,27 @@ async def test_router_is_exit_skips_sizing_engine():
     sizing_engine = AsyncMock()
     sizing_engine.compute_size = AsyncMock(return_value=Decimal("5"))
 
+    async def preview(target_broker, account_id, order):
+        from risk.rules import PortfolioContext
+
+        return await risk_engine.evaluate(
+            order,
+            await data_bus.get_quote(order.symbol),
+            PortfolioContext(
+                positions=await data_bus.get_positions(),
+                balance=await data_bus.get_balances(),
+                daily_pnl=Decimal("0"),
+                daily_trade_count=0,
+            ),
+        )
+
+    async def submit(target_broker, account_id, order):
+        return await target_broker.orders.place_order(account_id, order)
+
+    execution_service = MagicMock()
+    execution_service.preview = AsyncMock(side_effect=preview)
+    execution_service.submit = AsyncMock(side_effect=submit)
+
     router = OpportunityRouter(
         store=store,
         notifier=notifier,
@@ -384,6 +414,7 @@ async def test_router_is_exit_skips_sizing_engine():
         broker=broker,
         data_bus=data_bus,
         sizing_engine=sizing_engine,
+        execution_service=execution_service,
     )
 
     await router._try_execute(opp)
@@ -393,3 +424,105 @@ async def test_router_is_exit_skips_sizing_engine():
     # Full quantity (50) must be preserved on the suggested trade
     assert opp.suggested_trade.quantity == Decimal("50")
     broker.orders.place_order.assert_awaited_once()
+
+
+async def test_exit_sizes_remaining_fractional_quantity_after_partial_close():
+    position = _make_position(position_id=7, entry_quantity=10)
+    position["remaining_quantity"] = "3.75"
+    manager = ExitManager()
+    await manager.attach(7, [StopLoss(Decimal("95"))])
+    store = AsyncMock()
+    store.list_open.return_value = [position]
+    store.has_pending_execution.return_value = False
+    agent = ExitMonitorAgent(_make_config(), exit_manager=manager, position_store=store)
+    opportunities = await agent.scan(MockDataBus({"AAPL": Decimal("90")}))
+    assert len(opportunities) == 1
+    assert opportunities[0].suggested_trade.quantity == Decimal("3.75")
+
+
+async def test_nonpositive_or_invalid_remaining_positions_never_emit_exits():
+    manager = ExitManager()
+    positions = []
+    for index, remaining in enumerate(("0", "-1", "NaN", "Infinity", "invalid"), 1):
+        position = _make_position(position_id=index, entry_quantity=10)
+        position["remaining_quantity"] = remaining
+        positions.append(position)
+        await manager.attach(index, [StopLoss(Decimal("95"))])
+    store = AsyncMock()
+    store.list_open.return_value = positions
+    store.has_pending_execution.return_value = False
+    agent = ExitMonitorAgent(_make_config(), exit_manager=manager, position_store=store)
+    assert await agent.scan(MockDataBus({"AAPL": Decimal("90")})) == []
+
+
+async def test_pending_entry_or_exit_blocks_new_exit_even_after_monitor_restart():
+    manager = ExitManager()
+    await manager.attach(7, [StopLoss(Decimal("95"))])
+    position = _make_position(position_id=7, entry_quantity=10)
+    position["remaining_quantity"] = "4"
+    store = AsyncMock()
+    store.list_open.return_value = [position]
+    store.has_pending_execution.return_value = True
+    for _ in range(2):
+        agent = ExitMonitorAgent(
+            _make_config(), exit_manager=manager, position_store=store
+        )
+        assert await agent.scan(MockDataBus({"AAPL": Decimal("90")})) == []
+    assert store.has_pending_execution.await_count == 2
+    store.has_pending_execution.return_value = False
+    agent = ExitMonitorAgent(_make_config(), exit_manager=manager, position_store=store)
+    opportunities = await agent.scan(MockDataBus({"AAPL": Decimal("90")}))
+    assert opportunities[0].suggested_trade.quantity == Decimal("4")
+
+
+async def test_pending_state_outage_suppresses_exit_instead_of_assuming_clear():
+    manager = ExitManager()
+    await manager.attach(7, [StopLoss(Decimal("95"))])
+    store = AsyncMock()
+    store.list_open.return_value = [_make_position(position_id=7)]
+    store.has_pending_execution.side_effect = ConnectionError("offline")
+    agent = ExitMonitorAgent(_make_config(), exit_manager=manager, position_store=store)
+    assert await agent.scan(MockDataBus({"AAPL": Decimal("90")})) == []
+
+
+async def test_surviving_monitor_hydrates_rules_created_after_its_startup(tmp_path):
+    import aiosqlite
+    from storage.exit_rules import ExitRuleStore
+
+    async with aiosqlite.connect(str(tmp_path / 'survivor.db')) as db:
+        db.row_factory = aiosqlite.Row
+        await db.execute('CREATE TABLE position_exit_rules (position_id INTEGER PRIMARY KEY, rules_json TEXT NOT NULL)')
+        await db.commit()
+        store = ExitRuleStore(db)
+        survivor = ExitManager(store)
+        await survivor.load_rules()
+        position_store = AsyncMock()
+        position_store.list_open.return_value = [_make_position(position_id=42)]
+        position_store.has_pending_execution.return_value = False
+        monitor = ExitMonitorAgent(_make_config(), survivor, position_store)
+        data = MockDataBus({'AAPL': Decimal('90')})
+        # A visible position without completed rule projection cannot initialize []
+        # and accidentally win against its real entry protection.
+        assert await monitor.scan(data) == []
+        assert await store.load_all() == {}
+        creator = ExitManager(store)
+        await creator.attach(42, [StopLoss(Decimal('95'))])
+        result = await monitor.scan(data)
+        assert len(result) == 1
+        assert result[0].data['tracked_position_id'] == 42
+        assert result[0].suggested_trade.quantity == 10
+        assert isinstance(survivor._rules[42][0], StopLoss)
+
+
+async def test_monitor_skips_when_missing_rules_cannot_be_loaded():
+    store = AsyncMock()
+    store.load_all.side_effect = ConnectionError('storage unavailable')
+    manager = ExitManager(store)
+    position_store = AsyncMock()
+    position_store.list_open.return_value = [_make_position(position_id=42)]
+    position_store.has_pending_execution.return_value = False
+    monitor = ExitMonitorAgent(_make_config(), manager, position_store)
+    assert await monitor.scan(MockDataBus({'AAPL': Decimal('90')})) == []
+    assert 42 not in manager._rules
+    store.ensure.assert_not_called()
+    store.save.assert_not_called()

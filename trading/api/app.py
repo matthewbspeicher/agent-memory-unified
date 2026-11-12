@@ -192,6 +192,8 @@ def _setup_agent_runtime(
     app.state.health_engine = health_engine
 
     router: OpportunityRouter | ConsensusRouter = OpportunityRouter(
+        execution_service=getattr(app.state, "execution_service", None),
+        fill_reconciler=getattr(app.state, "paper_fill_reconciler", None),
         store=opp_store,
         notifier=notifier,
         risk_engine=risk_engine,
@@ -399,6 +401,7 @@ def _setup_whatsapp_routes(
     wa_client,
     wa_numbers,
     broker,
+    account_id: str,
     runner,
     opp_store,
     risk_engine,
@@ -437,7 +440,9 @@ def _setup_whatsapp_routes(
 
     wa_assistant = WhatsAppAssistant(
         client=wa_client,
+        execution_service=getattr(app.state, "execution_service", None),
         broker=broker,
+        account_id=account_id,
         runner=runner,
         opp_store=opp_store,
         risk_engine=risk_engine,
@@ -619,6 +624,7 @@ async def _load_and_start_agent_configs(
     logger: logging.Logger,
     preloaded_data: dict | None = None,
     llm_client=None,
+    entry_exit_handoff=False,
 ):
     from agents.config import load_agents_config, register_strategy
     from strategies.exit_monitor import ExitMonitorAgent as ExitMonitorAgent
@@ -629,6 +635,7 @@ async def _load_and_start_agent_configs(
             config=config,
             exit_manager=exit_manager,
             position_store=pnl_store,
+            entry_exit_handoff=entry_exit_handoff,
         ),
     )
 
@@ -770,7 +777,7 @@ def _setup_resolution_tracker(
             try:
                 from adapters.kalshi.paper import KalshiPaperBroker
 
-                kalshi_paper_broker = KalshiPaperBroker(store=paper_store)
+                kalshi_paper_broker = KalshiPaperBroker(store=paper_store, market_data=data_bus)
                 brokers["kalshi_paper"] = kalshi_paper_broker
                 logger.info("Kalshi paper broker enabled")
             except Exception as exc:
@@ -899,6 +906,18 @@ async def _shutdown_app_state(*, app: FastAPI, runner, logger: logging.Logger):
             logger.info("Broker %s disconnected.", name)
         except Exception as exc:
             logger.warning("Error disconnecting broker %s: %s", name, exc)
+
+    exit_manager = getattr(app.state, "exit_manager", None)
+    if exit_manager is not None and getattr(exit_manager, "_store", None) is not None:
+        await exit_manager._store.close()
+
+    pnl_store = getattr(app.state, "pnl_store", None)
+    if pnl_store is not None and hasattr(pnl_store, "close"):
+        await pnl_store.close()
+
+    paper_store = getattr(app.state, "paper_store", None)
+    if paper_store is not None:
+        await paper_store.close()
 
     journal_indexer = getattr(app.state, "journal_indexer", None)
     if journal_indexer:
@@ -1119,14 +1138,17 @@ async def lifespan(app: FastAPI):
             db=db,
             broker=broker,
         )
+        app.state.paper_store = _paper_store
         if broker:
             app.state.broker = broker
 
         # --- Arbitrage Coordinator ---
         from execution.arbitrage import ArbCoordinator
 
+        if broker is not None and all(b is not broker for b in _all_brokers.values()):
+            _all_brokers["paper" if config.paper_trading else "primary"] = broker
         arb_coordinator = ArbCoordinator(
-            brokers=_all_brokers or {"paper": broker} if broker else {},
+            brokers=_all_brokers,
             store=arb_store,
             config=config,
             event_bus=event_bus,
@@ -1164,9 +1186,9 @@ async def lifespan(app: FastAPI):
             agent_name="cross_platform_arb",
         )
         app.state.arb_executor = arb_executor
-        task_mgr.create_task(arb_executor.run(), name="arb_executor")
+        # Start only after the shared execution boundary is wired below.
         _log.info(
-            "ArbExecutor started (enabled=%s, paper_route=%s)",
+            "ArbExecutor configured (enabled=%s, paper_route=%s)",
             arb_executor._enabled,
             arb_executor._paper_route,
         )
@@ -1626,7 +1648,7 @@ async def lifespan(app: FastAPI):
                 try:
                     from adapters.polymarket.paper import PolymarketPaperBroker
 
-                    _poly_paper = PolymarketPaperBroker(store=_paper_store)
+                    _poly_paper = PolymarketPaperBroker(store=_paper_store, market_data=data_bus)
                     await _poly_paper.connection.connect()
                     _brokers["polymarket_paper"] = _poly_paper
                     _log.info("Polymarket paper broker enabled")
@@ -1735,14 +1757,8 @@ async def lifespan(app: FastAPI):
             app.state.spread_store = _spread_store
             app.state.arb_store = _arb_store
 
-            _arb_coordinator = ArbCoordinator(
-                brokers=_brokers,
-                store=_arb_store,
-                config=config,
-                meta_agent=None,  # Will be wired after MetaAgent is built
-                event_bus=event_bus,
-                journal_manager=journal_manager,
-            )
+            _arb_coordinator = arb_coordinator
+            _arb_coordinator._journal_manager = journal_manager
             app.state.arb_coordinator = _arb_coordinator
 
             # match_index is poly_ticker (condition_id) -> kalshi_ticker
@@ -1841,6 +1857,7 @@ async def lifespan(app: FastAPI):
 
         # Reuse already-loaded risk data from validation (cached in config_loader)
         _log.info("Resolved risk.yaml path string: %s", _risk_path_str)
+        _risk_configuration_missing = not _risk_data or _risk_path_str is None
         if not _risk_data:
             _log.error("CRITICAL: risk.yaml not found at any location!")
             _risk_data = {"rules": [], "kill_switch": {"enabled": False}}
@@ -1852,13 +1869,16 @@ async def lifespan(app: FastAPI):
         app.state.portfolio_state_store = portfolio_state_store
 
         # NOTE: load_risk_config() now accepts preloaded_data to avoid duplicate reads
-        if _risk_path_str is None:
+        if _risk_configuration_missing:
             _log.error("CRITICAL: risk.yaml path is None, cannot initialize RiskEngine")
             # Create minimal RiskEngine with no rules
             from risk.engine import RiskEngine
             from risk.kill_switch import KillSwitch
 
-            risk_engine = RiskEngine(rules=[], kill_switch=KillSwitch())
+            risk_engine = RiskEngine(
+                rules=[], kill_switch=KillSwitch(),
+                configuration_error="Risk configuration unavailable",
+            )
         else:
             risk_engine = load_risk_config(
                 _risk_path_str,
@@ -1887,6 +1907,21 @@ async def lifespan(app: FastAPI):
             task_mgr.create_task(_governor_refresh(), name="governor_refresh")
 
         app.state.risk_engine = risk_engine
+        risk_engine.register_brokers(_brokers or ({"primary": broker} if broker else {}))
+        risk_engine.bind_control_store(getattr(app.state, "redis", None))
+        try:
+            await risk_engine.initialize_control()
+        except Exception:
+            _log.exception("Trading control unavailable at startup; execution is halted")
+
+        from execution.service import ExecutionService
+        execution_service = ExecutionService(risk_engine, getattr(app.state, "redis", None))
+        execution_brokers = dict(_brokers)
+        if broker is not None and all(b is not broker for b in execution_brokers.values()):
+            execution_brokers["primary"] = broker
+        execution_service.register_brokers(execution_brokers)
+        app.state.execution_service = execution_service
+        arb_coordinator._execution = execution_service
 
         # --- Risk Analytics Setup ---
         from trading.risk import RiskAnalytics, RiskLimit
@@ -2103,6 +2138,27 @@ async def lifespan(app: FastAPI):
             app=app,
         )
 
+        if config.paper_trading and not config.worker_mode and _paper_store is not None and exit_manager is not None:
+            from execution.fill_reconciliation import PaperFillReconciler
+
+            fill_reconciler = PaperFillReconciler(_paper_store, pnl_store, opp_store, exit_manager, trade_store=trade_store)
+            await fill_reconciler.initialize()
+            app.state.paper_fill_reconciler = fill_reconciler
+            task_mgr.create_task(fill_reconciler.run(), name="paper_fill_reconciliation")
+            if config.paper_matching_enabled:
+                from execution.paper_driver import PaperMatchingDriver
+
+                paper_driver = PaperMatchingDriver(
+                    _paper_store, _brokers, getattr(app.state, "redis", None), fill_reconciler,
+                    interval_seconds=config.paper_matching_interval_seconds,
+                    allow_last_price=config.paper_matching_allow_last_price,
+                    liquidity_per_quote=config.paper_matching_liquidity_per_quote,
+                )
+                await paper_driver.initialize()
+                app.state.paper_matching_driver = paper_driver
+                task_mgr.create_task(paper_driver.run(), name="paper_matching_driver")
+
+
         health_engine, router, runner = _setup_agent_runtime(
             app=app,
             config=config,
@@ -2176,6 +2232,7 @@ async def lifespan(app: FastAPI):
             wa_client=wa_client,
             wa_numbers=wa_numbers,
             broker=broker,
+            account_id=_data_bus_account_id,
             runner=runner,
             opp_store=opp_store,
             risk_engine=risk_engine,
@@ -2193,7 +2250,7 @@ async def lifespan(app: FastAPI):
 
         # NOTE: load_agents_config() now accepts preloaded_data to avoid duplicate reads
         agent_configs = await _load_and_start_agent_configs(
-            agents_path=_agents_path_str,
+            entry_exit_handoff=getattr(app.state, "paper_fill_reconciler", None) is not None,            agents_path=_agents_path_str,
             prompt_store=prompt_store,
             exit_manager=exit_manager,
             pnl_store=pnl_store,
@@ -2249,6 +2306,8 @@ async def lifespan(app: FastAPI):
             task_mgr=task_mgr,
             logger=_log,
         )
+        execution_service.register_brokers(_brokers)
+        task_mgr.create_task(arb_executor.run(), name="arb_executor")
 
         # Start Fidelity file watcher as a background task
         from adapters.fidelity.watcher import FidelityFileWatcher
@@ -2454,7 +2513,13 @@ def create_app(
         _log.warning("RiskEngine init failed (rules disabled): %s", exc)
         from risk.engine import RiskEngine
 
-        app.state.risk_engine = RiskEngine(rules=[], kill_switch=None)
+        from risk.kill_switch import KillSwitch
+        halted = KillSwitch()
+        halted.enable("Risk configuration unavailable")
+        app.state.risk_engine = RiskEngine(
+            rules=[], kill_switch=halted,
+            configuration_error="Risk configuration unavailable",
+        )
 
     from api.landing import router as landing_router
     from api.routes.public import router as public_router

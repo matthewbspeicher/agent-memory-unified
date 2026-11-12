@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, HTTPException
 from decimal import Decimal
 from typing import Annotated, Any
 
 from api.auth import verify_api_key
-from api.dependencies import get_broker, check_kill_switch
+from api.dependencies import get_broker, check_kill_switch, get_execution_service
+from execution.service import ExecutionRejected, ExecutionUnavailable
 from api.identity.dependencies import require_scope, Identity
 from api.schemas import OrderRequestSchema, OrderResultSchema
 from broker.interfaces import Broker
@@ -94,7 +95,7 @@ def _build_order(req: OrderRequestSchema) -> OrderBase:
 @router.post(
     "",
     response_model=OrderResultSchema,
-    dependencies=[Depends(check_kill_switch), Depends(require_scope("write:orders"))],
+    dependencies=[Depends(require_scope("write:orders")), Depends(check_kill_switch)],
 )
 @audit_event("orders.place")
 async def place_order(
@@ -103,18 +104,24 @@ async def place_order(
     broker: Annotated[Broker, Depends(get_broker)],
 ):
     order = _build_order(req)
-    result = await broker.orders.place_order(req.account_id, order)
+    try:
+        result = await get_execution_service(request).submit(broker, req.account_id, order)
+    except ExecutionUnavailable as exc:
+        raise HTTPException(503, str(exc)) from exc
+    except ExecutionRejected as exc:
+        raise HTTPException(409, str(exc)) from exc
 
     # Log to tax CSV
     if (
-        result.status.value in ("SUBMITTED", "FILLED")
+        result.status.value in ("PARTIAL", "FILLED")
+        and result.filled_quantity > 0
         and result.avg_fill_price is not None
     ):
         side = "BUY" if order.side == OrderSide.BUY else "SELL"
         _csv_logger.log_trade(
             symbol=order.symbol.ticker,
             side=side,
-            quantity=order.quantity,
+            quantity=result.filled_quantity,
             price=result.avg_fill_price,
             exchange="broker",
             order_id=result.order_id,
@@ -128,7 +135,7 @@ async def place_order(
 @router.patch(
     "/{order_id}",
     response_model=OrderResultSchema,
-    dependencies=[Depends(check_kill_switch), Depends(require_scope("write:orders"))],
+    dependencies=[Depends(require_scope("write:orders")), Depends(check_kill_switch)],
 )
 @audit_event("orders.modify")
 async def modify_order(
@@ -137,13 +144,18 @@ async def modify_order(
     request: Request,
     broker: Annotated[Broker, Depends(get_broker)],
 ):
-    return await broker.orders.modify_order(order_id, changes)
+    try:
+        return await get_execution_service(request).amend(broker, order_id, changes)
+    except ExecutionUnavailable as exc:
+        raise HTTPException(503, str(exc)) from exc
+    except ExecutionRejected as exc:
+        raise HTTPException(409, str(exc)) from exc
 
 
 @router.delete(
     "/{order_id}",
     response_model=OrderResultSchema,
-    dependencies=[Depends(check_kill_switch), Depends(require_scope("write:orders"))],
+    dependencies=[Depends(require_scope("write:orders"))],
 )
 @audit_event("orders.cancel")
 async def cancel_order(

@@ -120,10 +120,24 @@ def client(mock_broker):
     app = create_app(mock_broker)
     # Provide mock Redis so kill-switch and other Redis-dependent deps don't 500
     mock_redis = AsyncMock()
-    mock_redis.get = AsyncMock(return_value=None)
-    mock_redis.set = AsyncMock()
+    values = {"kill_switch:active": "false"}
+    async def get(key):
+        return values.get(key)
+    async def set_value(key, value, nx=False):
+        if nx and key in values:
+            return False
+        values[key] = value
+        return True
+    async def delete(key):
+        return values.pop(key, None)
+    mock_redis.get = AsyncMock(side_effect=get)
+    mock_redis.set = AsyncMock(side_effect=set_value)
     mock_redis.setex = AsyncMock()
-    mock_redis.delete = AsyncMock()
+    mock_redis.delete = AsyncMock(side_effect=delete)
+    from tests.execution_controls import AdmissionLuaDouble
+    lua = AdmissionLuaDouble()
+    lua.get, lua.set, lua.delete = get, set_value, delete
+    mock_redis.eval = AsyncMock(side_effect=lua.eval)
     app.state.redis = mock_redis
     return TestClient(app)
 

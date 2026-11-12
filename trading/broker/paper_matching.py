@@ -1,0 +1,347 @@
+"""Persisted resting orders driven by explicit, idempotent liquidity ticks.
+
+Immediate marketable orders retain their existing simulation path. Ticks supply
+finite bid/ask liquidity; quote.volume is never treated as executable depth.
+"""
+
+import json
+import uuid
+from copy import deepcopy
+from dataclasses import asdict
+from datetime import datetime, timezone
+from decimal import Decimal
+
+from broker.models import (
+    OrderResult,
+    OrderStatus,
+    OrderSide,
+    LimitOrder,
+    StopOrder,
+    StopLimitOrder,
+    TIF,
+)
+
+_OPEN = {OrderStatus.SUBMITTED, OrderStatus.PARTIAL}
+
+
+class PaperMatchingMixin:
+    paper_account_id = "PAPER"
+
+    async def place_order(self, account_id, order):
+        from execution.service import ExecutionService
+
+        order = deepcopy(order)
+        ExecutionService._validate_order(None, account_id, order)
+        if account_id != self.paper_account_id:
+            return OrderResult(
+                "", OrderStatus.REJECTED, message="Paper account mismatch"
+            )
+        if order.time_in_force == TIF.GTD:
+            return OrderResult(
+                "", OrderStatus.REJECTED, message="GTD requires an expiry model"
+            )
+        from storage.paper import PaperWriteNotStarted
+
+        try:
+            async with self._store.transaction():
+                result = await self._place_immediate_order(account_id, order)
+                result_message = result.message
+                resting = result.status == OrderStatus.REJECTED and (
+                    "Limit is not marketable" in (result.message or "")
+                    or "Stop is not triggered" in (result.message or "")
+                )
+                if resting and order.time_in_force in {TIF.DAY, TIF.GTC}:
+                    result = OrderResult(str(uuid.uuid4()), OrderStatus.SUBMITTED)
+                    await self._store.save_order(
+                        result.order_id,
+                        account_id,
+                        order.symbol,
+                        order.side,
+                        order.quantity,
+                        result.status.value,
+                        Decimal(0),
+                        None,
+                    )
+                if result.order_id and result.status != OrderStatus.REJECTED:
+                    await self._store.save_order_terms(result.order_id, order)
+                    if (
+                        resting
+                        and isinstance(order, StopLimitOrder)
+                        and "Limit is not marketable" in (result_message or "")
+                    ):
+                        db = await self._store._get_db()
+                        await db.execute(
+                            "UPDATE paper_order_terms SET triggered=1 WHERE order_id=?",
+                            (result.order_id,),
+                        )
+                return result
+        except PaperWriteNotStarted as exc:
+            return OrderResult("", OrderStatus.REJECTED, message=str(exc))
+
+    async def _snapshot(self, order_id):
+        snap = await self._store.get_order_snapshot(order_id)
+        if snap is None or snap.order.account_id != self.paper_account_id:
+            raise ValueError("Unknown paper order")
+        return snap
+
+    async def modify_order(self, order_id, changes):
+        from execution.service import ExecutionService
+
+        if not changes or set(changes) - {"quantity", "limit_price", "stop_price"}:
+            raise ValueError("Unsupported amendment fields")
+        async with self._store.transaction() as db:
+            snap = await self._snapshot(order_id)
+            if snap.status not in _OPEN:
+                return OrderResult(
+                    "", OrderStatus.REJECTED, message="Paper order is not open"
+                )
+            order = deepcopy(snap.order)
+            for key, value in changes.items():
+                if not hasattr(order, key):
+                    raise ValueError("Amendment field does not apply to order")
+                setattr(order, key, value)
+            ExecutionService._validate_order(None, order.account_id, order)
+            if order.quantity <= snap.filled_quantity:
+                return OrderResult(
+                    "",
+                    OrderStatus.REJECTED,
+                    message="Amended quantity must exceed fills",
+                )
+            result = await self._store.get_order_result(order_id)
+            await self._store.save_order(
+                order_id,
+                order.account_id,
+                order.symbol,
+                order.side,
+                order.quantity,
+                result.status.value,
+                result.filled_quantity,
+                result.avg_fill_price,
+            )
+            await self._store.save_order_terms(order_id, order)
+            if "stop_price" in changes:
+                await db.execute(
+                    "UPDATE paper_order_terms SET triggered=0 WHERE order_id=?",
+                    (order_id,),
+                )
+            return await self._store.get_order_result(order_id)
+
+    async def cancel_order(self, order_id):
+        async with self._store.transaction():
+            snap = await self._snapshot(order_id)
+            result = await self._store.get_order_result(order_id)
+            if snap.status in _OPEN:
+                await self._store.save_order(
+                    order_id,
+                    snap.order.account_id,
+                    snap.order.symbol,
+                    snap.order.side,
+                    snap.order.quantity,
+                    OrderStatus.CANCELLED.value,
+                    result.filled_quantity,
+                    result.avg_fill_price,
+                )
+            return await self._store.get_order_result(order_id)
+
+    async def get_order_status(self, order_id):
+        return (await self._snapshot(order_id)).status
+
+    async def cancel_all_orders(self):
+        async with self._store.transaction() as db:
+            rows = await (
+                await db.execute(
+                    "SELECT order_id FROM paper_orders WHERE account_id=? AND status IN (?, ?)",
+                    (
+                        self.paper_account_id,
+                        OrderStatus.SUBMITTED.value,
+                        OrderStatus.PARTIAL.value,
+                    ),
+                )
+            ).fetchall()
+            for row in rows:
+                await self.cancel_order(row["order_id"])
+
+    async def expire_orders(self):
+        """Expire account DAY orders from the UTC clock without market data."""
+        async with self._store.transaction() as db:
+            rows = await (
+                await db.execute(
+                    "SELECT order_id FROM paper_orders WHERE account_id=? AND status IN (?,?)",
+                    (
+                        self.paper_account_id,
+                        OrderStatus.SUBMITTED.value,
+                        OrderStatus.PARTIAL.value,
+                    ),
+                )
+            ).fetchall()
+            results = []
+            today = datetime.now(timezone.utc).date()
+            for row in rows:
+                snapshot = await self._snapshot(row["order_id"])
+                if (
+                    snapshot.order.time_in_force == TIF.DAY
+                    and snapshot.submitted_at.date() < today
+                ):
+                    results.append(await self.cancel_order(snapshot.order_id))
+            return results
+
+    async def process_tick(self, quote, *, bid_size, ask_size, tick_id):
+        """Apply finite liquidity once, FIFO, to existing orders for this account.
+
+        tick_id must uniquely identify a provider event. Replaying it returns the
+        original result even after a restart. DAY means UTC calendar day here.
+        """
+        if not isinstance(tick_id, str) or not tick_id:
+            raise ValueError("Tick identity required")
+        if quote.timestamp.tzinfo is None or quote.timestamp.utcoffset() is None:
+            raise ValueError("Matching tick requires a timezone")
+        tick_id = json.dumps([self.paper_account_id, tick_id])
+        age = (
+            datetime.now(timezone.utc) - quote.timestamp.astimezone(timezone.utc)
+        ).total_seconds()
+        sizes = {}
+        for side, value in ((OrderSide.BUY, ask_size), (OrderSide.SELL, bid_size)):
+            if isinstance(value, bool):
+                raise ValueError("Invalid liquidity")
+            size = Decimal(str(value))
+            if not size.is_finite() or size < 0:
+                raise ValueError("Invalid liquidity")
+            sizes[side] = size
+        for price in (quote.bid, quote.ask):
+            if not isinstance(price, Decimal) or not price.is_finite() or price <= 0:
+                raise ValueError("Invalid matching quote")
+        if quote.bid > quote.ask:
+            raise ValueError("Crossed matching quote")
+        request = json.dumps(
+            {
+                "account": self.paper_account_id,
+                "quote": asdict(quote),
+                "bid_size": str(sizes[OrderSide.SELL]),
+                "ask_size": str(sizes[OrderSide.BUY]),
+            },
+            default=str,
+            sort_keys=True,
+        )
+        async with self._store.transaction() as db:
+            coverage = await (
+                await db.execute(
+                    "SELECT generation FROM paper_risk_coverage WHERE account_id=?",
+                    (self.paper_account_id,),
+                )
+            ).fetchone()
+            if not coverage:
+                raise ValueError("Paper account not initialized")
+            request = json.dumps(
+                {"request": request, "epoch": coverage["generation"]}, sort_keys=True
+            )
+            prior = await (
+                await db.execute(
+                    "SELECT payload FROM paper_match_ticks WHERE tick_id=?", (tick_id,)
+                )
+            ).fetchone()
+            if prior:
+                payload = json.loads(prior["payload"])
+                if payload["request"] != request:
+                    raise ValueError("Tick identity reused with different data")
+                return [
+                    self._dispatch_result({"result_payload": json.dumps(r)})
+                    for r in payload["results"]
+                ]
+            if age < -5 or age > 30:
+                raise ValueError("Stale matching tick")
+            rows = await (
+                await db.execute(
+                    "SELECT t.order_id, t.triggered FROM paper_order_terms t JOIN paper_orders o ON o.order_id=t.order_id WHERE t.account_id=? AND o.status IN (?, ?) ORDER BY t.submitted_at, t.order_id",
+                    (
+                        self.paper_account_id,
+                        OrderStatus.SUBMITTED.value,
+                        OrderStatus.PARTIAL.value,
+                    ),
+                )
+            ).fetchall()
+            results = []
+            for row in rows:
+                snap = await self._snapshot(row["order_id"])
+                order = snap.order
+                if (
+                    order.time_in_force == TIF.DAY
+                    and snap.submitted_at.date() < datetime.now(timezone.utc).date()
+                ):
+                    results.append(await self.cancel_order(snap.order_id))
+                    continue
+                if quote.timestamp < snap.submitted_at or order.symbol != quote.symbol:
+                    continue
+                price = quote.ask if order.side == OrderSide.BUY else quote.bid
+                if (
+                    isinstance(order, (StopOrder, StopLimitOrder))
+                    and not row["triggered"]
+                ):
+                    triggered = (
+                        price >= order.stop_price
+                        if order.side == OrderSide.BUY
+                        else price <= order.stop_price
+                    )
+                    if not triggered:
+                        continue
+                    await db.execute(
+                        "UPDATE paper_order_terms SET triggered=1 WHERE order_id=?",
+                        (snap.order_id,),
+                    )
+                if isinstance(order, (LimitOrder, StopLimitOrder)):
+                    if (order.side == OrderSide.BUY and price > order.limit_price) or (
+                        order.side == OrderSide.SELL and price < order.limit_price
+                    ):
+                        continue
+                take = min(sizes[order.side], order.quantity - snap.filled_quantity)
+                if take <= 0:
+                    continue
+                fill_order = deepcopy(order)
+                fill_order.quantity = take
+                model = getattr(self, "_fee_model", None)
+                # Persisted fill evidence, rather than rounded order averages or
+                # process-local counters, is the fee basis across retries/restarts.
+                fills = await (
+                    await db.execute(
+                        "SELECT quantity, price, commission FROM paper_fill_events WHERE order_id=?",
+                        (snap.order_id,),
+                    )
+                ).fetchall()
+                filled_quantity = sum(
+                    (Decimal(f["quantity"]) for f in fills), Decimal(0)
+                )
+                filled_notional = sum(
+                    (Decimal(f["quantity"]) * Decimal(f["price"]) for f in fills),
+                    Decimal(0),
+                )
+                paid = sum((Decimal(f["commission"]) for f in fills), Decimal(0))
+                if filled_quantity != snap.filled_quantity:
+                    raise ValueError("Incomplete commission fill evidence")
+                commission = (
+                    model.calculate_incremental(
+                        fill_order,
+                        price,
+                        filled_quantity=filled_quantity,
+                        filled_notional=filled_notional,
+                        commission_paid=paid,
+                    )
+                    if model
+                    else Decimal(0)
+                )
+                if not commission.is_finite() or commission < 0:
+                    raise ValueError("Invalid fill commission")
+                result = await self._store.record_simulated_fill(
+                    str(uuid.uuid4()), snap.order_id, order, take, price, commission
+                )
+                sizes[order.side] -= take
+                results.append(result)
+            await db.execute(
+                "INSERT INTO paper_match_ticks (tick_id, payload) VALUES (?, ?)",
+                (
+                    tick_id,
+                    json.dumps(
+                        {"request": request, "results": [asdict(r) for r in results]},
+                        default=str,
+                    ),
+                ),
+            )
+            return results

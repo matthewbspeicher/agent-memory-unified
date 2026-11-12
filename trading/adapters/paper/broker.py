@@ -45,7 +45,9 @@ from broker.models import (
     StopOrder,
     Symbol,
 )
-from storage.paper import PaperStore
+from broker.paper_dispatch import PaperDispatchMixin
+from storage.paper import PaperStore, PaperWriteNotStarted
+from broker.paper import executable_paper_price, cap_paper_slippage
 
 logger = logging.getLogger(__name__)
 
@@ -87,8 +89,12 @@ class PaperConnection(BrokerConnection):
 
 
 class PaperAccountProvider(AccountProvider):
-    def __init__(self, store: PaperStore) -> None:
+    def __init__(self, store: PaperStore, market_data=None) -> None:
         self._store = store
+        self._market_data = market_data
+
+    async def get_risk_state(self, account_id: str):
+        return await self._store.get_risk_state(account_id, self._market_data)
 
     async def get_accounts(self) -> list[Account]:
         return [Account(account_id=PAPER_ACCOUNT_ID, account_type="PAPER")]
@@ -173,8 +179,10 @@ class PaperMarketData(MarketDataProvider):
 # ---------------------------------------------------------------------------
 
 
-class PaperOrderManager(OrderManager):
-    """Simulates immediate fills at current market price + random slippage."""
+class PaperOrderManager(PaperDispatchMixin, OrderManager):
+    """Immediate marketable fills plus persisted, explicitly tick-driven orders."""
+
+    paper_account_id = "PAPER"
 
     # Maximum one-way slippage as a fraction of price (0–0.1%)
     MAX_SLIPPAGE_FRACTION = Decimal("0.001")
@@ -191,71 +199,54 @@ class PaperOrderManager(OrderManager):
             return price + slippage
         return price - slippage
 
-    async def place_order(self, account_id: str, order: OrderBase) -> OrderResult:
+    async def _place_immediate_order(self, account_id: str, order: OrderBase) -> OrderResult:
         order_id = str(uuid.uuid4())
 
         # --- Determine fill price ---
         quote = await self._market_data.get_quote(order.symbol)
 
-        if isinstance(order, MarketOrder):
-            if quote is not None:
-                raw_price = quote.ask if order.side == OrderSide.BUY else quote.bid
-                if raw_price is None:
-                    raw_price = quote.last
-            else:
-                raw_price = None
-        elif isinstance(order, LimitOrder):
-            raw_price = order.limit_price
-        elif isinstance(order, StopOrder):
-            raw_price = order.stop_price
-        else:
-            # Fallback: use quote last or limit_price if available
-            raw_price = getattr(order, "limit_price", None) or (
-                quote.last if quote else None
+        try:
+            raw_price, limit = executable_paper_price(order, quote)
+        except ValueError as exc:
+            return OrderResult(
+                order_id="", status=OrderStatus.REJECTED, message=str(exc)
             )
 
-        if raw_price is None:
-            logger.warning(
-                "PaperBroker: no price available for %s", order.symbol.ticker
-            )
-            result = OrderResult(
-                order_id=order_id,
-                status=OrderStatus.REJECTED,
-                message="No market data available for fill simulation",
-            )
-            for cb in self._callbacks:
-                cb(result)
-            return result
-
-        fill_price = self._apply_slippage(raw_price, order.side)
+        fill_price = cap_paper_slippage(
+            self._apply_slippage(raw_price, order.side), limit, order.side
+        )
 
         # --- Persist fill + order record via PaperStore ---
-        db = await self._store._get_db()
         try:
-            await db.execute("BEGIN")
-            await self._store.record_fill(
-                account_id, order.symbol, order.side, order.quantity, fill_price
+            async with self._store.transaction():
+                await self._store.record_fill(
+                    account_id,
+                    order.symbol,
+                    order.side,
+                    order.quantity,
+                    fill_price,
+                    order_id=order_id,
+                )
+                result = OrderResult(
+                    order_id=order_id,
+                    status=OrderStatus.FILLED,
+                    filled_quantity=order.quantity,
+                    avg_fill_price=fill_price,
+                )
+                await self._store.save_order(
+                    order_id,
+                    account_id,
+                    order.symbol,
+                    order.side,
+                    order.quantity,
+                    result.status.value,
+                    result.filled_quantity,
+                    result.avg_fill_price,
+                )
+        except PaperWriteNotStarted as exc:
+            return OrderResult(
+                order_id="", status=OrderStatus.REJECTED, message=str(exc)
             )
-            result = OrderResult(
-                order_id=order_id,
-                status=OrderStatus.FILLED,
-                filled_quantity=order.quantity,
-                avg_fill_price=fill_price,
-            )
-            await self._store.save_order(
-                order_id,
-                account_id,
-                order.symbol,
-                order.side,
-                order.quantity,
-                result.status.value,
-                result.filled_quantity,
-                result.avg_fill_price,
-            )
-            await db.commit()
-        except Exception:
-            await db.rollback()
-            raise
 
         logger.info(
             "PaperBroker: PAPER %s %s x%s @ %.4f (order_id=%s)",
@@ -270,20 +261,10 @@ class PaperOrderManager(OrderManager):
             cb(result)
         return result
 
-    async def modify_order(self, order_id: str, changes: dict) -> OrderResult:
-        raise NotImplementedError("PaperBroker does not support order modification")
-
-    async def cancel_order(self, order_id: str) -> OrderResult:
-        raise NotImplementedError("PaperBroker does not support order cancellation")
-
-    async def get_order_status(self, order_id: str) -> OrderStatus:
-        return OrderStatus.FILLED
-
     def on_order_update(self, callback: Callable[[OrderResult], Any]) -> None:
         self._callbacks.append(callback)
 
-    async def cancel_all_orders(self) -> None:
-        pass  # Simulated paper broker does not support bulk cancellation
+
 
 
 # ---------------------------------------------------------------------------
@@ -310,7 +291,7 @@ class SimulatedBroker(Broker):
         self._initial_balance = initial_balance
         self._connection = PaperConnection()
         self._market_data_provider = PaperMarketData(data_bus)
-        self._account_provider = PaperAccountProvider(store)
+        self._account_provider = PaperAccountProvider(store, self._market_data_provider)
         self._order_manager = PaperOrderManager(self._market_data_provider, store)
 
     @property
@@ -342,19 +323,26 @@ class SimulatedBroker(Broker):
 
     async def reset(self) -> None:
         """Reset paper account to initial balance and clear all positions/orders."""
-        db = await self._store._get_db()
-        await db.executescript("""
-            DELETE FROM paper_positions WHERE account_id = 'PAPER';
-            DELETE FROM paper_orders   WHERE account_id = 'PAPER';
-        """)
-        initial = float(self._initial_balance)
-        await db.execute(
-            """
-            INSERT OR REPLACE INTO paper_accounts
-                (account_id, net_liquidation, buying_power, cash, maintenance_margin)
-            VALUES (?, ?, ?, ?, 0.0)
-            """,
-            (PAPER_ACCOUNT_ID, initial, initial, initial),
-        )
-        await db.commit()
+        async with self._store.transaction() as db:
+            for table in (
+                "paper_positions",
+                "paper_orders",
+                "paper_order_terms",
+                "paper_fill_events",
+                "paper_risk_events",
+                "paper_risk_coverage",
+            ):
+                await db.execute(
+                    f"DELETE FROM {table} WHERE account_id = ?", (PAPER_ACCOUNT_ID,)
+                )
+            initial = float(self._initial_balance)
+            await db.execute(
+                """
+                INSERT OR REPLACE INTO paper_accounts
+                    (account_id, net_liquidation, buying_power, cash, maintenance_margin)
+                VALUES (?, ?, ?, ?, 0.0)
+                """,
+                (PAPER_ACCOUNT_ID, initial, initial, initial),
+            )
+            await self._store.initialize_risk_coverage(PAPER_ACCOUNT_ID, fresh=True)
         logger.info("PaperBroker: account reset to $%.2f", self._initial_balance)

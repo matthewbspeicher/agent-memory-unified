@@ -396,6 +396,10 @@ class Config(BaseModel):
     # Paper Trading
     paper_trading: bool = True
     paper_trading_initial_balance: float = 10000.0
+    paper_matching_enabled: bool = True
+    paper_matching_allow_last_price: bool = True
+    paper_matching_interval_seconds: float = Field(default=1.0, ge=0.05, le=30, allow_inf_nan=False)
+    paper_matching_liquidity_per_quote: float = Field(default=1.0, gt=0, allow_inf_nan=False)
     agents_config: str | None = None
 
     # Backtesting

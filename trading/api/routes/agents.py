@@ -26,7 +26,7 @@ def list_agents(runner: AgentRunner = Depends(get_agent_runner)) -> list[AgentIn
 @router.post(
     "",
     status_code=201,
-    dependencies=[Depends(check_kill_switch), Depends(require_scope("control:agents"))],
+    dependencies=[Depends(require_scope("control:agents")), Depends(check_kill_switch)],
 )
 @audit_event("agents.create")
 async def create_agent(payload: dict, request: Request):
@@ -224,7 +224,7 @@ async def update_agent(name: str, payload: dict, request: Request):
 
 @router.post(
     "/{name}/start",
-    dependencies=[Depends(check_kill_switch), Depends(require_scope("control:agents"))],
+    dependencies=[Depends(require_scope("control:agents")), Depends(check_kill_switch)],
 )
 @audit_event("agents.start")
 async def start_agent(
@@ -239,7 +239,7 @@ async def start_agent(
 
 @router.post(
     "/{name}/stop",
-    dependencies=[Depends(check_kill_switch), Depends(require_scope("control:agents"))],
+    dependencies=[Depends(require_scope("control:agents"))],
 )
 @audit_event("agents.stop")
 async def stop_agent(
@@ -255,7 +255,7 @@ async def stop_agent(
 @router.post(
     "/{name}/scan",
     response_model=list[Opportunity],
-    dependencies=[Depends(check_kill_switch), Depends(require_scope("control:agents"))],
+    dependencies=[Depends(require_scope("control:agents")), Depends(check_kill_switch)],
 )
 @audit_event("agents.scan")
 async def scan_agent(

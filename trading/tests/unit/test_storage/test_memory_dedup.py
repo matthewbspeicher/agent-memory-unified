@@ -64,7 +64,7 @@ class TestContentHashDedup:
         second = await memory_store.store(
             value="duplicate me",
             visibility="private",
-            agent_id="agent_b",
+            agent_id="agent_a",
         )
 
         assert second["id"] == first["id"]
@@ -105,7 +105,7 @@ class TestCheckDuplicate:
             agent_id="test_agent",
         )
 
-        dup = await memory_store.check_duplicate("find me later")
+        dup = await memory_store.check_duplicate("find me later", agent_id="test_agent")
         assert dup is not None
         assert dup.id == stored["id"]
         assert dup.value == "find me later"

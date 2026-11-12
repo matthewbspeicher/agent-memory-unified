@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from contextlib import asynccontextmanager
 
 
 class _PostgresCursor:
@@ -70,6 +71,17 @@ class _PostgresContextManager:
         return None
 
 
+class _BoundConnection:
+    """Connection facade used only inside its owning transaction/task."""
+
+    def __init__(self, connection):
+        self.connection = connection
+
+    @asynccontextmanager
+    async def acquire(self):
+        yield self.connection
+
+
 class PostgresDB:
     """Drop-in async replacement for an aiosqlite connection.
 
@@ -86,6 +98,21 @@ class PostgresDB:
 
     def __init__(self, pool) -> None:
         self._pool = pool
+
+    @property
+    def pool(self):
+        return self._pool
+
+    @asynccontextmanager
+    async def transaction(self):
+        """Yield a separate facade pinned to one connection until commit/rollback.
+
+        The root pool facade keeps its existing autocommit behavior. Callers must
+        use the yielded facade for every statement in the transaction.
+        """
+        async with self._pool.acquire(timeout=10) as connection:
+            async with connection.transaction():
+                yield PostgresDB(_BoundConnection(connection))
 
     # ------------------------------------------------------------------
     # Public interface (mirrors aiosqlite.Connection)

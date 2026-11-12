@@ -51,7 +51,7 @@ class TradeTracker:
             symbol=opportunity.symbol.ticker,
             side=side,
             entry_price=str(entry_price),
-            entry_quantity=int(order_result.filled_quantity),
+            entry_quantity=order_result.filled_quantity,
             entry_fees=str(order_result.commission),
             entry_time=entry_time.isoformat(),
             broker_id=opportunity.broker_id,

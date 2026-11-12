@@ -400,7 +400,7 @@ async def get_competitor_loadout(
 @router.post(
     "/competitors/{competitor_id}/loadout/equip",
     response_model_exclude_none=True,
-    dependencies=[Depends(check_kill_switch), Depends(require_scope("participate:arena"))],
+    dependencies=[Depends(require_scope("participate:arena")), Depends(check_kill_switch)],
 )
 @audit_event("competition.trait.equip")
 async def equip_trait(
@@ -452,7 +452,7 @@ async def equip_trait(
 @router.post(
     "/competitors/{competitor_id}/loadout/unequip",
     response_model_exclude_none=True,
-    dependencies=[Depends(check_kill_switch), Depends(require_scope("participate:arena"))],
+    dependencies=[Depends(require_scope("participate:arena")), Depends(check_kill_switch)],
 )
 @audit_event("competition.trait.unequip")
 async def unequip_trait(
@@ -556,7 +556,7 @@ async def get_missions(
 @router.post(
     "/competitors/{competitor_id}/missions/{mission_id}/claim",
     response_model=ClaimMissionResponse,
-    dependencies=[Depends(check_kill_switch), Depends(require_scope("participate:arena"))],
+    dependencies=[Depends(require_scope("participate:arena")), Depends(check_kill_switch)],
 )
 @audit_event("competition.mission.claim")
 async def claim_mission(
@@ -691,7 +691,7 @@ async def get_betting_pool(
 @router.post(
     "/matches/{match_id}/bet",
     response_model=BetResponse,
-    dependencies=[Depends(check_kill_switch), Depends(require_scope("bet:arena"))],
+    dependencies=[Depends(require_scope("bet:arena")), Depends(check_kill_switch)],
 )
 @audit_event("competition.bet.place")
 async def place_bet(
@@ -754,7 +754,7 @@ async def get_match_bets(
 @router.post(
     "/matches/{match_id}/settle",
     response_model=BetResultResponse,
-    dependencies=[Depends(check_kill_switch), Depends(require_scope("admin"))],
+    dependencies=[Depends(require_scope("admin")), Depends(check_kill_switch)],
 )
 @audit_event("competition.settle")
 async def settle_match(
@@ -856,7 +856,7 @@ async def get_lineage(
 @router.post(
     "/breed",
     response_model=BreedResultResponse,
-    dependencies=[Depends(check_kill_switch), Depends(require_scope("control:agents"))],
+    dependencies=[Depends(require_scope("control:agents")), Depends(check_kill_switch)],
 )
 @audit_event("competition.breed")
 async def breed_agents(

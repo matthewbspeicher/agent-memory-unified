@@ -26,6 +26,7 @@ class OpportunityStatus(str, Enum):
     APPROVED = "approved"
     REJECTED = "rejected"
     EXECUTED = "executed"
+    RECONCILIATION_REQUIRED = "reconciliation_required"
     EXPIRED = "expired"
 
 

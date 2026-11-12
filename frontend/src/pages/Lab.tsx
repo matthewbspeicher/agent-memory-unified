@@ -13,6 +13,9 @@ interface Draft {
   };
   status: string;
   backtest_results: {
+    data_source?: string;
+    strategy_evaluated?: boolean;
+    deployment_eligible?: boolean;
     sharpe_ratio: number;
     win_rate: number;
     max_drawdown: number;
@@ -186,8 +189,8 @@ export default function Lab() {
   if (!draft) return null;
 
   const results = draft.backtest_results;
-  const isScaffold = results?.status === 'scaffold';
-  const canDeploy = draft.status === 'tested' && results && results.sharpe_ratio >= 1.0 && !isScaffold;
+  const isSynthetic = results?.data_source !== 'historical' || results?.strategy_evaluated !== true;
+  const canDeploy = draft.status === 'tested' && results && results.sharpe_ratio >= 1.0 && !isSynthetic && results.deployment_eligible === true;
 
   const tabs: { id: TabId; label: string; icon: string }[] = [
     { id: 'backtest', label: 'Backtest', icon: '📊' },
@@ -280,7 +283,7 @@ export default function Lab() {
           </button>
 
           <p className="text-xs text-gray-500 text-center">
-            Runs the BacktestEngine against simulated market data.
+            Runs a synthetic demonstration. It does not evaluate this draft’s strategy or qualify it for deployment.
           </p>
         </GlassCard>
 
@@ -288,9 +291,9 @@ export default function Lab() {
           <GlassCard variant="green" className="p-6 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-bold text-white">Results</h2>
-              {results.status === 'scaffold' && (
+              {isSynthetic && (
                 <span className="px-2 py-1 bg-yellow-500/20 text-yellow-400 text-xs rounded">
-                  SCAFFOLD
+                  SYNTHETIC / UNVERIFIED
                 </span>
               )}
             </div>
@@ -353,7 +356,7 @@ export default function Lab() {
                        disabled:opacity-50 disabled:cursor-not-allowed
                        hover:bg-emerald-400 transition"
             >
-              {deploying ? 'Deploying...' : canDeploy ? 'Deploy to Roster' : isScaffold ? 'Run real backtest to deploy' : 'Sharpe must be >= 1.0 to deploy'}
+              {deploying ? 'Deploying...' : canDeploy ? 'Deploy to Roster' : isSynthetic ? 'Historical strategy validation required' : 'Sharpe must be >= 1.0 to deploy'}
             </button>
           </GlassCard>
         )}

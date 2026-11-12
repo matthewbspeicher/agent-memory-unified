@@ -121,6 +121,12 @@ async def deploy_draft(draft_id: str, request: Request):
             detail="Draft must be tested before deployment. Run backtest first.",
         )
 
+    results = draft.get("backtest_results") or {}
+    if (results.get("data_source") != "historical"
+            or results.get("strategy_evaluated") is not True
+            or results.get("deployment_eligible") is not True):
+        raise HTTPException(409, "Synthetic or unverified results cannot qualify a draft for deployment")
+
     agent_name = draft["name"].lower().replace(" ", "_")
 
     # Build the agent entry for agents.yaml

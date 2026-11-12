@@ -1,7 +1,7 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from enum import Enum
 
@@ -140,7 +140,7 @@ class Quote:
     ask: Decimal | None = None
     last: Decimal | None = None
     volume: int = 0
-    timestamp: datetime = field(default_factory=datetime.now)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 @dataclass(frozen=True)
@@ -151,7 +151,7 @@ class Bar:
     low: Decimal = Decimal("0")
     close: Decimal = Decimal("0")
     volume: int = 0
-    timestamp: datetime = field(default_factory=datetime.now)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 @dataclass(frozen=True)
@@ -208,6 +208,51 @@ class FeeModel(ABC):
     def calculate(self, order: "OrderBase", fill_price: Decimal) -> Decimal:
         """Return the total commission for this fill (always >= 0)."""
 
+    # Existing/custom models retain per-fill semantics unless they opt in.
+    aggregate_by_order = False
+
+    def calculate_incremental(
+        self,
+        order: "OrderBase",
+        fill_price: Decimal,
+        *,
+        filled_quantity: Decimal = Decimal("0"),
+        filled_notional: Decimal = Decimal("0"),
+        commission_paid: Decimal = Decimal("0"),
+    ) -> Decimal:
+        """Return only the fee due for this new fill fragment.
+
+        Per-order models calculate their target on cumulative executed quantity
+        and notional, then subtract fees already committed for this order.
+        """
+        from dataclasses import replace
+
+        values = (
+            order.quantity,
+            fill_price,
+            filled_quantity,
+            filled_notional,
+            commission_paid,
+        )
+        if (
+            not all(isinstance(v, Decimal) and v.is_finite() for v in values)
+            or order.quantity <= 0
+            or fill_price <= 0
+            or min(filled_quantity, filled_notional, commission_paid) < 0
+            or (filled_quantity == 0) != (filled_notional == 0)
+        ):
+            raise ValueError("Invalid cumulative commission evidence")
+        if self.aggregate_by_order:
+            quantity = filled_quantity + order.quantity
+            notional = filled_notional + order.quantity * fill_price
+            cumulative = replace(order, quantity=quantity)
+            fee = self.calculate(cumulative, notional / quantity) - commission_paid
+        else:
+            fee = self.calculate(order, fill_price)
+        if not isinstance(fee, Decimal) or not fee.is_finite() or fee < 0:
+            raise ValueError("Invalid incremental commission or changed fee policy")
+        return fee
+
 
 class ZeroFeeModel(FeeModel):
     """No commissions — used for prediction markets or fee-free brokers."""
@@ -224,6 +269,8 @@ class FidelityFeeModel(FeeModel):
     - Options:     $0.65 per contract.
     - Regulatory:  SEC fee on sales ($0.0000278 × notional, min $0.01).
     """
+
+    aggregate_by_order = True
 
     OPTION_PER_CONTRACT = Decimal("0.65")
     # SEC fee rate: $27.80 per $1,000,000 notional = 0.0000278
@@ -251,6 +298,8 @@ class IBKRFeeModel(FeeModel):
     - Options: $0.65 per contract, min $1.00.
     - Regulatory: FINRA TAF on sells ($0.000166/share, max $8.30).
     """
+
+    aggregate_by_order = True
 
     STOCK_PER_SHARE = Decimal("0.0035")
     STOCK_MIN = Decimal("0.35")

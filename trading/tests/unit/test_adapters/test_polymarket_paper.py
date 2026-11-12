@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+from contextlib import asynccontextmanager
 from decimal import Decimal
 from unittest.mock import AsyncMock
 
@@ -15,6 +16,27 @@ from broker.models import (
     Symbol,
     TIF,
 )
+
+
+def _quote_for_order(broker, order, price=None):
+    from broker.models import Quote
+
+    price = (
+        Decimal(price)
+        if price is not None
+        else getattr(order, "limit_price", Decimal("0.5"))
+    )
+    broker._market_data.get_quote = AsyncMock(
+        return_value=Quote(order.symbol, bid=price, ask=price, last=price)
+    )
+
+    @asynccontextmanager
+    async def transaction():
+        db = await broker._store._get_db()
+        yield db
+        await db.commit()
+
+    broker._store.transaction = transaction
 
 
 def _prediction_symbol(ticker: str = "0xABC123") -> Symbol:
@@ -45,6 +67,7 @@ class TestPolymarketPaperBrokerPlaceOrder:
 
         broker = PolymarketPaperBroker(store=store)
         order = _limit_order("0xABC", OrderSide.BUY, "0.65", qty=10)
+        _quote_for_order(broker, order)
         result = await broker.orders.place_order("POLYMARKET_PAPER", order)
 
         assert result.status == OrderStatus.FILLED
@@ -62,6 +85,7 @@ class TestPolymarketPaperBrokerPlaceOrder:
 
         broker = PolymarketPaperBroker(store=store)
         order = _limit_order("0xABC", OrderSide.BUY, "0.40", qty=5)
+        _quote_for_order(broker, order)
         await broker.orders.place_order("POLYMARKET_PAPER", order)
 
         store.record_fill.assert_awaited_once()
@@ -81,6 +105,7 @@ class TestPolymarketPaperBrokerPlaceOrder:
             quantity=Decimal("1"),
             account_id="POLYMARKET_PAPER",
         )
+        _quote_for_order(broker, order)
         result = await broker.orders.place_order("POLYMARKET_PAPER", order)
         assert result.status == OrderStatus.REJECTED
 
@@ -95,7 +120,8 @@ class TestPolymarketPaperBrokerSlippage:
         store.save_order = AsyncMock()
 
         broker = PolymarketPaperBroker(store=store, slippage_cents=2)
-        order = _limit_order("0xABC", OrderSide.BUY, "0.50", qty=1)
+        order = _limit_order("0xABC", OrderSide.BUY, "0.55", qty=1)
+        _quote_for_order(broker, order, "0.50")
         result = await broker.orders.place_order("POLYMARKET_PAPER", order)
 
         assert result.avg_fill_price == Decimal("0.52")
@@ -109,7 +135,8 @@ class TestPolymarketPaperBrokerSlippage:
         store.save_order = AsyncMock()
 
         broker = PolymarketPaperBroker(store=store, slippage_cents=2)
-        order = _limit_order("0xABC", OrderSide.SELL, "0.30", qty=1)
+        order = _limit_order("0xABC", OrderSide.SELL, "0.25", qty=1)
+        _quote_for_order(broker, order, "0.30")
         result = await broker.orders.place_order("POLYMARKET_PAPER", order)
 
         assert result.avg_fill_price == Decimal("0.28")
@@ -123,7 +150,8 @@ class TestPolymarketPaperBrokerSlippage:
         store.save_order = AsyncMock()
 
         broker = PolymarketPaperBroker(store=store, slippage_cents=5)
-        order = _limit_order("0xABC", OrderSide.SELL, "0.03", qty=1)
+        order = _limit_order("0xABC", OrderSide.SELL, "0.01", qty=1)
+        _quote_for_order(broker, order, "0.03")
         result = await broker.orders.place_order("POLYMARKET_PAPER", order)
 
         assert result.avg_fill_price == Decimal("0.01")

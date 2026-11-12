@@ -47,7 +47,9 @@ from broker.models import (
     Quote,
     Symbol,
 )
-from storage.paper import PaperStore
+from broker.paper_dispatch import PaperDispatchMixin
+from storage.paper import PaperStore, PaperWriteNotStarted
+from broker.paper import executable_paper_price, cap_paper_slippage
 
 logger = logging.getLogger(__name__)
 
@@ -86,8 +88,12 @@ class PolymarketPaperConnection(BrokerConnection):
 
 
 class PolymarketPaperAccount(AccountProvider):
-    def __init__(self, store: PaperStore) -> None:
+    def __init__(self, store: PaperStore, market_data=None) -> None:
         self._store = store
+        self._market_data = market_data
+
+    async def get_risk_state(self, account_id: str):
+        return await self._store.get_risk_state(account_id, self._market_data)
 
     async def get_accounts(self) -> list[Account]:
         return [
@@ -140,15 +146,20 @@ class PolymarketPaperMarketData(MarketDataProvider):
         return ContractDetails(symbol=symbol)
 
 
-class PolymarketPaperOrderManager(OrderManager):
+class PolymarketPaperOrderManager(PaperDispatchMixin, OrderManager):
+    paper_account_id = 'POLYMARKET_PAPER'
     def __init__(
-        self, store: PaperStore, slippage_cents: int = DEFAULT_SLIPPAGE_CENTS
+        self,
+        store: PaperStore,
+        slippage_cents: int = DEFAULT_SLIPPAGE_CENTS,
+        market_data: MarketDataProvider | None = None,
     ) -> None:
         self._store = store
+        self._market_data = market_data
         self._slippage_cents = slippage_cents
         self._callbacks: list[Callable[[OrderResult], Any]] = []
 
-    async def place_order(self, account_id: str, order: OrderBase) -> OrderResult:
+    async def _place_immediate_order(self, account_id: str, order: OrderBase) -> OrderResult:
         if not isinstance(order, LimitOrder):
             return OrderResult(
                 order_id="",
@@ -156,28 +167,48 @@ class PolymarketPaperOrderManager(OrderManager):
                 message="PolymarketPaperBroker only accepts LimitOrder",
             )
 
-        fill_price = _apply_slippage(
-            order.limit_price, order.side, self._slippage_cents
+        if self._market_data is None:
+            return OrderResult(
+                order_id="",
+                status=OrderStatus.REJECTED,
+                message="No market data available for fill simulation",
+            )
+        try:
+            quote = await self._market_data.get_quote(order.symbol)
+            price, limit = executable_paper_price(order, quote)
+        except (ValueError, NotImplementedError) as exc:
+            return OrderResult(
+                order_id="", status=OrderStatus.REJECTED, message=str(exc)
+            )
+        fill_price = cap_paper_slippage(
+            _apply_slippage(price, order.side, self._slippage_cents), limit, order.side
         )
         order_id = str(uuid.uuid4())
 
-        await self._store.record_fill(
-            account_id=account_id,
-            symbol=order.symbol,
-            side=order.side,
-            quantity=order.quantity,
-            fill_price=fill_price,
-        )
-        await self._store.save_order(
-            order_id=order_id,
-            account_id=account_id,
-            symbol=order.symbol,
-            side=order.side,
-            quantity=order.quantity,
-            status=OrderStatus.FILLED.value,
-            filled=order.quantity,
-            avg_price=fill_price,
-        )
+        try:
+            async with self._store.transaction():
+                await self._store.record_fill(
+                    account_id=account_id,
+                    symbol=order.symbol,
+                    side=order.side,
+                    quantity=order.quantity,
+                    fill_price=fill_price,
+                    order_id=order_id,
+                )
+                await self._store.save_order(
+                    order_id=order_id,
+                    account_id=account_id,
+                    symbol=order.symbol,
+                    side=order.side,
+                    quantity=order.quantity,
+                    status=OrderStatus.FILLED.value,
+                    filled=order.quantity,
+                    avg_price=fill_price,
+                )
+        except PaperWriteNotStarted as exc:
+            return OrderResult(
+                order_id="", status=OrderStatus.REJECTED, message=str(exc)
+            )
 
         result = OrderResult(
             order_id=order_id,
@@ -189,22 +220,10 @@ class PolymarketPaperOrderManager(OrderManager):
             cb(result)
         return result
 
-    async def modify_order(self, order_id: str, changes: dict) -> OrderResult:
-        raise NotImplementedError(
-            "PolymarketPaperBroker does not support order modification"
-        )
-
-    async def cancel_order(self, order_id: str) -> OrderResult:
-        return OrderResult(order_id=order_id, status=OrderStatus.CANCELLED)
-
-    async def get_order_status(self, order_id: str) -> OrderStatus:
-        return OrderStatus.FILLED
-
     def on_order_update(self, callback: Callable[[OrderResult], Any]) -> None:
         self._callbacks.append(callback)
 
-    async def cancel_all_orders(self) -> None:
-        pass  # Polymarket paper does not support bulk cancellation
+
 
 
 class PolymarketPaperBroker(Broker):
@@ -214,12 +233,15 @@ class PolymarketPaperBroker(Broker):
         self,
         store: PaperStore | None = None,
         slippage_cents: int = DEFAULT_SLIPPAGE_CENTS,
+        market_data: MarketDataProvider | None = None,
     ) -> None:
         self._store = store or PaperStore()
         self._connection = PolymarketPaperConnection()
-        self._account = PolymarketPaperAccount(self._store)
-        self._market_data = PolymarketPaperMarketData()
-        self._orders = PolymarketPaperOrderManager(self._store, slippage_cents)
+        self._market_data = market_data or PolymarketPaperMarketData()
+        self._account = PolymarketPaperAccount(self._store, self._market_data)
+        self._orders = PolymarketPaperOrderManager(
+            self._store, slippage_cents, self._market_data
+        )
 
     @property
     def connection(self) -> PolymarketPaperConnection:

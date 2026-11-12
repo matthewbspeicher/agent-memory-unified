@@ -60,18 +60,8 @@ def get_trade_store(request: Request) -> TradeStore:
 
 
 async def check_kill_switch(request: Request):
-    redis = getattr(request.app.state, "redis", None)
-    if redis is None:
-        return  # No Redis = no kill switch enforcement
-    is_active = await redis.get("kill_switch:active")
-    if is_active == "true" and request.method != "GET":
-        raise HTTPException(503, "Trading is currently halted via global kill-switch")
-
-
-# Legacy no-op setters — kept for ServiceContainer compatibility (api/container.py).
-# Live app uses app.state directly (see api/app.py lifespan).
-def set_broker(broker: Broker) -> None:
-    pass
+    from api.dependencies import check_kill_switch as check
+    await check(request)
 
 
 def set_agent_runner(runner: AgentRunner) -> None:

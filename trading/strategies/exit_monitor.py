@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import TYPE_CHECKING
 
 from agents.base import StructuredAgent
@@ -46,10 +46,12 @@ class ExitMonitorAgent(StructuredAgent):
         config,
         exit_manager: "ExitManager | None" = None,
         position_store: "TrackedPositionStore | None" = None,
+        entry_exit_handoff: bool = False,
     ) -> None:
         super().__init__(config)
         self._exit_manager = exit_manager
         self._position_store = position_store
+        self._entry_exit_handoff = entry_exit_handoff
         self._exit_cooldown: dict[int | str, datetime] = {}
         self._cooldown_seconds: int = int(
             config.parameters.get("exit_cooldown_seconds", 300)
@@ -112,6 +114,53 @@ class ExitMonitorAgent(StructuredAgent):
         for pos in open_positions:
             position_id = pos["id"]
             ticker = pos["symbol"]
+            remaining = pos.get("remaining_quantity")
+            if remaining is None:
+                remaining = pos.get("entry_quantity")
+            try:
+                quantity = Decimal(str(remaining))
+            except (InvalidOperation, ValueError, TypeError):
+                logger.warning(
+                    "ExitMonitor: invalid remaining quantity for position %s",
+                    position_id,
+                )
+                continue
+            if not quantity.is_finite() or quantity <= 0:
+                continue
+            try:
+                pending = await self._position_store.has_pending_execution(position_id)
+            except Exception as exc:
+                logger.warning(
+                    "ExitMonitor: pending-order state unavailable for position %s: %s",
+                    position_id,
+                    exc,
+                )
+                continue
+            if pending is not False:
+                try:
+                    if (
+                        not self._entry_exit_handoff
+                        or not await self._position_store.has_only_pending_entry(
+                            position_id
+                        )
+                    ):
+                        continue
+                except Exception:
+                    continue
+            # Only actual manager implementations opt into hydration. Avoid
+            # treating dynamically synthesized mock attributes as capabilities.
+            hydrate = getattr(type(self._exit_manager), "hydrate_rules", None)
+            if callable(hydrate):
+                try:
+                    if not await hydrate(self._exit_manager, position_id):
+                        continue
+                except Exception as exc:
+                    logger.warning(
+                        "ExitMonitor: durable rules unavailable for position %s: %s",
+                        position_id,
+                        exc,
+                    )
+                    continue
             current_price = quotes.get(ticker)
             if current_price is None:
                 logger.debug(
@@ -151,7 +200,6 @@ class ExitMonitorAgent(StructuredAgent):
 
             # Determine exit side (reverse of entry)
             order_side = OrderSide.SELL if side_str == "BUY" else OrderSide.BUY
-            quantity = Decimal(str(pos.get("entry_quantity", 1)))
 
             sym = symbols_seen[ticker]
             account_id = pos.get("account_id", "") or ""
@@ -188,6 +236,7 @@ class ExitMonitorAgent(StructuredAgent):
                 confidence=1.0,
                 reasoning=f"Exit rule triggered: {triggered.name} (position_id={position_id})",
                 data={
+                    "close_full_position": True,
                     "tracked_position_id": position_id,
                     "position_id": position_id,
                     "exit_rule": triggered.name,

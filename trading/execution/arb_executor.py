@@ -280,7 +280,7 @@ class ArbExecutor:
         # Observed spread prices come from the scan (kalshi_cents /
         # poly_cents) and are in 0–99¢ space; we divide by 100 to land in
         # the Decimal dollars the LimitOrder expects.
-        def _build_order(ticker: str, side: OrderSide, cents: int | None):
+        def _build_order(ticker: str, side: OrderSide, cents: int | None, paper_account: str):
             sym = Symbol(ticker=ticker, asset_type=AssetType.PREDICTION)
             if self._paper_route:
                 # Fall back to 50¢ if the observation didn't carry a
@@ -291,7 +291,7 @@ class ArbExecutor:
                     side=side,
                     quantity=quantity,
                     limit_price=price,
-                    account_id="default",
+                    account_id=paper_account,
                     signal_id=signal_id,
                 )
             return MarketOrder(
@@ -310,12 +310,12 @@ class ArbExecutor:
         # clients never see a mixed/ambiguous routing state.
         leg_a = ArbLeg(
             broker_id=self._resolve_broker_id("kalshi"),
-            order=_build_order(kalshi_ticker, kalshi_side, kalshi_cents),
+            order=_build_order(kalshi_ticker, kalshi_side, kalshi_cents, "KALSHI_PAPER"),
         )
 
         leg_b = ArbLeg(
             broker_id=self._resolve_broker_id("polymarket"),
-            order=_build_order(poly_ticker, poly_side, poly_cents),
+            order=_build_order(poly_ticker, poly_side, poly_cents, "POLYMARKET_PAPER"),
         )
 
         trade = ArbTrade(

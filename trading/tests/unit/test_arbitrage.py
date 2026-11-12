@@ -6,6 +6,17 @@ from execution.models import ArbTrade, ArbLeg, ArbState
 from broker.models import OrderBase, Symbol, AssetType, OrderResult, OrderStatus
 
 
+def _execution_service():
+    """Inject the admission seam while preserving coordinator transport assertions."""
+
+    async def submit(broker, account_id, order):
+        return await broker.orders.place_order(account_id, order)
+
+    service = MagicMock()
+    service.submit = AsyncMock(side_effect=submit)
+    return service
+
+
 @pytest.fixture
 def mock_brokers():
     kalshi_mock = MagicMock()
@@ -69,7 +80,9 @@ def sample_trade():
 
 @pytest.mark.asyncio
 async def test_arb_success(mock_brokers, mock_store, mock_settings, sample_trade):
-    coordinator = ArbCoordinator(mock_brokers, mock_store, mock_settings)
+    coordinator = ArbCoordinator(
+        mock_brokers, mock_store, mock_settings, execution_service=_execution_service()
+    )
 
     # Mock successful fills
     res_a = OrderResult(
@@ -107,7 +120,9 @@ async def test_arb_success(mock_brokers, mock_store, mock_settings, sample_trade
 async def test_arb_leg_b_failure_unwind(
     mock_brokers, mock_store, mock_settings, sample_trade
 ):
-    coordinator = ArbCoordinator(mock_brokers, mock_store, mock_settings)
+    coordinator = ArbCoordinator(
+        mock_brokers, mock_store, mock_settings, execution_service=_execution_service()
+    )
 
     # Leg A fills, Leg B fails
     res_a = OrderResult(

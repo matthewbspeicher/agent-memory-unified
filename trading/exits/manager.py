@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import asyncio
 from datetime import datetime, timezone
 from decimal import Decimal
 
@@ -33,35 +34,108 @@ class ExitManager:
     def __init__(self, store=None) -> None:
         # position_id -> list of exit rules (in-memory cache)
         self._rules: dict[str | int, list[ExitRule]] = {}
+        self._durable_rules: dict[str | int, list[dict]] = {}
         self._store = store
+        self._mutation_lock = asyncio.Lock()
 
     async def attach(self, position_id: str | int, rules: list[ExitRule]) -> None:
-        """Register rules for a position and persist them to the store."""
-        self._rules[position_id] = rules
-        if self._store:
-            await self._store.save(position_id, [r.to_dict() for r in rules])
+        """Explicitly replace rules, committing persistence before publishing cache."""
+        async with self._mutation_lock:
+            if self._store:
+                await self._store.save(position_id, [r.to_dict() for r in rules])
+            self._rules[position_id] = rules
+            self._durable_rules[position_id] = [rule.to_dict() for rule in rules]
+
+    async def ensure_rules(self, position_id: str | int, rules: list[ExitRule]) -> None:
+        """Install initial rules once without resetting trailing state on retries.
+
+        The store atomically retains whichever initial rules were persisted first.
+        An existing cache may hold newer trailing marks and must not be replaced
+        by the initial durable snapshot during repeated fill reconciliation.
+        """
+        async with self._mutation_lock:
+            if position_id in self._rules:
+                return
+            if self._store:
+                serialized = await self._store.ensure(
+                    position_id, [rule.to_dict() for rule in rules]
+                )
+                restored = [parse_rule(value) for value in serialized]
+                if any(rule is None for rule in restored):
+                    raise ValueError(
+                        "Persisted exit rules contain an unknown rule type"
+                    )
+                self._rules[position_id] = restored
+                self._durable_rules[position_id] = serialized
+            else:
+                self._rules[position_id] = rules
+
+    async def hydrate_rules(self, position_id: str | int) -> bool:
+        """Read missing durable protection without initializing or resetting rules.
+
+        Another worker may have completed the entry since this manager started.
+        Missing rules are retried on later scans; never persist an empty default.
+        """
+        async with self._mutation_lock:
+            if position_id in self._rules:
+                return True
+            if self._store is None:
+                return False
+            raw = await self._store.load_all()
+            if position_id not in raw:
+                return False
+            serialized = raw[position_id]
+            restored = [parse_rule(value) for value in serialized]
+            if any(rule is None for rule in restored):
+                raise ValueError("Persisted exit rules contain an unknown rule type")
+            self._rules[position_id] = restored
+            self._durable_rules[position_id] = serialized
+            return True
+
+    async def reconcile_position(self, position_id: str | int, rules: list[ExitRule]) -> None:
+        """Reconcile rules with durable position state, including stale-worker retries."""
+        if self._store is None:
+            raise RuntimeError("Position reconciliation requires durable storage")
+        async with self._mutation_lock:
+            serialized = await self._store.sync_position(
+                position_id, [rule.to_dict() for rule in rules]
+            )
+            if serialized is None:
+                self._rules.pop(position_id, None)
+                self._durable_rules.pop(position_id, None)
+                return
+            if position_id in self._rules and self._durable_rules.get(position_id) == serialized:
+                return  # Keep locally advanced trailing marks for unchanged rules.
+            restored = [parse_rule(value) for value in serialized]
+            if any(rule is None for rule in restored):
+                raise ValueError("Persisted exit rules contain an unknown rule type")
+            self._rules[position_id] = restored
+            self._durable_rules[position_id] = serialized
 
     async def detach(self, position_id: str | int) -> None:
-        """Remove rules for a position from cache and persistent store."""
-        self._rules.pop(position_id, None)
-        if self._store:
-            await self._store.delete(position_id)
+        """Remove durable rules before removing the active local protection."""
+        async with self._mutation_lock:
+            if self._store:
+                await self._store.delete(position_id)
+            self._rules.pop(position_id, None)
+            self._durable_rules.pop(position_id, None)
 
     async def load_rules(self) -> None:
         """Restore persisted exit rules into the in-memory cache on startup."""
         if not self._store or not hasattr(self._store, "load_all"):
             return
-        raw_rules = await self._store.load_all()
-        restored: dict[str | int, list[ExitRule]] = {}
-        for position_id, serialized_rules in raw_rules.items():
-            parsed = [
-                rule
-                for rule in (parse_rule(d) for d in serialized_rules)
-                if rule is not None
-            ]
-            if parsed:
+        async with self._mutation_lock:
+            raw_rules = await self._store.load_all()
+            restored: dict[str | int, list[ExitRule]] = {}
+            for position_id, serialized_rules in raw_rules.items():
+                parsed = [
+                    rule
+                    for rule in (parse_rule(d) for d in serialized_rules)
+                    if rule is not None
+                ]
                 restored[position_id] = parsed
-        self._rules = restored
+            self._rules = restored
+            self._durable_rules = raw_rules
 
     def check(
         self,

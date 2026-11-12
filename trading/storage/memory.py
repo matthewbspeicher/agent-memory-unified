@@ -1,4 +1,4 @@
-"""Local Memory Store with pgvector for hybrid memory architecture.
+"""Local SQLite memory store for hybrid memory architecture.
 
 Provides local fallback when remembr.dev is unavailable.
 """
@@ -8,9 +8,10 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, List
 
 import aiosqlite
@@ -92,10 +93,9 @@ class MemoryRecord:
 
 class LocalMemoryStore:
     """
-    Local memory store using pgvector for semantic search.
+    Local SQLite memory store with keyword retrieval.
 
-    Stores memories in local SQLite/PostgreSQL with embeddings for
-    cosine similarity search. Used as fallback when remembr.dev is down.
+    Provides scoped storage and retrieval for a hybrid client fallback.
     """
 
     def __init__(self, db_path: str = "data/memory.db"):
@@ -108,7 +108,11 @@ class LocalMemoryStore:
         self._db.row_factory = aiosqlite.Row
         await self._db.execute("PRAGMA journal_mode=WAL")
         await self._db.execute("PRAGMA busy_timeout=5000")
-        await self._init_tables()
+        try:
+            await self._init_tables()
+        except Exception:
+            await self.close()
+            raise
         logger.info("LocalMemoryStore connected to %s", self._db_path)
 
     async def _init_tables(self) -> None:
@@ -142,36 +146,39 @@ class LocalMemoryStore:
             CREATE INDEX IF NOT EXISTS idx_memories_agent ON memories(agent_id);
             CREATE INDEX IF NOT EXISTS idx_memories_visibility ON memories(visibility);
             CREATE INDEX IF NOT EXISTS idx_memories_category ON memories(category);
-            CREATE UNIQUE INDEX IF NOT EXISTS idx_memories_content_hash ON memories(content_hash);
         """)
 
-        # Idempotent migration for existing databases
-        migrations = [
-            ("ALTER TABLE memories ADD COLUMN content_hash TEXT", None),
-            ("ALTER TABLE memories ADD COLUMN status TEXT DEFAULT 'active'", None),
-            ("ALTER TABLE memories ADD COLUMN weight REAL DEFAULT 0.5", None),
-            (
-                "ALTER TABLE memories ADD COLUMN visibility_scope TEXT DEFAULT 'scope_agent'",
-                None,
-            ),
-            ("ALTER TABLE memories ADD COLUMN decay_days INTEGER", None),
-        ]
-        for sql, index_sql in migrations:
-            try:
-                await self._db.execute(sql)
-                if index_sql:
-                    await self._db.execute(index_sql)
-            except Exception:
-                pass  # Column already exists
-        await self._db.execute(
-            "CREATE UNIQUE INDEX IF NOT EXISTS idx_memories_content_hash ON memories(content_hash)"
-        )
-
-        # Note: For PostgreSQL with pgvector, we'd use:
-        # CREATE INDEX ON memories USING ivfflat (embedding vector_cosine_ops)
-        # But SQLite doesn't support vector search natively
-
-        await self._db.commit()
+        # Inspect the schema rather than swallowing migration errors. Old stores
+        # may predate content_hash entirely. Never discard existing records.
+        columns = {
+            row[1]
+            for row in await (
+                await self._db.execute("PRAGMA table_info(memories)")
+            ).fetchall()
+        }
+        additions = {
+            "content_hash": "TEXT",
+            "status": "TEXT DEFAULT 'active'",
+            "weight": "REAL DEFAULT 0.5",
+            "visibility_scope": "TEXT DEFAULT 'scope_agent'",
+            "decay_days": "INTEGER",
+        }
+        try:
+            await self._db.execute("BEGIN IMMEDIATE")
+            for name, definition in additions.items():
+                if name not in columns:
+                    await self._db.execute(
+                        f"ALTER TABLE memories ADD COLUMN {name} {definition}"
+                    )
+            await self._db.execute("DROP INDEX IF EXISTS idx_memories_content_hash")
+            await self._db.execute("""
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_memories_scoped_content
+                ON memories(COALESCE(agent_id, ''), visibility, visibility_scope, content_hash)
+            """)
+            await self._db.commit()
+        except Exception:
+            await self._db.rollback()
+            raise
 
     async def close(self) -> None:
         """Close the database connection."""
@@ -204,144 +211,124 @@ class LocalMemoryStore:
         if not self._db:
             raise RuntimeError("Not connected - call connect() first")
 
+        if agent_id == "":
+            raise ValueError(
+                "agent_id must be nonempty or None for the legacy unowned namespace"
+            )
+        if visibility not in {"private", "public"}:
+            raise ValueError("Invalid visibility")
+        if visibility_scope not in {"scope_agent", "scope_team", "scope_org"}:
+            raise ValueError("Invalid visibility scope")
+        if status not in VALID_STATUSES:
+            raise ValueError("Invalid status")
         now = datetime.now(timezone.utc)
-        content_hash = hashlib.md5(value.encode()).hexdigest()
-
-        # Check for existing row with same content hash
-        cursor = await self._db.execute(
-            "SELECT id, access_count FROM memories WHERE content_hash = ?",
-            (content_hash,),
-        )
-        existing = await cursor.fetchone()
-        if existing:
-            await self._db.execute(
-                "UPDATE memories SET access_count = access_count + 1, updated_at = ? WHERE id = ?",
-                (now.isoformat(), existing["id"]),
-            )
-            await self._db.commit()
-
-            log_event(
-                logger,
-                logging.INFO,
-                "memory.deduplicated",
-                f"Deduplicated memory write: {existing['id']}",
-                data={
-                    "id": existing["id"],
-                    "agent_id": agent_id,
-                    "content_hash": content_hash,
-                },
-            )
-
-            return {
-                "id": existing["id"],
-                "key": key,
-                "value": value,
-                "visibility": visibility,
-                "created_at": now.isoformat(),
-                "deduplicated": True,
-            }
-
-        memory_id = str(uuid.uuid4())
         expires_at = None
-        if ttl:
-            # Parse TTL like "90d" - just store without expiry for now
-            pass
-
-        # Compute decay_days from memory_type if not explicitly set
-        computed_decay = decay_days
-        if computed_decay is None and memory_type and memory_type in MEMORY_DECAY_DAYS:
-            computed_decay = MEMORY_DECAY_DAYS[memory_type]
-
-        try:
-            await self._db.execute(
-                """
-                INSERT INTO memories (
-                    id, agent_id, key, value, summary, memory_type, category,
-                    embedding, visibility, importance, confidence, metadata, tags,
-                    created_at, updated_at, expires_at, content_hash,
-                    status, weight, visibility_scope, decay_days
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    memory_id,
-                    agent_id,
-                    key,
-                    value,
-                    summary,
-                    memory_type,
-                    category,
-                    json.dumps(embedding) if embedding else None,
-                    visibility,
-                    importance,
-                    confidence,
-                    json.dumps(metadata or {}),
-                    json.dumps(tags or []),
-                    now.isoformat(),
-                    now.isoformat(),
-                    expires_at.isoformat() if expires_at else None,
-                    content_hash,
-                    status,
-                    weight,
-                    visibility_scope,
-                    computed_decay,
-                ),
-            )
-            await self._db.commit()
-
-            log_event(
-                logger,
-                logging.INFO,
-                "memory.write",
-                f"New memory write: {memory_id}",
-                data={
-                    "id": memory_id,
-                    "agent_id": agent_id,
-                    "memory_type": memory_type,
-                    "category": category,
-                    "content_hash": content_hash,
-                },
-            )
-        except Exception as exc:
-            if "UNIQUE constraint failed" in str(exc):
-                # Race condition: another concurrent store inserted first
-                cursor = await self._db.execute(
-                    "SELECT id FROM memories WHERE content_hash = ?",
-                    (content_hash,),
+        if ttl is not None:
+            match = re.fullmatch(r"([1-9][0-9]*)([smhdw])", ttl)
+            if not match:
+                raise ValueError(
+                    "ttl must be a positive integer followed by s, m, h, d, or w"
                 )
-                row = await cursor.fetchone()
-                if row:
-                    await self._db.execute(
-                        "UPDATE memories SET access_count = access_count + 1, updated_at = ? WHERE id = ?",
-                        (now.isoformat(), row["id"]),
-                    )
-                    await self._db.commit()
-                    return {
-                        "id": row["id"],
-                        "key": key,
-                        "value": value,
-                        "visibility": visibility,
-                        "created_at": now.isoformat(),
-                        "deduplicated": True,
-                    }
-            raise
-
+            seconds = (
+                int(match[1])
+                * {"s": 1, "m": 60, "h": 3600, "d": 86400, "w": 604800}[match[2]]
+            )
+            expires_at = (now + timedelta(seconds=seconds)).isoformat()
+        content_hash = hashlib.md5(value.encode()).hexdigest()
+        memory_id = str(uuid.uuid4())
+        computed_decay = (
+            decay_days if decay_days is not None else MEMORY_DECAY_DAYS.get(memory_type)
+        )
+        # The scoped unique index makes concurrent inserts idempotent. A repeated
+        # write never revives a tombstone or refreshes its original expiry.
+        cursor = await self._db.execute(
+            """INSERT INTO memories (
+                id, agent_id, key, value, summary, memory_type, category,
+                embedding, visibility, importance, confidence, metadata, tags,
+                created_at, updated_at, expires_at, content_hash,
+                status, weight, visibility_scope, decay_days
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT DO NOTHING""",
+            (
+                memory_id,
+                agent_id,
+                key,
+                value,
+                summary,
+                memory_type,
+                category,
+                json.dumps(embedding) if embedding else None,
+                visibility,
+                importance,
+                confidence,
+                json.dumps(metadata or {}),
+                json.dumps(tags or []),
+                now.isoformat(),
+                now.isoformat(),
+                expires_at,
+                content_hash,
+                status,
+                weight,
+                visibility_scope,
+                computed_decay,
+            ),
+        )
+        deduplicated = cursor.rowcount == 0
+        if deduplicated:
+            row = await (
+                await self._db.execute(
+                    """SELECT id FROM memories WHERE content_hash = ? AND agent_id IS ?
+                   AND visibility = ? AND visibility_scope = ?""",
+                    (content_hash, agent_id, visibility, visibility_scope),
+                )
+            ).fetchone()
+            if row is None:
+                raise RuntimeError("Memory insert conflicted outside its namespace")
+            memory_id = row["id"]
+            await self._db.execute(
+                "UPDATE memories SET access_count = access_count + 1 WHERE id = ?",
+                (memory_id,),
+            )
+        await self._db.commit()
+        record = await self.get(memory_id)
+        log_event(
+            logger,
+            logging.INFO,
+            "memory.deduplicated" if deduplicated else "memory.write",
+            "Memory stored",
+            data={"id": memory_id, "agent_id": agent_id},
+        )
         return {
-            "id": memory_id,
-            "key": key,
-            "value": value,
-            "visibility": visibility,
-            "created_at": now.isoformat(),
+            "id": record.id,
+            "key": record.key,
+            "value": record.value,
+            "visibility": record.visibility,
+            "created_at": record.created_at.isoformat(),
+            "agent_id": record.agent_id,
+            "status": record.status,
+            "expires_at": record.expires_at.isoformat() if record.expires_at else None,
+            **({"deduplicated": True} if deduplicated else {}),
         }
 
-    async def check_duplicate(self, value: str) -> MemoryRecord | None:
-        """Check if a memory with the same content already exists."""
+    async def check_duplicate(
+        self,
+        value: str,
+        *,
+        agent_id: str | None = None,
+        visibility: str = "private",
+        visibility_scope: str = "scope_agent",
+    ) -> MemoryRecord | None:
+        """Inspect duplicate content only within the specified namespace."""
         if not self._db:
             raise RuntimeError("Not connected - call connect() first")
         content_hash = hashlib.md5(value.encode()).hexdigest()
-        cursor = await self._db.execute(
-            "SELECT * FROM memories WHERE content_hash = ?", (content_hash,)
-        )
-        row = await cursor.fetchone()
+        row = await (
+            await self._db.execute(
+                """SELECT * FROM memories WHERE content_hash = ? AND agent_id IS ?
+               AND visibility = ? AND visibility_scope = ?""",
+                (content_hash, agent_id, visibility, visibility_scope),
+            )
+        ).fetchone()
         return self._row_to_record(row) if row else None
 
     async def get(self, memory_id: str) -> MemoryRecord | None:
@@ -365,16 +352,25 @@ class LocalMemoryStore:
         category: str | None = None,
         tags: List[str] | None = None,
         limit: int = 20,
+        include_inactive: bool = False,
     ) -> List[MemoryRecord]:
-        """List memories with optional filters."""
+        """List usable memories in one namespace; explicit public visibility lists commons.
+
+        include_inactive is reserved for trusted inspection/history, not prompts.
+        """
         if not self._db:
             raise RuntimeError("Not connected - call connect() first")
 
         query = "SELECT * FROM memories WHERE 1=1"
         params: List[Any] = []
-        if agent_id:
-            query += " AND agent_id = ?"
+        if visibility != "public" or agent_id is not None:
+            query += " AND agent_id IS ?"
             params.append(agent_id)
+        if not include_inactive:
+            query += " AND status IN ('active', 'confirmed') AND (expires_at IS NULL OR julianday(expires_at) > julianday('now'))"
+        for tag in tags or []:
+            query += " AND EXISTS (SELECT 1 FROM json_each(memories.tags) WHERE json_each.value = ?)"
+            params.append(tag)
         if visibility:
             query += " AND visibility = ?"
             params.append(visibility)
@@ -401,6 +397,8 @@ class LocalMemoryStore:
         # Tuning parameters (MemClaw-compatible)
         min_weight: float = 0.0,
         freshness_boost: bool = False,
+        visibility: str | None = None,
+        include_inactive: bool = False,
     ) -> List[dict]:
         """Search memories with MemClaw-compatible filters and tuning.
 
@@ -430,9 +428,14 @@ class LocalMemoryStore:
         """
         params: list[Any] = [search_pattern, search_pattern, search_pattern]
 
-        if agent_id:
-            sql += " AND agent_id = ?"
+        if visibility != "public" or agent_id is not None:
+            sql += " AND agent_id IS ?"
             params.append(agent_id)
+        if visibility:
+            sql += " AND visibility = ?"
+            params.append(visibility)
+        if not include_inactive:
+            sql += " AND status IN ('active', 'confirmed') AND (expires_at IS NULL OR julianday(expires_at) > julianday('now'))"
 
         if visibility_scope:
             sql += " AND visibility_scope = ?"
@@ -560,11 +563,29 @@ class LocalMemoryStore:
     # silently breaks search, decay, and dedup — preflight catches it.
     _REQUIRED_COLUMNS: frozenset[str] = frozenset(
         {
-            "id", "agent_id", "key", "value", "summary", "memory_type",
-            "category", "embedding", "visibility", "importance", "confidence",
-            "metadata", "tags", "access_count", "useful_count",
-            "created_at", "updated_at", "expires_at", "content_hash",
-            "status", "weight", "visibility_scope", "decay_days",
+            "id",
+            "agent_id",
+            "key",
+            "value",
+            "summary",
+            "memory_type",
+            "category",
+            "embedding",
+            "visibility",
+            "importance",
+            "confidence",
+            "metadata",
+            "tags",
+            "access_count",
+            "useful_count",
+            "created_at",
+            "updated_at",
+            "expires_at",
+            "content_hash",
+            "status",
+            "weight",
+            "visibility_scope",
+            "decay_days",
         }
     )
 
@@ -601,18 +622,24 @@ class LocalMemoryStore:
         try:
             cursor = await self._db.execute(
                 "SELECT name FROM sqlite_master "
-                "WHERE type='index' AND name='idx_memories_content_hash'"
+                "WHERE type='index' AND name='idx_memories_scoped_content'"
             )
             checks["dedup_index"] = bool(await cursor.fetchone())
+            if not checks["dedup_index"]:
+                return {
+                    "ok": False,
+                    "reason": "scoped dedup index missing",
+                    "checks": checks,
+                }
         except Exception as e:
-            checks["dedup_index"] = f"error: {e}"
+            return {"ok": False, "reason": f"dedup index: {e}", "checks": checks}
 
         try:
             cursor = await self._db.execute("SELECT COUNT(*) FROM memories")
             row = await cursor.fetchone()
             checks["row_count"] = row[0] if row else 0
         except Exception as e:
-            checks["row_count"] = f"error: {e}"
+            return {"ok": False, "reason": f"row count: {e}", "checks": checks}
 
         return {"ok": True, "checks": checks}
 

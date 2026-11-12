@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+from contextlib import asynccontextmanager
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock
 
@@ -49,6 +50,27 @@ def _quote(ticker: str, bid="99.00", ask="101.00", last="100.00") -> Quote:
 def _make_store() -> MagicMock:
     store = MagicMock(spec=PaperStore)
     store._get_db = AsyncMock()
+
+    depth = 0
+
+    @asynccontextmanager
+    async def transaction():
+        nonlocal depth
+        db = await store._get_db()
+        outer = depth == 0
+        depth += 1
+        try:
+            yield db
+            if outer:
+                await db.commit()
+        except BaseException:
+            if outer:
+                await db.rollback()
+            raise
+        finally:
+            depth -= 1
+
+    store.transaction = transaction
     store.record_fill = AsyncMock()
     store.save_order = AsyncMock()
     store.get_balance = AsyncMock(
@@ -197,8 +219,8 @@ class TestPaperOrderManager:
         assert result.avg_fill_price <= Decimal("99.00")
 
     @pytest.mark.asyncio
-    async def test_limit_order_fills_at_limit_price_with_slippage(self):
-        q = _quote("AAPL")
+    async def test_marketable_limit_fills_at_quote_with_capped_slippage(self):
+        q = _quote("AAPL", ask="99.99")
         mgr, store, db = self._make_manager(q)
 
         order = LimitOrder(
@@ -211,13 +233,10 @@ class TestPaperOrderManager:
         result = await mgr.place_order(PAPER_ACCOUNT_ID, order)
 
         assert result.status == OrderStatus.FILLED
-        # Limit BUY: fill = limit_price + slippage (0–0.1%)
+        # Limit BUY uses the executable ask and never exceeds its hard limit.
         assert result.avg_fill_price is not None
-        assert result.avg_fill_price >= Decimal("100.00")
-        # Slippage never exceeds 0.1%
-        assert result.avg_fill_price <= Decimal("100.00") * Decimal("1.001") + Decimal(
-            "0.01"
-        )
+        assert result.avg_fill_price >= Decimal("99.99")
+        assert result.avg_fill_price <= Decimal("100.00")
 
     @pytest.mark.asyncio
     async def test_fill_includes_slippage(self):
@@ -344,7 +363,13 @@ class TestSimulatedBroker:
         db.execute = AsyncMock()
         db.commit = AsyncMock()
         await broker.reset()
-        db.executescript.assert_called_once()
+        assert db.execute.await_count == 7
+        assert all(
+            "DELETE FROM" in call.args[0] for call in db.execute.await_args_list[:4]
+        )
+        store.initialize_risk_coverage.assert_awaited_once_with(
+            PAPER_ACCOUNT_ID, fresh=True
+        )
         db.commit.assert_called()
 
     @pytest.mark.asyncio

@@ -38,6 +38,13 @@ class BrokerConnection(ABC):
 
 
 class AccountProvider(ABC):
+    async def get_risk_state(self, account_id: str):
+        """Return execution.context.AccountRiskState with measured daily metrics.
+
+        Unsupported adapters fail closed at the execution boundary.
+        """
+        raise NotImplementedError("Authoritative execution risk state is not supported")
+
     @abstractmethod
     async def get_accounts(self) -> list[Account]: ...
 
@@ -93,6 +100,22 @@ class MarketDataProvider(ABC):
 
 
 class OrderManager(ABC):
+    async def submit_dispatch(self, account_id, order, dispatch_id, epoch):
+        """Legacy transport fallback. Recovery stays unsupported without evidence."""
+        return await self.place_order(account_id, order)
+
+    async def amend_dispatch(self, order_id, changes, dispatch_id, epoch):
+        return await self.modify_order(order_id, changes)
+
+    async def reconcile_dispatch(self, attempt):
+        """Return DispatchEvidence, fencing late writes before asserting absence.
+
+        Implementations must bind identity to account, operation, full order and
+        original amendment ID. A not_accepted result must be conclusive even if
+        the original sender resumes later. Empty order history is insufficient.
+        """
+        raise NotImplementedError("Authoritative dispatch reconciliation unavailable")
+
     @abstractmethod
     async def place_order(self, account_id: str, order: OrderBase) -> OrderResult: ...
 

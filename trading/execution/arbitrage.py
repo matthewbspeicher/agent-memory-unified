@@ -38,7 +38,9 @@ class ArbCoordinator:
         event_bus: Optional[EventBus] = None,
         journal_manager: Optional[JournalManager] = None,
         portfolio_cap: Optional[PortfolioCap] = None,
+        execution_service=None,
     ) -> None:
+        self._execution = execution_service
         self._brokers = brokers
         self._store = store
         self._config = config
@@ -358,8 +360,8 @@ class ArbCoordinator:
 
         try:
             async with asyncio.timeout(self._config.order_timeout):
-                order_result: OrderResult = await broker.orders.place_order(
-                    leg.order.account_id or "", leg.order
+                order_result: OrderResult = await self._execution.submit(
+                    broker, leg.order.account_id or "", leg.order
                 )
 
                 leg.external_order_id = order_result.order_id
@@ -369,17 +371,13 @@ class ArbCoordinator:
                     leg.fill_price = order_result.avg_fill_price
                     leg.fill_quantity = order_result.filled_quantity
                     leg.status = "filled"
-                elif order_result.status == OrderStatus.SUBMITTED:
-                    # Paper/dry-run brokers return SUBMITTED with zero fill.
-                    leg.fill_price = (
-                        order_result.avg_fill_price or leg.order.limit_price
-                        if hasattr(leg.order, "limit_price")
-                        else Decimal("0")
-                    )
-                    leg.fill_quantity = (
-                        order_result.filled_quantity or leg.order.quantity
-                    )
-                    leg.status = "submitted"
+                elif order_result.status in (OrderStatus.SUBMITTED, OrderStatus.PARTIAL):
+                    # An acknowledgement is not a fill. Never invent an unwind
+                    # quantity or mark both legs complete from requested size.
+                    leg.fill_price = order_result.avg_fill_price
+                    leg.fill_quantity = order_result.filled_quantity
+                    leg.status = order_result.status.value.lower()
+                    await broker.orders.cancel_order(order_result.order_id)
                 else:
                     # Anything other than FILLED/SUBMITTED — log loudly so
                     # the reason is visible. Prior behavior silently returned
@@ -392,10 +390,8 @@ class ArbCoordinator:
                     )
 
                 await self._store.update_leg_atomic(trade.id, leg_name, leg)
-                return order_result.status in (
-                    OrderStatus.FILLED,
-                    OrderStatus.SUBMITTED,
-                )
+                return (order_result.status == OrderStatus.FILLED
+                        and order_result.filled_quantity == leg.order.quantity)
 
         except TimeoutError:
             logger.error(f"ArbCoordinator: Leg {leg_name} timed out (broker={leg.broker_id})")
@@ -432,9 +428,11 @@ class ArbCoordinator:
 
         try:
             async with asyncio.timeout(self._config.order_timeout):
-                await broker.orders.place_order(
-                    unwind_order.account_id or "", unwind_order
+                result = await self._execution.submit(
+                    broker, unwind_order.account_id or "", unwind_order
                 )
+                if result.status != OrderStatus.FILLED or result.filled_quantity != unwind_order.quantity:
+                    raise RuntimeError("Unwind is not fully filled; reconciliation required")
             await self._store.update_trade_state(trade.id, ArbState.UNWOUND)
             logger.info(f"ArbCoordinator: Unwind successful for {trade.id}")
         except TimeoutError:

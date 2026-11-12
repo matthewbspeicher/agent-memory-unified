@@ -1,4 +1,7 @@
-"""Importable backtest engine for agent draft validation.
+"""Synthetic demonstration engine for Studio previews.
+
+This random-walk simulation does not evaluate draft strategy code and must not
+be used as evidence for deployment readiness.
 
 Refactored from scripts/backtest_system.py into a library module that
 can be called from FastAPI endpoints via run_in_executor.
@@ -32,7 +35,7 @@ class BacktestResult:
     final_value: float
     volatility: float
     equity_curve: list[dict]
-    status: str = "real"
+    status: str = "synthetic"
 
 
 _BASE_PRICES: dict[str, float] = {
@@ -130,11 +133,15 @@ def run_backtest(
     This is a synchronous, CPU-bound function. Call from async code via
     ``asyncio.get_event_loop().run_in_executor(None, ...)``.
     """
+    if days < 1 or initial_capital <= 0:
+        raise ValueError("days and initial_capital must be positive")
     symbols = symbols or ["BTC", "ETH"]
     weights = regime_weights or _DEFAULT_REGIME_WEIGHTS
 
     capital = initial_capital
     positions: dict[str, float] = {}
+    cost_basis: dict[str, float] = {}
+    closed_pnls: list[float] = []
     trades: list[dict] = []
     equity_curve: list[dict] = []
 
@@ -159,6 +166,7 @@ def run_backtest(
                     qty = position_size / dp["price"]
                     positions[symbol] = positions.get(symbol, 0) + qty
                     capital -= position_size
+                    cost_basis[symbol] = cost_basis.get(symbol, 0) + position_size
                     trades.append({
                         "timestamp": current_date,
                         "symbol": symbol,
@@ -171,6 +179,7 @@ def run_backtest(
                     qty = positions[symbol]
                     value = qty * dp["price"]
                     capital += value
+                    closed_pnls.append(value - cost_basis.pop(symbol, 0))
                     positions[symbol] = 0
                     trades.append({
                         "timestamp": current_date,
@@ -181,9 +190,8 @@ def run_backtest(
                         "value_usd": value,
                     })
 
-            if symbol in positions:
-                total_value += positions[symbol] * dp["price"]
-
+        # Mark equity after all fills, using the updated cash balance.
+        total_value = capital + sum(qty * historical[symbol][i]["price"] for symbol, qty in positions.items())
         equity_curve.append({"timestamp": current_date, "equity": round(float(total_value), 2)})
 
     # Metrics
@@ -215,7 +223,7 @@ def run_backtest(
             max_dd = dd
 
     win_rate = (
-        sum(1 for t in trades if t["action"] == "SELL") / max(len(trades), 1)
+        sum(pnl > 0 for pnl in closed_pnls) / len(closed_pnls) if closed_pnls else 0.0
     )
 
     return {
@@ -228,5 +236,10 @@ def run_backtest(
         "final_value": round(final_value, 2),
         "volatility": round(statistics.stdev(daily_returns) * 100, 2) if len(daily_returns) > 1 else 0,
         "equity_curve": equity_curve,
-        "status": "real",
+        "status": "synthetic",
+        "data_source": "synthetic_random_walk",
+        "strategy_evaluated": False,
+        "deployment_eligible": False,
+        "closed_trades": len(closed_pnls),
+        "fees_included": False,
     }
