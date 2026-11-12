@@ -326,7 +326,18 @@ class TestRecomputeCalibration:
         assert result is not None
         assert result["trade_count"] == 2
 
-    async def test_multiple_windows(self, cal_store: ConfidenceCalibrationStore):
+    async def test_multiple_windows(
+        self, cal_store: ConfidenceCalibrationStore, monkeypatch
+    ):
+        from datetime import datetime, timezone
+        import learning.confidence_calibration as module
+
+        class FixedClock(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return cls(2026, 3, 31, 12, tzinfo=timezone.utc).astimezone(tz)
+
+        monkeypatch.setattr(module, "datetime", FixedClock)
         rows = [
             _make_analytics_row(0.75, "50.00", 0.02, "win", "2026-03-01T10:00:00"),
             _make_analytics_row(0.75, "30.00", 0.01, "win", "2026-03-25T10:00:00"),
@@ -346,7 +357,7 @@ class TestRecomputeCalibration:
         # 30d window includes only the recent trade (2026-03-25 is within 30d of 2026-03-31)
         result_30d = await cal_store.get("rsi_agent", "0.70-0.80", "30d")
         assert result_30d is not None
-        assert result_30d["trade_count"] >= 1
+        assert result_30d["trade_count"] == 1
 
     async def test_multiple_buckets(self, cal_store: ConfidenceCalibrationStore):
         rows = [
