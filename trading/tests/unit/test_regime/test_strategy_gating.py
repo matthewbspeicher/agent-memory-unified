@@ -37,7 +37,7 @@ def _make_opportunity(
         signal="buy",
         confidence=0.8,
         reasoning="test",
-        data={},
+        data={"_opportunity_revision": "unit-saved-revision"},
         timestamp=datetime.now(timezone.utc),
     )
 
@@ -47,6 +47,7 @@ def _make_router(**kwargs) -> OpportunityRouter:
     store.save = AsyncMock()
     store.save_snapshot = AsyncMock()
     store.update_status = AsyncMock()
+    store.transition = AsyncMock(return_value=True)
     notifier = AsyncMock()
     notifier.send = AsyncMock()
     return OpportunityRouter(store=store, notifier=notifier, **kwargs)
@@ -169,6 +170,7 @@ async def test_annotate_only_never_blocks():
 
     # Should NOT be rejected
     router._store.update_status.assert_not_called()
+    router._store.transition.assert_not_awaited()
 
 
 # ---------------------------------------------------------------------------
@@ -196,6 +198,7 @@ async def test_off_mode_no_check():
         await router.route(opp, ActionLevel.NOTIFY)
 
     router._store.update_status.assert_not_called()
+    router._store.transition.assert_not_awaited()
 
 
 # ---------------------------------------------------------------------------
@@ -223,8 +226,9 @@ async def test_static_gate_blocks_disallowed_regime():
     with patch("agents.router.OpportunityRouter._stamp_regime", new_callable=AsyncMock):
         await router.route(opp, ActionLevel.NOTIFY)
 
-    router._store.update_status.assert_called_once_with(
-        opp.id, OpportunityStatus.REJECTED
+    router._store.transition.assert_awaited_once_with(
+        opp.id, OpportunityStatus.PENDING, OpportunityStatus.REJECTED,
+        revision="unit-saved-revision",
     )
 
 
@@ -248,8 +252,9 @@ async def test_static_gate_blocks_not_in_allowed_regimes():
     with patch("agents.router.OpportunityRouter._stamp_regime", new_callable=AsyncMock):
         await router.route(opp, ActionLevel.NOTIFY)
 
-    router._store.update_status.assert_called_once_with(
-        opp.id, OpportunityStatus.REJECTED
+    router._store.transition.assert_awaited_once_with(
+        opp.id, OpportunityStatus.PENDING, OpportunityStatus.REJECTED,
+        revision="unit-saved-revision",
     )
 
 
@@ -278,6 +283,7 @@ async def test_static_gate_allows_compliant_regime():
         await router.route(opp, ActionLevel.NOTIFY)
 
     router._store.update_status.assert_not_called()
+    router._store.transition.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -297,6 +303,7 @@ async def test_static_gate_no_regime_data_allows():
         await router.route(opp, ActionLevel.NOTIFY)
 
     router._store.update_status.assert_not_called()
+    router._store.transition.assert_not_awaited()
 
 
 # ---------------------------------------------------------------------------

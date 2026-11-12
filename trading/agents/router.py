@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING
 
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
+from dataclasses import dataclass
+from functools import partial
 
 from agents.models import ActionLevel, Opportunity, OpportunityStatus, TrustLevel
 from broker.models import OrderSide
@@ -50,6 +52,13 @@ from utils.telemetry import get_tracer
 logger = logging.getLogger(__name__)
 
 tracer = get_tracer(__name__)
+
+
+@dataclass(frozen=True)
+class _GateTarget:
+    opportunity_id: str
+    revision: str | None
+    status: OpportunityStatus
 
 
 class OpportunityRouter:
@@ -151,6 +160,37 @@ class OpportunityRouter:
             health_snapshot=health_snapshot,
         )
 
+    async def _reject_pre_order(self, target: _GateTarget) -> bool:
+        """Reject only the saved revision and pre-order state this gate evaluated."""
+        revision = target.revision
+        if not isinstance(revision, str) or not revision:
+            logger.warning(
+                "Not recording gate rejection for unversioned opportunity %s",
+                target.opportunity_id,
+            )
+            return False
+        if target.status not in (OpportunityStatus.PENDING, OpportunityStatus.APPROVED):
+            return False
+        try:
+            changed = await self._store.transition(
+                target.opportunity_id, target.status, OpportunityStatus.REJECTED,
+                revision=revision,
+            )
+        except Exception:
+            # A gate's decision still blocks this caller if persistence fails.
+            # In particular, health-gate error handling must not resume execution.
+            logger.exception(
+                "Could not record gate rejection for %s; stopping this route",
+                target.opportunity_id,
+            )
+            return False
+        if not changed:
+            logger.info(
+                "Gate rejection for opportunity %s is stale; preserving current state",
+                target.opportunity_id,
+            )
+        return changed
+
     async def _finalize_pre_order_decision(
         self,
         opportunity: Opportunity,
@@ -160,6 +200,7 @@ class OpportunityRouter:
         risk_snapshot: dict | None = None,
         sizing_snapshot: dict | None = None,
         health_snapshot: dict | None = None,
+        gate_target: _GateTarget | None = None,
     ) -> bool:
         if shadow_mode:
             await self._record_shadow_decision(
@@ -172,7 +213,12 @@ class OpportunityRouter:
             return True
 
         if decision_status != ShadowDecisionStatus.ALLOWED:
-            await self._store.update_status(opportunity.id, OpportunityStatus.REJECTED)
+            await self._reject_pre_order(
+                gate_target or _GateTarget(
+                    opportunity.id, opportunity.data.get(REVISION_KEY), opportunity.status
+                )
+            )
+            # The caller must stop even if a different revision/state won.
             return True
 
         return False
@@ -524,6 +570,10 @@ class OpportunityRouter:
                 )
                 return
 
+            gate_target = _GateTarget(
+                opportunity.id, opportunity.data.get(REVISION_KEY), OpportunityStatus.PENDING
+            )
+
             # --- Signal-time feature capture (best-effort, non-blocking) ---
             if self._signal_feature_capture is not None:
                 asyncio.create_task(
@@ -571,9 +621,7 @@ class OpportunityRouter:
                         risk_snapshot={"reason": rejection_reason},
                     )
                     return
-                await self._store.update_status(
-                    opportunity.id, OpportunityStatus.REJECTED
-                )
+                await self._reject_pre_order(gate_target)
                 return
 
             htf_rejection = await self._check_htf_alignment(opportunity)
@@ -584,9 +632,7 @@ class OpportunityRouter:
                     opportunity.symbol.ticker,
                     htf_rejection,
                 )
-                await self._store.update_status(
-                    opportunity.id, OpportunityStatus.REJECTED
-                )
+                await self._reject_pre_order(gate_target)
                 return
 
             await self._notifier.send(opportunity)
@@ -650,6 +696,15 @@ class OpportunityRouter:
             OpportunityStatus.RECONCILIATION_REQUIRED,
         ):
             return  # Never resubmit an observed order while awaiting its fills.
+        # Freeze ownership before health/data/risk awaits. The caller may reuse
+        # the mutable Opportunity instance for a later saved revision.
+        finalize_pre_order = partial(
+            self._finalize_pre_order_decision,
+            opportunity,
+            gate_target=_GateTarget(
+                opportunity.id, opportunity.data.get(REVISION_KEY), opportunity.status
+            ),
+        )
         with tracer.start_as_current_span("try_execute_trade") as span:
             shadow_mode = self._is_shadow_mode(opportunity)
             health_snapshot: dict | None = None
@@ -672,8 +727,7 @@ class OpportunityRouter:
                             "Execution rejected: agent %s is retired",
                             opportunity.agent_name,
                         )
-                        if await self._finalize_pre_order_decision(
-                            opportunity,
+                        if await finalize_pre_order(
                             shadow_mode=shadow_mode,
                             decision_status=ShadowDecisionStatus.BLOCKED_HEALTH,
                             health_snapshot=health_snapshot,
@@ -685,8 +739,7 @@ class OpportunityRouter:
                             "Shadow-only: storing opportunity for %s but skipping live order",
                             opportunity.agent_name,
                         )
-                        if await self._finalize_pre_order_decision(
-                            opportunity,
+                        if await finalize_pre_order(
                             shadow_mode=True,
                             decision_status=ShadowDecisionStatus.BLOCKED_HEALTH,
                             health_snapshot=health_snapshot,
@@ -713,8 +766,7 @@ class OpportunityRouter:
                 broker = self._resolve_broker(opportunity)
             except RuntimeError as e:
                 logger.warning("Cannot execute: %s", e)
-                if await self._finalize_pre_order_decision(
-                    opportunity,
+                if await finalize_pre_order(
                     shadow_mode=shadow_mode,
                     decision_status=ShadowDecisionStatus.BLOCKED_BROKER_UNAVAILABLE,
                     health_snapshot=health_snapshot,
@@ -728,8 +780,7 @@ class OpportunityRouter:
                     "Cannot auto-execute: risk engine not configured (broker_id=%s)",
                     opportunity.broker_id,
                 )
-                if await self._finalize_pre_order_decision(
-                    opportunity,
+                if await finalize_pre_order(
                     shadow_mode=shadow_mode,
                     decision_status=ShadowDecisionStatus.BLOCKED_PRECONDITION,
                     health_snapshot=health_snapshot,
@@ -740,8 +791,7 @@ class OpportunityRouter:
 
             if not opportunity.suggested_trade:
                 logger.info("No suggested trade for opportunity %s", opportunity.id)
-                if await self._finalize_pre_order_decision(
-                    opportunity,
+                if await finalize_pre_order(
                     shadow_mode=shadow_mode,
                     decision_status=ShadowDecisionStatus.BLOCKED_PRECONDITION,
                     health_snapshot=health_snapshot,
@@ -761,8 +811,7 @@ class OpportunityRouter:
                             "No accounts on broker — rejecting opportunity %s",
                             opportunity.id,
                         )
-                        if await self._finalize_pre_order_decision(
-                            opportunity,
+                        if await finalize_pre_order(
                             shadow_mode=shadow_mode,
                             decision_status=ShadowDecisionStatus.BLOCKED_ACCOUNT_UNAVAILABLE,
                             health_snapshot=health_snapshot,
@@ -771,8 +820,7 @@ class OpportunityRouter:
                             return
                 except Exception as e:
                     logger.warning("Failed to resolve account_id: %s", e)
-                    if await self._finalize_pre_order_decision(
-                        opportunity,
+                    if await finalize_pre_order(
                         shadow_mode=shadow_mode,
                         decision_status=ShadowDecisionStatus.BLOCKED_ACCOUNT_UNAVAILABLE,
                         health_snapshot=health_snapshot,
@@ -793,8 +841,7 @@ class OpportunityRouter:
                         "Zero or negative quantity — rejecting opportunity %s",
                         opportunity.id,
                     )
-                    if await self._finalize_pre_order_decision(
-                        opportunity,
+                    if await finalize_pre_order(
                         shadow_mode=shadow_mode,
                         decision_status=ShadowDecisionStatus.BLOCKED_INVALID_QUANTITY,
                         health_snapshot=health_snapshot,
@@ -822,8 +869,7 @@ class OpportunityRouter:
 
             if not quote:
                 logger.warning("Cannot get quote for risk evaluation")
-                if await self._finalize_pre_order_decision(
-                    opportunity,
+                if await finalize_pre_order(
                     shadow_mode=shadow_mode,
                     decision_status=ShadowDecisionStatus.BLOCKED_QUOTE_MISSING,
                     health_snapshot=health_snapshot,
@@ -836,8 +882,7 @@ class OpportunityRouter:
             balance = await self._data_bus.get_balances() if self._data_bus else None
 
             if not balance:
-                if await self._finalize_pre_order_decision(
-                    opportunity,
+                if await finalize_pre_order(
                     shadow_mode=shadow_mode,
                     decision_status=ShadowDecisionStatus.BLOCKED_BALANCE_MISSING,
                     health_snapshot=health_snapshot,
@@ -862,8 +907,7 @@ class OpportunityRouter:
                         opportunity.id,
                         confidence_recommendation.reason,
                     )
-                    if await self._finalize_pre_order_decision(
-                        opportunity,
+                    if await finalize_pre_order(
                         shadow_mode=shadow_mode,
                         decision_status=ShadowDecisionStatus.BLOCKED_CALIBRATION,
                         health_snapshot=health_snapshot,
@@ -910,8 +954,7 @@ class OpportunityRouter:
                 opportunity.suggested_trade
                 and opportunity.suggested_trade.quantity <= 0
             ):
-                if await self._finalize_pre_order_decision(
-                    opportunity,
+                if await finalize_pre_order(
                     shadow_mode=shadow_mode,
                     decision_status=ShadowDecisionStatus.BLOCKED_INVALID_QUANTITY,
                     sizing_snapshot={
@@ -968,8 +1011,7 @@ class OpportunityRouter:
                             "Confidence calibration reduced quantity to 0 for %s — rejecting",
                             opportunity.agent_name,
                         )
-                        if await self._finalize_pre_order_decision(
-                            opportunity,
+                        if await finalize_pre_order(
                             shadow_mode=shadow_mode,
                             decision_status=ShadowDecisionStatus.BLOCKED_CALIBRATION,
                             health_snapshot=health_snapshot,
@@ -1022,8 +1064,7 @@ class OpportunityRouter:
                                 "Throttle reduced quantity to 0 for %s — rejecting",
                                 opportunity.agent_name,
                             )
-                            if await self._finalize_pre_order_decision(
-                                opportunity,
+                            if await finalize_pre_order(
                                 shadow_mode=shadow_mode,
                                 decision_status=ShadowDecisionStatus.BLOCKED_HEALTH,
                                 health_snapshot={"status": _hs.value},
@@ -1094,8 +1135,7 @@ class OpportunityRouter:
                 logger.info(
                     "Risk blocked trade for %s: %s", opportunity.id, result.reason
                 )
-                if await self._finalize_pre_order_decision(
-                    opportunity,
+                if await finalize_pre_order(
                     shadow_mode=shadow_mode,
                     decision_status=ShadowDecisionStatus.BLOCKED_RISK,
                     risk_snapshot=risk_snapshot,
@@ -1116,8 +1156,7 @@ class OpportunityRouter:
                     result.adjusted_quantity,
                 )
                 if result.adjusted_quantity <= 0:
-                    if await self._finalize_pre_order_decision(
-                        opportunity,
+                    if await finalize_pre_order(
                         shadow_mode=shadow_mode,
                         decision_status=ShadowDecisionStatus.BLOCKED_INVALID_QUANTITY,
                         risk_snapshot=risk_snapshot,
@@ -1142,8 +1181,7 @@ class OpportunityRouter:
                     if result.adjusted_quantity is not None
                     else None
                 )
-                if await self._finalize_pre_order_decision(
-                    opportunity,
+                if await finalize_pre_order(
                     shadow_mode=True,
                     decision_status=ShadowDecisionStatus.ALLOWED,
                     risk_snapshot=risk_snapshot,
