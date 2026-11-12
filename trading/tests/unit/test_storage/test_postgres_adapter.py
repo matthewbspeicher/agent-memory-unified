@@ -322,6 +322,12 @@ class _Typed:
             head = f"invalid input for query argument ${position}: {value!r}"
             if value is None:
                 continue
+            if kind == "bool":
+                if not isinstance(value, bool):
+                    raise DataError(
+                        f"{head} (a boolean is required (got type {type(value).__name__}))"
+                    )
+                continue
             if kind == "text":
                 if not isinstance(value, str):
                     raise DataError(f"{head} (expected str, got {type(value).__name__})")
@@ -373,6 +379,59 @@ class TestTemporalArguments:
         # Text already bound there later is left as it is.
         bound, _ = await self.run(_Typed("text", "text", "text"), ("a", "b", "c"), learned)
         assert bound == ("a", "b", "c")
+
+    async def test_zero_and_one_become_booleans_for_a_boolean_column(self):
+        bound, learned = await self.run(_Typed("bool", "bool", "text"), (1, 0, "x"))
+        assert bound == (True, False, "x")
+        assert learned == {"SQL": {0: "bool", 1: "bool"}}
+
+    async def test_another_integer_is_not_taken_for_a_boolean(self):
+        connection = _Typed("bool")
+        with pytest.raises(DataError):
+            await self.run(connection, (2,))
+        assert len(connection.calls) == 1
+
+    async def test_an_upsert_falls_back_to_the_first_column_on_an_older_key(self, caplog):
+        import logging
+
+        from storage.postgres import PostgresDB, _run
+
+        sql = PostgresDB._translate(
+            "INSERT OR REPLACE INTO bittensor_miner_rankings (miner_hotkey, symbol, hybrid_score)"
+            " VALUES (?, ?, ?)"
+        )
+
+        class NoMatchingKey(Exception):
+            sqlstate = "42P10"
+
+        class OlderTable:
+            def __init__(self):
+                self.ran = []
+
+            async def execute(self, statement, *args):
+                self.ran.append(statement)
+                if "ON CONFLICT (miner_hotkey, symbol)" in statement:
+                    raise NoMatchingKey("no unique or exclusion constraint matching")
+
+        connection, learned = OlderTable(), {}
+        with caplog.at_level(logging.WARNING, logger="storage.postgres"):
+            await _run(connection.execute, sql, ("m", "aggregate", 0.5), learned)
+            await _run(connection.execute, sql, ("m", "aggregate", 0.6), learned)
+        assert ["(miner_hotkey, symbol)" in s for s in connection.ran] == [True, False, False]
+        assert "ON CONFLICT (miner_hotkey) DO UPDATE SET" in connection.ran[1]
+        assert len([r for r in caplog.records if "unique key differs" in r.getMessage()]) == 1
+
+    async def test_the_same_error_on_another_statement_is_raised(self):
+        from storage.postgres import _run
+
+        class NoMatchingKey(Exception):
+            sqlstate = "42P10"
+
+        async def execute(statement, *args):
+            raise NoMatchingKey("no unique or exclusion constraint matching")
+
+        with pytest.raises(NoMatchingKey):
+            await _run(execute, "INSERT INTO t (a) VALUES ($1) ON CONFLICT (a) DO NOTHING", (1,), {})
 
     async def test_a_learned_statement_binds_right_first_time(self):
         connection = _Typed("timestamp")

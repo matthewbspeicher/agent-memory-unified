@@ -1,23 +1,36 @@
 from __future__ import annotations
 
 import re
+import logging
 from contextlib import asynccontextmanager
 from datetime import date, datetime, timezone
+
+logger = logging.getLogger(__name__)
 
 # Stores are written for SQLite, where dates and times are ISO text. asyncpg
 # takes only date/datetime objects for DATE, TIMESTAMP and TIMESTAMPTZ
 # parameters, only naive datetimes for TIMESTAMP, and only text for TEXT (the
 # type the engine's own DDL gives time columns). It refuses anything else
 # while encoding the arguments, before the statement is run, and names the
-# argument. _run converts that argument and tries again, then remembers the
+# argument. It likewise takes only a bool for BOOLEAN, where stores bind the 0
+# and 1 SQLite uses. _run converts that argument and tries again, then remembers the
 # conversion for the statement so later calls bind correctly first time.
 _REFUSED_ARGUMENT = re.compile(r"invalid input for query argument \$(\d+):")
 _WANTS_DATETIME = "expected a datetime"
 _WANTS_DATE = "has no attribute 'toordinal'"
 _WANTS_NAIVE = "offset-naive and offset-aware"
 _WANTS_TEXT = "expected str, got "
-_AWARE, _NAIVE, _DATE, _TEXT = "aware", "naive", "date", "text"
+_WANTS_BOOL = "a boolean is required"
+_AWARE, _NAIVE, _DATE, _TEXT, _BOOL = "aware", "naive", "date", "text", "bool"
 _MAX_LEARNED_STATEMENTS = 4096
+
+# SQLSTATE for "no unique or exclusion constraint matching the ON CONFLICT
+# specification": this database's key for the table is not the registered one.
+_NO_MATCHING_KEY = "42P10"
+# Translated upsert -> the same upsert keyed on its first column, which is what
+# the facade always used before a key was registered for the table. A database
+# created from an older definition may still have that key.
+_FIRST_COLUMN_UPSERTS: dict[str, str] = {}
 
 
 def _as_aware(value):
@@ -35,6 +48,9 @@ def _convert(value, mode):
     """Apply a remembered conversion; values it does not fit are left alone."""
     if mode is None or value is None:
         return value
+    if mode == _BOOL:
+        # SQLite has no boolean type, so stores bind 0 and 1.
+        return bool(value) if type(value) is int and value in (0, 1) else value
     if mode == _TEXT:
         # A TEXT column holding times: ISO text, as stores write it themselves.
         return value.isoformat() if isinstance(value, (datetime, date)) else value
@@ -70,6 +86,8 @@ def _correction(error, args):
         )
         converted = _convert(value, mode)
         return None if converted is value else (index, converted, mode)
+    if type(value) is int and value in (0, 1) and _WANTS_BOOL in message:
+        return index, bool(value), _BOOL
     if isinstance(value, (datetime, date)) and _WANTS_TEXT in message:
         return index, _convert(value, _TEXT), _TEXT
     if (
@@ -84,6 +102,7 @@ def _correction(error, args):
 async def _run(call, sql, params, learned):
     """Call an asyncpg method, converting date and time arguments it refuses."""
     args = list(params or [])
+    sql = learned.get((_NO_MATCHING_KEY, sql), sql)
     plan = learned.get(sql)
     if plan:
         args = [_convert(arg, plan.get(i)) for i, arg in enumerate(args)]
@@ -93,6 +112,18 @@ async def _run(call, sql, params, learned):
             result = await call(sql, *args)
             break
         except Exception as error:
+            older = _FIRST_COLUMN_UPSERTS.get(sql)
+            if older and getattr(error, "sqlstate", None) == _NO_MATCHING_KEY:
+                # The server rejected the statement, so nothing was written. It
+                # also aborted any open transaction, where this retry will fail.
+                logger.warning(
+                    "This database's unique key differs from the engine's"
+                    " definition; replacing on the first column instead: %s",
+                    " ".join(sql.split())[:90],
+                )
+                learned[(_NO_MATCHING_KEY, sql)] = older
+                sql = older
+                continue
             step = _correction(error, args)
             if step is None:
                 raise
@@ -292,12 +323,20 @@ class PostgresDB:
     @classmethod
     def _translate(cls, sql: str) -> str:
         """Translate SQLite SQL to PostgreSQL."""
-        sql = cls._convert_insert_or_replace(sql)
+        translated = cls._after_upsert(cls._convert_insert_or_replace(sql))
+        first_column = cls._after_upsert(
+            cls._convert_insert_or_replace(sql, first_column=True)
+        )
+        if first_column != translated and len(_FIRST_COLUMN_UPSERTS) < _MAX_LEARNED_STATEMENTS:
+            _FIRST_COLUMN_UPSERTS[translated] = first_column
+        return translated
+
+    @classmethod
+    def _after_upsert(cls, sql: str) -> str:
         sql = cls._convert_insert_or_ignore(sql)
         sql = cls._convert_autoincrement(sql)
         sql = cls._convert_datetime_now(sql)
-        sql = cls._convert_placeholders(sql)
-        return sql
+        return cls._convert_placeholders(sql)
 
     @staticmethod
     def _convert_placeholders(sql: str) -> str:
@@ -310,19 +349,26 @@ class PostgresDB:
             result += f"${i}" + parts[i]
         return result
 
-    # Tables with composite primary keys — used by _convert_insert_or_replace
-    # to generate the correct ON CONFLICT clause.
-    _COMPOSITE_PKS: dict[str, list[str]] = {
+    # INSERT OR REPLACE replaces on a table's unique key. PostgreSQL has to be
+    # told which columns that is. Without an entry here it is taken to be the
+    # first column listed, which is only right when that column alone is the
+    # key. A table whose key is several columns, or whose statement builds its
+    # column list at run time, needs an entry.
+    # tests/unit/test_storage/test_upsert_keys.py checks every statement.
+    _CONFLICT_KEYS: dict[str, list[str]] = {
         "strategy_confidence_calibration": [
             "agent_name",
             "confidence_bucket",
             "window_label",
         ],
         "consensus_votes": ["symbol", "side", "agent_name"],
+        "bittensor_accuracy_records": ["window_id", "miner_hotkey"],
+        "bittensor_miner_rankings": ["miner_hotkey", "symbol"],
+        "trade_analytics": ["tracked_position_id"],
     }
 
     @classmethod
-    def _convert_insert_or_replace(cls, sql: str) -> str:
+    def _convert_insert_or_replace(cls, sql: str, first_column: bool = False) -> str:
         """Convert INSERT OR REPLACE INTO t (...) VALUES (...) →
         INSERT INTO t (...) VALUES (...) ON CONFLICT DO UPDATE SET ..."""
         m = re.match(
@@ -333,11 +379,14 @@ class PostgresDB:
         if not m:
             return sql
         table = m.group(1)
-        # If schema-prefixed, use only the table name for composite PK lookup
+        # If schema-prefixed, use only the table name for the key lookup
         table_name_only = table.split(".")[-1]
         cols = [c.strip() for c in m.group(2).split(",")]
-        # Use composite PK if known, else assume first column is the PK
-        pk_cols = cls._COMPOSITE_PKS.get(table_name_only, [cols[0]])
+        pk_cols = (
+            [cols[0]]
+            if first_column
+            else cls._CONFLICT_KEYS.get(table_name_only, [cols[0]])
+        )
         pk_set = set(pk_cols)
         pk_clause = ", ".join(pk_cols)
         update_cols = [c for c in cols if c not in pk_set]

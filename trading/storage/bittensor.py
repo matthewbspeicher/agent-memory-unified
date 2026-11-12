@@ -6,6 +6,12 @@ import aiosqlite
 
 from storage.temporal import stored_datetime
 
+
+def _number(value) -> float | None:
+    """A stored number as a float. PostgreSQL returns Decimal for NUMERIC
+    columns, which does not mix with the floats the scoring code uses."""
+    return None if value is None else float(value)
+
 from integrations.bittensor.models import (
     BittensorEvaluationWindow,
     DerivedBittensorView,
@@ -381,7 +387,7 @@ class BittensorStore:
         cursor = await self._db.execute(
             f"""SELECT miner_hotkey,
                        COUNT(*) AS windows_evaluated,
-                       AVG(direction_correct) AS direction_accuracy,
+                       AVG(CAST(direction_correct AS INTEGER)) AS direction_accuracy,
                        AVG(magnitude_error) AS mean_magnitude_error,
                        AVG(CASE WHEN path_correlation IS NOT NULL THEN path_correlation END) AS mean_path_correlation
                 FROM (
@@ -401,9 +407,9 @@ class BittensorStore:
             r = dict(row)
             result[r["miner_hotkey"]] = {
                 "windows_evaluated": r["windows_evaluated"],
-                "direction_accuracy": r["direction_accuracy"],
-                "mean_magnitude_error": r["mean_magnitude_error"],
-                "mean_path_correlation": r["mean_path_correlation"],
+                "direction_accuracy": _number(r["direction_accuracy"]),
+                "mean_magnitude_error": _number(r["mean_magnitude_error"]),
+                "mean_path_correlation": _number(r["mean_path_correlation"]),
             }
         return result
 
@@ -490,10 +496,10 @@ class BittensorStore:
             symbol=r["symbol"],
             timeframe=r["timeframe"],
             direction_correct=bool(r["direction_correct"]),
-            predicted_return=r["predicted_return"],
-            actual_return=r["actual_return"],
-            magnitude_error=r["magnitude_error"],
-            path_correlation=r["path_correlation"],
+            predicted_return=_number(r["predicted_return"]),
+            actual_return=_number(r["actual_return"]),
+            magnitude_error=_number(r["magnitude_error"]),
+            path_correlation=_number(r["path_correlation"]),
             outcome_bars=r["outcome_bars"],
             scoring_version=r["scoring_version"],
             evaluated_at=stored_datetime(r["evaluated_at"]),
@@ -587,13 +593,13 @@ class BittensorStore:
             miner_hotkey=r["miner_hotkey"],
             symbol=r.get("symbol", "aggregate"),
             windows_evaluated=r["windows_evaluated"],
-            direction_accuracy=r["direction_accuracy"],
-            mean_magnitude_error=r["mean_magnitude_error"],
-            mean_path_correlation=r["mean_path_correlation"],
-            internal_score=r["internal_score"],
-            latest_incentive_score=r["latest_incentive_score"],
-            hybrid_score=r["hybrid_score"],
-            alpha_used=r["alpha_used"],
+            direction_accuracy=_number(r["direction_accuracy"]),
+            mean_magnitude_error=_number(r["mean_magnitude_error"]),
+            mean_path_correlation=_number(r["mean_path_correlation"]),
+            internal_score=_number(r["internal_score"]),
+            latest_incentive_score=_number(r["latest_incentive_score"]),
+            hybrid_score=_number(r["hybrid_score"]),
+            alpha_used=_number(r["alpha_used"]),
             updated_at=stored_datetime(r["updated_at"]),
         )
 
