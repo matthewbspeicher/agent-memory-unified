@@ -24,6 +24,12 @@ Companion to `docs/adr/` (decisions) and `~/.claude/skills/improve-codebase-arch
 
 **Action level** — One of `notify`, `suggest_trade`, `auto_execute`. Independent of trust level; specifies what the agent is *allowed* to do with its Opportunity.
 
+**Order terms** — The full description of an order as accepted: symbol, side, quantity, order type, limit and stop prices, time in force, and account. Two orders are the same order only if their Order terms are equal. Distinct from an order's *state* (status, filled quantity), which changes over the order's life while its terms change only by amendment.
+
+**Paper ledger** — The record of a paper account: cash, positions, orders and their Order terms, fills, daily risk evidence, dispatch records, and applied market ticks. It is internally consistent by construction, and the account risk snapshot is derived from it alone. Compare *tracked position*, which is an Agent's view of a trade and is not part of the ledger.
+
+**Account generation** — The identity of one life of a paper account. Resetting the account starts a new generation; orders, dispatches and reservations from an earlier generation are not valid against the new one. Use this term, not "epoch".
+
 ## Intelligence domain
 
 **IntelReport** — Normalized output from any `intelligence/providers/*` module: `(source, symbol, score [-1..1], confidence [0..1], veto, details)`. Consumed by `enrich_confidence()` to adjust the confidence on `bittensor_consensus` signals and (per ADR-0011) published as the `intel_sentiment` topic for sentiment-source reports.
