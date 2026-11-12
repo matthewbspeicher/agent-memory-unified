@@ -195,7 +195,7 @@ class KalshiPaperOrderManager(PaperDispatchMixin, OrderManager):
             quote = await self._market_data.get_quote(order.symbol)
             price, limit = executable_paper_price(order, quote)
         except PaperOrderMustRest:
-            raise
+            raise  # a ValueError itself, so this must come first
         except (ValueError, NotImplementedError) as exc:
             return OrderResult(
                 order_id="", status=OrderStatus.REJECTED, message=str(exc)

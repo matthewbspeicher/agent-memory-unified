@@ -210,7 +210,7 @@ class PaperOrderManager(PaperDispatchMixin, OrderManager):
         try:
             raw_price, limit = executable_paper_price(order, quote)
         except PaperOrderMustRest:
-            raise
+            raise  # a ValueError itself, so this must come first
         except ValueError as exc:
             return OrderResult(
                 order_id="", status=OrderStatus.REJECTED, message=str(exc)
