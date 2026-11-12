@@ -14,8 +14,14 @@ from uuid import uuid4
 
 import asyncpg
 import pytest
+from unittest.mock import MagicMock
 
-from integrations.bittensor.models import MinerAccuracyRecord, MinerRanking
+from integrations.bittensor.models import (
+    MinerAccuracyRecord,
+    MinerRanking,
+    RawMinerForecast,
+)
+from integrations.bittensor.evaluator import MinerEvaluator
 from storage.bittensor import BittensorStore
 from storage.db import init_db_postgres
 from storage.postgres import PostgresDB
@@ -25,7 +31,12 @@ pytestmark = pytest.mark.integration
 
 _SCRIPT = (Path(__file__).parents[3] / "scripts" / "init-trading-tables.sql").read_text()
 NOW = datetime.now(timezone.utc)
-TABLES = ("bittensor_accuracy_records", "bittensor_miner_rankings", "trade_analytics")
+TABLES = (
+    "bittensor_accuracy_records",
+    "bittensor_miner_rankings",
+    "bittensor_raw_forecasts",
+    "trade_analytics",
+)
 
 
 def script_table(name: str) -> str:
@@ -96,8 +107,18 @@ async def test_accuracy_records_are_kept_per_miner_and_replaced_on_rescoring(db)
     assert bool(records["miner-b"].direction_correct) is True
     # The rollup that rankings are computed from averages the same column.
     rollup = await store.get_accuracy_rollup(["miner-a", "miner-b"], lookback=10)
-    assert float(rollup["miner-a"]["direction_accuracy"]) == 0.0
-    assert float(rollup["miner-b"]["direction_accuracy"]) == 1.0
+    assert rollup["miner-a"]["direction_accuracy"] == 0.0
+    assert rollup["miner-b"]["direction_accuracy"] == 1.0
+    # Floats, not the Decimal a NUMERIC column returns: scoring multiplies them.
+    numbers = [
+        rollup["miner-a"]["direction_accuracy"],
+        rollup["miner-a"]["mean_magnitude_error"],
+        rollup["miner-a"]["mean_path_correlation"],
+        records["miner-a"].predicted_return,
+        records["miner-a"].magnitude_error,
+        records["miner-a"].path_correlation,
+    ]
+    assert [type(n) for n in numbers] == [float] * len(numbers)
 
 
 async def test_miner_rankings_are_kept_per_symbol_and_replaced_on_update(db):
@@ -157,3 +178,68 @@ async def test_a_table_that_still_has_its_older_key_keeps_working(schema, caplog
     # Reported once, then the older key is used directly.
     warnings = [r for r in caplog.records if "unique key differs" in r.getMessage()]
     assert len(warnings) == 1
+
+
+def forecast(miner, window, incentive):
+    return RawMinerForecast(
+        window_id=window,
+        request_uuid=uuid4().hex,
+        collected_at=NOW,
+        miner_uid=1,
+        miner_hotkey=miner,
+        stream_id="s",
+        topic_id=1,
+        schema_id=1,
+        symbol="BTCUSD",
+        timeframe="5m",
+        feature_ids=[1],
+        prediction_size=2,
+        predictions=[1.0, 2.0],
+        hashed_predictions=None,
+        hash_verified=True,
+        incentive_score=incentive,
+        vtrust=0.9,
+        stake_tao=12.5,
+    )
+
+
+async def test_incentive_scores_are_read_per_miner_as_floats(db):
+    """They are half of a miner's ranking. Read by position they were all zero."""
+    store = BittensorStore(db)
+    await store.save_raw_forecasts(
+        [forecast("miner-a", "w1", 0.25), forecast("miner-b", "w1", 0.75)]
+    )
+    scores = await store.get_latest_incentive_scores(["miner-a", "miner-b", "miner-c"])
+    assert scores == {"miner-a": pytest.approx(0.25), "miner-b": pytest.approx(0.75)}
+    assert all(type(score) is float for score in scores.values())
+    stored = (await store.get_raw_forecasts_by_window("w1"))[0]
+    assert [type(v) for v in (stored.incentive_score, stored.vtrust, stored.stake_tao)] == [float] * 3
+
+
+async def test_a_ranking_refresh_stores_one_scored_ranking_per_miner(db):
+    """The whole path that produces the rankings weights are set from."""
+    store = BittensorStore(db)
+    records, forecasts = [], []
+    for window in range(6):
+        for miner, correct, incentive in (("miner-a", True, 0.9), ("miner-b", False, 0.1)):
+            record = accuracy(miner, correct)
+            record.window_id = f"w{window}"
+            records.append(record)
+            forecasts.append(forecast(miner, f"w{window}", incentive))
+    await store.save_accuracy_records(records)
+    await store.save_raw_forecasts(forecasts)
+
+    await MinerEvaluator(store=store, data_bus=MagicMock()).refresh_rankings()
+
+    rankings = {r.miner_hotkey: r for r in await store.get_miner_rankings(symbol="aggregate")}
+    assert sorted(rankings) == ["miner-a", "miner-b"]
+    better, worse = rankings["miner-a"], rankings["miner-b"]
+    assert better.windows_evaluated == 6
+    assert better.direction_accuracy == 1.0 and worse.direction_accuracy == 0.0
+    # The incentive scores reached the ranking; read by position they were lost.
+    assert better.latest_incentive_score > worse.latest_incentive_score
+    assert better.hybrid_score > worse.hybrid_score
+    assert type(better.hybrid_score) is float
+    # A second refresh replaces the rankings instead of failing or duplicating.
+    await MinerEvaluator(store=store, data_bus=MagicMock()).refresh_rankings()
+    assert len(await store.get_miner_rankings(symbol="aggregate")) == 2

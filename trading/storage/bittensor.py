@@ -109,9 +109,9 @@ class BittensorStore:
             predictions=json.loads(r["predictions"]),
             hashed_predictions=r["hashed_predictions"],
             hash_verified=bool(r["hash_verified"]),
-            incentive_score=r["incentive_score"],
-            vtrust=r["vtrust"],
-            stake_tao=r["stake_tao"],
+            incentive_score=_number(r["incentive_score"]),
+            vtrust=_number(r["vtrust"]),
+            stake_tao=_number(r["stake_tao"]),
             metagraph_block=r["metagraph_block"],
         )
 
@@ -221,11 +221,11 @@ class BittensorStore:
             bullish_count=r["bullish_count"],
             bearish_count=r["bearish_count"],
             flat_count=r["flat_count"],
-            weighted_direction=r["weighted_direction"],
-            weighted_expected_return=r["weighted_expected_return"],
-            agreement_ratio=r["agreement_ratio"],
-            equal_weight_direction=r["equal_weight_direction"],
-            equal_weight_expected_return=r["equal_weight_expected_return"],
+            weighted_direction=_number(r["weighted_direction"]),
+            weighted_expected_return=_number(r["weighted_expected_return"]),
+            agreement_ratio=_number(r["agreement_ratio"]),
+            equal_weight_direction=_number(r["equal_weight_direction"]),
+            equal_weight_expected_return=_number(r["equal_weight_expected_return"]),
             is_low_confidence=bool(r["is_low_confidence"]),
             derivation_version=r["derivation_version"],
         )
@@ -313,7 +313,7 @@ class BittensorStore:
             symbol=r["symbol"],
             timeframe=r["timeframe"],
             realized_path=json.loads(r["realized_path"]),
-            realized_return=r["realized_return"],
+            realized_return=_number(r["realized_return"]),
             bars_used=r["bars_used"],
             source=r["source"],
             captured_at=stored_datetime(r["captured_at"]),
@@ -534,9 +534,12 @@ class BittensorStore:
         )
         rows = await cursor.fetchall()
         result: dict[str, float] = {}
-        for hotkey, incentive in rows:
+        for row in rows:
+            # By name: a PostgreSQL row is a mapping, which unpacks to its
+            # column names instead of its values.
+            hotkey = row["miner_hotkey"]
             if hotkey not in result:
-                result[hotkey] = incentive if incentive is not None else 0.0
+                result[hotkey] = _number(row["incentive_score"]) or 0.0
         return result
 
     # ------------------------------------------------------------------
