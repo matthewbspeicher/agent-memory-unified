@@ -49,6 +49,7 @@ from broker.paper_dispatch import PaperDispatchMixin
 from storage.paper import PaperStore
 from storage.unit_of_work import PaperWriteNotStarted
 from broker.paper import executable_paper_price, cap_paper_slippage
+from broker.paper_matching import PaperOrderMustRest
 
 logger = logging.getLogger(__name__)
 
@@ -208,6 +209,8 @@ class PaperOrderManager(PaperDispatchMixin, OrderManager):
 
         try:
             raw_price, limit = executable_paper_price(order, quote)
+        except PaperOrderMustRest:
+            raise
         except ValueError as exc:
             return OrderResult(
                 order_id="", status=OrderStatus.REJECTED, message=str(exc)

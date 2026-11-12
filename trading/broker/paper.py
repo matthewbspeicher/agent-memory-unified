@@ -47,6 +47,7 @@ from broker.models import (
     ZeroFeeModel,
 )
 from broker.paper_dispatch import PaperDispatchMixin
+from broker.paper_matching import PaperOrderMustRest
 from storage.paper import PaperStore
 from storage.unit_of_work import PaperWriteNotStarted
 
@@ -60,8 +61,9 @@ def executable_paper_price(
 ) -> tuple[Decimal, Decimal | None]:
     """Return executable quote price and optional hard limit, never a synthetic fill.
 
-    Immediate-only paper simulation rejects resting limits and untriggered stops.
-    This is conservative: it does not pretend to maintain a pending-order book.
+    Raises PaperOrderMustRest for a limit that is not marketable or a stop that
+    is not triggered; whether such an order rests is the caller's decision.
+    Any other ValueError is a definite rejection.
     """
     if quote is None or quote.symbol != order.symbol:
         raise ValueError("No market data available for fill simulation")
@@ -80,14 +82,20 @@ def executable_paper_price(
             else price <= order.stop_price
         )
         if not triggered:
-            raise ValueError("Stop is not triggered; resting orders are unsupported")
+            raise PaperOrderMustRest(
+                "Stop is not triggered; resting orders are unsupported",
+                stop_triggered=False,
+            )
     limit = (
         order.limit_price if isinstance(order, (LimitOrder, StopLimitOrder)) else None
     )
     if limit is not None:
         marketable = price <= limit if order.side == OrderSide.BUY else price >= limit
         if not marketable:
-            raise ValueError("Limit is not marketable; resting orders are unsupported")
+            raise PaperOrderMustRest(
+                "Limit is not marketable; resting orders are unsupported",
+                stop_triggered=isinstance(order, StopLimitOrder),
+            )
     return price, limit
 
 
@@ -302,6 +310,8 @@ class PaperOrderManager(PaperDispatchMixin, OrderManager):
 
         try:
             raw_price, limit = executable_paper_price(order, quote)
+        except PaperOrderMustRest:
+            raise
         except ValueError as exc:
             return OrderResult(
                 order_id="", status=OrderStatus.REJECTED, message=str(exc)
