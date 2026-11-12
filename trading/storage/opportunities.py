@@ -17,7 +17,8 @@ from broker.order_terms import ORDER_TYPES, decode_order, encode_order
 ORDER_TERMS_KEY = "order_terms"  # the exact order the Agent proposed
 EXIT_KEY = "exit"  # whether it closes a position, and what fraction
 APPROVABLE_KEY = "approvable"  # set once the router offers it for approval
-_STORE_KEYS = (ORDER_TERMS_KEY, EXIT_KEY, APPROVABLE_KEY)
+BROKER_KEY = "broker_id"
+_STORE_KEYS = (ORDER_TERMS_KEY, EXIT_KEY, APPROVABLE_KEY, BROKER_KEY)
 _NUMERIC_TERMS = ("quantity", "limit_price", "stop_price", "trail_amount", "trail_percent")
 
 
@@ -78,19 +79,20 @@ class OpportunityStore:
     def __init__(self, db: aiosqlite.Connection) -> None:
         self._db = db
 
-    async def save(self, opp: Opportunity) -> None:
+    async def save(self, opp: Opportunity) -> bool:
+        """Store a routed Opportunity; False if an acted-on one already has its id."""
         payload = {k: v for k, v in opp.data.items() if k not in _STORE_KEYS}
         payload.setdefault("asset_type", opp.symbol.asset_type.value)
         if opp.broker_id is not None:
-            payload.setdefault("broker_id", opp.broker_id)
+            payload[BROKER_KEY] = opp.broker_id
         if type(opp.suggested_trade) in ORDER_TYPES.values():
             payload[ORDER_TERMS_KEY] = _exact_terms(opp.suggested_trade)
         if opp.is_exit:
             payload[EXIT_KEY] = {"fraction": opp._exit_fraction}
-        # A routed Opportunity replaces an earlier pending one with the same
-        # id, but never one that has been approved, executed or rejected:
-        # re-routing must not make an acted-on Opportunity approvable again.
-        await self._db.execute(
+        # A routed Opportunity replaces an earlier one with the same id that
+        # placed no order, and must then be offered again. It never replaces
+        # one that was approved or may have an order out.
+        async with self._db.execute(
             """INSERT INTO opportunities
                (id, agent_name, symbol, signal, confidence, reasoning, suggested_trade, status, expires_at, data, created_at, updated_at)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
@@ -106,7 +108,8 @@ class OpportunityStore:
                    data = excluded.data,
                    created_at = datetime('now'),
                    updated_at = datetime('now')
-               WHERE opportunities.status = 'pending'""",
+               WHERE opportunities.status IN ('pending', 'rejected', 'expired')
+               RETURNING id""",
             (
                 opp.id,
                 opp.agent_name,
@@ -119,8 +122,10 @@ class OpportunityStore:
                 opp.expires_at.isoformat() if opp.expires_at else None,
                 json.dumps(payload, cls=_DecimalEncoder),
             ),
-        )
+        ) as cursor:
+            written = await cursor.fetchone() is not None
         await self._db.commit()
+        return written
 
     async def get(self, opportunity_id: str) -> dict[str, Any] | None:
         cursor = await self._db.execute(
@@ -239,7 +244,9 @@ class OpportunityStore:
         if row is None or row["status"] != OpportunityStatus.PENDING.value:
             return
         data = _parse_data(row["data"])
-        data[APPROVABLE_KEY] = True
+        # The offer time is kept here, in UTC, because the table's own
+        # timestamps depend on the database session's time zone.
+        data[APPROVABLE_KEY] = datetime.now(timezone.utc).isoformat()
         await self._db.execute(
             "UPDATE opportunities SET data = ? WHERE id = ? AND status = ?",
             (
@@ -250,9 +257,17 @@ class OpportunityStore:
         )
         await self._db.commit()
 
-    async def is_approvable(self, opportunity_id: str) -> bool:
+    async def offered_at(self, opportunity_id: str) -> datetime | None:
+        """When the router offered this Opportunity for approval, if it did."""
         row = await self.get(opportunity_id)
-        return bool(row) and _parse_data(row["data"]).get(APPROVABLE_KEY) is True
+        offered = _parse_data(row["data"]).get(APPROVABLE_KEY) if row else None
+        try:
+            return _utc(offered) if isinstance(offered, str) else None
+        except ValueError:
+            return None
+
+    async def is_approvable(self, opportunity_id: str) -> bool:
+        return await self.offered_at(opportunity_id) is not None
 
     async def update_data(self, opportunity_id: str, data: dict[str, Any]) -> None:
         """Replace the Agent's data, keeping the keys the store owns."""

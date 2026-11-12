@@ -1,5 +1,4 @@
 from __future__ import annotations
-import json
 import logging
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
@@ -8,6 +7,7 @@ if TYPE_CHECKING:
     from whatsapp.proactive import HermesProactiveOps
 
 from agents.models import OpportunityStatus
+from broker.order_terms import order_payload
 from whatsapp.commands import parse_command
 from whatsapp.confirmation import ConfirmationGate, PendingAction
 
@@ -197,19 +197,28 @@ class WhatsAppAssistant:
             await self._client.send_text(phone, "\n".join(lines))
 
         elif name == "approve" and args:
-            opp = await self._opp_store.get(args[0])
+            opp = await self._opp_store.load(args[0])
             if not opp:
                 await self._client.send_text(phone, f"Opportunity {args[0]} not found.")
                 return
-            # Approving places the order, so it takes the same confirmation as /buy.
+            trade = opp.suggested_trade
+            if trade is None:
+                await self._client.send_text(
+                    phone, f"Opportunity {args[0]} has no stored order to place."
+                )
+                return
+            # Approving places the order, so it takes the same confirmation as
+            # /buy, and applies only to the order shown here.
             token = self._confirmation.create(
-                phone, "approve_opportunity", {"id": args[0]}
+                phone,
+                "approve_opportunity",
+                {"id": args[0], "terms": order_payload(trade)},
             )
             await self._client.send_text(
                 phone,
                 f"Approve {args[0]} and place its order?\n"
-                f"{opp.get('symbol', '?')} ({opp.get('signal', '?')}): "
-                f"{self._describe_trade(opp.get('suggested_trade'))}"
+                f"{opp.symbol.ticker} ({opp.signal}): {self._describe_trade(trade)}"
+                "\nSizing and risk limits may reduce the quantity."
                 f"\n\nReply *{token}* to confirm, or CANCEL.",
             )
 
@@ -303,17 +312,14 @@ class WhatsAppAssistant:
             )
 
     @staticmethod
-    def _describe_trade(raw) -> str:
-        """Side, quantity and price of a stored suggested trade, for a prompt."""
-        try:
-            trade = json.loads(raw) if isinstance(raw, str) else raw
-            parts = [str(trade["side"]), str(trade["quantity"])]
-            for label in ("limit_price", "stop_price"):
-                if trade.get(label) is not None:
-                    parts.append(f"{label.replace('_price', '')} {trade[label]}")
-            return " ".join(parts)
-        except (KeyError, TypeError, ValueError):
-            return "order details unavailable"
+    def _describe_trade(trade) -> str:
+        """Side, quantity and prices of an order, for a prompt."""
+        parts = [trade.side.value, str(trade.quantity)]
+        for label in ("limit_price", "stop_price", "trail_amount", "trail_percent"):
+            value = getattr(trade, label, None)
+            if value is not None:
+                parts.append(f"{label.replace('_price', '').replace('_', ' ')} {value}")
+        return " ".join(parts)
 
     async def _cmd_markets(self, phone: str) -> None:
         if not self._data_bus:
@@ -547,7 +553,9 @@ class WhatsAppAssistant:
                 await self._client.send_text(phone, "Approval is not available.")
                 return
             try:
-                outcome = await self._approver.approve(opportunity_id)
+                outcome = await self._approver.approve(
+                    opportunity_id, shown_terms=action.data["terms"]
+                )
             except ApprovalRefused as refused:
                 await self._client.send_text(
                     phone, f"Not approved: {refused.detail}."

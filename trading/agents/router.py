@@ -511,7 +511,13 @@ class OpportunityRouter:
                         _mem_exc,
                     )
 
-            await self._store.save(opportunity)
+            if await self._store.save(opportunity) is False:
+                # This id was already approved or may have an order out.
+                logger.warning(
+                    "Opportunity %s was already acted on; not routing it again",
+                    opportunity.id,
+                )
+                return
 
             # --- Signal-time feature capture (best-effort, non-blocking) ---
             if self._signal_feature_capture is not None:
@@ -608,15 +614,30 @@ class OpportunityRouter:
             if action_level == ActionLevel.AUTO_EXECUTE:
                 await self._try_execute(opportunity)
 
-    async def execute(self, opportunity: Opportunity) -> None:
+    async def execute(
+        self, opportunity: Opportunity, *, max_quantity: Decimal | None = None
+    ) -> None:
         """Execute an Opportunity someone is entitled to act on now.
 
         Runs every gate an auto-executed Opportunity passes and records the
-        result as the Opportunity's status.
+        result as the Opportunity's status. Sizing and risk may change the
+        quantity, but never above max_quantity when one is given.
         """
-        await self._try_execute(opportunity)
+        await self._try_execute(opportunity, max_quantity)
 
-    async def _try_execute(self, opportunity: Opportunity) -> None:
+    @staticmethod
+    def _cap_quantity(opportunity: Opportunity, max_quantity) -> None:
+        trade = opportunity.suggested_trade
+        if (
+            max_quantity is not None
+            and trade is not None
+            and trade.quantity > max_quantity
+        ):
+            trade.quantity = max_quantity
+
+    async def _try_execute(
+        self, opportunity: Opportunity, max_quantity: Decimal | None = None
+    ) -> None:
         if opportunity.status in (
             OpportunityStatus.EXECUTED,
             OpportunityStatus.RECONCILIATION_REQUIRED,
@@ -1034,6 +1055,7 @@ class OpportunityRouter:
                 except Exception as _pex:
                     logger.warning("Partial exit quantity override failed: %s", _pex)
 
+            self._cap_quantity(opportunity, max_quantity)
             from risk.rules import RiskResult
             result = (
                 await self._execution.preview(
@@ -1079,6 +1101,7 @@ class OpportunityRouter:
             if result.adjusted_quantity is not None:
                 old_qty = opportunity.suggested_trade.quantity
                 opportunity.suggested_trade.quantity = result.adjusted_quantity
+                self._cap_quantity(opportunity, max_quantity)
                 logger.info(
                     "RiskEngine adjusted quantity for %s: %s -> %s",
                     opportunity.id,
