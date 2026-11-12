@@ -1,12 +1,19 @@
 from __future__ import annotations
 import dataclasses
 import json
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
 
 import aiosqlite
 
 from agents.models import Opportunity, OpportunityStatus
+from broker.models import AssetType, Symbol
+from broker.order_terms import ORDER_TYPES, decode_order, encode_order
+
+# Key in the stored data payload holding the exact Order terms, so an approved
+# Opportunity can be turned back into the order its Agent proposed.
+ORDER_TERMS_KEY = "order_terms"
 
 
 class _DecimalEncoder(json.JSONEncoder):
@@ -33,6 +40,15 @@ def _serialize_suggested_trade(opp: Opportunity) -> str:
     return json.dumps(d, cls=_DecimalEncoder)
 
 
+def _utc(value) -> datetime:
+    stamp = (
+        value
+        if isinstance(value, datetime)
+        else datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    )
+    return stamp if stamp.tzinfo else stamp.replace(tzinfo=timezone.utc)
+
+
 class OpportunityStore:
     def __init__(self, db: aiosqlite.Connection) -> None:
         self._db = db
@@ -42,6 +58,8 @@ class OpportunityStore:
         payload.setdefault("asset_type", opp.symbol.asset_type.value)
         if opp.broker_id is not None:
             payload.setdefault("broker_id", opp.broker_id)
+        if type(opp.suggested_trade) in ORDER_TYPES.values():
+            payload[ORDER_TERMS_KEY] = encode_order(opp.suggested_trade)
         await self._db.execute(
             """INSERT OR REPLACE INTO opportunities
                (id, agent_name, symbol, signal, confidence, reasoning, suggested_trade, status, expires_at, data)
@@ -109,6 +127,57 @@ class OpportunityStore:
             (status.value, opportunity_id),
         )
         await self._db.commit()
+
+    async def transition(
+        self,
+        opportunity_id: str,
+        expected: OpportunityStatus,
+        to: OpportunityStatus,
+    ) -> bool:
+        """Change status only if it is still `expected`; True if this call changed it."""
+        async with self._db.execute(
+            "UPDATE opportunities SET status = ?, updated_at = datetime('now') "
+            "WHERE id = ? AND status = ? RETURNING id",
+            (to.value, opportunity_id, expected.value),
+        ) as cursor:
+            changed = await cursor.fetchone() is not None
+        await self._db.commit()
+        return changed
+
+    async def load(self, opportunity_id: str) -> Opportunity | None:
+        """The stored Opportunity with its exact suggested trade.
+
+        suggested_trade is None when no Order terms were stored: the Opportunity
+        proposed no trade, or was saved before Order terms were kept.
+        """
+        row = await self.get(opportunity_id)
+        if row is None:
+            return None
+        data = row["data"]
+        data = json.loads(data) if isinstance(data, str) else dict(data or {})
+        terms = data.get(ORDER_TERMS_KEY)
+        trade = decode_order(terms) if terms else None
+        symbol = (
+            trade.symbol
+            if trade is not None
+            else Symbol(
+                row["symbol"], AssetType(data.get("asset_type", AssetType.STOCK.value))
+            )
+        )
+        return Opportunity(
+            id=row["id"],
+            agent_name=row["agent_name"],
+            symbol=symbol,
+            signal=row["signal"],
+            confidence=row["confidence"],
+            reasoning=row["reasoning"],
+            data=data,
+            timestamp=_utc(row["created_at"]),
+            status=OpportunityStatus(row["status"]),
+            suggested_trade=trade,
+            expires_at=_utc(row["expires_at"]) if row["expires_at"] else None,
+            broker_id=data.get("broker_id"),
+        )
 
     async def update_data(self, opportunity_id: str, data: dict[str, Any]) -> None:
         await self._db.execute(

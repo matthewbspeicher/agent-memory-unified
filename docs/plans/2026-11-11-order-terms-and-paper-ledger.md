@@ -135,7 +135,8 @@ Each commit leaves the suite green.
 - **Ignored paper initial balance.** `init_tables` seeds `PAPER` at 100,000 before startup tries to insert the configured `paper_trading_initial_balance`, so the configured value is ignored on a fresh database. Needs a decision, since fixing it changes what a new paper account starts with.
 - **Rest-or-reject by message text.** `broker/paper_matching.py` decides an order should rest by matching the text of a rejection message. Becomes a small change once Order terms exists.
 - **Typed order outcome.** Definite rejection versus unknown outcome is a convention re-derived in several callers.
-- **Approved Opportunities never execute.** `OpportunityStatus.APPROVED` is written by the approval routes and WhatsApp and read by nothing that executes.
+- **Approved Opportunities never execute (done).** Approval now executes through the same path as an auto-executed Opportunity; see `trading/agents/approval.py`.
+- **Slack approval buttons cannot work.** Slack is given the signed approve link as a URL button, which opens it as a browser GET, but the route accepts only POST and requires a `write:orders` identity. Needs a decision on how a click from Slack proves who clicked.
 - **`SpreadTracker` has no notifier.** It is constructed with `notifier=None` and a comment promising later wiring that does not exist.
 - **REAL versus Decimal columns** in the ledger tables.
 

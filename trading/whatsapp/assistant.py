@@ -79,8 +79,10 @@ class WhatsAppAssistant:
         perf_store=None,
         settings=None,
         execution_service=None,
+        approver=None,
     ) -> None:
         self._execution = execution_service
+        self._approver = approver
         self._client = client
         self._broker = broker
         self._runner = runner
@@ -198,8 +200,15 @@ class WhatsAppAssistant:
             if not opp:
                 await self._client.send_text(phone, f"Opportunity {args[0]} not found.")
                 return
-            await self._opp_store.update_status(args[0], OpportunityStatus.APPROVED)
-            await self._client.send_text(phone, f"Approved {args[0]}.")
+            # Approving places the order, so it takes the same confirmation as /buy.
+            token = self._confirmation.create(
+                phone, "approve_opportunity", {"id": args[0]}
+            )
+            await self._client.send_text(
+                phone,
+                f"Approve {args[0]} ({opp.get('symbol', '?')}, {opp.get('signal', '?')}) "
+                f"and place its order?\n\nReply *{token}* to confirm, or CANCEL.",
+            )
 
         elif name == "reject" and args:
             await self._opp_store.update_status(args[0], OpportunityStatus.REJECTED)
@@ -507,6 +516,25 @@ class WhatsAppAssistant:
                 await self._client.send_text(phone, msg)
             except Exception as e:
                 await self._client.send_text(phone, f"Order failed: {e}")
+
+        elif action.action_type == "approve_opportunity":
+            from agents.approval import ApprovalRefused
+
+            opportunity_id = action.data["id"]
+            if self._approver is None:
+                await self._client.send_text(phone, "Approval is not available.")
+                return
+            try:
+                outcome = await self._approver.approve(opportunity_id)
+            except ApprovalRefused as refused:
+                await self._client.send_text(
+                    phone, f"Not approved: {refused.detail}."
+                )
+                return
+            await self._client.send_text(
+                phone,
+                f"{opportunity_id}: {outcome.status.value}. {outcome.detail}",
+            )
 
         elif action.action_type == "toggle_kill":
             enabled = action.data["enable"]

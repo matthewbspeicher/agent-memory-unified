@@ -599,10 +599,18 @@ class OpportunityRouter:
                 return
 
             if action_level == ActionLevel.SUGGEST_TRADE:
-                return  # stored as PENDING, waiting for user approval via API
+                return  # stored as PENDING until approved (agents/approval.py)
 
             if action_level == ActionLevel.AUTO_EXECUTE:
                 await self._try_execute(opportunity)
+
+    async def execute(self, opportunity: Opportunity) -> None:
+        """Execute an Opportunity someone is entitled to act on now.
+
+        Runs every gate an auto-executed Opportunity passes and records the
+        result as the Opportunity's status.
+        """
+        await self._try_execute(opportunity)
 
     async def _try_execute(self, opportunity: Opportunity) -> None:
         if opportunity.status in (

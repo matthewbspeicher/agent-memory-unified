@@ -212,12 +212,51 @@ async def test_buy_command_creates_confirmation(assistant, deps):
 
 
 @pytest.mark.asyncio
-async def test_approve_command(assistant, deps):
-    deps[0]
-    opp_store = deps[3]
-    opp_store.get = AsyncMock(return_value={"id": "opp-1", "status": "pending"})
+async def test_approve_command_asks_for_confirmation_before_placing_an_order(
+    assistant, deps
+):
+    client, opp_store = deps[0], deps[3]
+    opp_store.get = AsyncMock(
+        return_value={"id": "opp-1", "status": "pending", "symbol": "AAPL"}
+    )
+    assistant._approver = AsyncMock()
     await assistant.handle("15551234567", "/approve opp-1", "msg-4")
-    opp_store.update_status.assert_called_once()
+    opp_store.update_status.assert_not_called()
+    assistant._approver.approve.assert_not_awaited()
+    assert assistant._confirmation.has_pending("15551234567")
+    assert "AAPL" in client.send_text.call_args[0][1]
+
+
+@pytest.mark.asyncio
+async def test_confirmed_approval_executes_and_reports_the_outcome(assistant, deps):
+    from agents.approval import ApprovalOutcome
+    from agents.models import OpportunityStatus
+
+    client, opp_store = deps[0], deps[3]
+    opp_store.get = AsyncMock(return_value={"id": "opp-1", "status": "pending"})
+    assistant._approver = AsyncMock()
+    assistant._approver.approve.return_value = ApprovalOutcome(
+        "opp-1", OpportunityStatus.EXECUTED, "Order filled."
+    )
+    await assistant.handle("15551234567", "/approve opp-1", "msg-4")
+    await assistant.handle("15551234567", "YES", "msg-5")
+    assistant._approver.approve.assert_awaited_once_with("opp-1")
+    assert "executed" in client.send_text.call_args[0][1]
+
+
+@pytest.mark.asyncio
+async def test_refused_approval_is_reported_with_its_reason(assistant, deps):
+    from agents.approval import ApprovalRefused
+
+    client, opp_store = deps[0], deps[3]
+    opp_store.get = AsyncMock(return_value={"id": "opp-1", "status": "pending"})
+    assistant._approver = AsyncMock()
+    assistant._approver.approve.side_effect = ApprovalRefused(
+        "expired", "Opportunity expired at noon"
+    )
+    await assistant.handle("15551234567", "/approve opp-1", "msg-4")
+    await assistant.handle("15551234567", "YES", "msg-5")
+    assert "Opportunity expired at noon" in client.send_text.call_args[0][1]
 
 
 @pytest.mark.asyncio
