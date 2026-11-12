@@ -11,7 +11,6 @@ from __future__ import annotations
 import logging
 import random
 import uuid
-from datetime import datetime, timezone
 from collections.abc import Callable
 from decimal import Decimal
 from typing import Any
@@ -40,6 +39,8 @@ from broker.models import (
     OrderStatus,
     Position,
     Quote,
+    is_stale,
+    timestamp_age_seconds,
     StopOrder,
     StopLimitOrder,
     Symbol,
@@ -63,9 +64,7 @@ def executable_paper_price(
     """
     if quote is None or quote.symbol != order.symbol:
         raise ValueError("No market data available for fill simulation")
-    stamp = quote.timestamp.astimezone(timezone.utc)
-    age = (datetime.now(timezone.utc) - stamp).total_seconds()
-    if age < -5 or age > 30:
+    if is_stale(timestamp_age_seconds(quote.timestamp)):
         raise ValueError("Market quote is stale")
     price = quote.ask if order.side == OrderSide.BUY else quote.bid
     price = price if price is not None else quote.last

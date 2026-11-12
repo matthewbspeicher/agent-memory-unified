@@ -28,6 +28,8 @@ from broker.models import (
     Position,
     Quote,
     OrderResult,
+    is_stale,
+    timestamp_age_seconds,
 )
 from broker.order_terms import (
     InvalidOrderTerms,
@@ -151,13 +153,13 @@ class ExecutionService:
             raise ExecutionUnavailable(f"Missing {what} timestamp")
         # Existing Quote providers use local naive datetime.now().
         aware = timestamp.astimezone(timezone.utc)
-        age = (datetime.now(timezone.utc) - aware).total_seconds()
+        age = timestamp_age_seconds(timestamp)
         if (
             what == "account risk state"
             and aware.date() != datetime.now(timezone.utc).date()
         ):
             raise ExecutionUnavailable("Account risk state belongs to another UTC day")
-        if age < -5 or age > self._max_age:
+        if is_stale(age, self._max_age):
             raise ExecutionUnavailable(f"Stale or future {what}")
 
     def _validate_order(self, account, order):

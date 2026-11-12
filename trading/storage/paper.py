@@ -13,6 +13,8 @@ from broker.models import (
     OrderResult,
     OrderStatus,
     OrderSide,
+    is_stale,
+    timestamp_age_seconds,
 )
 from broker.order_terms import decode_order, encode_order, order_payload
 
@@ -942,11 +944,7 @@ class PaperStore:
             quote = await market_data.get_quote(position.symbol)
             if quote is None or quote.symbol != position.symbol:
                 raise ValueError("Paper position quote unavailable")
-            stamp = quote.timestamp
-            if stamp.tzinfo is None:
-                stamp = stamp.astimezone(timezone.utc)
-            age = (datetime.now(timezone.utc) - stamp).total_seconds()
-            if age < -5 or age > 30:
+            if is_stale(timestamp_age_seconds(quote.timestamp)):
                 raise ValueError("Paper position quote is stale")
             price = quote.bid if position.quantity > 0 else quote.ask
             price = price if price is not None else quote.last
