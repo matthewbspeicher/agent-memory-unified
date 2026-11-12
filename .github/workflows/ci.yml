@@ -15,6 +15,10 @@ jobs:
 
   trading-tests:
     runs-on: ubuntu-latest
+    env:
+      OMP_NUM_THREADS: '1'
+      OPENBLAS_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
     steps:
       - uses: actions/checkout@v4
       - name: Setup Python
@@ -36,8 +40,70 @@ jobs:
         # and let pytest be the CI gate. New code is still checked:
         # contributors should run `mypy <files-you-touched>` locally.
         run: cd trading && mypy . || echo "::warning::mypy found errors (non-blocking; see job output)"
-      - name: Run Pytest
-        run: cd trading && pytest tests/unit
+      - name: Run unit and storage tests
+        run: cd trading && python -m pytest tests/unit tests/storage --timeout=30
+
+  paper-recovery-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: trading
+    env:
+      OMP_NUM_THREADS: '1'
+      OPENBLAS_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+      # Disposable job-local services; no application or broker credentials.
+      AMU_TEST_POSTGRES_DSN: postgresql://postgres:paper_test@127.0.0.1:5432/amu_paper_test
+      AMU_TEST_REDIS_URL: redis://127.0.0.1:6379/0
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: paper_test
+          POSTGRES_DB: amu_paper_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d amu_paper_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7.4.8
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      # Deliberate allowlist: other integration files can require live providers.
+      # Override pytest.ini's default exclusion of the integration marker.
+      - name: Run paper storage and recovery tests
+        run: >-
+          python -m pytest
+          tests/integration/test_paper_starting_balance.py
+          tests/integration/test_dispatch_recovery.py
+          tests/integration/test_postgres_paper_execution.py
+          tests/integration/test_paper_resting_recovery.py
+          tests/integration/test_paper_fill_reconciliation.py
+          tests/integration/test_entry_exit_handoff.py
+          tests/integration/test_portfolio_exposure_reservations.py
+          tests/integration/test_partial_fill_commissions.py
+          tests/integration/test_automatic_paper_matching.py
+          -o addopts= -m "integration and not live_paper" --timeout=30
 
   frontend-tests:
     runs-on: ubuntu-latest
