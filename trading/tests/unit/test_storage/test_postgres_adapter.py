@@ -320,7 +320,11 @@ class _Typed:
         self.calls.append(args)
         for position, (kind, value) in enumerate(zip(self.types, args), start=1):
             head = f"invalid input for query argument ${position}: {value!r}"
-            if value is None or kind == "text":
+            if value is None:
+                continue
+            if kind == "text":
+                if not isinstance(value, str):
+                    raise DataError(f"{head} (expected str, got {type(value).__name__})")
                 continue
             if isinstance(value, str):
                 detail = (
@@ -356,6 +360,19 @@ class TestTemporalArguments:
         )
         assert bound == (date(2026, 11, 12), datetime(2026, 11, 12, 12, 30), instant, text)
         assert learned == {"SQL": {0: "date", 1: "naive", 2: "aware"}}
+
+    async def test_a_datetime_becomes_text_for_a_text_column(self):
+        from datetime import date, datetime, timezone
+
+        stamp = datetime(2026, 11, 12, 12, 30, tzinfo=timezone.utc)
+        bound, learned = await self.run(
+            _Typed("text", "text", "text"), (stamp, date(2026, 11, 12), "kept")
+        )
+        assert bound == ("2026-11-12T12:30:00+00:00", "2026-11-12", "kept")
+        assert learned == {"SQL": {0: "text", 1: "text"}}
+        # Text already bound there later is left as it is.
+        bound, _ = await self.run(_Typed("text", "text", "text"), ("a", "b", "c"), learned)
+        assert bound == ("a", "b", "c")
 
     async def test_a_learned_statement_binds_right_first_time(self):
         connection = _Typed("timestamp")
@@ -432,3 +449,47 @@ class TestRow:
             row[2]
         with pytest.raises(KeyError):
             row["missing"]
+
+
+class TestEngineDdl:
+    def test_boolean_columns_do_not_default_to_an_integer(self):
+        """PostgreSQL rejects it, and one rejected statement loses every table."""
+        import re
+
+        from storage.db import _INIT_DDL
+
+        assert re.findall(r"BOOLEAN[^,\n]*DEFAULT\s+[01]\b", _INIT_DDL, re.I) == []
+
+    def test_the_engine_ddl_splits_into_plain_create_statements(self):
+        from storage.db import _INIT_DDL, ddl_statements
+
+        statements = ddl_statements(_INIT_DDL)
+        assert len(statements) > 100
+        assert all(s.upper().startswith("CREATE ") for s in statements)
+        assert not any("--" in s or ";" in s for s in statements)
+
+    async def test_a_failing_statement_is_logged_and_the_rest_still_run(self, caplog):
+        import logging
+
+        from storage.db import _INIT_DDL, ddl_statements, init_db_postgres
+
+        class Db:
+            def __init__(self):
+                self.ran = []
+
+            async def execute(self, sql, params=None):
+                self.ran.append(sql)
+                if "arb_spread_observations (" in sql and "CREATE TABLE" in sql:
+                    raise RuntimeError("rejected")
+
+            async def executescript(self, sql):
+                raise AssertionError("the engine DDL must not run as one script")
+
+        db = Db()
+        with caplog.at_level(logging.WARNING, logger="storage.db"):
+            await init_db_postgres(db)
+        statements = ddl_statements(_INIT_DDL)
+        assert db.ran[: len(statements)] == statements
+        messages = [r.getMessage() for r in caplog.records]
+        assert any("arb_spread_observations" in m and "rejected" in m for m in messages)
+        assert any(f"1 of {len(statements)} statements failed" in m for m in messages)
