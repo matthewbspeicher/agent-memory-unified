@@ -53,7 +53,15 @@ def opp_client(mock_broker):
         }
     )
     store.update_status = AsyncMock()
+    store.transition = AsyncMock(return_value=True)
     app.state.opportunity_store = store
+    from agents.approval import ApprovalOutcome
+    from agents.models import OpportunityStatus
+
+    app.state.opportunity_approver = MagicMock()
+    app.state.opportunity_approver.approve = AsyncMock(
+        return_value=ApprovalOutcome("opp-1", OpportunityStatus.EXECUTED, "Order filled.")
+    )
     client = TestClient(app)
     yield client
     app.dependency_overrides.clear()
@@ -82,6 +90,11 @@ class TestOpportunitiesAPI:
             "/opportunities/opp-1/approve-auth", headers={"X-API-Key": "test-key"}
         )
         assert resp.status_code == 200
+        assert resp.json() == {
+            "id": "opp-1",
+            "status": "executed",
+            "detail": "Order filled.",
+        }
 
     def test_reject_opportunity(self, opp_client):
         resp = opp_client.post(

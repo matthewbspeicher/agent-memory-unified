@@ -79,8 +79,10 @@ class WhatsAppAssistant:
         perf_store=None,
         settings=None,
         execution_service=None,
+        approver=None,
     ) -> None:
         self._execution = execution_service
+        self._approver = approver
         self._client = client
         self._broker = broker
         self._runner = runner
@@ -194,16 +196,48 @@ class WhatsAppAssistant:
             await self._client.send_text(phone, "\n".join(lines))
 
         elif name == "approve" and args:
-            opp = await self._opp_store.get(args[0])
+            # Read the offer before the order it covers, so an order replaced
+            # in between is refused at confirmation for its newer offer.
+            offered_at = await self._opp_store.offered_at(args[0])
+            opp = await self._opp_store.load(args[0])
             if not opp:
                 await self._client.send_text(phone, f"Opportunity {args[0]} not found.")
                 return
-            await self._opp_store.update_status(args[0], OpportunityStatus.APPROVED)
-            await self._client.send_text(phone, f"Approved {args[0]}.")
+            trade = opp.suggested_trade
+            if trade is None:
+                await self._client.send_text(
+                    phone, f"Opportunity {args[0]} has no stored order to place."
+                )
+                return
+            if offered_at is None:
+                await self._client.send_text(
+                    phone, f"Opportunity {args[0]} was not offered for approval."
+                )
+                return
+            # Approving places the order, so it takes the same confirmation as
+            # /buy, and applies only to the offer shown here.
+            token = self._confirmation.create(
+                phone,
+                "approve_opportunity",
+                {"id": args[0], "offered_at": offered_at},
+            )
+            await self._client.send_text(
+                phone,
+                f"Approve {args[0]} and place its order?\n"
+                f"{opp.symbol.ticker} ({opp.signal}): {self._describe_trade(trade)}"
+                "\nSizing and risk limits may reduce the quantity."
+                f"\n\nReply *{token}* to confirm, or CANCEL.",
+            )
 
         elif name == "reject" and args:
-            await self._opp_store.update_status(args[0], OpportunityStatus.REJECTED)
-            await self._client.send_text(phone, f"Rejected {args[0]}.")
+            if await self._opp_store.transition(
+                args[0], OpportunityStatus.PENDING, OpportunityStatus.REJECTED
+            ):
+                await self._client.send_text(phone, f"Rejected {args[0]}.")
+            else:
+                await self._client.send_text(
+                    phone, f"{args[0]} is not pending, so it was not rejected."
+                )
 
         elif name in ("buy", "sell") and len(args) >= 2:
             symbol, qty = args[0].upper(), args[1]
@@ -283,6 +317,17 @@ class WhatsAppAssistant:
             await self._client.send_text(
                 phone, f"Missing arguments for /{name}. Try /help."
             )
+
+    @staticmethod
+    def _describe_trade(trade) -> str:
+        """Side, quantity and prices of an order, for a prompt."""
+        quantity = trade.quantity if trade.quantity > 0 else "(quantity set by sizing)"
+        parts = [trade.side.value, str(quantity)]
+        for label in ("limit_price", "stop_price", "trail_amount", "trail_percent"):
+            value = getattr(trade, label, None)
+            if value is not None:
+                parts.append(f"{label.replace('_price', '').replace('_', ' ')} {value}")
+        return " ".join(parts)
 
     async def _cmd_markets(self, phone: str) -> None:
         if not self._data_bus:
@@ -507,6 +552,34 @@ class WhatsAppAssistant:
                 await self._client.send_text(phone, msg)
             except Exception as e:
                 await self._client.send_text(phone, f"Order failed: {e}")
+
+        elif action.action_type == "approve_opportunity":
+            from agents.approval import ApprovalRefused
+
+            opportunity_id = action.data["id"]
+            if self._approver is None:
+                await self._client.send_text(phone, "Approval is not available.")
+                return
+            try:
+                outcome = await self._approver.approve(
+                    opportunity_id, shown_offer=action.data["offered_at"]
+                )
+            except ApprovalRefused as refused:
+                await self._client.send_text(
+                    phone, f"Not approved: {refused.detail}."
+                )
+                return
+            except Exception as error:
+                await self._client.send_text(
+                    phone,
+                    f"Approval of {opportunity_id} failed: {error}. "
+                    "Check its status before trying again.",
+                )
+                return
+            await self._client.send_text(
+                phone,
+                f"{opportunity_id}: {outcome.status.value}. {outcome.detail}",
+            )
 
         elif action.action_type == "toggle_kill":
             enabled = action.data["enable"]

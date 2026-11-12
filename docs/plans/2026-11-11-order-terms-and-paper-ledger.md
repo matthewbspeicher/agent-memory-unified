@@ -135,7 +135,11 @@ Each commit leaves the suite green.
 - **Configured paper initial balance (implemented in the starting-balance follow-up).** Startup supplies `paper_trading_initial_balance` when initializing a missing `PAPER` account. Existing balances and coverage are preserved. See [qualification](../audits/2026-11-12-paper-starting-balance.md).
 - **Typed rest-or-reject (done in pull request #6).** `PaperOrderMustRest` replaces message matching and preserves the stop-limit trigger flag. Pull request #7 consolidates the immediate-fill implementation across venues.
 - **Typed order outcome.** Definite rejection versus unknown outcome is a convention re-derived in several callers.
-- **Approved Opportunities never execute.** `OpportunityStatus.APPROVED` is written by the approval routes and WhatsApp and read by nothing that executes.
+- **Approved Opportunities never execute (done).** Approval now executes through the same path as an auto-executed Opportunity; see `trading/agents/approval.py`.
+- **An Opportunity with an expiry cannot be saved on PostgreSQL.** `OpportunityStore.save` binds `expires_at` as ISO text; asyncpg refuses text for a `TIMESTAMP` column (`DataError`, confirmed against PostgreSQL 17 on 2026-11-12). SQLite accepts it, so no unit test sees it. Already on `main` before approvals. Affects every Agent that sets an expiry (news, Twitter, prediction market, persona panel, debate analyst, manager).
+- **A human rejection is not sticky.** If an Agent routes a rejected or expired id again it becomes pending and is offered again; it still needs a fresh approval to execute. Making a human "no" final needs its own status, which the frontend also reads.
+- **Opportunities left `approved` are not swept.** Shadow mode, or execution stopping before submission, leaves the status `approved` with no order.
+- **Slack approval buttons cannot work.** Slack is given the signed approve link as a URL button, which opens it as a browser GET, but the route accepts only POST and requires a `write:orders` identity. Needs a decision on how a click from Slack proves who clicked.
 - **`SpreadTracker` has no notifier.** It is constructed with `notifier=None` and a comment promising later wiring that does not exist.
 - **REAL versus Decimal columns** in the ledger tables.
 

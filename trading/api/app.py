@@ -445,6 +445,7 @@ def _setup_whatsapp_routes(
         account_id=account_id,
         runner=runner,
         opp_store=opp_store,
+        approver=getattr(app.state, "opportunity_approver", None),
         risk_engine=risk_engine,
         llm_client=llm_client,
         external_store=ext_store,
@@ -2189,6 +2190,15 @@ async def lifespan(app: FastAPI):
             shadow_executor=shadow_executor,
             journal_manager=journal_manager,
             trade_reflector_factory=_trade_reflector_factory,
+        )
+
+        from datetime import timedelta as _timedelta
+        from agents.approval import OpportunityApprover
+
+        app.state.opportunity_approver = OpportunityApprover(
+            opp_store,
+            router,
+            max_age=_timedelta(minutes=config.opportunity_approval_max_age_minutes),
         )
 
         (

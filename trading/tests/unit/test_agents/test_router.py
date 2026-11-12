@@ -96,6 +96,7 @@ class TestOpportunityRouter:
     async def test_suggest_trade_stores_as_pending(self) -> None:
         store = MagicMock()
         store.save = AsyncMock()
+        store.mark_approvable = AsyncMock()
         notifier = MagicMock()
         notifier.send = AsyncMock()
 
@@ -104,6 +105,7 @@ class TestOpportunityRouter:
 
         saved_opp = store.save.call_args[0][0]
         assert saved_opp.status == OpportunityStatus.PENDING
+        store.mark_approvable.assert_awaited_once_with(saved_opp.id)
 
     @pytest.mark.asyncio
     async def test_auto_execute_with_kill_switch(self) -> None:

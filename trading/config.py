@@ -348,6 +348,9 @@ class Config(BaseModel):
 
     # Order confirmation
     order_timeout: int = 10
+    # A suggested Opportunity with no expiry of its own cannot be approved
+    # once it is older than this.
+    opportunity_approval_max_age_minutes: int = Field(default=60, gt=0)
 
     # External Data Services
     metaculus_token: str | None = None
