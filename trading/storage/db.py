@@ -438,8 +438,10 @@ _INIT_DDL = """
             kalshi_volume REAL NOT NULL DEFAULT 0,
             poly_volume   REAL NOT NULL DEFAULT 0,
             observed_at   TEXT NOT NULL DEFAULT (datetime('now')),
-            is_claimed    BOOLEAN DEFAULT 0,
-            claimed_at    TEXT,
+            is_claimed    BOOLEAN DEFAULT FALSE,
+            -- A real timestamp on PostgreSQL: SpreadStore compares it with the
+            -- database clock, which text cannot be compared with there.
+            claimed_at    TIMESTAMP,
             claimed_by    TEXT
         );
         CREATE INDEX IF NOT EXISTS idx_arb_spread_pair

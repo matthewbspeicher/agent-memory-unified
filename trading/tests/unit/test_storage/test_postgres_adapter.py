@@ -320,7 +320,11 @@ class _Typed:
         self.calls.append(args)
         for position, (kind, value) in enumerate(zip(self.types, args), start=1):
             head = f"invalid input for query argument ${position}: {value!r}"
-            if value is None or kind == "text":
+            if value is None:
+                continue
+            if kind == "text":
+                if not isinstance(value, str):
+                    raise DataError(f"{head} (expected str, got {type(value).__name__})")
                 continue
             if isinstance(value, str):
                 detail = (
@@ -356,6 +360,19 @@ class TestTemporalArguments:
         )
         assert bound == (date(2026, 11, 12), datetime(2026, 11, 12, 12, 30), instant, text)
         assert learned == {"SQL": {0: "date", 1: "naive", 2: "aware"}}
+
+    async def test_a_datetime_becomes_text_for_a_text_column(self):
+        from datetime import date, datetime, timezone
+
+        stamp = datetime(2026, 11, 12, 12, 30, tzinfo=timezone.utc)
+        bound, learned = await self.run(
+            _Typed("text", "text", "text"), (stamp, date(2026, 11, 12), "kept")
+        )
+        assert bound == ("2026-11-12T12:30:00+00:00", "2026-11-12", "kept")
+        assert learned == {"SQL": {0: "text", 1: "text"}}
+        # Text already bound there later is left as it is.
+        bound, _ = await self.run(_Typed("text", "text", "text"), ("a", "b", "c"), learned)
+        assert bound == ("a", "b", "c")
 
     async def test_a_learned_statement_binds_right_first_time(self):
         connection = _Typed("timestamp")
@@ -432,3 +449,13 @@ class TestRow:
             row[2]
         with pytest.raises(KeyError):
             row["missing"]
+
+
+class TestEngineDdl:
+    def test_boolean_columns_do_not_default_to_an_integer(self):
+        """PostgreSQL rejects it, and one rejected statement loses every table."""
+        import re
+
+        from storage.db import _INIT_DDL
+
+        assert re.findall(r"BOOLEAN[^,\n]*DEFAULT\s+[01]\b", _INIT_DDL, re.I) == []

@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import re
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 # Stores are written for SQLite, where dates and times are ISO text. asyncpg
 # takes only date/datetime objects for DATE, TIMESTAMP and TIMESTAMPTZ
-# parameters, and only naive datetimes for TIMESTAMP. It refuses anything else
+# parameters, only naive datetimes for TIMESTAMP, and only text for TEXT (the
+# type the engine's own DDL gives time columns). It refuses anything else
 # while encoding the arguments, before the statement is run, and names the
 # argument. _run converts that argument and tries again, then remembers the
 # conversion for the statement so later calls bind correctly first time.
@@ -14,7 +15,8 @@ _REFUSED_ARGUMENT = re.compile(r"invalid input for query argument \$(\d+):")
 _WANTS_DATETIME = "expected a datetime"
 _WANTS_DATE = "has no attribute 'toordinal'"
 _WANTS_NAIVE = "offset-naive and offset-aware"
-_AWARE, _NAIVE, _DATE = "aware", "naive", "date"
+_WANTS_TEXT = "expected str, got "
+_AWARE, _NAIVE, _DATE, _TEXT = "aware", "naive", "date", "text"
 _MAX_LEARNED_STATEMENTS = 4096
 
 
@@ -33,6 +35,9 @@ def _convert(value, mode):
     """Apply a remembered conversion; values it does not fit are left alone."""
     if mode is None or value is None:
         return value
+    if mode == _TEXT:
+        # A TEXT column holding times: ISO text, as stores write it themselves.
+        return value.isoformat() if isinstance(value, (datetime, date)) else value
     if isinstance(value, str):
         parsed = _as_aware(value.strip())
         if parsed is None:
@@ -65,6 +70,8 @@ def _correction(error, args):
         )
         converted = _convert(value, mode)
         return None if converted is value else (index, converted, mode)
+    if isinstance(value, (datetime, date)) and _WANTS_TEXT in message:
+        return index, _convert(value, _TEXT), _TEXT
     if (
         isinstance(value, datetime)
         and value.tzinfo is not None
