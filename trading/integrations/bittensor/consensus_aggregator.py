@@ -82,7 +82,11 @@ class MinerConsensusAggregator:
             return  # cache for 5 mins
 
         try:
-            rankings = await self.store.get_miner_rankings(limit=256)
+            # One weight per miner. Without the symbol there is a row for each
+            # symbol a miner is ranked on, and the last one read would win.
+            rankings = await self.store.get_miner_rankings(
+                limit=256, symbol="aggregate"
+            )
             new_weights = {r.miner_hotkey: r.hybrid_score for r in rankings}
             self._miner_weights = new_weights
             self._weights_last_updated = now

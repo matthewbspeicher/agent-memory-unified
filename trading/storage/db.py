@@ -1,5 +1,6 @@
 from __future__ import annotations
 import logging
+import re
 import ssl as _ssl
 import aiosqlite
 from storage.postgres import PostgresDB
@@ -438,8 +439,10 @@ _INIT_DDL = """
             kalshi_volume REAL NOT NULL DEFAULT 0,
             poly_volume   REAL NOT NULL DEFAULT 0,
             observed_at   TEXT NOT NULL DEFAULT (datetime('now')),
-            is_claimed    BOOLEAN DEFAULT 0,
-            claimed_at    TEXT,
+            is_claimed    BOOLEAN DEFAULT FALSE,
+            -- A real timestamp on PostgreSQL: SpreadStore compares it with the
+            -- database clock, which text cannot be compared with there.
+            claimed_at    TIMESTAMP,
             claimed_by    TEXT
         );
         CREATE INDEX IF NOT EXISTS idx_arb_spread_pair
@@ -965,16 +968,42 @@ async def init_db(db: aiosqlite.Connection) -> None:
         pass  # Column already exists
 
 
+def ddl_statements(script: str) -> list[str]:
+    """The statements of a DDL script, without comments.
+
+    Good for plain CREATE statements only: it does not understand a semicolon
+    or a comment marker inside a quoted string or a function body.
+    """
+    without_comments = re.sub(r"--[^\n]*", "", script)
+    return [s.strip() for s in without_comments.split(";") if s.strip()]
+
+
 async def init_db_postgres(db) -> None:
     """Run idempotent table creation on PostgreSQL.
 
     Uses the same DDL as SQLite init_db, translated via PostgresDB._translate().
-    CREATE TABLE IF NOT EXISTS is safe to run on every startup.
+    CREATE TABLE IF NOT EXISTS is safe to run on every startup. A statement
+    that fails is logged and the rest still run.
     """
-    try:
-        await db.executescript(_INIT_DDL)
-    except Exception as e:
-        logger.warning("Postgres DDL init (non-fatal): %s", e)
+    # One statement at a time. Run as a single script, one statement
+    # PostgreSQL rejects rolls back every table and index in it, and a table
+    # added here would never be created on a database where anything fails.
+    statements = ddl_statements(_INIT_DDL)
+    failed = 0
+    for statement in statements:
+        try:
+            await db.execute(statement)
+        except Exception as e:
+            failed += 1
+            logger.warning(
+                "Postgres DDL statement failed (non-fatal): %s: %s",
+                " ".join(statement.split())[:80],
+                e,
+            )
+    if failed:
+        logger.warning(
+            "Postgres DDL init: %d of %d statements failed", failed, len(statements)
+        )
 
     try:
         await db.execute("""
@@ -1181,9 +1210,8 @@ async def init_db_postgres(db) -> None:
             pass  # Column already exists
 
     # Indexes on arb_spread_observations.observed_at — counterparts to the
-    # ALTER above. Declared in _INIT_DDL but never created because the
-    # executescript in init_db_postgres aborts the whole block when any
-    # CREATE INDEX references a column that's missing from the live table.
+    # ALTER above. Declared in _INIT_DDL, where they fail on a live table that
+    # lacked the column until the ALTER ran.
     for idx_sql in (
         "CREATE INDEX IF NOT EXISTS idx_arb_spread_pair "
         "ON arb_spread_observations(kalshi_ticker, poly_ticker, observed_at)",
