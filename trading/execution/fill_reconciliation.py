@@ -54,7 +54,7 @@ class PaperFillReconciler:
         """Cancel the entry remainder, project its final fill, then size the exit."""
         if (
             not isinstance(broker.orders, PaperDispatchMixin)
-            or broker.orders._store is not self.paper
+            or broker.orders.store is not self.paper
         ):
             raise ValueError("Entry handoff requires the owning paper broker")
         pid = int(
@@ -90,24 +90,14 @@ class PaperFillReconciler:
             ).fetchone()
             epoch = json.loads(entry["payload"])["epoch"] if entry else None
             if epoch:
-                generation = await (
-                    await db.execute(
-                        "SELECT generation FROM paper_risk_coverage WHERE account_id=?",
-                        (order.account_id,),
-                    )
-                ).fetchone()
-                if not generation or generation["generation"] != epoch:
+                generation = await self.paper.account_generation(order.account_id)
+                if not generation or generation != epoch:
                     raise ValueError("Tracked entry generation changed")
             if jobs:
                 job = jobs[0]
                 epoch = json.loads(job["payload"])["epoch"]
-                generation = await (
-                    await db.execute(
-                        "SELECT generation FROM paper_risk_coverage WHERE account_id=?",
-                        (job["account_id"],),
-                    )
-                ).fetchone()
-                if not generation or generation["generation"] != epoch:
+                generation = await self.paper.account_generation(job["account_id"])
+                if not generation or generation != epoch:
                     raise ValueError("Entry handoff generation changed")
                 if not job["order_id"] or (job["broker_id"], job["account_id"]) != (
                     broker_id,
@@ -136,13 +126,8 @@ class PaperFillReconciler:
         await self.reconcile_once()
         async with self.paper.transaction() as db:
             if epoch:
-                generation = await (
-                    await db.execute(
-                        "SELECT generation FROM paper_risk_coverage WHERE account_id=?",
-                        (order.account_id,),
-                    )
-                ).fetchone()
-                if not generation or generation["generation"] != epoch:
+                generation = await self.paper.account_generation(order.account_id)
+                if not generation or generation != epoch:
                     raise ValueError("Entry generation changed during handoff")
             pending = await (
                 await db.execute(
@@ -215,12 +200,7 @@ class PaperFillReconciler:
             ).fetchone()
             if existing:
                 return None
-            coverage = await (
-                await db.execute(
-                    "SELECT generation FROM paper_risk_coverage WHERE account_id=?",
-                    (order.account_id,),
-                )
-            ).fetchone()
+            coverage = await self.paper.account_generation(order.account_id)
             if not coverage:
                 raise ValueError("Paper account has no execution generation")
             if role == "exit":
@@ -233,7 +213,7 @@ class PaperFillReconciler:
                 if (
                     owning_entry
                     and json.loads(owning_entry["payload"])["epoch"]
-                    != coverage["generation"]
+                    != coverage
                 ):
                     raise ValueError("Tracked exit generation changed")
                 position = await (
@@ -268,7 +248,7 @@ class PaperFillReconciler:
                     )
             payload = {
                 "order": encode_order(order),
-                "epoch": coverage["generation"],
+                "epoch": coverage,
                 "agent_name": opportunity.agent_name,
                 "exit_reason": opportunity.data.get("exit_rule", "exit_position"),
                 "exit_rules": exit_rules or [],
@@ -325,22 +305,12 @@ class PaperFillReconciler:
         payload = json.loads(job["payload"])
         expected = decode_order(payload["order"])
         async with self.paper.transaction() as db:
-            generation = await (
-                await db.execute(
-                    "SELECT generation FROM paper_risk_coverage WHERE account_id=?",
-                    (job["account_id"],),
-                )
-            ).fetchone()
-            if not generation or generation["generation"] != payload["epoch"]:
+            generation = await self.paper.account_generation(job["account_id"])
+            if not generation or generation != payload["epoch"]:
                 raise ValueError(
                     "Paper generation changed; fill job requires investigation"
                 )
-            rows = await (
-                await db.execute(
-                    "SELECT order_id,order_payload FROM paper_order_terms WHERE account_id=?",
-                    (job["account_id"],),
-                )
-            ).fetchall()
+            rows = await self.paper.order_terms_for_account(job["account_id"])
             matches = [
                 r
                 for r in rows
@@ -349,12 +319,9 @@ class PaperFillReconciler:
             if not matches:
                 # Recovery may have fenced a request before acceptance. Only its
                 # durable rejection is authority to release a pending projection.
-                rejected = await (
-                    await db.execute(
-                        "SELECT order_payload,result_payload FROM paper_dispatches WHERE account_id=? AND epoch=? AND operation='submit'",
-                        (job["account_id"], payload["epoch"]),
-                    )
-                ).fetchall()
+                rejected = await self.paper.submit_receipts(
+                    job["account_id"], payload["epoch"]
+                )
                 for receipt in rejected:
                     request = decode_order(json.loads(receipt["order_payload"]))
                     outcome = PaperDispatchMixin._dispatch_result(receipt)
@@ -383,12 +350,7 @@ class PaperFillReconciler:
             # Immediate fills predate detailed fill events. Their dispatch receipt
             # contains the original fee/time, committed with the fill itself.
             if result.filled_quantity > 0 and result.filled_at is None:
-                receipts = await (
-                    await db.execute(
-                        "SELECT result_payload FROM paper_dispatches WHERE account_id=? AND operation='submit'",
-                        (job["account_id"],),
-                    )
-                ).fetchall()
+                receipts = await self.paper.submit_receipts(job["account_id"])
                 for receipt in receipts:
                     original = PaperDispatchMixin._dispatch_result(receipt)
                     if (
@@ -465,15 +427,10 @@ class PaperFillReconciler:
         # Receipt projection and job completion are one transaction. A worker
         # observing an older cumulative fill cannot overwrite a newer projection.
         async with self.paper.transaction() as db:
-            current_generation = await (
-                await db.execute(
-                    "SELECT generation FROM paper_risk_coverage WHERE account_id=?",
-                    (job["account_id"],),
-                )
-            ).fetchone()
+            current_generation = await self.paper.account_generation(job["account_id"])
             if (
                 not current_generation
-                or current_generation["generation"] != payload["epoch"]
+                or current_generation != payload["epoch"]
             ):
                 raise ValueError("Paper generation changed during fill projection")
             current_job = await (

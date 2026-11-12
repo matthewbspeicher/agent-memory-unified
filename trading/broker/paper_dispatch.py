@@ -25,8 +25,8 @@ class PaperDispatchMixin(PaperMatchingMixin):
     async def _submit_dispatch(self, account_id, order, dispatch_id, epoch):
         payload = order_payload(order)
         async with self._store.transaction() as db:
-            await self._dispatch_epoch(db, account_id, epoch)
-            row = await self._dispatch_row(db, dispatch_id)
+            await self._dispatch_epoch(account_id, epoch)
+            row = await self._store.get_dispatch(dispatch_id)
             if row:
                 self._match_dispatch(row, account_id, payload, epoch)
                 return self._dispatch_result(row)
@@ -58,23 +58,20 @@ class PaperDispatchMixin(PaperMatchingMixin):
                             message="Registered execution generation changed",
                         )
             result = await self.place_order(account_id, order)
-            await db.execute(
-                "INSERT INTO paper_dispatches (dispatch_id, account_id, order_payload, epoch, result_payload) VALUES (?, ?, ?, ?, ?)",
-                (
-                    dispatch_id,
-                    account_id,
-                    payload,
-                    epoch,
-                    json.dumps(asdict(result), default=str),
-                ),
+            await self._store.insert_dispatch(
+                dispatch_id,
+                account_id,
+                payload,
+                epoch,
+                json.dumps(asdict(result), default=str),
             )
             return result
 
     async def amend_dispatch(self, order_id, changes, dispatch_id, epoch):
-        async with self._store.transaction() as db:
+        async with self._store.transaction():
             snap = await self._snapshot(order_id)
-            await self._dispatch_epoch(db, snap.order.account_id, epoch)
-            row = await self._dispatch_row(db, dispatch_id)
+            await self._dispatch_epoch(snap.order.account_id, epoch)
+            row = await self._store.get_dispatch(dispatch_id)
             if row:
                 candidate = decode_order(json.loads(row["order_payload"]))
                 if row["operation"] != "amend" or row["original_order_id"] != order_id:
@@ -100,17 +97,14 @@ class PaperDispatchMixin(PaperMatchingMixin):
                 setattr(candidate, key, value)
             payload = order_payload(candidate)
             result = await self.modify_order(order_id, changes)
-            await db.execute(
-                "INSERT INTO paper_dispatches (dispatch_id, account_id, order_payload, epoch, result_payload, operation, original_order_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (
-                    dispatch_id,
-                    candidate.account_id,
-                    payload,
-                    epoch,
-                    json.dumps(asdict(result), default=str),
-                    "amend",
-                    order_id,
-                ),
+            await self._store.insert_dispatch(
+                dispatch_id,
+                candidate.account_id,
+                payload,
+                epoch,
+                json.dumps(asdict(result), default=str),
+                "amend",
+                order_id,
             )
             return result
 
@@ -121,26 +115,23 @@ class PaperDispatchMixin(PaperMatchingMixin):
         payload = order_payload(order)
         account, epoch = attempt["account"], attempt["epoch"]
         dispatch_id = attempt["dispatch_id"]
-        async with self._store.transaction() as db:
-            await self._dispatch_epoch(db, account, epoch)
-            row = await self._dispatch_row(db, dispatch_id)
+        async with self._store.transaction():
+            await self._dispatch_epoch(account, epoch)
+            row = await self._store.get_dispatch(dispatch_id)
             if row is None:
                 # Acquiring the same write lock waits for an in-flight fill. If
                 # absent now, persist a tombstone so a late delivery cannot fill.
                 result = OrderResult(
                     "", OrderStatus.REJECTED, message="Dispatch fenced by recovery"
                 )
-                await db.execute(
-                    "INSERT INTO paper_dispatches (dispatch_id, account_id, order_payload, epoch, result_payload, operation, original_order_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                    (
-                        dispatch_id,
-                        account,
-                        payload,
-                        epoch,
-                        json.dumps(asdict(result), default=str),
-                        attempt["operation"],
-                        attempt.get("order_id"),
-                    ),
+                await self._store.insert_dispatch(
+                    dispatch_id,
+                    account,
+                    payload,
+                    epoch,
+                    json.dumps(asdict(result), default=str),
+                    attempt["operation"],
+                    attempt.get("order_id"),
                 )
             else:
                 self._match_dispatch(
@@ -172,23 +163,8 @@ class PaperDispatchMixin(PaperMatchingMixin):
                 snapshot,
             )
 
-    @staticmethod
-    async def _dispatch_row(db, dispatch_id):
-        return await (
-            await db.execute(
-                "SELECT * FROM paper_dispatches WHERE dispatch_id=?", (dispatch_id,)
-            )
-        ).fetchone()
-
-    @staticmethod
-    async def _dispatch_epoch(db, account, epoch):
-        row = await (
-            await db.execute(
-                "SELECT generation FROM paper_risk_coverage WHERE account_id=?",
-                (account,),
-            )
-        ).fetchone()
-        if not epoch or not row or row["generation"] != epoch:
+    async def _dispatch_epoch(self, account, epoch):
+        if not epoch or await self._store.account_generation(account) != epoch:
             raise ValueError("Paper dispatch account generation changed")
 
     @staticmethod

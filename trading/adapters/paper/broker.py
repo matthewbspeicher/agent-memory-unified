@@ -323,26 +323,5 @@ class SimulatedBroker(Broker):
 
     async def reset(self) -> None:
         """Reset paper account to initial balance and clear all positions/orders."""
-        async with self._store.transaction() as db:
-            for table in (
-                "paper_positions",
-                "paper_orders",
-                "paper_order_terms",
-                "paper_fill_events",
-                "paper_risk_events",
-                "paper_risk_coverage",
-            ):
-                await db.execute(
-                    f"DELETE FROM {table} WHERE account_id = ?", (PAPER_ACCOUNT_ID,)
-                )
-            initial = float(self._initial_balance)
-            await db.execute(
-                """
-                INSERT OR REPLACE INTO paper_accounts
-                    (account_id, net_liquidation, buying_power, cash, maintenance_margin)
-                VALUES (?, ?, ?, ?, 0.0)
-                """,
-                (PAPER_ACCOUNT_ID, initial, initial, initial),
-            )
-            await self._store.initialize_risk_coverage(PAPER_ACCOUNT_ID, fresh=True)
+        await self._store.reset_account(PAPER_ACCOUNT_ID, self._initial_balance)
         logger.info("PaperBroker: account reset to $%.2f", self._initial_balance)

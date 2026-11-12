@@ -127,6 +127,151 @@ class PaperStore:
             )
             await self.initialize_risk_coverage(account_id, fresh=True)
 
+    async def supports_transactions(self) -> bool:
+        return isinstance(await self._get_db(), (aiosqlite.Connection, PostgresDB))
+
+    async def account_generation(self, account_id: str) -> str | None:
+        """The account's current generation, or None if it has no coverage row."""
+        db = await self._get_db()
+        row = await (
+            await db.execute(
+                "SELECT generation FROM paper_risk_coverage WHERE account_id=?",
+                (account_id,),
+            )
+        ).fetchone()
+        return row["generation"] if row else None
+
+    async def reset_account(self, account_id: str, initial_balance) -> None:
+        """Clear the account's ledger and start a new generation.
+
+        Dispatch records and applied ticks are kept: they fence late deliveries
+        and replays from the previous generation.
+        """
+        async with self.transaction() as db:
+            for table in (
+                "paper_positions",
+                "paper_orders",
+                "paper_order_terms",
+                "paper_fill_events",
+                "paper_risk_events",
+                "paper_risk_coverage",
+            ):
+                await db.execute(
+                    f"DELETE FROM {table} WHERE account_id = ?", (account_id,)
+                )
+            initial = float(initial_balance)
+            await db.execute(
+                """
+                INSERT OR REPLACE INTO paper_accounts
+                    (account_id, net_liquidation, buying_power, cash, maintenance_margin)
+                VALUES (?, ?, ?, ?, 0.0)
+                """,
+                (account_id, initial, initial, initial),
+            )
+            await self.initialize_risk_coverage(account_id, fresh=True)
+
+    async def debit_cash(self, account_id: str, amount: Decimal) -> None:
+        db = await self._get_db()
+        await db.execute(
+            "UPDATE paper_accounts SET cash = cash - ? WHERE account_id = ?",
+            (float(amount), account_id),
+        )
+
+    async def open_order_ids(self, account_id: str) -> list[str]:
+        db = await self._get_db()
+        rows = await (
+            await db.execute(
+                "SELECT order_id FROM paper_orders WHERE account_id=? AND status IN (?, ?)",
+                (account_id, OrderStatus.SUBMITTED.value, OrderStatus.PARTIAL.value),
+            )
+        ).fetchall()
+        return [row["order_id"] for row in rows]
+
+    async def open_orders_by_arrival(self, account_id: str) -> list[tuple[str, bool]]:
+        """Open order ids in arrival order, each with its stop-triggered flag."""
+        db = await self._get_db()
+        rows = await (
+            await db.execute(
+                "SELECT t.order_id, t.triggered FROM paper_order_terms t JOIN paper_orders o ON o.order_id=t.order_id WHERE t.account_id=? AND o.status IN (?, ?) ORDER BY t.submitted_at, t.order_id",
+                (account_id, OrderStatus.SUBMITTED.value, OrderStatus.PARTIAL.value),
+            )
+        ).fetchall()
+        return [(row["order_id"], bool(row["triggered"])) for row in rows]
+
+    async def set_stop_triggered(self, order_id: str, triggered: bool) -> None:
+        db = await self._get_db()
+        await db.execute(
+            "UPDATE paper_order_terms SET triggered=? WHERE order_id=?",
+            (1 if triggered else 0, order_id),
+        )
+
+    async def fill_evidence(self, order_id: str):
+        """Recorded fills for an order: rows of quantity, price, commission."""
+        db = await self._get_db()
+        return await (
+            await db.execute(
+                "SELECT quantity, price, commission FROM paper_fill_events WHERE order_id=?",
+                (order_id,),
+            )
+        ).fetchall()
+
+    async def order_terms_for_account(self, account_id: str):
+        """Rows of order_id, order_payload for every order the account has."""
+        db = await self._get_db()
+        return await (
+            await db.execute(
+                "SELECT order_id,order_payload FROM paper_order_terms WHERE account_id=?",
+                (account_id,),
+            )
+        ).fetchall()
+
+    async def get_dispatch(self, dispatch_id: str):
+        db = await self._get_db()
+        return await (
+            await db.execute(
+                "SELECT * FROM paper_dispatches WHERE dispatch_id=?", (dispatch_id,)
+            )
+        ).fetchone()
+
+    async def insert_dispatch(
+        self,
+        dispatch_id: str,
+        account_id: str,
+        payload: str,
+        generation: str,
+        result_payload: str,
+        operation: str = "submit",
+        original_order_id: str | None = None,
+    ) -> None:
+        db = await self._get_db()
+        await db.execute(
+            "INSERT INTO paper_dispatches (dispatch_id, account_id, order_payload, epoch, result_payload, operation, original_order_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (
+                dispatch_id,
+                account_id,
+                payload,
+                generation,
+                result_payload,
+                operation,
+                original_order_id,
+            ),
+        )
+
+    async def submit_receipts(self, account_id: str, generation: str | None = None):
+        """Submit dispatch records for an account: order_payload, result_payload."""
+        db = await self._get_db()
+        if generation is None:
+            cursor = await db.execute(
+                "SELECT order_payload,result_payload FROM paper_dispatches WHERE account_id=? AND operation='submit'",
+                (account_id,),
+            )
+        else:
+            cursor = await db.execute(
+                "SELECT order_payload,result_payload FROM paper_dispatches WHERE account_id=? AND epoch=? AND operation='submit'",
+                (account_id, generation),
+            )
+        return await cursor.fetchall()
+
     async def init_tables(self) -> None:
         db = await self._get_db()
         if isinstance(db, PostgresDB):

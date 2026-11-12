@@ -11,7 +11,7 @@ from dataclasses import asdict, replace
 from datetime import datetime, timezone
 from decimal import Decimal
 
-from broker.models import OrderStatus, Quote
+from broker.models import Quote
 from broker.paper_dispatch import PaperDispatchMixin
 
 log = logging.getLogger(__name__)
@@ -59,7 +59,7 @@ class PaperMatchingDriver:
             manager = broker.orders
             if (
                 isinstance(manager, PaperDispatchMixin)
-                and manager._store is paper_store
+                and manager.store is paper_store
                 and id(manager) not in seen
             ):
                 seen.add(id(manager))
@@ -93,29 +93,13 @@ class PaperMatchingDriver:
 
     async def _match_account(self, broker):
         manager = broker.orders
-        async with self.paper.transaction() as db:
-            coverage = await (
-                await db.execute(
-                    "SELECT generation FROM paper_risk_coverage WHERE account_id=?",
-                    (manager.paper_account_id,),
-                )
-            ).fetchone()
-            if not coverage:
+        async with self.paper.transaction():
+            epoch = await self.paper.account_generation(manager.paper_account_id)
+            if not epoch:
                 return
-            epoch = coverage["generation"]
-            rows = await (
-                await db.execute(
-                    "SELECT order_id FROM paper_orders WHERE account_id=? AND status IN (?,?)",
-                    (
-                        manager.paper_account_id,
-                        OrderStatus.SUBMITTED.value,
-                        OrderStatus.PARTIAL.value,
-                    ),
-                )
-            ).fetchall()
             symbols = set()
-            for row in rows:
-                symbols.add((await manager._snapshot(row["order_id"])).order.symbol)
+            for order_id in await self.paper.open_order_ids(manager.paper_account_id):
+                symbols.add((await manager.order_snapshot(order_id)).order.symbol)
         for symbol in sorted(
             symbols, key=lambda s: json.dumps(asdict(s), default=str, sort_keys=True)
         ):
@@ -146,13 +130,10 @@ class PaperMatchingDriver:
                     manager.paper_account_id, epoch, asdict(symbol), quote.timestamp
                 )
                 async with self.paper.transaction() as db:
-                    current = await (
-                        await db.execute(
-                            "SELECT generation FROM paper_risk_coverage WHERE account_id=?",
-                            (manager.paper_account_id,),
-                        )
-                    ).fetchone()
-                    if not current or current["generation"] != epoch:
+                    if (
+                        await self.paper.account_generation(manager.paper_account_id)
+                        != epoch
+                    ):
                         continue
                     if await asyncio.wait_for(
                         self.controls.get("kill_switch:active"), self.timeout

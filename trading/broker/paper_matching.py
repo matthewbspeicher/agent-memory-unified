@@ -30,6 +30,14 @@ _OPEN = {OrderStatus.SUBMITTED, OrderStatus.PARTIAL}
 class PaperMatchingMixin:
     paper_account_id = "PAPER"
 
+    @property
+    def store(self):
+        """The Paper ledger this order manager writes to."""
+        return self._store
+
+    async def order_snapshot(self, order_id):
+        return await self._snapshot(order_id)
+
     async def place_order(self, account_id, order):
         order = deepcopy(order)
         validate_order_terms(account_id, order)
@@ -70,11 +78,7 @@ class PaperMatchingMixin:
                         and isinstance(order, StopLimitOrder)
                         and "Limit is not marketable" in (result_message or "")
                     ):
-                        db = await self._store._get_db()
-                        await db.execute(
-                            "UPDATE paper_order_terms SET triggered=1 WHERE order_id=?",
-                            (result.order_id,),
-                        )
+                        await self._store.set_stop_triggered(result.order_id, True)
                 return result
         except PaperWriteNotStarted as exc:
             return OrderResult("", OrderStatus.REJECTED, message=str(exc))
@@ -88,7 +92,7 @@ class PaperMatchingMixin:
     async def modify_order(self, order_id, changes):
         if not changes or set(changes) - {"quantity", "limit_price", "stop_price"}:
             raise ValueError("Unsupported amendment fields")
-        async with self._store.transaction() as db:
+        async with self._store.transaction():
             snap = await self._snapshot(order_id)
             if snap.status not in _OPEN:
                 return OrderResult(
@@ -119,10 +123,7 @@ class PaperMatchingMixin:
             )
             await self._store.save_order_terms(order_id, order)
             if "stop_price" in changes:
-                await db.execute(
-                    "UPDATE paper_order_terms SET triggered=0 WHERE order_id=?",
-                    (order_id,),
-                )
+                await self._store.set_stop_triggered(order_id, False)
             return await self._store.get_order_result(order_id)
 
     async def cancel_order(self, order_id):
@@ -146,37 +147,17 @@ class PaperMatchingMixin:
         return (await self._snapshot(order_id)).status
 
     async def cancel_all_orders(self):
-        async with self._store.transaction() as db:
-            rows = await (
-                await db.execute(
-                    "SELECT order_id FROM paper_orders WHERE account_id=? AND status IN (?, ?)",
-                    (
-                        self.paper_account_id,
-                        OrderStatus.SUBMITTED.value,
-                        OrderStatus.PARTIAL.value,
-                    ),
-                )
-            ).fetchall()
-            for row in rows:
-                await self.cancel_order(row["order_id"])
+        async with self._store.transaction():
+            for order_id in await self._store.open_order_ids(self.paper_account_id):
+                await self.cancel_order(order_id)
 
     async def expire_orders(self):
         """Expire account DAY orders from the UTC clock without market data."""
-        async with self._store.transaction() as db:
-            rows = await (
-                await db.execute(
-                    "SELECT order_id FROM paper_orders WHERE account_id=? AND status IN (?,?)",
-                    (
-                        self.paper_account_id,
-                        OrderStatus.SUBMITTED.value,
-                        OrderStatus.PARTIAL.value,
-                    ),
-                )
-            ).fetchall()
+        async with self._store.transaction():
             results = []
             today = datetime.now(timezone.utc).date()
-            for row in rows:
-                snapshot = await self._snapshot(row["order_id"])
+            for order_id in await self._store.open_order_ids(self.paper_account_id):
+                snapshot = await self._snapshot(order_id)
                 if (
                     snapshot.order.time_in_force == TIF.DAY
                     and snapshot.submitted_at.date() < today
@@ -219,25 +200,15 @@ class PaperMatchingMixin:
             default=str,
             sort_keys=True,
         )
-        async with self._store.transaction() as db:
-            coverage = await (
-                await db.execute(
-                    "SELECT generation FROM paper_risk_coverage WHERE account_id=?",
-                    (self.paper_account_id,),
-                )
-            ).fetchone()
-            if not coverage:
+        async with self._store.transaction():
+            generation = await self._store.account_generation(self.paper_account_id)
+            if not generation:
                 raise ValueError("Paper account not initialized")
             request = json.dumps(
-                {"request": request, "epoch": coverage["generation"]}, sort_keys=True
+                {"request": request, "epoch": generation}, sort_keys=True
             )
-            prior = await (
-                await db.execute(
-                    "SELECT payload FROM paper_match_ticks WHERE tick_id=?", (tick_id,)
-                )
-            ).fetchone()
-            if prior:
-                payload = json.loads(prior["payload"])
+            payload = await self._store.get_match_tick(tick_id)
+            if payload is not None:
                 if payload["request"] != request:
                     raise ValueError("Tick identity reused with different data")
                 return [
@@ -246,19 +217,11 @@ class PaperMatchingMixin:
                 ]
             if is_stale(age):
                 raise ValueError("Stale matching tick")
-            rows = await (
-                await db.execute(
-                    "SELECT t.order_id, t.triggered FROM paper_order_terms t JOIN paper_orders o ON o.order_id=t.order_id WHERE t.account_id=? AND o.status IN (?, ?) ORDER BY t.submitted_at, t.order_id",
-                    (
-                        self.paper_account_id,
-                        OrderStatus.SUBMITTED.value,
-                        OrderStatus.PARTIAL.value,
-                    ),
-                )
-            ).fetchall()
             results = []
-            for row in rows:
-                snap = await self._snapshot(row["order_id"])
+            for order_id, already_triggered in await self._store.open_orders_by_arrival(
+                self.paper_account_id
+            ):
+                snap = await self._snapshot(order_id)
                 order = snap.order
                 if (
                     order.time_in_force == TIF.DAY
@@ -271,7 +234,7 @@ class PaperMatchingMixin:
                 price = quote.ask if order.side == OrderSide.BUY else quote.bid
                 if (
                     isinstance(order, (StopOrder, StopLimitOrder))
-                    and not row["triggered"]
+                    and not already_triggered
                 ):
                     triggered = (
                         price >= order.stop_price
@@ -280,10 +243,7 @@ class PaperMatchingMixin:
                     )
                     if not triggered:
                         continue
-                    await db.execute(
-                        "UPDATE paper_order_terms SET triggered=1 WHERE order_id=?",
-                        (snap.order_id,),
-                    )
+                    await self._store.set_stop_triggered(snap.order_id, True)
                 if isinstance(order, (LimitOrder, StopLimitOrder)):
                     if (order.side == OrderSide.BUY and price > order.limit_price) or (
                         order.side == OrderSide.SELL and price < order.limit_price
@@ -297,12 +257,7 @@ class PaperMatchingMixin:
                 model = getattr(self, "_fee_model", None)
                 # Persisted fill evidence, rather than rounded order averages or
                 # process-local counters, is the fee basis across retries/restarts.
-                fills = await (
-                    await db.execute(
-                        "SELECT quantity, price, commission FROM paper_fill_events WHERE order_id=?",
-                        (snap.order_id,),
-                    )
-                ).fetchall()
+                fills = await self._store.fill_evidence(snap.order_id)
                 filled_quantity = sum(
                     (Decimal(f["quantity"]) for f in fills), Decimal(0)
                 )
@@ -331,14 +286,7 @@ class PaperMatchingMixin:
                 )
                 sizes[order.side] -= take
                 results.append(result)
-            await db.execute(
-                "INSERT INTO paper_match_ticks (tick_id, payload) VALUES (?, ?)",
-                (
-                    tick_id,
-                    json.dumps(
-                        {"request": request, "results": [asdict(r) for r in results]},
-                        default=str,
-                    ),
-                ),
+            await self._store.save_match_tick(
+                tick_id, {"request": request, "results": [asdict(r) for r in results]}
             )
             return results

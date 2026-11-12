@@ -5,8 +5,6 @@ from __future__ import annotations
 import asyncio
 import logging
 
-import aiosqlite
-from storage.postgres import PostgresDB
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -30,7 +28,7 @@ async def setup_brokers(
     from broker.paper import PaperBroker
 
     if isinstance(broker, PaperBroker):
-        await broker._store.init_tables()
+        await broker.orders.store.init_tables()
 
     # --- Paper trading mode: replace broker with PaperBroker ---
     _paper_store = None
@@ -42,19 +40,9 @@ async def setup_brokers(
         await _paper_store.init_tables()
 
         _initial = config.paper_trading_initial_balance
-        await db.execute(
-            """
-            INSERT INTO paper_accounts
-                (account_id, net_liquidation, buying_power, cash, maintenance_margin)
-            VALUES ('PAPER', ?, ?, ?, 0.0)
-            ON CONFLICT(account_id) DO NOTHING
-            """,
-            (_initial, _initial, _initial),
-        )
         await db.commit()
-        paper_db = await _paper_store._get_db()
-        if isinstance(paper_db, (aiosqlite.Connection, PostgresDB)):
-            for prediction_account in ("KALSHI_PAPER", "POLYMARKET_PAPER"):
+        if await _paper_store.supports_transactions():
+            for prediction_account in ("PAPER", "KALSHI_PAPER", "POLYMARKET_PAPER"):
                 await _paper_store.ensure_account(prediction_account, _initial)
         else:
             # Unknown storage cannot supply a transaction-bound paper ledger.
