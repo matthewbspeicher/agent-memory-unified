@@ -4,6 +4,7 @@ import json
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
+from uuid import uuid4
 
 import aiosqlite
 
@@ -18,8 +19,15 @@ ORDER_TERMS_KEY = "order_terms"  # the exact order the Agent proposed
 EXIT_KEY = "exit"  # whether it closes a position, and what fraction
 APPROVABLE_KEY = "approvable"  # set once the router offers it for approval
 BROKER_KEY = "broker_id"
-_STORE_KEYS = (ORDER_TERMS_KEY, EXIT_KEY, APPROVABLE_KEY, BROKER_KEY)
-_NUMERIC_TERMS = ("quantity", "limit_price", "stop_price", "trail_amount", "trail_percent")
+REVISION_KEY = "_opportunity_revision"
+_STORE_KEYS = (ORDER_TERMS_KEY, EXIT_KEY, APPROVABLE_KEY, BROKER_KEY, REVISION_KEY)
+_NUMERIC_TERMS = (
+    "quantity",
+    "limit_price",
+    "stop_price",
+    "trail_amount",
+    "trail_percent",
+)
 
 
 def _exact_terms(order) -> dict:
@@ -36,7 +44,7 @@ def _exact_terms(order) -> dict:
 
 
 def _parse_data(raw) -> dict[str, Any]:
-    return json.loads(raw) if isinstance(raw, str) else dict(raw or {})
+    return dict((json.loads(raw) if isinstance(raw, str) else raw) or {})
 
 
 class _DecimalEncoder(json.JSONEncoder):
@@ -82,6 +90,10 @@ class OpportunityStore:
     async def save(self, opp: Opportunity) -> bool:
         """Store a routed Opportunity; False if an acted-on one already has its id."""
         payload = {k: v for k, v in opp.data.items() if k not in _STORE_KEYS}
+        # A durable save identity, independent of database clock precision.
+        # Never accept an identity supplied by the Agent, even on a re-save.
+        revision = uuid4().hex
+        payload[REVISION_KEY] = revision
         payload.setdefault("asset_type", opp.symbol.asset_type.value)
         if opp.broker_id is not None:
             payload[BROKER_KEY] = opp.broker_id
@@ -125,6 +137,8 @@ class OpportunityStore:
         ) as cursor:
             written = await cursor.fetchone() is not None
         await self._db.commit()
+        if written:
+            opp.data[REVISION_KEY] = revision
         return written
 
     async def get(self, opportunity_id: str) -> dict[str, Any] | None:
@@ -181,8 +195,31 @@ class OpportunityStore:
         opportunity_id: str,
         expected: OpportunityStatus,
         to: OpportunityStatus,
+        *,
+        revision: str | None = None,
     ) -> bool:
         """Change status only if it is still `expected`; True if this call changed it."""
+        if revision is not None:
+            while True:
+                row = await self._read_metadata(opportunity_id)
+                if (
+                    row is None
+                    or row["status"] != expected.value
+                    or _parse_data(row["data"]).get(REVISION_KEY) != revision
+                ):
+                    return False
+                async with self._db.execute(
+                    "UPDATE opportunities SET status = ?, updated_at = datetime('now') "
+                    "WHERE id = ? AND status = ? "
+                    "AND COALESCE(CAST(data AS TEXT), '') = ? RETURNING id",
+                    (to.value, opportunity_id, expected.value, row["data"] or ""),
+                ) as cursor:
+                    changed = await cursor.fetchone() is not None
+                await self._db.commit()
+                if changed:
+                    return True
+                # A metadata writer may have won. Re-read, but never claim a
+                # replacement suggestion or overwrite a different status.
         async with self._db.execute(
             "UPDATE opportunities SET status = ?, updated_at = datetime('now') "
             "WHERE id = ? AND status = ? RETURNING id",
@@ -238,58 +275,91 @@ class OpportunityStore:
             else 1.0,
         )
 
-    async def mark_approvable(self, opportunity_id: str) -> None:
-        """Record that the router offered this Opportunity for approval.
+    async def _read_metadata(self, opportunity_id: str) -> dict | None:
+        # Compare the database's own text representation, including JSONB's
+        # canonical representation. No Python re-serialization in the predicate.
+        async with self._db.execute(
+            "SELECT id, status, CAST(data AS TEXT) AS data FROM opportunities WHERE id = ?",
+            (opportunity_id,),
+        ) as cursor:
+            row = await cursor.fetchone()
+        return dict(row) if row is not None else None
 
-        The router calls this right after saving, so the row is pending, or
-        was claimed in between by an approval of the Opportunity it replaced.
-        That approval sees the new offer and releases its claim.
-        """
-        offerable = (OpportunityStatus.PENDING.value, OpportunityStatus.APPROVED.value)
-        row = await self.get(opportunity_id)
-        if row is None or row["status"] not in offerable:
-            return
-        data = _parse_data(row["data"])
-        # The offer time is kept here, in UTC, because the table's own
-        # timestamps depend on the database session's time zone.
-        data[APPROVABLE_KEY] = datetime.now(timezone.utc).isoformat()
-        await self._db.execute(
-            # Only the row that was read: a save in between must not have its
-            # data overwritten with the earlier Opportunity's.
-            "UPDATE opportunities SET data = ? "
-            "WHERE id = ? AND status IN (?, ?) AND updated_at = ?",
+    async def _write_metadata(self, row: dict, data: dict) -> bool:
+        """Atomically replace only the exact payload/status read by the caller."""
+        async with self._db.execute(
+            "UPDATE opportunities SET data = ?, updated_at = datetime('now') "
+            "WHERE id = ? AND status = ? "
+            "AND COALESCE(CAST(data AS TEXT), '') = ? RETURNING id",
             (
                 json.dumps(data, cls=_DecimalEncoder),
-                opportunity_id,
-                *offerable,
-                row["updated_at"],
+                row["id"],
+                row["status"],
+                row["data"] or "",
             ),
-        )
+        ) as cursor:
+            changed = await cursor.fetchone() is not None
         await self._db.commit()
+        return changed
+
+    async def mark_approvable(
+        self, opportunity_id: str, *, revision: str | None
+    ) -> bool:
+        """Offer the exact save that passed the router's gates; never a replacement."""
+        if not revision:
+            return False
+        while True:
+            row = await self._read_metadata(opportunity_id)
+            if row is None or row["status"] != OpportunityStatus.PENDING.value:
+                return False
+            data = _parse_data(row["data"])
+            if data.get(REVISION_KEY) != revision:
+                return False
+            if data.get(APPROVABLE_KEY):
+                return True  # Publishing twice never extends approval freshness.
+            data[APPROVABLE_KEY] = datetime.now(timezone.utc).isoformat()
+            if await self._write_metadata(row, data):
+                return True
+
+    async def offer_identity(
+        self, opportunity_id: str
+    ) -> tuple[str | None, datetime | None]:
+        """The durable revision and offer time from one database snapshot."""
+        row = await self.get(opportunity_id)
+        data = _parse_data(row["data"]) if row else {}
+        offered = data.get(APPROVABLE_KEY)
+        try:
+            timestamp = _utc(offered) if isinstance(offered, str) else None
+        except ValueError:
+            timestamp = None
+        return data.get(REVISION_KEY), timestamp
 
     async def offered_at(self, opportunity_id: str) -> datetime | None:
         """When the router offered this Opportunity for approval, if it did."""
-        row = await self.get(opportunity_id)
-        offered = _parse_data(row["data"]).get(APPROVABLE_KEY) if row else None
-        try:
-            return _utc(offered) if isinstance(offered, str) else None
-        except ValueError:
-            return None
+        return (await self.offer_identity(opportunity_id))[1]
 
     async def is_approvable(self, opportunity_id: str) -> bool:
         return await self.offered_at(opportunity_id) is not None
 
-    async def update_data(self, opportunity_id: str, data: dict[str, Any]) -> None:
-        """Replace the Agent's data, keeping the keys the store owns."""
-        row = await self.get(opportunity_id)
-        kept = _parse_data(row["data"]) if row else {}
-        merged = {k: v for k, v in data.items() if k not in _STORE_KEYS}
-        merged.update({k: kept[k] for k in _STORE_KEYS if k in kept})
-        await self._db.execute(
-            "UPDATE opportunities SET data = ?, updated_at = datetime('now') WHERE id = ?",
-            (json.dumps(merged, cls=_DecimalEncoder), opportunity_id),
-        )
-        await self._db.commit()
+    async def update_data(
+        self, opportunity_id: str, data: dict[str, Any], *, revision: str | None = None
+    ) -> bool:
+        """Merge a metadata patch, preserving current store-owned control fields.
+
+        Execution callers bind their patch to the save they processed. An
+        unbound patch still cannot replace reserved keys or lose a new offer.
+        """
+        patch = {k: v for k, v in data.items() if k not in _STORE_KEYS}
+        while True:
+            row = await self._read_metadata(opportunity_id)
+            if row is None:
+                return False
+            merged = _parse_data(row["data"])
+            if revision is not None and merged.get(REVISION_KEY) != revision:
+                return False
+            merged.update(patch)
+            if await self._write_metadata(row, merged):
+                return True
 
     async def save_snapshot(
         self, opportunity_id: str, snapshot: dict[str, Any]

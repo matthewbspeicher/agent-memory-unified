@@ -41,6 +41,7 @@ if TYPE_CHECKING:
     from achievements.tracker import AchievementTracker
 
 from execution.shadow import ShadowDecisionStatus
+from storage.opportunities import REVISION_KEY
 
 
 from opentelemetry import trace
@@ -390,7 +391,11 @@ class OpportunityRouter:
             }
             if hasattr(self._store, "update_data"):
                 try:
-                    await self._store.update_data(str(opportunity.id), opportunity.data)
+                    await self._store.update_data(
+                        str(opportunity.id),
+                        {"confidence_calibration": opportunity.data["confidence_calibration"]},
+                        revision=opportunity.data.get(REVISION_KEY),
+                    )
                 except Exception as exc:
                     logger.warning(
                         "Failed to persist confidence calibration metadata for %s: %s",
@@ -608,7 +613,9 @@ class OpportunityRouter:
                 # Only an Opportunity that reached this point may be approved:
                 # it passed the experiment, regime and timeframe gates, and its
                 # Agent is allowed to suggest trades (agents/approval.py).
-                await self._store.mark_approvable(opportunity.id)
+                await self._store.mark_approvable(
+                    opportunity.id, revision=opportunity.data.get(REVISION_KEY)
+                )
                 return
 
             if action_level == ActionLevel.AUTO_EXECUTE:
@@ -1258,7 +1265,11 @@ class OpportunityRouter:
                     opportunity.data["execution_receipt"] = receipt
                     opportunity.status = OpportunityStatus.RECONCILIATION_REQUIRED
                     await self._store.update_status(opportunity.id, opportunity.status)
-                    await self._store.update_data(opportunity.id, opportunity.data)
+                    await self._store.update_data(
+                        opportunity.id,
+                        {"execution_receipt": receipt},
+                        revision=opportunity.data.get(REVISION_KEY),
+                    )
                     if self._trade_store:
                         await self._trade_store.save_trade(
                             opportunity.id, receipt, {"passed": True},

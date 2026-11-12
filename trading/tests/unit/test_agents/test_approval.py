@@ -35,7 +35,7 @@ from risk.engine import RiskEngine
 from risk.kill_switch import KillSwitch
 from risk.rules import MaxDailyLoss, MaxDailyTrades, PortfolioContext
 from storage.db import init_db
-from storage.opportunities import ORDER_TERMS_KEY, OpportunityStore
+from storage.opportunities import ORDER_TERMS_KEY, REVISION_KEY, OpportunityStore
 from tests.execution_controls import AdmissionLuaDouble
 
 SYMBOL = Symbol("MKT", AssetType.PREDICTION)
@@ -78,7 +78,7 @@ async def store():
 async def offer(store, opp):
     """Save an Opportunity the way the router does for a suggest_trade Agent."""
     await store.save(opp)
-    await store.mark_approvable(opp.id)
+    await store.mark_approvable(opp.id, revision=opp.data.get(REVISION_KEY))
 
 
 async def offered(store, ago, id="opp-1"):
@@ -281,10 +281,10 @@ async def test_order_replaced_while_being_claimed_is_not_executed(store):
     bigger.quantity = Decimal("500")
     claim = store.transition
 
-    async def replaced_just_before_the_claim(*args):
+    async def replaced_just_before_the_claim(*args, **kwargs):
         store.transition = claim
         await offer(store, opportunity(trade=bigger))
-        return await claim(*args)
+        return await claim(*args, **kwargs)
 
     store.transition = replaced_just_before_the_claim
     router = FakeRouter(store)
@@ -397,10 +397,10 @@ async def test_cancellation_during_the_claim_gives_the_claim_back(store):
     claim = store.transition
     landed = asyncio.Event()
 
-    async def slow_claim(*args):
+    async def slow_claim(*args, **kwargs):
         store.transition = claim
         await asyncio.sleep(0.01)
-        changed = await claim(*args)
+        changed = await claim(*args, **kwargs)
         landed.set()
         return changed
 
@@ -458,7 +458,7 @@ async def test_suggestion_without_a_quantity_leaves_it_to_sizing(store):
 
 async def test_failure_before_execution_starts_releases_the_claim(store):
     await offer(store, opportunity())
-    read = store.offered_at
+    read = store.offer_identity
     calls = []
 
     async def fails_after_the_claim(opportunity_id):
@@ -467,7 +467,7 @@ async def test_failure_before_execution_starts_releases_the_claim(store):
             raise asyncio.CancelledError
         return await read(opportunity_id)
 
-    store.offered_at = fails_after_the_claim
+    store.offer_identity = fails_after_the_claim
     router = FakeRouter(store)
     with pytest.raises(asyncio.CancelledError):
         await approver(store, router).approve("opp-1")
@@ -481,11 +481,12 @@ async def test_replacement_offered_while_claimed_ends_pending_and_offered(store)
     bigger.quantity = Decimal("500")
     claim = store.transition
 
-    async def replaced_then_offered_around_the_claim(*args):
+    async def replaced_then_offered_around_the_claim(*args, **kwargs):
         store.transition = claim
-        await store.save(opportunity(trade=bigger))  # the router saves...
-        claimed = await claim(*args)
-        await store.mark_approvable("opp-1")  # ...and offers after the claim
+        replacement = opportunity(trade=bigger)
+        await store.save(replacement)  # the router saves...
+        claimed = await claim(*args, **kwargs)
+        await store.mark_approvable("opp-1", revision=replacement.data[REVISION_KEY])
         return claimed
 
     store.transition = replaced_then_offered_around_the_claim
@@ -749,3 +750,85 @@ async def test_a_notify_only_opportunity_routed_for_real_cannot_be_approved(stor
     with pytest.raises(ApprovalRefused) as refused:
         await approver(store, router).approve("opp-1")
     assert refused.value.reason == "not_approvable"
+
+
+async def test_unversioned_offer_requires_a_fresh_route_without_losing_the_row(store):
+    await offer(store, opportunity())
+    row = await store.get('opp-1')
+    payload = json.loads(row['data'])
+    del payload[REVISION_KEY]
+    await store._db.execute('UPDATE opportunities SET data=? WHERE id=?', (json.dumps(payload), 'opp-1'))
+    await store._db.commit()
+    router = FakeRouter(store)
+    with pytest.raises(ApprovalRefused) as refused:
+        await approver(store, router).approve('opp-1')
+    assert refused.value.reason == 'not_approvable'
+    assert await status_of(store) == 'pending'
+    assert router.executed == []
+    await offer(store, opportunity())
+    assert (await approver(store, router).approve('opp-1')).status == OpportunityStatus.EXECUTED
+
+
+async def test_shown_revision_refuses_a_new_offer_even_if_the_clock_repeats(store):
+    first = opportunity()
+    await offer(store, first)
+    shown = await store.offered_at(first.id)
+    replacement = opportunity()
+    replacement.suggested_trade.quantity = Decimal(500)
+    await offer(store, replacement)
+    row = await store.get(first.id)
+    payload = json.loads(row['data'])
+    payload['approvable'] = shown.isoformat()
+    await store._db.execute('UPDATE opportunities SET data=? WHERE id=?', (json.dumps(payload), first.id))
+    await store._db.commit()
+    router = FakeRouter(store)
+    with pytest.raises(ApprovalRefused) as refused:
+        await approver(store, router).approve(first.id, shown_offer=shown, shown_revision=first.data[REVISION_KEY])
+    assert refused.value.reason == 'changed'
+    assert router.executed == []
+    assert await status_of(store) == 'pending'
+
+
+async def test_replacement_between_offer_and_load_is_refused_even_with_same_offer_time(store):
+    first = opportunity()
+    await offer(store, first)
+    shown = await store.offered_at(first.id)
+    load = store.load
+
+    async def replace(oid):
+        store.load = load
+        replacement = opportunity()
+        replacement.suggested_trade.quantity = Decimal(500)
+        await offer(store, replacement)
+        payload = json.loads((await store.get(oid))['data'])
+        payload['approvable'] = shown.isoformat()
+        await store._db.execute('UPDATE opportunities SET data=? WHERE id=?', (json.dumps(payload), oid))
+        await store._db.commit()
+        return await load(oid)
+
+    store.load = replace
+    router = FakeRouter(store)
+    with pytest.raises(ApprovalRefused) as refused:
+        await approver(store, router).approve(first.id)
+    assert refused.value.reason == 'changed'
+    assert router.executed == []
+    assert await status_of(store) == 'pending'
+
+
+async def test_stale_expiry_cannot_expire_a_replacement(store):
+    first = opportunity(expires_at=datetime.now(timezone.utc) - timedelta(seconds=1))
+    await offer(store, first)
+    transition = store.transition
+
+    async def replace_before_expiring(*args, **kwargs):
+        store.transition = transition
+        await offer(store, opportunity())
+        return await transition(*args, **kwargs)
+
+    store.transition = replace_before_expiring
+    router = FakeRouter(store)
+    with pytest.raises(ApprovalRefused) as refused:
+        await approver(store, router).approve(first.id)
+    assert refused.value.reason == 'changed'
+    assert router.executed == []
+    assert await status_of(store) == 'pending'
