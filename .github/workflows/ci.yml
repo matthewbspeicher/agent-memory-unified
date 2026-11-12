@@ -104,6 +104,8 @@ jobs:
           tests/integration/test_portfolio_exposure_reservations.py
           tests/integration/test_partial_fill_commissions.py
           tests/integration/test_automatic_paper_matching.py
+          tests/integration/test_opportunity_revisions.py
+          tests/integration/test_paper_opportunity_approval.py
           -o addopts= -m "integration and not live_paper" --timeout=30
 
   frontend-tests:

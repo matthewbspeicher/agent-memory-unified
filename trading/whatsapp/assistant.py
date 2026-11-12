@@ -7,6 +7,7 @@ if TYPE_CHECKING:
     from whatsapp.proactive import HermesProactiveOps
 
 from agents.models import OpportunityStatus
+from storage.opportunities import REVISION_KEY
 from whatsapp.commands import parse_command
 from whatsapp.confirmation import ConfirmationGate, PendingAction
 
@@ -198,7 +199,7 @@ class WhatsAppAssistant:
         elif name == "approve" and args:
             # Read the offer before the order it covers, so an order replaced
             # in between is refused at confirmation for its newer offer.
-            offered_at = await self._opp_store.offered_at(args[0])
+            revision, offered_at = await self._opp_store.offer_identity(args[0])
             opp = await self._opp_store.load(args[0])
             if not opp:
                 await self._client.send_text(phone, f"Opportunity {args[0]} not found.")
@@ -214,12 +215,17 @@ class WhatsAppAssistant:
                     phone, f"Opportunity {args[0]} was not offered for approval."
                 )
                 return
+            if not revision or opp.data.get(REVISION_KEY) != revision:
+                await self._client.send_text(
+                    phone, f"Opportunity {args[0]} changed or needs a fresh offer. Review it again."
+                )
+                return
             # Approving places the order, so it takes the same confirmation as
             # /buy, and applies only to the offer shown here.
             token = self._confirmation.create(
                 phone,
                 "approve_opportunity",
-                {"id": args[0], "offered_at": offered_at},
+                {"id": args[0], "offered_at": offered_at, "revision": revision},
             )
             await self._client.send_text(
                 phone,
@@ -557,12 +563,20 @@ class WhatsAppAssistant:
             from agents.approval import ApprovalRefused
 
             opportunity_id = action.data["id"]
+            revision = action.data.get("revision")
+            if not revision:
+                await self._client.send_text(
+                    phone, "Not approved: request a fresh versioned offer."
+                )
+                return
             if self._approver is None:
                 await self._client.send_text(phone, "Approval is not available.")
                 return
             try:
                 outcome = await self._approver.approve(
-                    opportunity_id, shown_offer=action.data["offered_at"]
+                    opportunity_id,
+                    shown_offer=action.data["offered_at"],
+                    shown_revision=revision,
                 )
             except ApprovalRefused as refused:
                 await self._client.send_text(

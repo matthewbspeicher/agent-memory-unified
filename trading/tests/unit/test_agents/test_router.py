@@ -105,7 +105,9 @@ class TestOpportunityRouter:
 
         saved_opp = store.save.call_args[0][0]
         assert saved_opp.status == OpportunityStatus.PENDING
-        store.mark_approvable.assert_awaited_once_with(saved_opp.id)
+        store.mark_approvable.assert_awaited_once_with(
+            saved_opp.id, revision=saved_opp.data.get("_opportunity_revision")
+        )
 
     @pytest.mark.asyncio
     async def test_auto_execute_with_kill_switch(self) -> None:

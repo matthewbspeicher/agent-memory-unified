@@ -19,7 +19,7 @@ import pytest
 from agents.approval import ApprovalRefused, OpportunityApprover
 from agents.models import Opportunity, OpportunityStatus
 from broker.models import TIF, AssetType, LimitOrder, OrderSide, Symbol
-from storage.opportunities import OpportunityStore
+from storage.opportunities import REVISION_KEY, OpportunityStore
 from storage.postgres import PostgresDB
 
 pytestmark = pytest.mark.integration
@@ -118,7 +118,9 @@ async def test_expiry_round_trips_as_the_same_instant(store):
 
 async def test_stored_order_and_offer_survive(store):
     await store.save(opportunity())
-    await store.mark_approvable("opp-1")
+    await store.mark_approvable(
+        "opp-1", revision=(await store.load("opp-1")).data[REVISION_KEY]
+    )
     loaded = await store.load("opp-1")
     assert loaded.suggested_trade.limit_price == Decimal("0.57")
     assert loaded.broker_id == "kalshi_paper"
@@ -128,7 +130,9 @@ async def test_stored_order_and_offer_survive(store):
 
 async def test_simultaneous_approvals_place_one_order(store):
     await store.save(opportunity())
-    await store.mark_approvable("opp-1")
+    await store.mark_approvable(
+        "opp-1", revision=(await store.load("opp-1")).data[REVISION_KEY]
+    )
     router = Router(store)
     results = await asyncio.gather(
         *(approver(store, router).approve("opp-1") for _ in range(3)),
@@ -143,7 +147,9 @@ async def test_simultaneous_approvals_place_one_order(store):
 async def test_approval_past_expiry_is_refused(store):
     past = datetime.now(timezone.utc) - timedelta(minutes=1)
     await store.save(opportunity(expires_at=past))
-    await store.mark_approvable("opp-1")
+    await store.mark_approvable(
+        "opp-1", revision=(await store.load("opp-1")).data[REVISION_KEY]
+    )
     router = Router(store)
     with pytest.raises(ApprovalRefused) as refused:
         await approver(store, router).approve("opp-1")
@@ -155,6 +161,8 @@ async def test_approval_past_expiry_is_refused(store):
 async def test_approval_before_expiry_executes(store):
     soon = datetime.now(timezone.utc) + timedelta(minutes=30)
     await store.save(opportunity(expires_at=soon))
-    await store.mark_approvable("opp-1")
+    await store.mark_approvable(
+        "opp-1", revision=(await store.load("opp-1")).data[REVISION_KEY]
+    )
     outcome = await approver(store, Router(store)).approve("opp-1")
     assert outcome.status == OpportunityStatus.EXECUTED

@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from whatsapp.assistant import WhatsAppAssistant
 from agents.models import Opportunity
+from storage.opportunities import REVISION_KEY
 from broker.models import (
     AccountBalance,
     AssetType,
@@ -57,6 +58,7 @@ def deps():
     runner = MagicMock()
     runner.list_agents = MagicMock(return_value=[])
     opp_store = AsyncMock()
+    opp_store.offer_identity = AsyncMock(return_value=(None, None))
     opp_store.list = AsyncMock(return_value=[])
     risk_engine = MagicMock()
     risk_engine.set_halted = AsyncMock(return_value=[])
@@ -242,7 +244,7 @@ def _suggestion(trade=_TRADE):
         signal="BREAKOUT",
         confidence=0.8,
         reasoning="test",
-        data={},
+        data={REVISION_KEY: "saved-revision"},
         timestamp=datetime.now(timezone.utc),
         suggested_trade=trade,
     )
@@ -254,7 +256,7 @@ async def test_approve_command_asks_for_confirmation_before_placing_an_order(
 ):
     client, opp_store = deps[0], deps[3]
     opp_store.load = AsyncMock(return_value=_suggestion())
-    opp_store.offered_at = AsyncMock(return_value=_OFFERED)
+    opp_store.offer_identity = AsyncMock(return_value=("saved-revision", _OFFERED))
     assistant._approver = AsyncMock()
     await assistant.handle("15551234567", "/approve opp-1", "msg-4")
     opp_store.update_status.assert_not_called()
@@ -279,7 +281,7 @@ async def test_approve_command_refuses_an_opportunity_that_was_not_offered(
 ):
     client, opp_store = deps[0], deps[3]
     opp_store.load = AsyncMock(return_value=_suggestion())
-    opp_store.offered_at = AsyncMock(return_value=None)
+    opp_store.offer_identity = AsyncMock(return_value=("saved-revision", None))
     await assistant.handle("15551234567", "/approve opp-1", "msg-4")
     assert not assistant._confirmation.has_pending("15551234567")
     assert "not offered" in client.send_text.call_args[0][1]
@@ -292,7 +294,7 @@ async def test_confirmed_approval_executes_and_reports_the_outcome(assistant, de
 
     client, opp_store = deps[0], deps[3]
     opp_store.load = AsyncMock(return_value=_suggestion())
-    opp_store.offered_at = AsyncMock(return_value=_OFFERED)
+    opp_store.offer_identity = AsyncMock(return_value=("saved-revision", _OFFERED))
     assistant._approver = AsyncMock()
     assistant._approver.approve.return_value = ApprovalOutcome(
         "opp-1", OpportunityStatus.EXECUTED, "Order filled."
@@ -301,7 +303,7 @@ async def test_confirmed_approval_executes_and_reports_the_outcome(assistant, de
     await assistant.handle("15551234567", "YES", "msg-5")
     # The confirmation covers only the offer that was shown.
     assistant._approver.approve.assert_awaited_once_with(
-        "opp-1", shown_offer=_OFFERED
+        "opp-1", shown_offer=_OFFERED, shown_revision="saved-revision"
     )
     assert "executed" in client.send_text.call_args[0][1]
 
@@ -312,7 +314,7 @@ async def test_refused_approval_is_reported_with_its_reason(assistant, deps):
 
     client, opp_store = deps[0], deps[3]
     opp_store.load = AsyncMock(return_value=_suggestion())
-    opp_store.offered_at = AsyncMock(return_value=_OFFERED)
+    opp_store.offer_identity = AsyncMock(return_value=("saved-revision", _OFFERED))
     assistant._approver = AsyncMock()
     assistant._approver.approve.side_effect = ApprovalRefused(
         "expired", "Opportunity expired at noon"
@@ -532,3 +534,22 @@ async def test_handle_control_persistence_failure_never_reports_success(
     message = deps[0].send_text.await_args.args[1]
     assert "update failed" in message
     assert "ENABLED" not in message and "DISABLED" not in message
+
+
+@pytest.mark.asyncio
+async def test_approve_prompt_refuses_a_different_saved_revision(assistant, deps):
+    client, opp_store = deps[0], deps[3]
+    opp_store.load = AsyncMock(return_value=_suggestion())
+    opp_store.offer_identity = AsyncMock(return_value=('different-revision', _OFFERED))
+    await assistant.handle('15551234567', '/approve opp-1', 'msg-revision')
+    assert not assistant._confirmation.has_pending('15551234567')
+    assert 'changed' in client.send_text.call_args[0][1]
+
+
+@pytest.mark.asyncio
+async def test_confirmation_without_a_saved_revision_requires_a_fresh_offer(assistant, deps):
+    assistant._approver = AsyncMock()
+    assistant._confirmation.create('15551234567', 'approve_opportunity', {'id': 'opp-1', 'offered_at': _OFFERED})
+    await assistant.handle('15551234567', 'YES', 'msg-legacy-confirmation')
+    assistant._approver.approve.assert_not_awaited()
+    assert 'fresh versioned offer' in deps[0].send_text.call_args[0][1]
