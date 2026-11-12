@@ -1,6 +1,7 @@
 from __future__ import annotations
 import json
-from datetime import datetime, timedelta
+import logging
+from datetime import datetime, timedelta, timezone
 
 import aiosqlite
 
@@ -22,9 +23,17 @@ from integrations.bittensor.models import (
 )
 
 
+logger = logging.getLogger(__name__)
+
+# The ranking of a miner across every symbol, as the weight setter reads it.
+AGGREGATE = "aggregate"
+
+
 class BittensorStore:
     def __init__(self, db: aiosqlite.Connection) -> None:
         self._db = db
+        # None until the rankings table's key has been looked up.
+        self._per_symbol_rankings: bool | None = None
 
     # ------------------------------------------------------------------
     # Raw forecasts
@@ -446,7 +455,7 @@ class BittensorStore:
                    {where_clause}
                    ORDER BY evaluated_at DESC
                    LIMIT ?
-               )""",
+               ) AS recent""",
             tuple(params),
         )
         row = await cursor.fetchone()
@@ -548,6 +557,8 @@ class BittensorStore:
 
     async def update_miner_ranking(self, ranking: MinerRanking) -> None:
         """Upsert a miner's ranking metrics for a specific symbol."""
+        if ranking.symbol != AGGREGATE and not await self._rankings_keyed_by_symbol():
+            return
         await self._db.execute(
             """INSERT OR REPLACE INTO bittensor_miner_rankings
                (miner_hotkey, symbol, windows_evaluated, direction_accuracy, mean_magnitude_error,
@@ -569,6 +580,40 @@ class BittensorStore:
             ),
         )
         await self._db.commit()
+
+    async def _rankings_keyed_by_symbol(self) -> bool:
+        """Whether the rankings table can hold a row per symbol for a miner.
+
+        A PostgreSQL table created before rankings were per symbol is keyed by
+        miner alone, and nothing changes that key. There a ranking for each
+        symbol would overwrite the miner's one row in turn, so that a reader in
+        the middle of a refresh found some miners' aggregate rankings missing.
+        Such a table keeps aggregate rankings only.
+        """
+        if self._per_symbol_rankings is None:
+            if not hasattr(self._db, "fetchone"):  # SQLite: the engine's own DDL
+                self._per_symbol_rankings = True
+                return True
+            row = await self._db.fetchone(
+                """SELECT to_regclass('bittensor_miner_rankings') IS NOT NULL AS found,
+                          EXISTS (
+                              SELECT 1 FROM pg_index i
+                              JOIN pg_attribute a
+                                ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
+                              WHERE i.indrelid = to_regclass('bittensor_miner_rankings')
+                                AND i.indisunique AND a.attname = 'symbol'
+                          ) AS by_symbol"""
+            )
+            if not row or not row["found"]:
+                return True  # not remembered: the write itself will report it
+            self._per_symbol_rankings = bool(row["by_symbol"])
+            if not self._per_symbol_rankings:
+                logger.warning(
+                    "bittensor_miner_rankings is keyed by miner alone, so only"
+                    " aggregate rankings are stored. Per-symbol rankings need its"
+                    " key changed to (miner_hotkey, symbol)."
+                )
+        return self._per_symbol_rankings
 
     async def get_miner_rankings(
         self, limit: int = 50, symbol: str | None = None
@@ -603,7 +648,10 @@ class BittensorStore:
             latest_incentive_score=_number(r["latest_incentive_score"]),
             hybrid_score=_number(r["hybrid_score"]),
             alpha_used=_number(r["alpha_used"]),
-            updated_at=stored_datetime(r["updated_at"]),
+            # The bootstrap script's column allows NULL.
+            updated_at=stored_datetime(r["updated_at"])
+            if r["updated_at"]
+            else datetime.fromtimestamp(0, timezone.utc),
         )
 
     # ------------------------------------------------------------------

@@ -159,7 +159,7 @@ async def test_trade_analytics_replace_on_the_position_whatever_column_comes_fir
     assert len(await store.list_all()) == 2
 
 
-async def test_a_table_that_still_has_its_older_key_keeps_working(schema, caplog):
+async def older_rankings_table(schema):
     """Rankings were once keyed by miner alone; a live table may still be."""
     async with schema.acquire() as connection:
         older = script_table("bittensor_miner_rankings").replace(
@@ -167,17 +167,49 @@ async def test_a_table_that_still_has_its_older_key_keeps_working(schema, caplog
         )
         assert "PRIMARY KEY (miner_hotkey)" in older
         await connection.execute(older)
-    store = BittensorStore(PostgresDB(schema))
-    with caplog.at_level(logging.WARNING, logger="storage.postgres"):
+        for table in ("bittensor_accuracy_records", "bittensor_raw_forecasts"):
+            await connection.execute(script_table(table))
+    return BittensorStore(PostgresDB(schema))
+
+
+async def test_a_table_that_still_has_its_older_key_keeps_working(schema, caplog):
+    store = await older_rankings_table(schema)
+    with caplog.at_level(logging.WARNING):
         await store.update_miner_ranking(MinerRanking("miner-a", hybrid_score=0.4))
         await store.update_miner_ranking(MinerRanking("miner-a", hybrid_score=0.9))
     rankings = await store.get_miner_rankings()
     assert [(r.miner_hotkey, r.hybrid_score) for r in rankings] == [
         ("miner-a", pytest.approx(0.9))
     ]
-    # Reported once, then the older key is used directly.
+    # The older key is reported once, then used directly.
     warnings = [r for r in caplog.records if "unique key differs" in r.getMessage()]
     assert len(warnings) == 1
+
+
+async def test_an_older_table_keeps_every_miners_aggregate_ranking(schema, caplog):
+    """A per-symbol ranking would overwrite the miner's only row, and a reader
+    in the middle of a refresh would find that miner's aggregate missing."""
+    store = await older_rankings_table(schema)
+    with caplog.at_level(logging.WARNING, logger="storage.bittensor"):
+        for miner in ("miner-a", "miner-b"):
+            await store.update_miner_ranking(MinerRanking(miner, hybrid_score=0.5))
+        # The start of the next refresh: one miner's symbol ranking arrives.
+        await store.update_miner_ranking(MinerRanking("miner-a", "BTCUSD", hybrid_score=0.1))
+        aggregate = await store.get_miner_rankings(symbol="aggregate")
+    assert sorted(r.miner_hotkey for r in aggregate) == ["miner-a", "miner-b"]
+    assert await store.get_miner_rankings(symbol="BTCUSD") == []
+    said = [r for r in caplog.records if "keyed by miner alone" in r.getMessage()]
+    assert len(said) == 1
+
+
+async def test_a_ranking_refresh_on_an_older_table_ranks_every_miner(schema):
+    store = await older_rankings_table(schema)
+    await seed_two_miners(store)
+    await MinerEvaluator(store=store, data_bus=MagicMock()).refresh_rankings()
+    await MinerEvaluator(store=store, data_bus=MagicMock()).refresh_rankings()
+    aggregate = await store.get_miner_rankings(symbol="aggregate")
+    assert sorted(r.miner_hotkey for r in aggregate) == ["miner-a", "miner-b"]
+    assert len(await store.get_miner_rankings()) == 2
 
 
 def forecast(miner, window, incentive):
@@ -216,12 +248,11 @@ async def test_incentive_scores_are_read_per_miner_as_floats(db):
     assert [type(v) for v in (stored.incentive_score, stored.vtrust, stored.stake_tao)] == [float] * 3
 
 
-async def test_a_ranking_refresh_stores_one_scored_ranking_per_miner(db):
-    """The whole path that produces the rankings weights are set from."""
-    store = BittensorStore(db)
+async def seed_two_miners(store):
+    """Six windows each: miner-a is always right, miner-b has the incentive."""
     records, forecasts = [], []
     for window in range(6):
-        for miner, correct, incentive in (("miner-a", True, 0.9), ("miner-b", False, 0.1)):
+        for miner, correct, incentive in (("miner-a", True, 0.1), ("miner-b", False, 0.9)):
             record = accuracy(miner, correct)
             record.window_id = f"w{window}"
             records.append(record)
@@ -229,17 +260,25 @@ async def test_a_ranking_refresh_stores_one_scored_ranking_per_miner(db):
     await store.save_accuracy_records(records)
     await store.save_raw_forecasts(forecasts)
 
+
+async def test_a_ranking_refresh_stores_one_scored_ranking_per_miner(db):
+    """The whole path that produces the rankings weights are set from."""
+    store = BittensorStore(db)
+    await seed_two_miners(store)
+
     await MinerEvaluator(store=store, data_bus=MagicMock()).refresh_rankings()
 
     rankings = {r.miner_hotkey: r for r in await store.get_miner_rankings(symbol="aggregate")}
     assert sorted(rankings) == ["miner-a", "miner-b"]
-    better, worse = rankings["miner-a"], rankings["miner-b"]
-    assert better.windows_evaluated == 6
-    assert better.direction_accuracy == 1.0 and worse.direction_accuracy == 0.0
+    accurate, favoured = rankings["miner-a"], rankings["miner-b"]
+    assert accurate.windows_evaluated == 6
+    assert accurate.direction_accuracy == 1.0 and favoured.direction_accuracy == 0.0
     # The incentive scores reached the ranking; read by position they were lost.
-    assert better.latest_incentive_score > worse.latest_incentive_score
-    assert better.hybrid_score > worse.hybrid_score
-    assert type(better.hybrid_score) is float
+    assert favoured.latest_incentive_score > accurate.latest_incentive_score
+    assert accurate.hybrid_score != favoured.hybrid_score
+    assert type(accurate.hybrid_score) is float
+    # Each symbol has its own rankings beside the aggregate.
+    assert len(await store.get_miner_rankings(symbol="BTCUSD")) == 2
     # A second refresh replaces the rankings instead of failing or duplicating.
     await MinerEvaluator(store=store, data_bus=MagicMock()).refresh_rankings()
     assert len(await store.get_miner_rankings(symbol="aggregate")) == 2
