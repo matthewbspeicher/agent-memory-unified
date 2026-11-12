@@ -356,21 +356,10 @@ class TestSimulatedBroker:
     @pytest.mark.asyncio
     async def test_reset_clears_positions_and_restores_balance(self):
         broker, store = self._make_broker(balance=7500.0)
-        db = _make_db_mock()
-        store._get_db = AsyncMock(return_value=db)
-        # executescript is not on AsyncMock by default, mock it explicitly
-        db.executescript = AsyncMock()
-        db.execute = AsyncMock()
-        db.commit = AsyncMock()
         await broker.reset()
-        assert db.execute.await_count == 7
-        assert all(
-            "DELETE FROM" in call.args[0] for call in db.execute.await_args_list[:4]
-        )
-        store.initialize_risk_coverage.assert_awaited_once_with(
-            PAPER_ACCOUNT_ID, fresh=True
-        )
-        db.commit.assert_called()
+        # What reset clears is the Paper ledger's concern; see
+        # test_paper_risk_context.py for the behaviour against a real store.
+        store.reset_account.assert_awaited_once_with(PAPER_ACCOUNT_ID, 7500.0)
 
     @pytest.mark.asyncio
     async def test_buy_order_reduces_balance_via_record_fill(self):

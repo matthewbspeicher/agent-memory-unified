@@ -314,13 +314,7 @@ class TrackedPositionStore(PaperStore):
     ):
         db = await self._get_db()
         if expected_epoch is not None:
-            coverage = await (
-                await db.execute(
-                    "SELECT generation FROM paper_risk_coverage WHERE account_id=?",
-                    (account,),
-                )
-            ).fetchone()
-            if not coverage or coverage["generation"] != expected_epoch:
+            if await self.account_generation(account) != expected_epoch:
                 raise ValueError(
                     "Paper account generation changed before fill projection"
                 )
