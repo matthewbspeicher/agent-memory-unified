@@ -5,6 +5,7 @@ from functools import wraps
 
 from storage.paper import PaperStore
 from storage.postgres import PostgresDB
+from storage.unit_of_work import UnitOfWork
 
 
 def atomic(method):
@@ -20,10 +21,21 @@ def atomic(method):
 import aiosqlite
 
 
-class TrackedPositionStore(PaperStore):
+class TrackedPositionStore:
     def __init__(self, db: aiosqlite.Connection) -> None:
-        super().__init__(db)
+        self._uow = UnitOfWork(db)
+        # Reads the Paper ledger on this store's own transaction.
+        self._ledger = PaperStore(unit_of_work=self._uow)
         self._initialized = False
+
+    async def _get_db(self):
+        return await self._uow.handle()
+
+    async def close(self) -> None:
+        await self._uow.close()
+
+    def transaction(self):
+        return self._uow.transaction()
 
     @atomic
     async def open_position(
@@ -167,17 +179,10 @@ class TrackedPositionStore(PaperStore):
     async def init_tables(self):
         if self._initialized:
             return
-        async with self._lock:
+        async with self._uow.exclusive():
             if self._initialized:
                 return
-            db = self._db
-            if isinstance(db, aiosqlite.Connection) and not self._owns_db:
-                rows = await (await db.execute("PRAGMA database_list")).fetchall()
-                filename = next((row[2] for row in rows if row[1] == "main"), "")
-                if filename:
-                    self._db = await aiosqlite.connect(filename)
-                    self._db.row_factory = aiosqlite.Row
-                    self._owns_db = True
+            await self._uow.adopt_dedicated_connection(busy_timeout=False)
         async with self.transaction() as db:
             if isinstance(db, PostgresDB):
                 await db.execute(
@@ -314,7 +319,7 @@ class TrackedPositionStore(PaperStore):
     ):
         db = await self._get_db()
         if expected_epoch is not None:
-            if await self.account_generation(account) != expected_epoch:
+            if await self._ledger.account_generation(account) != expected_epoch:
                 raise ValueError(
                     "Paper account generation changed before fill projection"
                 )

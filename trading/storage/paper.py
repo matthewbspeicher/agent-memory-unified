@@ -1,6 +1,4 @@
 import json
-import asyncio
-from contextlib import asynccontextmanager
 from datetime import datetime, timezone, timedelta
 from dataclasses import replace
 import uuid
@@ -20,94 +18,29 @@ from broker.order_terms import decode_order, encode_order, order_payload
 
 import aiosqlite
 from storage.postgres import PostgresDB
-
-
-class PaperWriteNotStarted(RuntimeError):
-    """Admission failed before a paper transaction could mutate any state."""
+from storage.unit_of_work import UnitOfWork
 
 
 class PaperStore:
-    def __init__(self, db=None):
-        self._db = db
-        self._owns_db = False
-        self._closed = False
-        self._lock = asyncio.Lock()
-        self._transaction_owner = None
-        self._transaction_db = None
-        self._is_postgres = not isinstance(db, aiosqlite.Connection) if db else False
+    def __init__(self, db=None, *, unit_of_work: UnitOfWork | None = None):
+        if db is not None and unit_of_work is not None:
+            raise ValueError("Pass a database or a unit of work, not both")
+        self._uow = unit_of_work or UnitOfWork(db)
+        self._is_postgres = self._uow.is_postgres
+
+    @property
+    def _db(self):
+        return self._uow._db
 
     async def _get_db(self):
-        if self._closed:
-            raise RuntimeError("PaperStore is closed")
-        if self._transaction_owner is asyncio.current_task():
-            return self._transaction_db or self._db
-        if self._db:
-            return self._db
-        from storage.db import get_db
-
-        return await get_db()
+        return await self._uow.handle()
 
     async def close(self) -> None:
-        async with self._lock:
-            if self._owns_db and self._db:
-                await self._db.close()
-            self._closed = True
+        await self._uow.close()
 
-    @asynccontextmanager
-    async def transaction(self):
+    def transaction(self):
         """One owned transaction; never commit/rollback another caller's work."""
-        task = asyncio.current_task()
-        if self._transaction_owner is task:
-            yield await self._get_db()
-            return
-        async with self._lock:
-            db = await self._get_db()
-            if isinstance(db, PostgresDB):
-                started = False
-                try:
-                    async with db.transaction() as bound:
-                        # Shared across stores/processes in this database. Reads
-                        # use READ COMMITTED snapshots taken after lock acquisition.
-                        await bound.execute("SET LOCAL lock_timeout = '5s'")
-                        await bound.execute("SELECT pg_advisory_xact_lock(718302641)")
-                        self._transaction_owner = task
-                        self._transaction_db = bound
-                        started = True
-                        try:
-                            yield bound
-                        finally:
-                            self._transaction_owner = None
-                            self._transaction_db = None
-                except Exception as exc:
-                    if not started:
-                        raise PaperWriteNotStarted(
-                            "Paper database admission failed; no order was written"
-                        ) from exc
-                    raise
-                return
-            if not isinstance(db, aiosqlite.Connection):
-                raise PaperWriteNotStarted(
-                    "Paper transactions require supported transactional storage"
-                )
-            if db.in_transaction:
-                raise PaperWriteNotStarted(
-                    "Paper connection already has an unrelated transaction"
-                )
-            try:
-                await db.execute("BEGIN IMMEDIATE")
-            except aiosqlite.OperationalError as exc:
-                raise PaperWriteNotStarted(
-                    "Paper database is busy; no order was written"
-                ) from exc
-            self._transaction_owner = task
-            try:
-                yield db
-                await db.commit()
-            except BaseException:
-                await db.rollback()
-                raise
-            finally:
-                self._transaction_owner = None
+        return self._uow.transaction()
 
     async def ensure_account(self, account_id: str, initial_balance) -> None:
         async with self.transaction() as db:
@@ -128,7 +61,7 @@ class PaperStore:
             await self.initialize_risk_coverage(account_id, fresh=True)
 
     async def supports_transactions(self) -> bool:
-        return isinstance(await self._get_db(), (aiosqlite.Connection, PostgresDB))
+        return await self._uow.supports_transactions()
 
     async def account_generation(self, account_id: str) -> str | None:
         """The account's current generation, or None if it has no coverage row."""
@@ -282,19 +215,15 @@ class PaperStore:
 
     async def _init_tables(self) -> None:
         db = await self._get_db()
-        if isinstance(db, aiosqlite.Connection) and not self._owns_db:
-            rows = await (await db.execute("PRAGMA database_list")).fetchall()
-            filename = next((row[2] for row in rows if row[1] == "main"), "")
-            if filename:
-                self._db = await aiosqlite.connect(filename)
-                self._db.row_factory = aiosqlite.Row
-                self._owns_db = True
-                db = self._db
-                await db.execute("PRAGMA busy_timeout=5000")
-            elif db.in_transaction:
-                raise RuntimeError(
-                    "Paper connection already has an unrelated transaction"
-                )
+        adopted = await self._uow.adopt_dedicated_connection(db, busy_timeout=True)
+        if adopted is not None:
+            db = adopted
+        elif (
+            isinstance(db, aiosqlite.Connection)
+            and not self._uow.owns_connection
+            and db.in_transaction
+        ):
+            raise RuntimeError("Paper connection already has an unrelated transaction")
         ts_default = "NOW()" if self._is_postgres else "(datetime('now'))"
         for sql in [
             """CREATE TABLE IF NOT EXISTS paper_order_terms (
@@ -887,7 +816,7 @@ class PaperStore:
         if isinstance(db, PostgresDB):
             async with self.transaction():
                 return await self._get_risk_state(account_id, market_data)
-        async with self._lock:
+        async with self._uow.exclusive():
             db = await self._get_db()
             if isinstance(db, aiosqlite.Connection) and db.in_transaction:
                 raise RuntimeError(

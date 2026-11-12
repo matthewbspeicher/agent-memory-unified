@@ -35,24 +35,17 @@ class ExitRuleStore:
         A dedicated file connection prevents committing another store's work.
         Memory databases must be supplied without an unrelated transaction.
         """
-        from storage.paper import PaperStore
+        from storage.unit_of_work import UnitOfWork
 
         async with self._sync_lock:
             if self._closed:
                 raise RuntimeError("ExitRuleStore is closed")
             if self._sync_store is None:
-                db = self._db
-                owned = False
-                if isinstance(db, aiosqlite.Connection):
-                    rows = await (await db.execute("PRAGMA database_list")).fetchall()
-                    filename = next((row[2] for row in rows if row[1] == "main"), "")
-                    if filename:
-                        db = await aiosqlite.connect(filename)
-                        db.row_factory = aiosqlite.Row
-                        owned = True
-                        await db.execute("PRAGMA busy_timeout=5000")
-                self._sync_store = PaperStore(db)
-                self._sync_store._owns_db = owned
+                # Assign only once adoption succeeded, so a failure is retried
+                # rather than leaving this store on the shared connection.
+                sync_store = UnitOfWork(self._db)
+                await sync_store.adopt_dedicated_connection(busy_timeout=True)
+                self._sync_store = sync_store
             async with self._sync_store.transaction() as db:
                 row = await (await db.execute(
                     "SELECT status FROM tracked_positions WHERE id = ?", (position_id,)

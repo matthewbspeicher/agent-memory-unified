@@ -47,7 +47,8 @@ from broker.models import (
     ZeroFeeModel,
 )
 from broker.paper_dispatch import PaperDispatchMixin
-from storage.paper import PaperStore, PaperWriteNotStarted
+from storage.paper import PaperStore
+from storage.unit_of_work import PaperWriteNotStarted
 
 logger = logging.getLogger(__name__)
 

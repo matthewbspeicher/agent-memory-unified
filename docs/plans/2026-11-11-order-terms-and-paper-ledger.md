@@ -131,7 +131,7 @@ Each commit leaves the suite green.
 
 ## Out of scope, recorded as follow-ups
 
-- **Transaction machinery extraction.** `TrackedPositionStore` subclasses `PaperStore`, and `storage/exit_rules.py` constructs one, only to borrow its transaction. Extract that machinery into its own module so those stores stop being a Paper ledger. Do this next, once the enforcement test is in place.
+- **Transaction machinery extraction (done as a third pull request).** `TrackedPositionStore` subclassed `PaperStore`, and `storage/exit_rules.py` constructed one, only to borrow its transaction. The machinery now lives in `storage/unit_of_work.py`; each store holds a `UnitOfWork`, and the tracked-position store reads the ledger through a `PaperStore` bound to its own unit of work.
 - **Ignored paper initial balance.** `init_tables` seeds `PAPER` at 100,000 before startup tries to insert the configured `paper_trading_initial_balance`, so the configured value is ignored on a fresh database. Needs a decision, since fixing it changes what a new paper account starts with.
 - **Rest-or-reject by message text.** `broker/paper_matching.py` decides an order should rest by matching the text of a rejection message. Becomes a small change once Order terms exists.
 - **Typed order outcome.** Definite rejection versus unknown outcome is a convention re-derived in several callers.

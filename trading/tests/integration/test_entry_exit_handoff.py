@@ -243,7 +243,7 @@ async def test_monitor_triggers_then_router_cancels_and_closes(
 async def test_definite_dispatch_nonwrite_releases_admission(
     projection, paper, control
 ):
-    from storage.paper import PaperWriteNotStarted
+    from storage.unit_of_work import PaperWriteNotStarted
 
     worker, positions, exits, opps = projection
     broker, svc, order, quotes = make_rig(paper, control)
