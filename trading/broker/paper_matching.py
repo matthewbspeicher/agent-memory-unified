@@ -49,7 +49,7 @@ class PaperMatchingMixin:
             return OrderResult(
                 "", OrderStatus.REJECTED, message="GTD requires an expiry model"
             )
-        from storage.paper import PaperWriteNotStarted
+        from storage.unit_of_work import PaperWriteNotStarted
 
         try:
             async with self._store.transaction():

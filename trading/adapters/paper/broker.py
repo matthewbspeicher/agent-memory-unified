@@ -46,7 +46,8 @@ from broker.models import (
     Symbol,
 )
 from broker.paper_dispatch import PaperDispatchMixin
-from storage.paper import PaperStore, PaperWriteNotStarted
+from storage.paper import PaperStore
+from storage.unit_of_work import PaperWriteNotStarted
 from broker.paper import executable_paper_price, cap_paper_slippage
 
 logger = logging.getLogger(__name__)

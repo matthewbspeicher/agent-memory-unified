@@ -15,7 +15,7 @@ from execution.dispatch import DispatchEvidence
 
 class PaperDispatchMixin(PaperMatchingMixin):
     async def submit_dispatch(self, account_id, order, dispatch_id, epoch):
-        from storage.paper import PaperWriteNotStarted
+        from storage.unit_of_work import PaperWriteNotStarted
 
         try:
             return await self._submit_dispatch(account_id, order, dispatch_id, epoch)
