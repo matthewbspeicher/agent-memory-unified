@@ -271,6 +271,8 @@ class ImmediatePaperOrderManager(PaperDispatchMixin, OrderManager):
             return OrderResult(order_id="", status=OrderStatus.REJECTED, message=refusal)
         try:
             quote = await self._market_data.get_quote(order.symbol)
+        except PaperOrderMustRest:
+            raise  # a ValueError itself, so this must come first
         except self.rejectable_quote_errors as exc:
             return OrderResult(
                 order_id="", status=OrderStatus.REJECTED, message=str(exc)
