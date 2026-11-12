@@ -97,6 +97,7 @@ jobs:
           tests/integration/test_paper_starting_balance.py
           tests/integration/test_postgres_opportunities.py
           tests/integration/test_postgres_temporal_params.py
+          tests/integration/test_postgres_utc_sessions.py
           tests/integration/test_dispatch_recovery.py
           tests/integration/test_postgres_paper_execution.py
           tests/integration/test_paper_resting_recovery.py
