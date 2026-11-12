@@ -25,3 +25,13 @@ No live trading, deployment or user-database migration was performed. Unrelated
 local lockfile changes, legacy API directory and scratch files remain excluded.
 
 Local receipts: /Users/mspeicher/agent-memory-artifacts/merge-qualification-20261111/.
+
+GitHub's clean dependency install also exposed eight feed-route fixture failures
+with FastAPI 0.162.5 / Starlette 1.10.0. The fixture no longer walks internal route
+closures; it overrides the public resolve_identity dependency and exercises the
+actual scope checker, including the 403 denial case. All 17 feed-route tests pass
+under both the local stack and an isolated copy of CI's FastAPI/Starlette/Pydantic
+versions. Production authorization remains unchanged. An attempted broader mixed-
+version local API run encountered the existing local instrumentation package's
+incompatibility with newer router internals; clean GitHub CI is the authority for
+that full dependency combination. No local project dependencies were upgraded.
