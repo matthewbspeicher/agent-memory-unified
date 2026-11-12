@@ -97,3 +97,18 @@ async def test_stale_positions_are_ignored():
     assert len(published_signals) == 0
 
     await aggregator.stop()
+
+
+@pytest.mark.asyncio
+async def test_miner_weights_come_from_the_aggregate_ranking():
+    """A miner has one ranking per symbol plus an aggregate; one weight each."""
+    from types import SimpleNamespace
+
+    store = AsyncMock()
+    store.get_miner_rankings.return_value = [
+        SimpleNamespace(miner_hotkey="hotkey0", hybrid_score=0.8)
+    ]
+    aggregator = MinerConsensusAggregator(SignalBus(), store=store)
+    await aggregator._refresh_weights()
+    store.get_miner_rankings.assert_awaited_once_with(limit=256, symbol="aggregate")
+    assert aggregator._miner_weights == {"hotkey0": 0.8}
