@@ -1,4 +1,5 @@
 from __future__ import annotations
+import json
 import logging
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
@@ -206,13 +207,21 @@ class WhatsAppAssistant:
             )
             await self._client.send_text(
                 phone,
-                f"Approve {args[0]} ({opp.get('symbol', '?')}, {opp.get('signal', '?')}) "
-                f"and place its order?\n\nReply *{token}* to confirm, or CANCEL.",
+                f"Approve {args[0]} and place its order?\n"
+                f"{opp.get('symbol', '?')} ({opp.get('signal', '?')}): "
+                f"{self._describe_trade(opp.get('suggested_trade'))}"
+                f"\n\nReply *{token}* to confirm, or CANCEL.",
             )
 
         elif name == "reject" and args:
-            await self._opp_store.update_status(args[0], OpportunityStatus.REJECTED)
-            await self._client.send_text(phone, f"Rejected {args[0]}.")
+            if await self._opp_store.transition(
+                args[0], OpportunityStatus.PENDING, OpportunityStatus.REJECTED
+            ):
+                await self._client.send_text(phone, f"Rejected {args[0]}.")
+            else:
+                await self._client.send_text(
+                    phone, f"{args[0]} is not pending, so it was not rejected."
+                )
 
         elif name in ("buy", "sell") and len(args) >= 2:
             symbol, qty = args[0].upper(), args[1]
@@ -292,6 +301,19 @@ class WhatsAppAssistant:
             await self._client.send_text(
                 phone, f"Missing arguments for /{name}. Try /help."
             )
+
+    @staticmethod
+    def _describe_trade(raw) -> str:
+        """Side, quantity and price of a stored suggested trade, for a prompt."""
+        try:
+            trade = json.loads(raw) if isinstance(raw, str) else raw
+            parts = [str(trade["side"]), str(trade["quantity"])]
+            for label in ("limit_price", "stop_price"):
+                if trade.get(label) is not None:
+                    parts.append(f"{label.replace('_price', '')} {trade[label]}")
+            return " ".join(parts)
+        except (KeyError, TypeError, ValueError):
+            return "order details unavailable"
 
     async def _cmd_markets(self, phone: str) -> None:
         if not self._data_bus:
@@ -529,6 +551,13 @@ class WhatsAppAssistant:
             except ApprovalRefused as refused:
                 await self._client.send_text(
                     phone, f"Not approved: {refused.detail}."
+                )
+                return
+            except Exception as error:
+                await self._client.send_text(
+                    phone,
+                    f"Approval of {opportunity_id} failed: {error}. "
+                    "Check its status before trying again.",
                 )
                 return
             await self._client.send_text(

@@ -12,15 +12,17 @@ import pytest
 from fastapi import HTTPException
 
 from agents.approval import ApprovalRefused, OpportunityApprover
-from agents.models import Opportunity, OpportunityStatus
+from agents.models import ActionLevel, Opportunity, OpportunityStatus
 from agents.router import ConsensusRouter, OpportunityRouter
-from api.routes.opportunities import _approve_and_execute
+from api.routes.opportunities import _approve_and_execute, _reject_pending
 from broker.models import (
     AccountBalance,
     AssetType,
     LimitOrder,
     MarketOrder,
+    OrderResult,
     OrderSide,
+    OrderStatus,
     Quote,
     Symbol,
     TIF,
@@ -71,6 +73,12 @@ async def store():
     await db.close()
 
 
+async def offer(store, opp):
+    """Save an Opportunity the way the router does for a suggest_trade Agent."""
+    await store.save(opp)
+    await store.mark_approvable(opp.id)
+
+
 class FakeRouter:
     """Stands in for the router: records the call and sets the final status."""
 
@@ -99,7 +107,7 @@ async def status_of(store, id="opp-1"):
 
 
 async def test_exact_order_terms_survive_storage(store):
-    await store.save(opportunity())
+    await offer(store, opportunity())
     loaded = await store.load("opp-1")
     assert loaded.suggested_trade == ORDER
     assert (loaded.symbol, loaded.broker_id) == (SYMBOL, "kalshi_paper")
@@ -107,18 +115,100 @@ async def test_exact_order_terms_survive_storage(store):
 
 
 async def test_transition_changes_status_only_from_the_expected_one(store):
-    await store.save(opportunity())
+    await offer(store, opportunity())
     pending, approved = OpportunityStatus.PENDING, OpportunityStatus.APPROVED
     assert await store.transition("opp-1", pending, approved) is True
     assert await store.transition("opp-1", pending, approved) is False
     assert await status_of(store) == "approved"
 
 
+async def test_float_prices_are_stored_as_the_decimal_the_agent_meant(store):
+    as_float = deepcopy(ORDER)
+    as_float.limit_price, as_float.quantity = 57 / 100.0, 0.1
+    await offer(store, opportunity(trade=as_float))
+    loaded = (await store.load("opp-1")).suggested_trade
+    assert (loaded.limit_price, loaded.quantity) == (Decimal("0.57"), Decimal("0.1"))
+
+
+async def test_agent_data_cannot_supply_the_order(store):
+    forged = {"type": "MarketOrder", "data": {"quantity": "999"}}
+    opp = opportunity(trade=None)
+    opp.data = {"order_terms": forged, "approvable": True, "exit": {"fraction": 1}}
+    await store.save(opp)
+    loaded = await store.load("opp-1")
+    assert loaded.suggested_trade is None
+    assert loaded.is_exit is False
+    assert await store.is_approvable("opp-1") is False
+
+
+async def test_order_terms_for_another_instrument_are_not_an_order(store):
+    await offer(store, opportunity())
+    await store._db.execute("UPDATE opportunities SET symbol = 'OTHER'")
+    assert (await store.load("opp-1")).suggested_trade is None
+
+
+async def test_unreadable_order_terms_are_not_an_order(store):
+    await offer(store, opportunity())
+    await store._db.execute(
+        "UPDATE opportunities SET data = json_set(data, ?, json(?))",
+        (f"$.{ORDER_TERMS_KEY}", '{"type": "LimitOrder"}'),
+    )
+    assert (await store.load("opp-1")).suggested_trade is None
+
+
+async def test_exit_flag_and_fraction_survive_storage(store):
+    closing = opportunity()
+    closing.is_exit, closing._exit_fraction = True, 0.5
+    await offer(store, closing)
+    loaded = await store.load("opp-1")
+    assert (loaded.is_exit, loaded._exit_fraction) == (True, 0.5)
+
+
+async def test_rewriting_agent_data_keeps_what_the_store_owns(store):
+    await offer(store, opportunity())
+    await store.update_data("opp-1", {"note": "calibrated", "order_terms": "forged"})
+    loaded = await store.load("opp-1")
+    assert loaded.suggested_trade == ORDER
+    assert loaded.data["note"] == "calibrated"
+    assert await store.is_approvable("opp-1") is True
+
+
+async def test_rerouting_an_acted_on_opportunity_does_not_make_it_pending_again(store):
+    await offer(store, opportunity())
+    await approver(store, FakeRouter(store)).approve("opp-1")
+    await offer(store, opportunity())  # the Agent emits the same id again
+    assert await status_of(store) == "executed"
+    router = FakeRouter(store)
+    with pytest.raises(ApprovalRefused) as refused:
+        await approver(store, router).approve("opp-1")
+    assert refused.value.reason == "not_pending"
+    assert router.executed == []
+
+
+async def test_rerouting_a_pending_opportunity_replaces_it_and_needs_a_new_offer(store):
+    await offer(store, opportunity())
+    changed = deepcopy(ORDER)
+    changed.limit_price = Decimal("0.40")
+    await store.save(opportunity(trade=changed))
+    assert (await store.load("opp-1")).suggested_trade.limit_price == Decimal("0.40")
+    assert await store.is_approvable("opp-1") is False
+
+
 # --- Approval ---
 
 
+async def test_opportunity_never_offered_for_approval_is_refused(store):
+    await store.save(opportunity())  # e.g. a notify-only Agent, or a gate held it
+    router = FakeRouter(store)
+    with pytest.raises(ApprovalRefused) as refused:
+        await approver(store, router).approve("opp-1")
+    assert refused.value.reason == "not_approvable"
+    assert await status_of(store) == "pending"
+    assert router.executed == []
+
+
 async def test_approval_executes_the_stored_order_and_reports_the_result(store):
-    await store.save(opportunity())
+    await offer(store, opportunity())
     router = FakeRouter(store)
     outcome = await approver(store, router).approve("opp-1")
     assert outcome.status == OpportunityStatus.EXECUTED
@@ -127,7 +217,7 @@ async def test_approval_executes_the_stored_order_and_reports_the_result(store):
 
 
 async def test_a_second_approval_is_refused_and_places_no_second_order(store):
-    await store.save(opportunity())
+    await offer(store, opportunity())
     router = FakeRouter(store)
     subject = approver(store, router)
     await subject.approve("opp-1")
@@ -138,7 +228,7 @@ async def test_a_second_approval_is_refused_and_places_no_second_order(store):
 
 
 async def test_simultaneous_approvals_execute_once(store):
-    await store.save(opportunity())
+    await offer(store, opportunity())
     router = FakeRouter(store)
     subject = approver(store, router)
     results = await asyncio.gather(
@@ -159,7 +249,7 @@ async def test_simultaneous_approvals_execute_once(store):
     ],
 )
 async def test_only_a_pending_opportunity_can_be_approved(store, status):
-    await store.save(opportunity())
+    await offer(store, opportunity())
     await store.update_status("opp-1", status)
     router = FakeRouter(store)
     with pytest.raises(ApprovalRefused) as refused:
@@ -176,7 +266,7 @@ async def test_unknown_opportunity_is_not_found(store):
 
 async def test_approval_past_its_own_expiry_is_refused_and_marked_expired(store):
     past = datetime.now(timezone.utc) - timedelta(seconds=1)
-    await store.save(opportunity(expires_at=past))
+    await offer(store, opportunity(expires_at=past))
     router = FakeRouter(store)
     with pytest.raises(ApprovalRefused) as refused:
         await approver(store, router).approve("opp-1")
@@ -187,7 +277,7 @@ async def test_approval_past_its_own_expiry_is_refused_and_marked_expired(store)
 
 async def test_own_expiry_overrides_the_default_age(store):
     future = datetime.now(timezone.utc) + timedelta(hours=6)
-    await store.save(opportunity(expires_at=future))
+    await offer(store, opportunity(expires_at=future))
     await store._db.execute(
         "UPDATE opportunities SET created_at = datetime('now', '-3 hours')"
     )
@@ -196,7 +286,7 @@ async def test_own_expiry_overrides_the_default_age(store):
 
 
 async def test_opportunity_without_expiry_goes_stale_after_the_default_age(store):
-    await store.save(opportunity())
+    await offer(store, opportunity())
     await store._db.execute(
         "UPDATE opportunities SET created_at = datetime('now', '-61 minutes')"
     )
@@ -208,10 +298,26 @@ async def test_opportunity_without_expiry_goes_stale_after_the_default_age(store
     assert router.executed == []
 
 
+async def test_opportunity_with_no_recorded_time_is_treated_as_stale(store):
+    # Only the PostgreSQL schema allows a row without a creation time.
+    await offer(store, opportunity())
+    stored = store.get
+
+    async def without_times(opportunity_id):
+        return {**await stored(opportunity_id), "created_at": None, "updated_at": None}
+
+    store.get = without_times
+    router = FakeRouter(store)
+    with pytest.raises(ApprovalRefused) as refused:
+        await approver(store, router).approve("opp-1")
+    assert refused.value.reason == "expired"
+    assert router.executed == []
+
+
 async def test_opportunity_saved_without_order_terms_is_refused_and_stays_pending(
     store,
 ):
-    await store.save(opportunity())
+    await offer(store, opportunity())
     await store._db.execute(
         "UPDATE opportunities SET data = json_remove(data, ?)", (f"$.{ORDER_TERMS_KEY}",)
     )
@@ -224,29 +330,49 @@ async def test_opportunity_saved_without_order_terms_is_refused_and_stays_pendin
 
 
 async def test_opportunity_that_proposed_no_trade_is_not_executable(store):
-    await store.save(opportunity(trade=None))
+    await offer(store, opportunity(trade=None))
     with pytest.raises(ApprovalRefused) as refused:
         await approver(store, FakeRouter(store)).approve("opp-1")
     assert refused.value.reason == "not_executable"
 
 
-async def test_failure_before_submission_leaves_it_rejected_not_approved(store):
-    await store.save(opportunity())
-    router = FakeRouter(store, error=RuntimeError("quote source down"))
+async def test_unexpected_failure_is_never_reported_as_rejected(store):
+    await offer(store, opportunity())
+    router = FakeRouter(store, error=RuntimeError("connection dropped"))
     outcome = await approver(store, router).approve("opp-1")
+    assert outcome.status == OpportunityStatus.RECONCILIATION_REQUIRED
+    assert await status_of(store) == "reconciliation_required"
+
+
+async def test_cancellation_mid_execution_leaves_it_for_reconciliation(store):
+    await offer(store, opportunity())
+    router = FakeRouter(store, error=asyncio.CancelledError())
+    with pytest.raises(asyncio.CancelledError):
+        await approver(store, router).approve("opp-1")
+    assert await status_of(store) == "reconciliation_required"
+
+
+async def test_router_recorded_status_is_kept_when_it_then_fails(store):
+    await offer(store, opportunity())
+
+    class RejectsThenRaises(FakeRouter):
+        async def execute(self, opp):
+            await self.store.update_status(opp.id, OpportunityStatus.REJECTED)
+            raise RuntimeError("bookkeeping failed")
+
+    outcome = await approver(store, RejectsThenRaises(store)).approve("opp-1")
     assert outcome.status == OpportunityStatus.REJECTED
-    assert await status_of(store) == "rejected"
 
 
 async def test_no_order_placed_is_reported_as_approved_only(store):
-    await store.save(opportunity())
+    await offer(store, opportunity())
     outcome = await approver(store, FakeRouter(store, final=None)).approve("opp-1")
     assert outcome.status == OpportunityStatus.APPROVED
-    assert "no order was placed" in outcome.detail
+    assert "no order was confirmed" in outcome.detail
 
 
 async def test_consensus_wrapper_is_unwrapped_to_the_executing_router(store):
-    await store.save(opportunity())
+    await offer(store, opportunity())
     inner = FakeRouter(store)
     wrapper = ConsensusRouter(inner)
     await approver(store, wrapper).approve("opp-1")
@@ -263,7 +389,7 @@ def request_with(approver_):
 
 
 async def test_route_returns_the_execution_outcome(store):
-    await store.save(opportunity())
+    await offer(store, opportunity())
     body = await _approve_and_execute(
         request_with(approver(store, FakeRouter(store))), "opp-1"
     )
@@ -272,7 +398,13 @@ async def test_route_returns_the_execution_outcome(store):
 
 @pytest.mark.parametrize(
     "reason, code",
-    [("not_found", 404), ("expired", 410), ("not_pending", 409), ("not_executable", 409)],
+    [
+        ("not_found", 404),
+        ("expired", 410),
+        ("not_pending", 409),
+        ("not_executable", 409),
+        ("not_approvable", 409),
+    ],
 )
 async def test_route_maps_each_refusal_to_a_status_code(reason, code):
     refusing = SimpleNamespace(
@@ -287,6 +419,29 @@ async def test_route_is_unavailable_without_an_approver():
     with pytest.raises(HTTPException) as raised:
         await _approve_and_execute(request_with(None), "opp-1")
     assert raised.value.status_code == 503
+
+
+async def test_reject_applies_only_to_a_pending_opportunity(store):
+    await offer(store, opportunity())
+    assert (await _reject_pending(store, "opp-1"))["status"] == "rejected"
+    with pytest.raises(HTTPException) as raised:
+        await _reject_pending(store, "opp-1")
+    assert raised.value.status_code == 409
+
+
+async def test_reject_cannot_overwrite_an_executed_opportunity(store):
+    await offer(store, opportunity())
+    await approver(store, FakeRouter(store)).approve("opp-1")
+    with pytest.raises(HTTPException) as raised:
+        await _reject_pending(store, "opp-1")
+    assert raised.value.status_code == 409
+    assert await status_of(store) == "executed"
+
+
+async def test_reject_of_an_unknown_opportunity_is_not_found(store):
+    with pytest.raises(HTTPException) as raised:
+        await _reject_pending(store, "missing")
+    assert raised.value.status_code == 404
 
 
 # --- Approval crosses the real execution boundary ---
@@ -309,7 +464,8 @@ class ControlStore(AdmissionLuaDouble):
         self.data.pop(key, None)
 
 
-async def test_approved_order_is_refused_by_real_admission_while_halted(store):
+@pytest.mark.parametrize("halted", [True, False])
+async def test_approved_order_crosses_real_admission(store, halted):
     symbol = Symbol("TEST")
     order = MarketOrder(symbol, OrderSide.BUY, Decimal(2), "paper")
     balance = AccountBalance("paper", *(Decimal(10000),) * 3, Decimal(0))
@@ -326,10 +482,17 @@ async def test_approved_order_is_refused_by_real_admission_while_halted(store):
             get_risk_state=AsyncMock(side_effect=lambda account: deepcopy(state))
         ),
         market_data=SimpleNamespace(get_quote=AsyncMock(return_value=quote)),
-        orders=SimpleNamespace(place_order=AsyncMock(), modify_order=AsyncMock()),
+        orders=SimpleNamespace(
+            place_order=AsyncMock(
+                return_value=OrderResult(
+                    "order-1", OrderStatus.FILLED, Decimal(2), Decimal(100)
+                )
+            ),
+            modify_order=AsyncMock(),
+        ),
     )
     risk = RiskEngine([MaxDailyLoss(1000), MaxDailyTrades(10)], KillSwitch())
-    service = ExecutionService(risk, ControlStore(halted=True))
+    service = ExecutionService(risk, ControlStore(halted=halted))
     service.register_brokers({"test": broker})
     router = OpportunityRouter(
         store=store,
@@ -345,9 +508,23 @@ async def test_approved_order_is_refused_by_real_admission_while_halted(store):
     )
     suggested = opportunity(trade=order)
     suggested.symbol, suggested.broker_id = symbol, None
-    await store.save(suggested)
+    # Routed as a suggestion, exactly as a suggest_trade Agent's would be.
+    await router.route(suggested, ActionLevel.SUGGEST_TRADE)
+    broker.orders.place_order.assert_not_awaited()
 
     outcome = await approver(store, router).approve("opp-1")
 
-    assert outcome.status == OpportunityStatus.REJECTED
-    broker.orders.place_order.assert_not_awaited()
+    if halted:
+        assert outcome.status == OpportunityStatus.REJECTED
+        broker.orders.place_order.assert_not_awaited()
+    else:
+        assert outcome.status == OpportunityStatus.EXECUTED
+        broker.orders.place_order.assert_awaited_once()
+
+
+async def test_a_notify_only_opportunity_routed_for_real_cannot_be_approved(store):
+    router = OpportunityRouter(store=store, notifier=AsyncMock())
+    await router.route(opportunity(), ActionLevel.NOTIFY)
+    with pytest.raises(ApprovalRefused) as refused:
+        await approver(store, router).approve("opp-1")
+    assert refused.value.reason == "not_approvable"

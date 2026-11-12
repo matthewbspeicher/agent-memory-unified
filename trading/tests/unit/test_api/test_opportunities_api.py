@@ -53,6 +53,7 @@ def opp_client(mock_broker):
         }
     )
     store.update_status = AsyncMock()
+    store.transition = AsyncMock(return_value=True)
     app.state.opportunity_store = store
     from agents.approval import ApprovalOutcome
     from agents.models import OpportunityStatus

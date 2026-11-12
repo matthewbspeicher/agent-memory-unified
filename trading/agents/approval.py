@@ -8,6 +8,7 @@ once, and not after the Opportunity has gone stale.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -22,7 +23,8 @@ class ApprovalRefused(Exception):
 
     def __init__(self, reason: str, detail: str) -> None:
         super().__init__(detail)
-        self.reason = reason  # not_found | not_pending | expired | not_executable
+        # not_found | not_pending | not_approvable | expired | not_executable
+        self.reason = reason
         self.detail = detail
 
 
@@ -37,11 +39,11 @@ _DETAIL = {
     OpportunityStatus.EXECUTED: "Order filled.",
     OpportunityStatus.RECONCILIATION_REQUIRED: (
         "Order accepted but not completely filled, or its outcome is not yet "
-        "known. It is awaiting fill reconciliation."
+        "known. Check it before acting again."
     ),
     OpportunityStatus.REJECTED: "Approved, but the order was not placed or was rejected.",
     OpportunityStatus.APPROVED: (
-        "Approved, but no order was placed. The Agent may be in shadow mode."
+        "Approved, but no order was confirmed. The Agent may be in shadow mode."
     ),
 }
 
@@ -61,6 +63,12 @@ class OpportunityApprover:
             raise ApprovalRefused(
                 "not_pending",
                 f"Opportunity is {opportunity.status.value}, not pending",
+            )
+        if not await self._store.is_approvable(opportunity_id):
+            raise ApprovalRefused(
+                "not_approvable",
+                "Opportunity was not offered for approval. Its Agent may only "
+                "notify, or a gate held it back.",
             )
         if opportunity.suggested_trade is None:
             raise ApprovalRefused(
@@ -84,13 +92,18 @@ class OpportunityApprover:
         opportunity.status = OpportunityStatus.APPROVED
         try:
             await self._router.execute(opportunity)
-        except Exception:
-            # The router guards the submission itself; an error escaping it
-            # happened before any order was sent.
-            logger.exception("Approved opportunity %s failed before submission", opportunity_id)
+        except (Exception, asyncio.CancelledError) as error:
+            # The router records what it knows before failing. If it left the
+            # status untouched, whether an order went out is not known here, so
+            # never report it as rejected.
+            logger.exception("Approved opportunity %s failed unexpectedly", opportunity_id)
             await self._store.transition(
-                opportunity_id, OpportunityStatus.APPROVED, OpportunityStatus.REJECTED
+                opportunity_id,
+                OpportunityStatus.APPROVED,
+                OpportunityStatus.RECONCILIATION_REQUIRED,
             )
+            if isinstance(error, asyncio.CancelledError):
+                raise
         row = await self._store.get(opportunity_id)
         status = OpportunityStatus(row["status"])
         return ApprovalOutcome(opportunity_id, status, _DETAIL.get(status, ""))

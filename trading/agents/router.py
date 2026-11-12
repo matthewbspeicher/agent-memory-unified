@@ -599,7 +599,11 @@ class OpportunityRouter:
                 return
 
             if action_level == ActionLevel.SUGGEST_TRADE:
-                return  # stored as PENDING until approved (agents/approval.py)
+                # Only an Opportunity that reached this point may be approved:
+                # it passed the experiment, regime and timeframe gates, and its
+                # Agent is allowed to suggest trades (agents/approval.py).
+                await self._store.mark_approvable(opportunity.id)
+                return
 
             if action_level == ActionLevel.AUTO_EXECUTE:
                 await self._try_execute(opportunity)

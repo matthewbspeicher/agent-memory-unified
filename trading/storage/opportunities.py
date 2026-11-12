@@ -11,9 +11,31 @@ from agents.models import Opportunity, OpportunityStatus
 from broker.models import AssetType, Symbol
 from broker.order_terms import ORDER_TYPES, decode_order, encode_order
 
-# Key in the stored data payload holding the exact Order terms, so an approved
-# Opportunity can be turned back into the order its Agent proposed.
-ORDER_TERMS_KEY = "order_terms"
+# Keys in the stored data payload that belong to the store, not the Agent.
+# An Agent's own data is stripped of them on save, so nothing an Agent (or the
+# language model behind it) writes can supply the order that approval executes.
+ORDER_TERMS_KEY = "order_terms"  # the exact order the Agent proposed
+EXIT_KEY = "exit"  # whether it closes a position, and what fraction
+APPROVABLE_KEY = "approvable"  # set once the router offers it for approval
+_STORE_KEYS = (ORDER_TERMS_KEY, EXIT_KEY, APPROVABLE_KEY)
+_NUMERIC_TERMS = ("quantity", "limit_price", "stop_price", "trail_amount", "trail_percent")
+
+
+def _exact_terms(order) -> dict:
+    """Order terms with numbers as exact decimals, as the live path reads them.
+
+    Agents often build prices as floats; Decimal(0.57) is not Decimal("0.57").
+    """
+    terms = encode_order(order)
+    for key in _NUMERIC_TERMS:
+        value = terms["data"].get(key)
+        if value is not None:
+            terms["data"][key] = Decimal(str(value))
+    return terms
+
+
+def _parse_data(raw) -> dict[str, Any]:
+    return json.loads(raw) if isinstance(raw, str) else dict(raw or {})
 
 
 class _DecimalEncoder(json.JSONEncoder):
@@ -40,6 +62,9 @@ def _serialize_suggested_trade(opp: Opportunity) -> str:
     return json.dumps(d, cls=_DecimalEncoder)
 
 
+_UNKNOWN_AGE = datetime(1970, 1, 1, tzinfo=timezone.utc)
+
+
 def _utc(value) -> datetime:
     stamp = (
         value
@@ -54,16 +79,34 @@ class OpportunityStore:
         self._db = db
 
     async def save(self, opp: Opportunity) -> None:
-        payload = dict(opp.data)
+        payload = {k: v for k, v in opp.data.items() if k not in _STORE_KEYS}
         payload.setdefault("asset_type", opp.symbol.asset_type.value)
         if opp.broker_id is not None:
             payload.setdefault("broker_id", opp.broker_id)
         if type(opp.suggested_trade) in ORDER_TYPES.values():
-            payload[ORDER_TERMS_KEY] = encode_order(opp.suggested_trade)
+            payload[ORDER_TERMS_KEY] = _exact_terms(opp.suggested_trade)
+        if opp.is_exit:
+            payload[EXIT_KEY] = {"fraction": opp._exit_fraction}
+        # A routed Opportunity replaces an earlier pending one with the same
+        # id, but never one that has been approved, executed or rejected:
+        # re-routing must not make an acted-on Opportunity approvable again.
         await self._db.execute(
-            """INSERT OR REPLACE INTO opportunities
-               (id, agent_name, symbol, signal, confidence, reasoning, suggested_trade, status, expires_at, data)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            """INSERT INTO opportunities
+               (id, agent_name, symbol, signal, confidence, reasoning, suggested_trade, status, expires_at, data, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+               ON CONFLICT (id) DO UPDATE SET
+                   agent_name = excluded.agent_name,
+                   symbol = excluded.symbol,
+                   signal = excluded.signal,
+                   confidence = excluded.confidence,
+                   reasoning = excluded.reasoning,
+                   suggested_trade = excluded.suggested_trade,
+                   status = excluded.status,
+                   expires_at = excluded.expires_at,
+                   data = excluded.data,
+                   created_at = datetime('now'),
+                   updated_at = datetime('now')
+               WHERE opportunities.status = 'pending'""",
             (
                 opp.id,
                 opp.agent_name,
@@ -153,10 +196,16 @@ class OpportunityStore:
         row = await self.get(opportunity_id)
         if row is None:
             return None
-        data = row["data"]
-        data = json.loads(data) if isinstance(data, str) else dict(data or {})
-        terms = data.get(ORDER_TERMS_KEY)
-        trade = decode_order(terms) if terms else None
+        data = _parse_data(row["data"])
+        trade = None
+        try:
+            if data.get(ORDER_TERMS_KEY):
+                trade = decode_order(data[ORDER_TERMS_KEY])
+        except (KeyError, TypeError, ValueError, ArithmeticError):
+            trade = None  # unreadable terms are not an order
+        if trade is not None and trade.symbol.ticker != row["symbol"]:
+            trade = None  # terms for a different instrument are not this order
+        exit_ = data.get(EXIT_KEY)
         symbol = (
             trade.symbol
             if trade is not None
@@ -169,20 +218,51 @@ class OpportunityStore:
             agent_name=row["agent_name"],
             symbol=symbol,
             signal=row["signal"],
-            confidence=row["confidence"],
+            confidence=float(row["confidence"]),
             reasoning=row["reasoning"],
             data=data,
-            timestamp=_utc(row["created_at"]),
+            # A row with no recorded time cannot be shown to be fresh.
+            timestamp=_utc(row["created_at"] or row["updated_at"] or _UNKNOWN_AGE),
             status=OpportunityStatus(row["status"]),
             suggested_trade=trade,
             expires_at=_utc(row["expires_at"]) if row["expires_at"] else None,
             broker_id=data.get("broker_id"),
+            is_exit=isinstance(exit_, dict),
+            _exit_fraction=float(exit_.get("fraction", 1.0))
+            if isinstance(exit_, dict)
+            else 1.0,
         )
 
+    async def mark_approvable(self, opportunity_id: str) -> None:
+        """Record that the router offered this pending Opportunity for approval."""
+        row = await self.get(opportunity_id)
+        if row is None or row["status"] != OpportunityStatus.PENDING.value:
+            return
+        data = _parse_data(row["data"])
+        data[APPROVABLE_KEY] = True
+        await self._db.execute(
+            "UPDATE opportunities SET data = ? WHERE id = ? AND status = ?",
+            (
+                json.dumps(data, cls=_DecimalEncoder),
+                opportunity_id,
+                OpportunityStatus.PENDING.value,
+            ),
+        )
+        await self._db.commit()
+
+    async def is_approvable(self, opportunity_id: str) -> bool:
+        row = await self.get(opportunity_id)
+        return bool(row) and _parse_data(row["data"]).get(APPROVABLE_KEY) is True
+
     async def update_data(self, opportunity_id: str, data: dict[str, Any]) -> None:
+        """Replace the Agent's data, keeping the keys the store owns."""
+        row = await self.get(opportunity_id)
+        kept = _parse_data(row["data"]) if row else {}
+        merged = {k: v for k, v in data.items() if k not in _STORE_KEYS}
+        merged.update({k: kept[k] for k in _STORE_KEYS if k in kept})
         await self._db.execute(
             "UPDATE opportunities SET data = ?, updated_at = datetime('now') WHERE id = ?",
-            (json.dumps(data, cls=_DecimalEncoder), opportunity_id),
+            (json.dumps(merged, cls=_DecimalEncoder), opportunity_id),
         )
         await self._db.commit()
 

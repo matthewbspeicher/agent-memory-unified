@@ -16,6 +16,20 @@ router = APIRouter(prefix="/opportunities", tags=["opportunities"])
 _REFUSAL_STATUS = {"not_found": 404, "expired": 410}
 
 
+async def _reject_pending(store, opportunity_id: str) -> dict:
+    """Reject an Opportunity nobody has acted on; an acted-on one keeps its status."""
+    opp = await store.get(opportunity_id)
+    if not opp:
+        raise HTTPException(status_code=404, detail="Opportunity not found")
+    if not await store.transition(
+        opportunity_id, OpportunityStatus.PENDING, OpportunityStatus.REJECTED
+    ):
+        raise HTTPException(
+            status_code=409, detail=f"Opportunity is {opp['status']}, not pending"
+        )
+    return {"id": opportunity_id, "status": "rejected"}
+
+
 async def _approve_and_execute(request: Request, opportunity_id: str) -> dict:
     """Approve a pending Opportunity and report what its order did."""
     from agents.approval import ApprovalRefused
@@ -116,12 +130,7 @@ async def reject_opportunity(
     else:
         raise HTTPException(status_code=403, detail="Signature required")
 
-    store = get_opportunity_store(request)
-    opp = await store.get(opportunity_id)
-    if not opp:
-        raise HTTPException(status_code=404, detail="Opportunity not found")
-    await store.update_status(opportunity_id, OpportunityStatus.REJECTED)
-    return {"id": opportunity_id, "status": "rejected"}
+    return await _reject_pending(get_opportunity_store(request), opportunity_id)
 
 
 @router.post(
@@ -143,11 +152,7 @@ async def reject_opportunity_authenticated(
     opportunity_id: str,
     store=Depends(get_opportunity_store),
 ):
-    opp = await store.get(opportunity_id)
-    if not opp:
-        raise HTTPException(status_code=404, detail="Opportunity not found")
-    await store.update_status(opportunity_id, OpportunityStatus.REJECTED)
-    return {"id": opportunity_id, "status": "rejected"}
+    return await _reject_pending(store, opportunity_id)
 
 
 @router.get("/{opportunity_id}/snapshot")
