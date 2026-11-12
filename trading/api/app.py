@@ -1821,7 +1821,9 @@ async def lifespan(app: FastAPI):
                 alert_threshold_cents=config.__dict__.get(
                     "arb_alert_threshold_cents", 8
                 ),
-                notifier=None,  # notifier wired after CompositeNotifier is built below
+                # Deliberately no notifier: an alert would be sent for every quote
+                # over the threshold, with no cooldown. Add one before wiring it.
+                notifier=None,
             )
             task_mgr.create_task(_spread_tracker.run(), name="spread_tracker")
 
