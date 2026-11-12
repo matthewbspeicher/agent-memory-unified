@@ -297,3 +297,138 @@ class TestConvertInsertOrReplaceCompositePK:
         result = PostgresDB._convert_insert_or_replace(sql)
         assert "ON CONFLICT (agent_name)" in result
         assert "trust_level=EXCLUDED.trust_level" in result
+
+
+# ---------------------------------------------------------------------------
+# Date and time arguments — the driver's refusals are simulated
+# ---------------------------------------------------------------------------
+
+
+class DataError(Exception):
+    """Stands in for asyncpg.DataError, which is matched by name."""
+
+
+class _Typed:
+    """A connection that refuses arguments the way asyncpg does, per column type."""
+
+    def __init__(self, *types):
+        self.types, self.calls = types, []
+
+    async def fetch(self, sql, *args):
+        from datetime import date, datetime
+
+        self.calls.append(args)
+        for position, (kind, value) in enumerate(zip(self.types, args), start=1):
+            head = f"invalid input for query argument ${position}: {value!r}"
+            if value is None or kind == "text":
+                continue
+            if isinstance(value, str):
+                detail = (
+                    "'str' object has no attribute 'toordinal'"
+                    if kind == "date"
+                    else "expected a datetime.date or datetime.datetime instance, got 'str'"
+                )
+                raise DataError(f"{head} ({detail})")
+            if kind == "timestamp" and isinstance(value, datetime) and value.tzinfo:
+                raise DataError(
+                    f"{head} (can't subtract offset-naive and offset-aware datetimes)"
+                )
+            assert isinstance(value, date)
+        return []
+
+
+class TestTemporalArguments:
+    async def run(self, connection, params, learned=None):
+        from storage.postgres import _run
+
+        learned = {} if learned is None else learned
+        await _run(connection.fetch, "SQL", params, learned)
+        return connection.calls[-1], learned
+
+    async def test_text_becomes_what_each_column_takes(self):
+        from datetime import date, datetime, timedelta, timezone
+
+        text = "2026-11-12T21:30:00+09:00"
+        instant = datetime(2026, 11, 12, 21, 30, tzinfo=timezone(timedelta(hours=9)))
+        bound, learned = await self.run(
+            _Typed("date", "timestamp", "timestamptz", "text"),
+            ("2026-11-12", text, text, text),
+        )
+        assert bound == (date(2026, 11, 12), datetime(2026, 11, 12, 12, 30), instant, text)
+        assert learned == {"SQL": {0: "date", 1: "naive", 2: "aware"}}
+
+    async def test_a_learned_statement_binds_right_first_time(self):
+        connection = _Typed("timestamp")
+        _, learned = await self.run(connection, ("2026-11-12T12:30:00+00:00",))
+        attempts = len(connection.calls)
+        await self.run(connection, ("2026-11-13T12:30:00+00:00",), learned)
+        assert attempts == 3 and len(connection.calls) == attempts + 1
+
+    async def test_nothing_is_learned_when_the_statement_then_fails(self):
+        class ThenFails(_Typed):
+            async def fetch(self, sql, *args):
+                await super().fetch(sql, *args)
+                raise RuntimeError("unique violation")
+
+        learned = {}
+        with pytest.raises(RuntimeError):
+            await self.run(ThenFails("timestamp"), ("2026-11-12T12:30:00",), learned)
+        assert learned == {}
+
+    async def test_text_that_is_not_a_date_is_raised_unchanged(self):
+        connection = _Typed("timestamp")
+        with pytest.raises(DataError):
+            await self.run(connection, ("soon",))
+        assert len(connection.calls) == 1
+
+    async def test_a_refusal_of_a_non_temporal_argument_is_raised(self):
+        class RefusesInt:
+            calls = 0
+
+            async def fetch(self, sql, *args):
+                type(self).calls += 1
+                raise DataError(
+                    "invalid input for query argument $1: '2026-11-12' (an integer is required)"
+                )
+
+        with pytest.raises(DataError):
+            await self.run(RefusesInt(), ("2026-11-12",))
+        assert RefusesInt.calls == 1
+
+    async def test_another_error_class_is_never_retried(self):
+        class Other:
+            calls = 0
+
+            async def fetch(self, sql, *args):
+                type(self).calls += 1
+                raise ValueError(
+                    "invalid input for query argument $1: 'x' (expected a datetime)"
+                )
+
+        with pytest.raises(ValueError):
+            await self.run(Other(), ("2026-11-12T00:00:00",))
+        assert Other.calls == 1
+
+    async def test_simultaneous_first_calls_each_recover(self):
+        import asyncio
+
+        connection = _Typed("timestamp")
+        learned = {}
+        await asyncio.gather(
+            *(self.run(connection, ("2026-11-12T12:30:00+00:00",), learned) for _ in range(3))
+        )
+        assert learned == {"SQL": {0: "naive"}}
+
+
+class TestRow:
+    def test_a_row_reads_by_name_and_by_position(self):
+        from storage.postgres import _Row
+
+        row = _Row({"id": 7, "name": "x"})
+        assert (row["id"], row[0], row[1], row[-1]) == (7, 7, "x", "x")
+        assert isinstance(row, dict) and dict(row) == {"id": 7, "name": "x"}
+        assert row.get("name") == "x"
+        with pytest.raises(IndexError):
+            row[2]
+        with pytest.raises(KeyError):
+            row["missing"]

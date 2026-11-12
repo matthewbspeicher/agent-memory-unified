@@ -3,6 +3,7 @@ from __future__ import annotations
 import statistics
 from collections import defaultdict
 from datetime import datetime, timezone
+from storage.temporal import stored_utc
 from decimal import Decimal
 from typing import Any
 
@@ -66,8 +67,8 @@ def derive_analytics_row(
     entry_time_str = position["entry_time"]
     exit_time_str = position["exit_time"]
     try:
-        entry_dt = datetime.fromisoformat(entry_time_str)
-        exit_dt = datetime.fromisoformat(exit_time_str)
+        entry_dt = stored_utc(entry_time_str)
+        exit_dt = stored_utc(exit_time_str)
         hold_minutes = (exit_dt - entry_dt).total_seconds() / 60.0
     except (ValueError, TypeError):
         hold_minutes = 0.0

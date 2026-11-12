@@ -7,7 +7,16 @@ from agents.models import Opportunity
 from broker.models import OrderSide, MarketOrder
 from data.bus import DataBus
 
+from storage.temporal import stored_datetime
+
 logger = logging.getLogger(__name__)
+
+
+def _traded_at(created_at) -> datetime:
+    """A trade's stored creation time: ISO text on SQLite, a datetime on PostgreSQL."""
+    if isinstance(created_at, str):
+        created_at = created_at.replace("Z", "+00:00")
+    return stored_datetime(created_at)
 
 
 class PositionMonitorAgent(StructuredAgent):
@@ -36,9 +45,7 @@ class PositionMonitorAgent(StructuredAgent):
                 created_str = t.get("created_at")
                 if created_str:
                     try:
-                        last_trade_dates[sym] = datetime.fromisoformat(
-                            created_str.replace("Z", "+00:00")
-                        )
+                        last_trade_dates[sym] = _traded_at(created_str)
                     except ValueError:
                         pass  # Ignore malformed dates
 
@@ -111,7 +118,7 @@ class TaxLossHarvestingAgent(StructuredAgent):
                 created_str = t.get("created_at")
                 if created_str:
                     try:
-                        dt = datetime.fromisoformat(created_str.replace("Z", "+00:00"))
+                        dt = _traded_at(created_str)
                         if dt.tzinfo is None:
                             dt = dt.replace(tzinfo=timezone.utc)
                         if (

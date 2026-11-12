@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from storage.confidence_calibration import ConfidenceCalibrationStore
+from storage.temporal import stored_utc
 
 
 @dataclass
@@ -249,6 +250,14 @@ _WINDOW_DELTAS: dict[str, timedelta | None] = {
 }
 
 
+def _exited_since(exit_time, window_start: str) -> bool:
+    """exit_time is ISO text on SQLite and a datetime on PostgreSQL."""
+    try:
+        return stored_utc(exit_time) >= stored_utc(window_start)
+    except (TypeError, ValueError):
+        return False
+
+
 def _window_start(window_label: str) -> str | None:
     delta = _WINDOW_DELTAS.get(window_label)
     if delta is None:
@@ -335,7 +344,7 @@ async def recompute_calibration_for_strategy(
         # Filter rows to window
         if ws is not None:
             window_rows = [
-                r for r in analytics_rows if (r.get("exit_time") or "") >= ws
+                r for r in analytics_rows if _exited_since(r.get("exit_time"), ws)
             ]
         else:
             window_rows = list(analytics_rows)

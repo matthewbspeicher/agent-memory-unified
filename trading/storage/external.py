@@ -6,6 +6,8 @@ from typing import Any
 
 import aiosqlite
 
+from storage.temporal import stored_utc
+
 
 class ExternalPortfolioStore:
     def __init__(self, db: aiosqlite.Connection) -> None:
@@ -142,6 +144,6 @@ class ExternalPortfolioStore:
             row = await cursor.fetchone()
         if row is None or row[0] is None:
             return None
-        last = datetime.fromisoformat(row[0])
+        last = stored_utc(row[0])
         now = datetime.now(timezone.utc)
         return (now - last).total_seconds() / 3600

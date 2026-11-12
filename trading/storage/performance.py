@@ -2,6 +2,7 @@ import aiosqlite
 from decimal import Decimal
 from pydantic import BaseModel
 from datetime import datetime, timezone
+from storage.temporal import stored_datetime
 
 
 class PerformanceSnapshot(BaseModel):
@@ -93,7 +94,7 @@ class PerformanceStore:
                 PerformanceSnapshot(
                     id=r["id"],
                     agent_name=r["agent_name"],
-                    timestamp=datetime.fromisoformat(r["timestamp"]),
+                    timestamp=stored_datetime(r["timestamp"]),
                     opportunities_generated=r["opportunities_generated"],
                     opportunities_executed=r["opportunities_executed"],
                     win_rate=r["win_rate"],
