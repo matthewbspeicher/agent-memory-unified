@@ -27,6 +27,18 @@ from broker.order_terms import validate_order_terms
 _OPEN = {OrderStatus.SUBMITTED, OrderStatus.PARTIAL}
 
 
+class PaperOrderMustRest(ValueError):
+    """The order cannot fill at this quote but could later.
+
+    stop_triggered says whether a stop-limit's stop has already been hit, so
+    the order rests as a plain limit from here on.
+    """
+
+    def __init__(self, message: str, *, stop_triggered: bool) -> None:
+        super().__init__(message)
+        self.stop_triggered = stop_triggered
+
+
 class PaperMatchingMixin:
     paper_account_id = "PAPER"
 
@@ -53,12 +65,13 @@ class PaperMatchingMixin:
 
         try:
             async with self._store.transaction():
-                result = await self._place_immediate_order(account_id, order)
-                result_message = result.message
-                resting = result.status == OrderStatus.REJECTED and (
-                    "Limit is not marketable" in (result.message or "")
-                    or "Stop is not triggered" in (result.message or "")
-                )
+                must_rest = None
+                try:
+                    result = await self._place_immediate_order(account_id, order)
+                except PaperOrderMustRest as exc:
+                    must_rest = exc
+                    result = OrderResult("", OrderStatus.REJECTED, message=str(exc))
+                resting = must_rest is not None
                 if resting and order.time_in_force in {TIF.DAY, TIF.GTC}:
                     result = OrderResult(str(uuid.uuid4()), OrderStatus.SUBMITTED)
                     await self._store.save_order(
@@ -73,11 +86,7 @@ class PaperMatchingMixin:
                     )
                 if result.order_id and result.status != OrderStatus.REJECTED:
                     await self._store.save_order_terms(result.order_id, order)
-                    if (
-                        resting
-                        and isinstance(order, StopLimitOrder)
-                        and "Limit is not marketable" in (result_message or "")
-                    ):
+                    if resting and must_rest.stop_triggered:
                         await self._store.set_stop_triggered(result.order_id, True)
                 return result
         except PaperWriteNotStarted as exc:
