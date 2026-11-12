@@ -81,6 +81,13 @@ rewritten or migrated.
   local doubles. No live adapter, app deployment or actual message send is used.
 
 Exact terminal test receipts and independent review results accompany the PR.
-Claude's separate PostgreSQL TIMESTAMP expiry PR #11 is not included in this
-change's baseline; its new offer-test helpers must supply the saved revision
-when that branch is integrated.
+Current main includes Claude's PostgreSQL TIMESTAMP expiry PR #11 at
+`95c333205de995c9cdc3f375f83cd47cc5693bab`. Its expiry binding and narrowly
+gated retry are preserved; revision publication happens only after the
+successful write and commit. Its PostgreSQL offer tests now supply the saved
+revision. The combined CI allowlist includes those tests as well.
+
+A separate pre-existing status-writing limitation remains: older router gate
+decisions use unbound `update_status(id, REJECTED)` across router instances.
+This patch binds approval status transitions but does not convert every legacy
+status writer. That follow-up is distinct from the reproduced metadata races.

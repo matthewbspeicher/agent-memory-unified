@@ -126,6 +126,113 @@ async def test_exact_order_terms_survive_storage(store):
     assert loaded.data["edge"] == 0.07
 
 
+async def test_expiry_survives_storage_as_the_same_instant(store):
+    expiry = datetime(2026, 11, 12, 21, 30, tzinfo=timezone(timedelta(hours=9)))
+    await store.save(opportunity(expires_at=expiry))
+    assert (await store.load("opp-1")).expires_at == expiry
+
+
+async def test_expiry_is_bound_as_a_datetime_once_the_database_refuses_text():
+    """asyncpg refuses text for a TIMESTAMP column before sending anything."""
+
+    class DataError(Exception):
+        pass
+
+    class Cursor:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_):
+            return None
+
+        async def fetchone(self):
+            return ("opp-1",)
+
+    class TimestampColumn:
+        def __init__(self):
+            self.bound = []
+
+        def execute(self, sql, params):
+            self.bound.append(params[8])
+            if isinstance(params[8], str):
+                raise DataError(
+                    "invalid input for query argument $9: '2026-11-12T21:30:00+09:00'"
+                    " (expected a datetime.date or datetime.datetime instance, got 'str')"
+                )
+            return Cursor()
+
+        async def commit(self):
+            pass
+
+    db = TimestampColumn()
+    store = OpportunityStore(db)
+    expiry = datetime(2026, 11, 12, 21, 30, tzinfo=timezone(timedelta(hours=9)))
+    assert await store.save(opportunity(expires_at=expiry)) is True
+    assert await store.save(opportunity(expires_at=expiry)) is True
+    # Text once, then naive UTC, and no further attempt as text.
+    assert db.bound == [expiry.isoformat()] + [datetime(2026, 11, 12, 12, 30)] * 2
+
+    # Saves that all start before the first refusal each recover on their own.
+    db = TimestampColumn()
+    refuse = db.execute
+
+    def after_a_round_trip(sql, params):
+        class Prepared(Cursor):
+            async def __aenter__(self):
+                await asyncio.sleep(0)
+                refuse(sql, params)
+                return self
+
+        return Prepared()
+
+    db.execute = after_a_round_trip
+    store = OpportunityStore(db)
+    results = await asyncio.gather(
+        *(store.save(opportunity(expires_at=expiry)) for _ in range(3))
+    )
+    assert results == [True, True, True]
+
+
+async def test_a_refusal_of_another_argument_is_not_taken_for_the_expiry():
+    class DataError(Exception):
+        pass
+
+    class Refuses:
+        def __init__(self):
+            self.calls = 0
+
+        def execute(self, sql, params):
+            self.calls += 1
+            raise DataError(
+                "invalid input for query argument $6: datetime.datetime(2026, 1, 1)"
+                " (expected str, got datetime)"
+            )
+
+    db = Refuses()
+    store = OpportunityStore(db)
+    expiry = datetime.now(timezone.utc) + timedelta(minutes=5)
+    with pytest.raises(DataError):
+        await store.save(opportunity(expires_at=expiry))
+    assert db.calls == 1
+    assert store._expiry_is_timestamp is False
+
+
+async def test_another_database_error_is_not_retried():
+    class Refuses:
+        def __init__(self):
+            self.calls = 0
+
+        def execute(self, sql, params):
+            self.calls += 1
+            raise RuntimeError("connection lost")
+
+    db = Refuses()
+    expiry = datetime.now(timezone.utc) + timedelta(minutes=5)
+    with pytest.raises(RuntimeError):
+        await OpportunityStore(db).save(opportunity(expires_at=expiry))
+    assert db.calls == 1
+
+
 async def test_transition_changes_status_only_from_the_expected_one(store):
     await offer(store, opportunity())
     pending, approved = OpportunityStatus.PENDING, OpportunityStatus.APPROVED
