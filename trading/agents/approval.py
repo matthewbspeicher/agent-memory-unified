@@ -14,7 +14,6 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
 from agents.models import OpportunityStatus
-from broker.order_terms import order_payload
 
 logger = logging.getLogger(__name__)
 
@@ -62,10 +61,15 @@ class OpportunityApprover:
         self._max_age = max_age
 
     async def approve(
-        self, opportunity_id: str, *, shown_terms: str | None = None
+        self, opportunity_id: str, *, shown_offer: datetime | None = None
     ) -> ApprovalOutcome:
-        """Approve and execute. shown_terms is the order_payload the approver
-        was shown; when given, a different stored order is refused."""
+        """Approve and execute.
+
+        shown_offer is the offer time of the Opportunity the approver was
+        shown. Replacing an Opportunity withdraws its offer and every offer
+        has its own time, so a different one means the order, broker, exit or
+        expiry may no longer be what was shown, and the approval is refused.
+        """
         opportunity = await self._store.load(opportunity_id)
         if opportunity is None:
             raise ApprovalRefused("not_found", "Opportunity not found")
@@ -87,8 +91,7 @@ class OpportunityApprover:
                 "Opportunity has no stored order to execute. It proposed no "
                 "trade, or was saved before approvals placed orders.",
             )
-        terms = order_payload(opportunity.suggested_trade)
-        if shown_terms is not None and terms != shown_terms:
+        if shown_offer is not None and offered_at != shown_offer:
             raise ApprovalRefused("changed", _CHANGED)
         deadline = opportunity.expires_at or (offered_at + self._max_age)
         if datetime.now(timezone.utc) > deadline:
@@ -103,42 +106,43 @@ class OpportunityApprover:
             opportunity_id, OpportunityStatus.PENDING, OpportunityStatus.APPROVED
         ):
             raise ApprovalRefused("not_pending", "Opportunity is no longer pending")
-        # A pending Opportunity can be replaced by its Agent. Once claimed it
-        # cannot, so confirm the claim took the order that was checked above.
-        claimed = await self._store.load(opportunity_id)
-        if (
-            claimed is None
-            or claimed.suggested_trade is None
-            or order_payload(claimed.suggested_trade) != terms
-            or claimed.broker_id != opportunity.broker_id
-            or not await self._store.is_approvable(opportunity_id)
-        ):
-            await self._store.transition(
-                opportunity_id, OpportunityStatus.APPROVED, OpportunityStatus.PENDING
-            )
-            raise ApprovalRefused("changed", _CHANGED)
         opportunity.status = OpportunityStatus.APPROVED
+        quantity = opportunity.suggested_trade.quantity
+        started = False
         try:
-            # Sizing and risk may reduce the quantity, never raise it above
-            # what was approved.
-            await self._router.execute(
-                opportunity, max_quantity=opportunity.suggested_trade.quantity
-            )
+            # A pending Opportunity can be replaced by its Agent. Once claimed
+            # it cannot, so confirm the claim took the offer checked above.
+            if await self._store.offered_at(opportunity_id) == offered_at:
+                started = True
+                # Sizing and risk may reduce the quantity, never raise it above
+                # what was approved. A suggestion with no quantity leaves it
+                # to sizing.
+                await self._router.execute(
+                    opportunity, max_quantity=quantity if quantity > 0 else None
+                )
         except (Exception, asyncio.CancelledError) as error:
             # The router records what it knows before failing. If it left the
             # status untouched, whether an order went out is not known here, so
-            # never report it as rejected.
+            # never report it as rejected. Before execution started, nothing
+            # went out and the claim is simply released.
             logger.exception("Approved opportunity %s failed unexpectedly", opportunity_id)
-            # Shielded: a second cancellation must not lose this record.
-            await asyncio.shield(
-                self._store.transition(
-                    opportunity_id,
-                    OpportunityStatus.APPROVED,
-                    OpportunityStatus.RECONCILIATION_REQUIRED,
-                )
+            await self._leave_approved(
+                opportunity_id,
+                OpportunityStatus.RECONCILIATION_REQUIRED
+                if started
+                else OpportunityStatus.PENDING,
             )
-            if isinstance(error, asyncio.CancelledError):
+            if not started or isinstance(error, asyncio.CancelledError):
                 raise
+        if not started:
+            await self._leave_approved(opportunity_id, OpportunityStatus.PENDING)
+            raise ApprovalRefused("changed", _CHANGED)
         row = await self._store.get(opportunity_id)
         status = OpportunityStatus(row["status"])
         return ApprovalOutcome(opportunity_id, status, _DETAIL.get(status, ""))
+
+    async def _leave_approved(self, opportunity_id: str, to: OpportunityStatus) -> None:
+        # Shielded: a cancellation must not leave the claim in place.
+        await asyncio.shield(
+            self._store.transition(opportunity_id, OpportunityStatus.APPROVED, to)
+        )

@@ -7,7 +7,6 @@ if TYPE_CHECKING:
     from whatsapp.proactive import HermesProactiveOps
 
 from agents.models import OpportunityStatus
-from broker.order_terms import order_payload
 from whatsapp.commands import parse_command
 from whatsapp.confirmation import ConfirmationGate, PendingAction
 
@@ -207,12 +206,18 @@ class WhatsAppAssistant:
                     phone, f"Opportunity {args[0]} has no stored order to place."
                 )
                 return
+            offered_at = await self._opp_store.offered_at(args[0])
+            if offered_at is None:
+                await self._client.send_text(
+                    phone, f"Opportunity {args[0]} was not offered for approval."
+                )
+                return
             # Approving places the order, so it takes the same confirmation as
-            # /buy, and applies only to the order shown here.
+            # /buy, and applies only to the offer shown here.
             token = self._confirmation.create(
                 phone,
                 "approve_opportunity",
-                {"id": args[0], "terms": order_payload(trade)},
+                {"id": args[0], "offered_at": offered_at},
             )
             await self._client.send_text(
                 phone,
@@ -314,7 +319,8 @@ class WhatsAppAssistant:
     @staticmethod
     def _describe_trade(trade) -> str:
         """Side, quantity and prices of an order, for a prompt."""
-        parts = [trade.side.value, str(trade.quantity)]
+        quantity = trade.quantity if trade.quantity > 0 else "(quantity set by sizing)"
+        parts = [trade.side.value, str(quantity)]
         for label in ("limit_price", "stop_price", "trail_amount", "trail_percent"):
             value = getattr(trade, label, None)
             if value is not None:
@@ -554,7 +560,7 @@ class WhatsAppAssistant:
                 return
             try:
                 outcome = await self._approver.approve(
-                    opportunity_id, shown_terms=action.data["terms"]
+                    opportunity_id, shown_offer=action.data["offered_at"]
                 )
             except ApprovalRefused as refused:
                 await self._client.send_text(

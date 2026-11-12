@@ -13,7 +13,6 @@ from broker.models import (
     Symbol,
     TIF,
 )
-from broker.order_terms import order_payload
 
 
 def _execution_service():
@@ -232,6 +231,9 @@ _TRADE = LimitOrder(
 )
 
 
+_OFFERED = datetime(2026, 11, 12, 12, 0, tzinfo=timezone.utc)
+
+
 def _suggestion(trade=_TRADE):
     return Opportunity(
         id="opp-1",
@@ -252,6 +254,7 @@ async def test_approve_command_asks_for_confirmation_before_placing_an_order(
 ):
     client, opp_store = deps[0], deps[3]
     opp_store.load = AsyncMock(return_value=_suggestion())
+    opp_store.offered_at = AsyncMock(return_value=_OFFERED)
     assistant._approver = AsyncMock()
     await assistant.handle("15551234567", "/approve opp-1", "msg-4")
     opp_store.update_status.assert_not_called()
@@ -271,21 +274,34 @@ async def test_approve_command_refuses_an_opportunity_with_no_order(assistant, d
 
 
 @pytest.mark.asyncio
+async def test_approve_command_refuses_an_opportunity_that_was_not_offered(
+    assistant, deps
+):
+    client, opp_store = deps[0], deps[3]
+    opp_store.load = AsyncMock(return_value=_suggestion())
+    opp_store.offered_at = AsyncMock(return_value=None)
+    await assistant.handle("15551234567", "/approve opp-1", "msg-4")
+    assert not assistant._confirmation.has_pending("15551234567")
+    assert "not offered" in client.send_text.call_args[0][1]
+
+
+@pytest.mark.asyncio
 async def test_confirmed_approval_executes_and_reports_the_outcome(assistant, deps):
     from agents.approval import ApprovalOutcome
     from agents.models import OpportunityStatus
 
     client, opp_store = deps[0], deps[3]
     opp_store.load = AsyncMock(return_value=_suggestion())
+    opp_store.offered_at = AsyncMock(return_value=_OFFERED)
     assistant._approver = AsyncMock()
     assistant._approver.approve.return_value = ApprovalOutcome(
         "opp-1", OpportunityStatus.EXECUTED, "Order filled."
     )
     await assistant.handle("15551234567", "/approve opp-1", "msg-4")
     await assistant.handle("15551234567", "YES", "msg-5")
-    # The confirmation covers only the order that was shown.
+    # The confirmation covers only the offer that was shown.
     assistant._approver.approve.assert_awaited_once_with(
-        "opp-1", shown_terms=order_payload(_TRADE)
+        "opp-1", shown_offer=_OFFERED
     )
     assert "executed" in client.send_text.call_args[0][1]
 
@@ -296,6 +312,7 @@ async def test_refused_approval_is_reported_with_its_reason(assistant, deps):
 
     client, opp_store = deps[0], deps[3]
     opp_store.load = AsyncMock(return_value=_suggestion())
+    opp_store.offered_at = AsyncMock(return_value=_OFFERED)
     assistant._approver = AsyncMock()
     assistant._approver.approve.side_effect = ApprovalRefused(
         "expired", "Opportunity expired at noon"

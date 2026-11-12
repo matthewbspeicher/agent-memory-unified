@@ -239,21 +239,23 @@ class OpportunityStore:
         )
 
     async def mark_approvable(self, opportunity_id: str) -> None:
-        """Record that the router offered this pending Opportunity for approval."""
+        """Record that the router offered this Opportunity for approval.
+
+        The router calls this right after saving, so the row is pending, or
+        was claimed in between by an approval of the Opportunity it replaced.
+        That approval sees the new offer and releases its claim.
+        """
+        offerable = (OpportunityStatus.PENDING.value, OpportunityStatus.APPROVED.value)
         row = await self.get(opportunity_id)
-        if row is None or row["status"] != OpportunityStatus.PENDING.value:
+        if row is None or row["status"] not in offerable:
             return
         data = _parse_data(row["data"])
         # The offer time is kept here, in UTC, because the table's own
         # timestamps depend on the database session's time zone.
         data[APPROVABLE_KEY] = datetime.now(timezone.utc).isoformat()
         await self._db.execute(
-            "UPDATE opportunities SET data = ? WHERE id = ? AND status = ?",
-            (
-                json.dumps(data, cls=_DecimalEncoder),
-                opportunity_id,
-                OpportunityStatus.PENDING.value,
-            ),
+            "UPDATE opportunities SET data = ? WHERE id = ? AND status IN (?, ?)",
+            (json.dumps(data, cls=_DecimalEncoder), opportunity_id, *offerable),
         )
         await self._db.commit()
 

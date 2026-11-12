@@ -249,25 +249,29 @@ async def test_rerouting_a_pending_opportunity_replaces_it_and_needs_a_new_offer
 # --- Approval ---
 
 
-async def test_approval_is_refused_when_the_order_is_not_the_one_shown(store):
+@pytest.mark.parametrize("change", ["quantity", "broker", "nothing visible"])
+async def test_approval_is_refused_when_the_offer_is_not_the_one_shown(store, change):
     await offer(store, opportunity())
-    shown = order_payload((await store.load("opp-1")).suggested_trade)
-    bigger = deepcopy(ORDER)
-    bigger.quantity = Decimal("500")
-    await offer(store, opportunity(trade=bigger))
+    shown = await store.offered_at("opp-1")
+    replacement = opportunity()
+    if change == "quantity":
+        replacement.suggested_trade.quantity = Decimal("500")
+    if change == "broker":
+        replacement.broker_id = "polymarket_paper"
+    await offer(store, replacement)
     router = FakeRouter(store)
     with pytest.raises(ApprovalRefused) as refused:
-        await approver(store, router).approve("opp-1", shown_terms=shown)
+        await approver(store, router).approve("opp-1", shown_offer=shown)
     assert refused.value.reason == "changed"
     assert router.executed == []
     assert await status_of(store) == "pending"
 
 
-async def test_approval_with_the_order_shown_executes_it(store):
+async def test_approval_of_the_offer_shown_executes_it(store):
     await offer(store, opportunity())
-    shown = order_payload((await store.load("opp-1")).suggested_trade)
+    shown = await store.offered_at("opp-1")
     router = FakeRouter(store)
-    await approver(store, router).approve("opp-1", shown_terms=shown)
+    await approver(store, router).approve("opp-1", shown_offer=shown)
     assert len(router.executed) == 1
 
 
@@ -388,6 +392,57 @@ async def test_opportunity_without_expiry_goes_stale_after_the_default_age(store
     assert router.executed == []
 
 
+async def test_suggestion_without_a_quantity_leaves_it_to_sizing(store):
+    unsized = deepcopy(ORDER)
+    unsized.quantity = Decimal("0")
+    await offer(store, opportunity(trade=unsized))
+    router = FakeRouter(store)
+    await approver(store, router).approve("opp-1")
+    assert router.max_quantity is None
+
+
+async def test_failure_before_execution_starts_releases_the_claim(store):
+    await offer(store, opportunity())
+    read = store.offered_at
+    calls = []
+
+    async def fails_after_the_claim(opportunity_id):
+        calls.append(opportunity_id)
+        if len(calls) == 2:
+            raise asyncio.CancelledError
+        return await read(opportunity_id)
+
+    store.offered_at = fails_after_the_claim
+    router = FakeRouter(store)
+    with pytest.raises(asyncio.CancelledError):
+        await approver(store, router).approve("opp-1")
+    assert router.executed == []
+    assert await status_of(store) == "pending"
+
+
+async def test_replacement_offered_while_claimed_ends_pending_and_offered(store):
+    await offer(store, opportunity())
+    bigger = deepcopy(ORDER)
+    bigger.quantity = Decimal("500")
+    claim = store.transition
+
+    async def replaced_then_offered_around_the_claim(*args):
+        store.transition = claim
+        await store.save(opportunity(trade=bigger))  # the router saves...
+        claimed = await claim(*args)
+        await store.mark_approvable("opp-1")  # ...and offers after the claim
+        return claimed
+
+    store.transition = replaced_then_offered_around_the_claim
+    router = FakeRouter(store)
+    with pytest.raises(ApprovalRefused) as refused:
+        await approver(store, router).approve("opp-1")
+    assert refused.value.reason == "changed"
+    assert router.executed == []
+    assert await status_of(store) == "pending"
+    assert await store.is_approvable("opp-1") is True
+
+
 async def test_approval_passes_the_approved_quantity_as_the_ceiling(store):
     await offer(store, opportunity())
     router = FakeRouter(store)
@@ -497,6 +552,7 @@ async def test_route_returns_the_execution_outcome(store):
         ("not_pending", 409),
         ("not_executable", 409),
         ("not_approvable", 409),
+        ("changed", 409),
     ],
 )
 async def test_route_maps_each_refusal_to_a_status_code(reason, code):
