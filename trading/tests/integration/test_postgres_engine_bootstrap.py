@@ -16,7 +16,7 @@ import pytest
 
 from agents.models import Opportunity
 from broker.models import TIF, AssetType, LimitOrder, OrderSide, Symbol
-from execution.models import ArbState
+from execution.models import ArbLeg, ArbState, ArbTrade
 from storage.arbitrage import ArbStore
 from storage.consensus import ConsensusStore
 from storage.db import init_db_postgres
@@ -25,6 +25,7 @@ from storage.performance import PerformanceSnapshot, PerformanceStore
 from storage.postgres import PostgresDB
 from storage.spreads import SpreadObservation, SpreadStore
 from storage.strategy_health import StrategyHealthStore
+from storage.temporal import stored_utc
 
 pytestmark = pytest.mark.integration
 
@@ -138,8 +139,30 @@ async def test_core_stores_work_on_the_schema_the_engine_creates(empty):
     await health.upsert_status("agent", "healthy", cooldown_until=NOW.isoformat())
     assert (await health.get_status("agent"))["status"] == "healthy"
 
-    # A datetime bound to a time column the engine declares as text.
-    await ArbStore(db).update_trade_state("no-such-trade", ArbState.FAILED)
+    # Datetimes bound to time columns the engine declares as text.
+    def leg(broker):
+        order = LimitOrder(
+            symbol, OrderSide.BUY, Decimal("5"), "PAPER", TIF.GTC, limit_price=Decimal("0.5")
+        )
+        return ArbLeg(broker_id=broker, order=order)
+
+    arbitrage = ArbStore(db)
+    await arbitrage.save_trade(
+        ArbTrade(
+            id="arb-1",
+            symbol_a="KX",
+            symbol_b="POLY",
+            leg_a=leg("kalshi_paper"),
+            leg_b=leg("polymarket_paper"),
+            expected_profit_bps=120,
+            created_at=NOW,
+            updated_at=NOW,
+        )
+    )
+    await arbitrage.update_trade_state("arb-1", ArbState.FAILED, "test")
+    stored = await db.fetchone("SELECT state, created_at FROM arb_trades")
+    assert stored["state"] == ArbState.FAILED.value
+    assert stored_utc(stored["created_at"]) == NOW
 
 
 async def test_a_spread_can_be_recorded_found_and_claimed_once(empty):
