@@ -156,6 +156,7 @@ async def test_strategy_router_cannot_bypass_real_admission(refused_execution):
         get_balances=AsyncMock(return_value=rig.balance),
     )
     store = AsyncMock()
+    store.transition.return_value = True
     router = OpportunityRouter(
         store=store,
         notifier=AsyncMock(),
@@ -171,14 +172,18 @@ async def test_strategy_router_cannot_bypass_real_admission(refused_execution):
         "TEST",
         0.9,
         "test",
-        {},
+        {"_opportunity_revision": "unit-saved-revision"},
         datetime.now(timezone.utc),
         suggested_trade=rig.order,
     )
     await router._try_execute(opportunity)
     rig.broker.account.get_risk_state.assert_awaited_once_with("paper")
     rig.broker.orders.place_order.assert_not_awaited()
-    store.update_status.assert_awaited_with("refused", OpportunityStatus.REJECTED)
+    store.transition.assert_awaited_with(
+        "refused", OpportunityStatus.PENDING, OpportunityStatus.REJECTED,
+        revision="unit-saved-revision",
+    )
+    store.update_status.assert_not_awaited()
 
 
 def test_raw_order_mutations_are_confined_to_execution_boundary():

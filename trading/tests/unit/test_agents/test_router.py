@@ -29,7 +29,7 @@ def _opp() -> Opportunity:
         signal="TEST",
         confidence=0.8,
         reasoning="test",
-        data={},
+        data={"_opportunity_revision": "unit-saved-revision"},
         timestamp=datetime.now(timezone.utc),
     )
 
@@ -114,6 +114,7 @@ class TestOpportunityRouter:
         store = MagicMock()
         store.save = AsyncMock()
         store.update_status = AsyncMock()
+        store.transition = AsyncMock(return_value=True)
         notifier = MagicMock()
         notifier.send = AsyncMock()
         risk_engine = MagicMock()
@@ -150,7 +151,10 @@ class TestOpportunityRouter:
         await router.route(opp, ActionLevel.AUTO_EXECUTE)
 
         risk_engine.evaluate.assert_awaited_once()
-        store.update_status.assert_awaited_with("test-1", OpportunityStatus.REJECTED)
+        store.transition.assert_awaited_with(
+            "test-1", OpportunityStatus.PENDING, OpportunityStatus.REJECTED,
+            revision="unit-saved-revision",
+        )
 
 
 @pytest.mark.asyncio
@@ -158,6 +162,7 @@ async def test_try_execute_places_order() -> None:
     """Regression test for the indentation bug that skipped broker order placement."""
     store = AsyncMock()
     store.update_status = AsyncMock()
+    store.transition = AsyncMock(return_value=True)
     notifier = AsyncMock()
 
     trade = MarketOrder(
@@ -228,6 +233,7 @@ async def test_try_execute_places_order() -> None:
 async def test_try_execute_records_entry_in_trade_tracker() -> None:
     store = AsyncMock()
     store.update_status = AsyncMock()
+    store.transition = AsyncMock(return_value=True)
     trade_store = AsyncMock()
     notifier = AsyncMock()
 
@@ -287,6 +293,7 @@ async def test_try_execute_allows_zero_placeholder_quantity_when_sizing_engine_s
 ):
     store = AsyncMock()
     store.update_status = AsyncMock()
+    store.transition = AsyncMock(return_value=True)
     notifier = AsyncMock()
 
     trade = MarketOrder(
@@ -343,6 +350,7 @@ async def test_try_execute_allows_zero_placeholder_quantity_when_sizing_engine_s
 async def test_try_execute_rejects_when_sizing_leaves_zero_quantity() -> None:
     store = AsyncMock()
     store.update_status = AsyncMock()
+    store.transition = AsyncMock(return_value=True)
     notifier = AsyncMock()
 
     trade = MarketOrder(
@@ -384,13 +392,17 @@ async def test_try_execute_rejects_when_sizing_leaves_zero_quantity() -> None:
     sizing_engine.compute_size.assert_awaited_once()
     risk_engine.evaluate.assert_not_called()
     broker.orders.place_order.assert_not_awaited()
-    store.update_status.assert_awaited_with("test-1", OpportunityStatus.REJECTED)
+    store.transition.assert_awaited_with(
+        "test-1", OpportunityStatus.PENDING, OpportunityStatus.REJECTED,
+        revision="unit-saved-revision",
+    )
 
 
 @pytest.mark.asyncio
 async def test_try_execute_attaches_exits_to_tracked_position_id() -> None:
     store = AsyncMock()
     store.update_status = AsyncMock()
+    store.transition = AsyncMock(return_value=True)
     trade_store = AsyncMock()
     notifier = AsyncMock()
 
@@ -454,6 +466,7 @@ async def test_try_execute_attaches_exits_to_tracked_position_id() -> None:
 async def test_try_execute_exit_records_exit_and_detaches() -> None:
     store = AsyncMock()
     store.update_status = AsyncMock()
+    store.transition = AsyncMock(return_value=True)
     trade_store = AsyncMock()
     notifier = AsyncMock()
 
@@ -521,6 +534,7 @@ async def test_try_execute_exit_records_exit_and_detaches() -> None:
 async def test_try_execute_rejects_when_confidence_calibration_rejects() -> None:
     store = AsyncMock()
     store.update_status = AsyncMock()
+    store.transition = AsyncMock(return_value=True)
     store.update_data = AsyncMock()
     notifier = AsyncMock()
 
@@ -587,7 +601,10 @@ async def test_try_execute_rejects_when_confidence_calibration_rejects() -> None
     await router._try_execute(opp)
 
     broker.orders.place_order.assert_not_awaited()
-    store.update_status.assert_awaited_with("test-1", OpportunityStatus.REJECTED)
+    store.transition.assert_awaited_with(
+        "test-1", OpportunityStatus.PENDING, OpportunityStatus.REJECTED,
+        revision="unit-saved-revision",
+    )
     calibration_store.get.assert_awaited_once()
 
 
@@ -595,6 +612,7 @@ async def test_try_execute_rejects_when_confidence_calibration_rejects() -> None
 async def test_try_execute_scales_quantity_from_confidence_calibration() -> None:
     store = AsyncMock()
     store.update_status = AsyncMock()
+    store.transition = AsyncMock(return_value=True)
     store.update_data = AsyncMock()
     notifier = AsyncMock()
 
@@ -677,6 +695,7 @@ async def test_route_shadow_auto_execute_records_allowed_shadow_instead_of_order
 ):
     store = AsyncMock()
     store.update_status = AsyncMock()
+    store.transition = AsyncMock(return_value=True)
     notifier = AsyncMock()
 
     trade = MarketOrder(
@@ -770,6 +789,7 @@ async def test_route_shadow_auto_execute_records_blocked_shadow_when_risk_fails(
 ):
     store = AsyncMock()
     store.update_status = AsyncMock()
+    store.transition = AsyncMock(return_value=True)
     notifier = AsyncMock()
 
     trade = MarketOrder(
@@ -848,6 +868,7 @@ async def test_route_shadow_auto_execute_records_blocked_shadow_when_health_fail
 ):
     store = AsyncMock()
     store.update_status = AsyncMock()
+    store.transition = AsyncMock(return_value=True)
     notifier = AsyncMock()
 
     trade = MarketOrder(
@@ -904,6 +925,7 @@ async def test_route_shadow_auto_execute_records_blocked_shadow_when_health_fail
     """Agent with shadow_mode=False but health SHADOW_ONLY should still record shadow decision."""
     store = AsyncMock()
     store.update_status = AsyncMock()
+    store.transition = AsyncMock(return_value=True)
     notifier = AsyncMock()
 
     trade = MarketOrder(
@@ -958,6 +980,7 @@ async def test_router_triggers_shadow_for_registry_shadow_mode() -> None:
     """Agent with shadow_mode=True in config runs shadow path."""
     store = AsyncMock()
     store.update_status = AsyncMock()
+    store.transition = AsyncMock(return_value=True)
     notifier = AsyncMock()
 
     trade = MarketOrder(
@@ -1022,6 +1045,7 @@ async def test_route_shadow_regime_block_records_shadow_decision() -> None:
     store = AsyncMock()
     store.save = AsyncMock()
     store.update_status = AsyncMock()
+    store.transition = AsyncMock(return_value=True)
     notifier = AsyncMock()
 
     opp = _opp()
@@ -1069,6 +1093,7 @@ async def test_route_shadow_auto_execute_records_blocked_shadow_when_calibration
 ):
     store = AsyncMock()
     store.update_status = AsyncMock()
+    store.transition = AsyncMock(return_value=True)
     store.update_data = AsyncMock()
     notifier = AsyncMock()
 
@@ -1140,6 +1165,7 @@ async def test_route_shadow_auto_execute_records_blocked_shadow_when_throttle_ze
 ):
     store = AsyncMock()
     store.update_status = AsyncMock()
+    store.transition = AsyncMock(return_value=True)
     notifier = AsyncMock()
 
     trade = MarketOrder(
@@ -1203,6 +1229,7 @@ async def test_route_shadow_auto_execute_records_blocked_shadow_for_invalid_init
 ):
     store = AsyncMock()
     store.update_status = AsyncMock()
+    store.transition = AsyncMock(return_value=True)
     notifier = AsyncMock()
 
     trade = MarketOrder(
@@ -1254,6 +1281,7 @@ async def test_route_shadow_auto_execute_records_blocked_shadow_for_post_risk_ze
 ):
     store = AsyncMock()
     store.update_status = AsyncMock()
+    store.transition = AsyncMock(return_value=True)
     notifier = AsyncMock()
 
     trade = MarketOrder(
@@ -1312,6 +1340,7 @@ async def test_uncertain_execution_requires_reconciliation() -> None:
     """Regression test for the indentation bug that skipped broker order placement."""
     store = AsyncMock()
     store.update_status = AsyncMock()
+    store.transition = AsyncMock(return_value=True)
     notifier = AsyncMock()
 
     trade = MarketOrder(
@@ -1533,3 +1562,48 @@ async def test_receipt_persistence_failure_does_not_turn_accepted_order_into_rej
     )
     rig.tracker.record_entry.assert_not_awaited()
     rig.execution.submit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_gate_without_revision_stops_without_an_unbound_status_write():
+    store = AsyncMock()
+    router = OpportunityRouter(store=store, notifier=AsyncMock())
+    opp = _opp()
+    opp.data.pop('_opportunity_revision')
+    assert await router._finalize_pre_order_decision(
+        opp, shadow_mode=False,
+        decision_status=ShadowDecisionStatus.BLOCKED_PRECONDITION,
+    ) is True
+    store.transition.assert_not_awaited()
+    store.update_status.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_stale_gate_still_stops_the_caller_when_status_change_is_refused():
+    store = AsyncMock()
+    store.transition.return_value = False
+    router = OpportunityRouter(store=store, notifier=AsyncMock())
+    assert await router._finalize_pre_order_decision(
+        _opp(), shadow_mode=False,
+        decision_status=ShadowDecisionStatus.BLOCKED_PRECONDITION,
+    ) is True
+    store.transition.assert_awaited_once_with(
+        'test-1', OpportunityStatus.PENDING, OpportunityStatus.REJECTED,
+        revision='unit-saved-revision',
+    )
+    store.update_status.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_failed_health_gate_status_write_cannot_resume_execution():
+    store = AsyncMock()
+    store.transition.side_effect = RuntimeError('database unavailable')
+    router = OpportunityRouter(
+        store=store, notifier=AsyncMock(),
+        health_engine=MagicMock(get_status=AsyncMock(return_value=StrategyHealthStatus.RETIRED)),
+    )
+    router._resolve_broker = MagicMock(side_effect=AssertionError('execution must stop'))
+    await router._try_execute(_opp())
+    store.transition.assert_awaited_once()
+    store.update_status.assert_not_awaited()
+    router._resolve_broker.assert_not_called()
