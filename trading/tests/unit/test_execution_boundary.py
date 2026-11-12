@@ -396,6 +396,67 @@ async def test_definite_rejection_without_id_does_not_latch_uncertainty(rig):
     assert (await rig.service.reconciliation_status())["lock"] is None
 
 
+@pytest.mark.parametrize(
+    "status,quantity,price",
+    [
+        (OrderStatus.REJECTED, D(0), None),
+        (OrderStatus.SUBMITTED, D(0), None),
+        (OrderStatus.PARTIAL, D(3), D(100)),
+        (OrderStatus.CANCELLED, D(3), D(100)),
+        (OrderStatus.FILLED, D(6), None),
+        (OrderStatus.FILLED, D(6), D("NaN")),
+        (OrderStatus.FILLED, "6", D(100)),
+    ],
+)
+async def test_receipt_contract_preserves_raw_evidence_and_price_policy(
+    rig, status, quantity, price
+):
+    result = OrderResult(
+        "" if status == OrderStatus.REJECTED else "receipt",
+        status, quantity, price,
+    )
+    rig.broker.orders.place_order.return_value = result
+    returned = await rig.service.submit(rig.broker, "paper", rig.order)
+    assert returned is result
+    assert returned.filled_quantity is quantity
+    assert returned.avg_fill_price is price
+    evidence = await rig.service.reconciliation_status()
+    assert evidence["lock"] is None
+    assert evidence["attempt"]["status"] == "acknowledged"
+
+
+@pytest.mark.parametrize(
+    "result",
+    [
+        None,
+        OrderResult("", OrderStatus.SUBMITTED),
+        OrderResult("bad", "UNKNOWN"),
+        OrderResult("bad", OrderStatus.FILLED, D(3)),
+        OrderResult("bad", OrderStatus.PARTIAL, D(7)),
+        OrderResult("bad", OrderStatus.PARTIAL, D(-1)),
+        OrderResult("bad", OrderStatus.PARTIAL, True),
+        OrderResult("bad", OrderStatus.PARTIAL, D("NaN")),
+    ],
+)
+async def test_invalid_receipt_remains_uncertain_after_transport(rig, result):
+    rig.broker.orders.place_order.return_value = result
+    with pytest.raises(ExecutionUnavailable) as raised:
+        await rig.service.submit(rig.broker, "paper", rig.order)
+    assert raised.value.outcome_unknown is True
+    evidence = await rig.service.reconciliation_status()
+    assert evidence["lock"] == evidence["attempt"]["dispatch_id"]
+    assert evidence["attempt"]["status"] == "prepared"
+
+
+async def test_blocked_call_does_not_settle_an_earlier_attempt(rig):
+    rig.store.data["execution:admission:lock"] = "earlier-attempt"
+    with pytest.raises(ExecutionUnavailable) as raised:
+        await rig.service.submit(rig.broker, "paper", rig.order)
+    assert raised.value.outcome_unknown is False
+    assert rig.store.data["execution:admission:lock"] == "earlier-attempt"
+    rig.broker.orders.place_order.assert_not_awaited()
+
+
 async def test_authoritative_reset_epoch_invalidates_old_reservation(rig):
     rig.state.epoch = "before-reset"
     await rig.service.submit(rig.broker, "paper", rig.order)
