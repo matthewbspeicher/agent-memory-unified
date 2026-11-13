@@ -69,6 +69,17 @@ class TestOpportunityStore:
         results = await store.list(limit=3)
         assert len(results) == 3
 
+    async def test_list_by_minimum_age_leaves_out_newer(self, store):
+        for name, age in (("old", "-2 hours"), ("recent", "-30 minutes")):
+            await store.save(_opp(id=name))
+            await store._db.execute(
+                f"UPDATE opportunities SET created_at = datetime('now', '{age}')"
+                " WHERE id = ?",
+                (name,),
+            )
+        results = await store.list(min_age_hours=1)
+        assert [row["id"] for row in results] == ["old"]
+
     async def test_save_preserves_suggested_trade(self, store):
         trade = MarketOrder(
             symbol=Symbol(ticker="AAPL"),

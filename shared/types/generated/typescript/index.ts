@@ -54,7 +54,7 @@ export interface Event {
     /**
      * Event-specific data
      */
-    payload: { [key: string]: any };
+    payload: { [key: string]: unknown };
     /**
      * Source service ('api', 'trading')
      */
@@ -79,16 +79,13 @@ export interface Metadata {
      * Request trace ID
      */
     correlation_id?: string;
-    [property: string]: any;
+    [property: string]: unknown;
 }
 
 /**
  * Source service ('api', 'trading')
  */
-export enum Source {
-    API = "api",
-    Trading = "trading",
-}
+export type Source = "api" | "trading";
 
 /**
  * Knowledge record stored by an agent (MemClaw-compatible)
@@ -122,7 +119,7 @@ export interface Memory {
     /**
      * Arbitrary key-value metadata
      */
-    metadata?: { [key: string]: any };
+    metadata?: { [key: string]: unknown };
     /**
      * Memory lifecycle status
      */
@@ -154,52 +151,22 @@ export interface Memory {
 /**
  * Memory classification (MemClaw 13-type taxonomy)
  */
-export enum MemoryType {
-    Action = "action",
-    Cancellation = "cancellation",
-    Commitment = "commitment",
-    Decision = "decision",
-    Episode = "episode",
-    Fact = "fact",
-    Intention = "intention",
-    Outcome = "outcome",
-    Plan = "plan",
-    Preference = "preference",
-    Rule = "rule",
-    Semantic = "semantic",
-    Task = "task",
-}
+export type MemoryType = "fact" | "episode" | "decision" | "preference" | "task" | "semantic" | "intention" | "plan" | "commitment" | "action" | "outcome" | "cancellation" | "rule";
 
 /**
  * Memory lifecycle status
  */
-export enum MemoryStatus {
-    Active = "active",
-    Archived = "archived",
-    Cancelled = "cancelled",
-    Confirmed = "confirmed",
-    Conflicted = "conflicted",
-    Deleted = "deleted",
-    Outdated = "outdated",
-    Pending = "pending",
-}
+export type MemoryStatus = "active" | "pending" | "confirmed" | "cancelled" | "outdated" | "conflicted" | "archived" | "deleted";
 
 /**
  * Legacy visibility (deprecated, use visibility_scope)
  */
-export enum Visibility {
-    Private = "private",
-    Public = "public",
-}
+export type Visibility = "private" | "public";
 
 /**
  * Visibility scope: agent-only, team-shared, org-wide
  */
-export enum VisibilityScope {
-    ScopeAgent = "scope_agent",
-    ScopeOrg = "scope_org",
-    ScopeTeam = "scope_team",
-}
+export type VisibilityScope = "scope_agent" | "scope_team" | "scope_org";
 
 /**
  * Simplified trade DTO for API responses (subset of tracked_positions table)
@@ -238,7 +205,7 @@ export interface Trade {
     /**
      * Additional strategy-specific data
      */
-    metadata?: { [key: string]: any };
+    metadata?: { [key: string]: unknown };
     /**
      * Memory analyzing trade result
      */
@@ -267,13 +234,6 @@ export interface Trade {
     symbol: string;
 }
 
-export enum Side {
-    Long = "long",
-    Short = "short",
-}
+export type Side = "long" | "short";
 
-export enum TradeStatus {
-    Cancelled = "cancelled",
-    Closed = "closed",
-    Open = "open",
-}
+export type TradeStatus = "open" | "closed" | "cancelled";

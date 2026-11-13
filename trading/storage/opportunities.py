@@ -210,7 +210,18 @@ class OpportunityStore:
             query += " AND status = ?"
             params.append(status)
         if min_age_hours is not None:
-            query += f" AND created_at <= datetime('now', '-{min_age_hours} hours')"
+            # SQLite holds created_at as the text datetime('now') writes, which
+            # sorts as text. PostgreSQL holds a TIMESTAMP on the bootstrap
+            # script's table and text on the engine's own, which it will not
+            # compare with a time, so there the column is read as a time.
+            created_at = (
+                "CAST(created_at AS TIMESTAMPTZ)"
+                if hasattr(self._db, "fetchall")
+                else "created_at"
+            )
+            query += (
+                f" AND {created_at} <= datetime('now', '-{int(min_age_hours)} hours')"
+            )
         query += " ORDER BY created_at DESC LIMIT ?"
         params.append(limit)
         cursor = await self._db.execute(query, params)
