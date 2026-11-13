@@ -73,6 +73,11 @@ async def test_a_stored_order_is_read_back_as_it_was_given(store, order):
     assert (type(read), read) == (type(order), order)
 
 
+async def test_a_price_given_as_a_float_is_read_back_as_the_decimal_it_shows(store):
+    await save(store, dataclasses.replace(ORDERS[1], limit_price=0.57))
+    assert (await store.get_trade("arb-1")).leg_a.order == ORDERS[1]
+
+
 async def test_a_row_from_before_signal_id_existed_is_still_read(store):
     await save(store, ORDERS[1])
     await store._db.execute(
