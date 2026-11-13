@@ -38,9 +38,9 @@ class SpreadStore:
         Errors are logged and swallowed so observation recording never
         blocks the caller's main flow (matching, alerting, etc).
 
-        Uses INSERT ... RETURNING on Postgres (where our wrapper does
-        not expose cursor.lastrowid) and falls back to cursor.lastrowid
-        on SQLite. Mirrors the dual-path pattern in storage/pnl.py:40.
+        Uses INSERT ... RETURNING on Postgres and cursor.lastrowid on
+        SQLite. The Postgres wrapper reports lastrowid too, so the two
+        paths could become one. Mirrors storage/pnl.py.
         Returning None here would silently break the arb.spread →
         ArbExecutor pipeline (publish at cross_platform_arb.py:232 is
         gated on observation_id is not None).
@@ -209,10 +209,8 @@ class SpreadStore:
         # for consistency with other feed tables; until then, normalize at
         # the call site.
         now = datetime.now(timezone.utc).replace(tzinfo=None)
-        # RETURNING id — the Postgres shim's _PostgresCursor doesn't
-        # expose rowcount (asyncpg's status string isn't parsed), so we
-        # use "RETURNING id" and count the returned rows. SQLite also
-        # supports RETURNING since 3.35 (2021). Boolean literals written
+        # RETURNING id says whether a row was claimed, on Postgres and
+        # on SQLite (3.35 or later). Boolean literals written
         # as TRUE / FALSE so they parse on Postgres (BOOLEAN column) and
         # SQLite (which accepts the keywords). Prior `is_claimed = 0/1`
         # tripped Postgres with `operator does not exist: boolean = integer`.
