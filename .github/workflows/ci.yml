@@ -98,6 +98,7 @@ jobs:
           tests/integration/test_postgres_opportunities.py
           tests/integration/test_postgres_temporal_params.py
           tests/integration/test_postgres_engine_bootstrap.py
+          tests/integration/test_storage_readiness.py
           tests/integration/test_postgres_upserts.py
           tests/integration/test_postgres_cursor.py
           tests/integration/test_postgres_utc_sessions.py

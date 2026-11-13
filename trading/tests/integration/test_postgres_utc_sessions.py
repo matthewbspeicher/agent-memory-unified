@@ -79,7 +79,7 @@ async def engine(request):
         # bootstrap-DDL incompatibility. No app schema migration is introduced.
         with patch("storage.db.init_db_postgres", new_callable=AsyncMock) as bootstrap:
             db = await manager.connect()
-            bootstrap.assert_awaited_once_with(db)
+            bootstrap.assert_awaited_once_with(db, diagnostics=manager.initialization)
             yield SimpleNamespace(
                 manager=manager,
                 db=db,

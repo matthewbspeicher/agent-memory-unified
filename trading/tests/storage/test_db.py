@@ -157,7 +157,7 @@ class TestDatabaseConnectionConnect:
         try:
             with patch("storage.db.init_db", new_callable=AsyncMock) as init:
                 db = await db_conn.connect()
-                init.assert_awaited_once_with(db)
+                init.assert_awaited_once_with(db, diagnostics=db_conn.initialization)
         finally:
             await db_conn.close()
 

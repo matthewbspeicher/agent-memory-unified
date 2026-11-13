@@ -1,10 +1,12 @@
 from __future__ import annotations
+import asyncio
 import logging
 import re
 import ssl as _ssl
 import aiosqlite
 from storage.postgres import PostgresDB
 from config import Config
+from storage.initialization import InitializationReport
 
 logger = logging.getLogger(__name__)
 
@@ -19,58 +21,62 @@ class DatabaseConnection:
     def __init__(self, config: Config):
         self.config = config
         self.connection = None
+        self.initialization = InitializationReport()
+        self._pool = None
 
     async def connect(self):
-        """
-        Establish database connection based on configuration.
-
-        Returns:
-            Either an aiosqlite.Connection or PostgresDB instance
-        """
-        if self.config.database_url:
-            # PostgreSQL mode
-            import asyncpg  # optional dependency
-
-            if self.config.database_ssl:
-                ssl_ctx = _ssl.create_default_context()
-                if not self.config.database_ssl_verify:
-                    ssl_ctx.check_hostname = False
-                    ssl_ctx.verify_mode = _ssl.CERT_NONE
-            else:
-                ssl_ctx = None
-
-            pool = await asyncpg.create_pool(
-                self.config.database_url,
-                ssl=ssl_ctx,
-                statement_cache_size=0,
-                server_settings={"TimeZone": "UTC"},
-            )
-            self.connection = PostgresDB(pool)
-            # Run idempotent table creation (CREATE TABLE IF NOT EXISTS)
-            # Laravel is deprecated (TP-013); init_db is the source of truth
-            await init_db_postgres(self.connection)
-            logger.info("Connected to PostgreSQL (tables ensured)")
+        """Acquire and initialize storage, releasing acquisitions on any failure."""
+        if self.connection is not None:
             return self.connection
+        self.initialization = InitializationReport()
+        try:
+            if self.config.database_url:
+                import asyncpg  # optional dependency
 
-        # SQLite mode
-        self.connection = await aiosqlite.connect(self.config.db_path or "data.db")
-        self.connection.row_factory = aiosqlite.Row
-        await self.connection.execute("PRAGMA journal_mode=WAL")
-        await self.connection.execute("PRAGMA busy_timeout=5000")
-        await init_db(self.connection)
-        return self.connection
+                if self.config.database_ssl:
+                    ssl_ctx = _ssl.create_default_context()
+                    if not self.config.database_ssl_verify:
+                        ssl_ctx.check_hostname = False
+                        ssl_ctx.verify_mode = _ssl.CERT_NONE
+                else:
+                    ssl_ctx = None
+
+                pool = await asyncpg.create_pool(
+                    self.config.database_url,
+                    ssl=ssl_ctx,
+                    statement_cache_size=0,
+                    server_settings={"TimeZone": "UTC"},
+                )
+                # Retain the acquisition even if facade construction fails.
+                self._pool = pool
+                self.connection = PostgresDB(pool)
+                await init_db_postgres(self.connection, diagnostics=self.initialization)
+                logger.info("Connected to PostgreSQL (tables ensured)")
+                return self.connection
+
+            self.connection = await aiosqlite.connect(self.config.db_path or "data.db")
+            self.connection.row_factory = aiosqlite.Row
+            await self.connection.execute("PRAGMA journal_mode=WAL")
+            await self.connection.execute("PRAGMA busy_timeout=5000")
+            await init_db(self.connection, diagnostics=self.initialization)
+            return self.connection
+        except BaseException:
+            try:
+                await self.close()
+            except BaseException as cleanup_error:
+                logger.warning(
+                    "Database acquisition cleanup failed: %s", type(cleanup_error).__name__
+                )
+            raise
 
     async def close(self):
-        """Close the database connection"""
-        if self.connection is None:
-            return
-
-        if hasattr(self.connection, "pool"):
-            # PostgresDB
-            await self.connection.pool.close()
-        else:
-            # aiosqlite
-            await self.connection.close()
+        """Release the owned handle once; bound pool drain and force release on failure."""
+        connection, self.connection = self.connection, None
+        pool, self._pool = self._pool, None
+        if pool is not None:
+            await _close_pool(pool)
+        elif connection is not None:
+            await _close_connection(connection)
 
     async def __aenter__(self):
         """Async context manager entry"""
@@ -78,7 +84,58 @@ class DatabaseConnection:
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """Async context manager exit"""
-        await self.close()
+        try:
+            await self.close()
+        except BaseException as cleanup_error:
+            if exc_type is None:
+                raise
+            logger.warning("Database cleanup failed: %s", type(cleanup_error).__name__)
+
+
+_POOL_CLOSE_TIMEOUT_SECONDS = 5.0
+
+
+async def _close_pool(pool):
+    try:
+        await asyncio.wait_for(pool.close(), timeout=_POOL_CLOSE_TIMEOUT_SECONDS)
+    except BaseException:
+        terminate = getattr(pool, "terminate", None)
+        if callable(terminate):
+            try:
+                terminate()
+            except BaseException as cleanup_error:
+                logger.warning(
+                    "Database pool termination failed: %s", type(cleanup_error).__name__
+                )
+        raise
+
+
+async def _close_connection(connection):
+    if hasattr(connection, "pool"):
+        await _close_pool(connection.pool)
+    else:
+        await connection.close()
+
+
+def _initialization_issue(
+    diagnostics: InitializationReport | None,
+    step: str,
+    error: BaseException,
+    *,
+    emit_warning: bool = True,
+) -> None:
+    # Duplicate columns are the sole expected errors from legacy ALTER retries.
+    if (
+        isinstance(error, aiosqlite.OperationalError)
+        and str(error).lower().startswith("duplicate column name:")
+    ) or getattr(error, "sqlstate", None) == "42701":
+        return
+    if diagnostics is not None:
+        diagnostics.record(step, error)
+    if emit_warning:
+        logger.warning(
+            "Database initialization step %s failed: %s", step, type(error).__name__
+        )
 
 
 _INIT_DDL = """
@@ -863,7 +920,9 @@ _INIT_DDL = """
 """
 
 
-async def init_db(db: aiosqlite.Connection) -> None:
+async def init_db(
+    db: aiosqlite.Connection, *, diagnostics: InitializationReport | None = None
+) -> None:
     await db.executescript(_INIT_DDL)
 
     # Feed / billing tables — SQLite-only declarations.
@@ -921,8 +980,8 @@ async def init_db(db: aiosqlite.Connection) -> None:
             CREATE INDEX IF NOT EXISTS idx_signal_order_map_signal ON signal_order_map(signal_id);
             """
         )
-    except Exception:
-        pass  # Defensive — missing feed tables in tests shouldn't block other storage tests.
+    except Exception as error:
+        _initialization_issue(diagnostics, "sqlite.feed_tables", error)
 
     # Migrations for tracked_positions
     for col, col_def in [
@@ -934,8 +993,8 @@ async def init_db(db: aiosqlite.Connection) -> None:
             await db.execute(
                 f"ALTER TABLE tracked_positions ADD COLUMN {col} {col_def}"
             )
-        except Exception:
-            pass
+        except Exception as error:
+            _initialization_issue(diagnostics, f"sqlite.tracked_positions.{col}", error)
 
     for col, col_def in [
         ("total_pnl", "TEXT"),
@@ -957,16 +1016,18 @@ async def init_db(db: aiosqlite.Connection) -> None:
             await db.execute(
                 f"ALTER TABLE performance_snapshots ADD COLUMN {col} {col_def}"
             )
-        except Exception:
-            pass
+        except Exception as error:
+            _initialization_issue(diagnostics, f"sqlite.performance_snapshots.{col}", error)
 
     # Migration: add evaluation_status to bittensor_derived_views
     try:
         await db.execute(
             "ALTER TABLE bittensor_derived_views ADD COLUMN evaluation_status TEXT NOT NULL DEFAULT 'pending'"
         )
-    except Exception:
-        pass  # Column already exists
+    except Exception as error:
+        _initialization_issue(
+            diagnostics, "sqlite.bittensor_derived_views.evaluation_status", error
+        )
 
 
 def ddl_statements(script: str) -> list[str]:
@@ -979,7 +1040,9 @@ def ddl_statements(script: str) -> list[str]:
     return [s.strip() for s in without_comments.split(";") if s.strip()]
 
 
-async def init_db_postgres(db) -> None:
+async def init_db_postgres(
+    db, *, diagnostics: InitializationReport | None = None
+) -> None:
     """Run idempotent table creation on PostgreSQL.
 
     Uses the same DDL as SQLite init_db, translated via PostgresDB._translate().
@@ -991,11 +1054,12 @@ async def init_db_postgres(db) -> None:
     # added here would never be created on a database where anything fails.
     statements = ddl_statements(_INIT_DDL)
     failed = 0
-    for statement in statements:
+    for statement_number, statement in enumerate(statements, start=1):
         try:
             await db.execute(statement)
         except Exception as e:
             failed += 1
+            _initialization_issue(diagnostics, f"postgres.base_ddl.{statement_number}", e)
             logger.warning(
                 "Postgres DDL statement failed (non-fatal): %s: %s",
                 " ".join(statement.split())[:80],
@@ -1023,6 +1087,7 @@ async def init_db_postgres(db) -> None:
             "CREATE INDEX IF NOT EXISTS idx_thought_records_agent ON thought_records(agent_name);"
         )
     except Exception as e:
+        _initialization_issue(diagnostics, "postgres.thought_records", e)
         logger.warning("Thought records DDL init (non-fatal): %s", e)
 
     try:
@@ -1044,6 +1109,7 @@ async def init_db_postgres(db) -> None:
             "CREATE INDEX IF NOT EXISTS idx_agent_achievements_unlocked ON agent_achievements(achievement_id, unlocked_at DESC);"
         )
     except Exception as e:
+        _initialization_issue(diagnostics, "postgres.agent_achievements", e)
         logger.warning("Agent achievements DDL init (non-fatal): %s", e)
 
     # Bittensor weight-set audit log — one row per WeightSetter submission.
@@ -1073,6 +1139,7 @@ async def init_db_postgres(db) -> None:
             "CREATE INDEX IF NOT EXISTS idx_bt_wsl_status ON bittensor_weight_set_log(status, attempted_at);"
         )
     except Exception as e:
+        _initialization_issue(diagnostics, "postgres.bittensor_weight_set_log", e)
         logger.warning("bittensor_weight_set_log DDL init (non-fatal): %s", e)
 
     # ── Feed / billing tables (arb signal feed) ──────────────────────
@@ -1104,6 +1171,7 @@ async def init_db_postgres(db) -> None:
             "CREATE INDEX IF NOT EXISTS idx_feed_arb_signals_pending ON feed_arb_signals(ts) WHERE outcome IS NULL;"
         )
     except Exception as e:
+        _initialization_issue(diagnostics, "postgres.feed_arb_signals", e)
         logger.warning("feed_arb_signals DDL init (non-fatal): %s", e)
 
     try:
@@ -1122,6 +1190,7 @@ async def init_db_postgres(db) -> None:
         );
         """)
     except Exception as e:
+        _initialization_issue(diagnostics, "postgres.feed_arb_pnl_rollup", e)
         logger.warning("feed_arb_pnl_rollup DDL init (non-fatal): %s", e)
 
     try:
@@ -1134,6 +1203,7 @@ async def init_db_postgres(db) -> None:
         );
         """)
     except Exception as e:
+        _initialization_issue(diagnostics, "postgres.stripe_processed_events", e)
         logger.warning("stripe_processed_events DDL init (non-fatal): %s", e)
 
     try:
@@ -1149,6 +1219,7 @@ async def init_db_postgres(db) -> None:
             "CREATE INDEX IF NOT EXISTS idx_signal_order_map_signal ON signal_order_map(signal_id);"
         )
     except Exception as e:
+        _initialization_issue(diagnostics, "postgres.signal_order_map", e)
         logger.warning("signal_order_map DDL init (non-fatal): %s", e)
 
     # Column migrations — safe to retry (postgres raises "already exists")
@@ -1207,22 +1278,25 @@ async def init_db_postgres(db) -> None:
     for table, col, col_def in _migrations:
         try:
             await db.execute(f"ALTER TABLE {table} ADD COLUMN {col} {col_def}")
-        except Exception:
-            pass  # Column already exists
+        except Exception as error:
+            _initialization_issue(diagnostics, f"postgres.{table}.{col}", error)
 
     # Indexes on arb_spread_observations.observed_at — counterparts to the
     # ALTER above. Declared in _INIT_DDL, where they fail on a live table that
     # lacked the column until the ALTER ran.
-    for idx_sql in (
-        "CREATE INDEX IF NOT EXISTS idx_arb_spread_pair "
-        "ON arb_spread_observations(kalshi_ticker, poly_ticker, observed_at)",
-        "CREATE INDEX IF NOT EXISTS idx_arb_spread_gap "
-        "ON arb_spread_observations(gap_cents, observed_at)",
+    for index_number, idx_sql in enumerate(
+        (
+            "CREATE INDEX IF NOT EXISTS idx_arb_spread_pair "
+            "ON arb_spread_observations(kalshi_ticker, poly_ticker, observed_at)",
+            "CREATE INDEX IF NOT EXISTS idx_arb_spread_gap "
+            "ON arb_spread_observations(gap_cents, observed_at)",
+        ),
+        start=1,
     ):
         try:
             await db.execute(idx_sql)
-        except Exception:
-            pass
+        except Exception as error:
+            _initialization_issue(diagnostics, f"postgres.spread_index.{index_number}", error)
 
     # opportunities.created_at / updated_at DEFAULT drift fix.
     #
@@ -1234,17 +1308,26 @@ async def init_db_postgres(db) -> None:
     # 1286 rows accumulated with NULL timestamps, breaking time-based
     # analytics. Fix: backfill NULLs from updated_at or NOW(), then set
     # the column defaults so future inserts work.
-    for alter_sql in (
-        # Backfill NULLs before changing the default so we don't leave
-        # orphaned history. Use updated_at if available, else NOW().
-        "UPDATE opportunities SET created_at = COALESCE(updated_at, NOW()) WHERE created_at IS NULL",
-        "UPDATE opportunities SET updated_at = COALESCE(created_at, NOW()) WHERE updated_at IS NULL",
-        "ALTER TABLE opportunities ALTER COLUMN created_at SET DEFAULT NOW()",
-        "ALTER TABLE opportunities ALTER COLUMN updated_at SET DEFAULT NOW()",
+    for fixup_number, alter_sql in enumerate(
+        (
+            # Backfill NULLs before changing the default so we don't leave
+            # orphaned history. Use updated_at if available, else NOW().
+            "UPDATE opportunities SET created_at = COALESCE(updated_at, NOW()) WHERE created_at IS NULL",
+            "UPDATE opportunities SET updated_at = COALESCE(created_at, NOW()) WHERE updated_at IS NULL",
+            "ALTER TABLE opportunities ALTER COLUMN created_at SET DEFAULT NOW()",
+            "ALTER TABLE opportunities ALTER COLUMN updated_at SET DEFAULT NOW()",
+        ),
+        start=1,
     ):
         try:
             await db.execute(alter_sql)
         except Exception as _opp_ts_exc:
+            _initialization_issue(
+                diagnostics,
+                f"postgres.opportunity_timestamps.{fixup_number}",
+                _opp_ts_exc,
+                emit_warning=False,
+            )
             # SQLite doesn't support ALTER COLUMN SET DEFAULT; the
             # declarations in _INIT_DDL already do the right thing there.
             # Non-fatal in all environments.
@@ -1254,11 +1337,22 @@ async def init_db_postgres(db) -> None:
             )
 
 
-async def get_db(path: str = "data.db") -> aiosqlite.Connection:
+async def get_db(
+    path: str = "data.db", *, diagnostics: InitializationReport | None = None
+) -> aiosqlite.Connection:
     db = await aiosqlite.connect(path)
-    db.row_factory = aiosqlite.Row
-    await init_db(db)
-    return db
+    try:
+        db.row_factory = aiosqlite.Row
+        await init_db(db, diagnostics=diagnostics)
+        return db
+    except BaseException:
+        try:
+            await db.close()
+        except BaseException as cleanup_error:
+            logger.warning(
+                "Database acquisition cleanup failed: %s", type(cleanup_error).__name__
+            )
+        raise
 
 
 async def create_db(config: Config):

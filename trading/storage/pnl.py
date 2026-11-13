@@ -6,6 +6,7 @@ from functools import wraps
 from storage.paper import PaperStore
 from storage.postgres import PostgresDB
 from storage.unit_of_work import UnitOfWork
+from storage.inspection import CheckIssue, inspect_tables
 
 
 def atomic(method):
@@ -33,6 +34,20 @@ class TrackedPositionStore:
 
     async def close(self) -> None:
         await self._uow.close()
+
+    async def check_storage(self) -> tuple[CheckIssue, ...]:
+        """Read the already-initialized tracking schema without lazy fixups."""
+        if self._uow._db is None or self._uow._closed:
+            return (CheckIssue("position_store", "Unavailable"),)
+        if not await self._uow.supports_transactions():
+            return (CheckIssue("position_store", "UnsupportedTransactions"),)
+        return await inspect_tables(
+            await self._get_db(),
+            {
+                "tracked_positions": "id agent_name opportunity_id symbol side entry_price entry_quantity entry_fees entry_time exit_price exit_fees exit_time exit_reason max_adverse_excursion status expires_at broker_id account_id created_at remaining_quantity exited_quantity realized_pnl",
+                "tracked_fill_receipts": "broker_id account_id order_id role position_id quantity notional fees",
+            },
+        )
 
     def transaction(self):
         return self._uow.transaction()
