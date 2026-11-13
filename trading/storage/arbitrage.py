@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import logging
 from datetime import datetime, timezone
@@ -11,8 +12,19 @@ from decimal import Decimal
 import aiosqlite
 from execution.models import ArbTrade, ArbLeg, ArbState
 from broker.models import OrderBase
+from broker.order_terms import ORDER_TYPES, decode_order
 
 logger = logging.getLogger(__name__)
+
+# order_data holds an order's fields without its type. Each order type adds its
+# own fields to the ones every order has, so those say which type was stored.
+_COMMON_FIELDS = frozenset(f.name for f in dataclasses.fields(OrderBase))
+_ORDER_TYPE_BY_OWN_FIELDS = {
+    frozenset(f.name for f in dataclasses.fields(order_type)) - _COMMON_FIELDS: name
+    for name, order_type in ORDER_TYPES.items()
+}
+if len(_ORDER_TYPE_BY_OWN_FIELDS) != len(ORDER_TYPES):
+    raise RuntimeError("Two order types have the same fields; store the type name")
 
 
 class ArbStore:
@@ -50,7 +62,6 @@ class ArbStore:
                 ),
             )
 
-            import dataclasses
             from enum import Enum
 
             def _encoder(obj):
@@ -171,8 +182,20 @@ class ArbStore:
         legs = {}
         for lr in leg_rows:
             order_dict = json.loads(lr["order_data"])
-            # Reconstruct basic order (Note: specialized types might need more care)
-            order = OrderBase(**order_dict)
+            # A row written before a common field existed lacks it, and reads
+            # back with that field's default.
+            order_type = _ORDER_TYPE_BY_OWN_FIELDS.get(
+                frozenset(order_dict) - _COMMON_FIELDS
+            )
+            try:
+                if order_type is None:
+                    raise ValueError(f"no order type has fields {sorted(order_dict)}")
+                order = decode_order({"type": order_type, "data": order_dict})
+            except (KeyError, TypeError, ValueError, ArithmeticError) as error:
+                raise ValueError(
+                    f"Arbitrage trade {trade_id} {lr['leg_name']} has a stored order"
+                    f" that cannot be read: {error!r}"
+                ) from error
 
             legs[lr["leg_name"]] = ArbLeg(
                 broker_id=lr["broker_id"],
