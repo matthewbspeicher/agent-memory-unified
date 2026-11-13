@@ -64,6 +64,11 @@ The concurrent Claude checkout was left untouched.
 The first broad checks caught an initialization-log severity regression and a
 ledger-ownership violation. Both were corrected without weakening those tests.
 The final passing runs follow the corrections.
+The first hosted Python 3.12 backend run then found two test-mock protocol
+differences: `execute` needed an explicit awaitable mock before the injected
+failure. Those fixtures were corrected, and a missing session-binding type
+annotation was added. The 60 focused checks and complete local backend suite
+passed again; hosted validation is bound to the final PR head separately.
 
 Task-local logs, collection receipts, failure control, SQL-preservation comparison
 and before/after acquisition control are under

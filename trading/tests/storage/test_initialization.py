@@ -57,6 +57,9 @@ async def test_failed_initialization_preserves_primary_error_when_close_fails():
     manager = DatabaseConnection(Config(db_path=":memory:"))
     failure = RuntimeError("primary")
     db = AsyncMock(spec=aiosqlite.Connection)
+    # execute returns an awaitable context manager; mock it explicitly across
+    # Python/aiosqlite versions so PRAGMA setup reaches the injected failure.
+    db.execute = AsyncMock()
     db.close.side_effect = OSError("cleanup")
     with patch("storage.db.aiosqlite.connect", new=AsyncMock(return_value=db)):
         with patch("storage.db.init_db", side_effect=failure):
@@ -73,6 +76,7 @@ async def test_failed_initialization_preserves_primary_error_when_close_fails():
 async def test_context_body_failure_is_not_masked_by_cleanup():
     manager = DatabaseConnection(Config(db_path=":memory:"))
     db = AsyncMock(spec=aiosqlite.Connection)
+    db.execute = AsyncMock()
     db.close.side_effect = OSError("cleanup")
     failure = ValueError("body")
     with patch("storage.db.aiosqlite.connect", new=AsyncMock(return_value=db)):
@@ -250,14 +254,18 @@ async def test_postgres_cleanup_failure_does_not_replace_initialization_error():
 
 
 @pytest.mark.asyncio
-async def test_timestamp_fixup_driver_errors_retain_debug_severity_and_diagnostics(caplog):
+async def test_timestamp_fixup_driver_errors_retain_debug_severity_and_diagnostics(
+    caplog,
+):
     from asyncpg import DatatypeMismatchError
 
     report = InitializationReport()
     db = MagicMock()
 
     async def execute(sql):
-        if sql.startswith(("UPDATE opportunities SET", "ALTER TABLE opportunities ALTER COLUMN")):
+        if sql.startswith(
+            ("UPDATE opportunities SET", "ALTER TABLE opportunities ALTER COLUMN")
+        ):
             raise DatatypeMismatchError("private connection detail")
 
     db.execute = AsyncMock(side_effect=execute)
@@ -270,4 +278,6 @@ async def test_timestamp_fixup_driver_errors_retain_debug_severity_and_diagnosti
     assert {issue.error_type for issue in report.issues} == {"DatatypeMismatchError"}
     assert "private connection detail" not in repr(report)
     assert not [record for record in caplog.records if record.levelno >= 30]
-    assert len([record for record in caplog.records if record.levelname == "DEBUG"]) == 4
+    assert (
+        len([record for record in caplog.records if record.levelname == "DEBUG"]) == 4
+    )

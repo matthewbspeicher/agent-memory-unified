@@ -9,9 +9,14 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 import logging
+from typing import TYPE_CHECKING
 
 from storage.db import DatabaseConnection
 from storage.inspection import CheckIssue, inspect_tables
+
+if TYPE_CHECKING:
+    from storage.paper import PaperStore
+    from storage.pnl import TrackedPositionStore
 
 log = logging.getLogger(__name__)
 
@@ -67,7 +72,9 @@ class StorageSession:
         self._phase = "pending"
         self._entered = False
         self._certified = False
-        self._bindings = None
+        self._bindings: tuple[PaperStore | None, TrackedPositionStore | None] | None = (
+            None
+        )
         self.db = None
 
     @property
@@ -94,7 +101,12 @@ class StorageSession:
                 raise
             log.warning("Storage cleanup failed while handling %s", exc_type.__name__)
 
-    async def certify(self, *, paper_store=None, position_store=None) -> StorageReport:
+    async def certify(
+        self,
+        *,
+        paper_store: PaperStore | None = None,
+        position_store: TrackedPositionStore | None = None,
+    ) -> StorageReport:
         bindings = (paper_store, position_store)
         if self._bindings is not None and any(
             old is not new for old, new in zip(self._bindings, bindings)
