@@ -166,3 +166,19 @@ async def test_approval_before_expiry_executes(store):
     )
     outcome = await approver(store, Router(store)).approve("opp-1")
     assert outcome.status == OpportunityStatus.EXECUTED
+
+
+async def test_listing_by_minimum_age_leaves_out_newer_opportunities(store):
+    """Explorer-tier listings are delayed by an hour."""
+    for name, age in (("old", "-2 hours"), ("recent", "-30 minutes"), ("new", None)):
+        saved = opportunity()
+        saved.id = name
+        await store.save(saved)
+        if age:
+            await store._db.execute(
+                f"UPDATE opportunities SET created_at = datetime('now', '{age}')"
+                " WHERE id = ?",
+                (name,),
+            )
+    assert [row["id"] for row in await store.list(min_age_hours=1)] == ["old"]
+    assert len(await store.list()) == 3
