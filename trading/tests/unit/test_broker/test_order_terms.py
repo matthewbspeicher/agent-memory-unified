@@ -135,14 +135,12 @@ def test_numbers_stored_as_floats_are_read_as_the_decimals_they_show():
     )
 
 
-def test_trailing_distances_stored_as_floats_are_read_the_same_way():
+@pytest.mark.parametrize("distance", ["trail_amount", "trail_percent"])
+def test_a_trailing_distance_stored_as_a_float_is_read_the_same_way(distance):
     stored = json.loads(PINNED["trailing"][1])
-    stored["data"].update(trail_amount=0.07, trail_percent=1.1)
-    order = decode_order(stored)
-    assert (order.trail_amount, order.trail_percent) == (
-        Decimal("0.07"),
-        Decimal("1.1"),
-    )
+    stored["data"].update(trail_amount=None, trail_percent=None)
+    stored["data"][distance] = 1.1
+    assert getattr(decode_order(stored), distance) == Decimal("1.1")
 
 
 def test_validation_normalises_in_place():
