@@ -73,7 +73,8 @@ def decode_order(payload):
         "trail_percent",
     ):
         if values.get(key) is not None:
-            values[key] = Decimal(values[key])
+            # A float is read as the number it shows: Decimal(0.57) is not 0.57.
+            values[key] = Decimal(str(values[key]))
     return ORDER_TYPES[payload["type"]](**values)
 
 

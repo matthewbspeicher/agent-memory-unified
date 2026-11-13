@@ -124,6 +124,17 @@ def test_stored_payload_round_trips(name):
     assert decode_order(json.loads(expected)) == order
 
 
+def test_numbers_stored_as_floats_are_read_as_the_decimals_they_show():
+    stored = json.loads(PINNED["stop_limit"][1])
+    stored["data"].update(quantity=0.1, stop_price=0.57, limit_price=1.1)
+    order = decode_order(stored)
+    assert (order.quantity, order.stop_price, order.limit_price) == (
+        Decimal("0.1"),
+        Decimal("0.57"),
+        Decimal("1.1"),
+    )
+
+
 def test_validation_normalises_in_place():
     order = LimitOrder(STOCK, OrderSide.BUY, "2", "PAPER", limit_price=3)
     validate_order_terms("PAPER", order)
