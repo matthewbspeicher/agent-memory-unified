@@ -1,5 +1,6 @@
 """ArbStore returns the orders it was given."""
 
+import dataclasses
 from datetime import date
 from decimal import Decimal
 
@@ -72,11 +73,28 @@ async def test_a_stored_order_is_read_back_as_it_was_given(store, order):
     assert (type(read), read) == (type(order), order)
 
 
-async def test_an_order_with_unrecognised_terms_is_refused(store):
+async def test_a_row_from_before_signal_id_existed_is_still_read(store):
     await save(store, ORDERS[1])
     await store._db.execute(
-        "UPDATE arb_legs SET order_data = json_set(order_data, '$.peg', '1')"
-        " WHERE leg_name = 'leg_a'"
+        "UPDATE arb_legs SET order_data = json_remove(order_data, '$.signal_id')"
+    )
+    read = (await store.get_trade("arb-1")).leg_a.order
+    assert read == dataclasses.replace(ORDERS[1], signal_id=None)
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        "json_set(order_data, '$.peg', '1')",
+        "json_set(order_data, '$.symbol.venue', 'x')",
+        "json_remove(order_data, '$.quantity')",
+        "json_set(order_data, '$.limit_price', 'soon')",
+    ],
+)
+async def test_an_order_that_cannot_be_read_is_refused_by_name(store, change):
+    await save(store, ORDERS[1])
+    await store._db.execute(
+        f"UPDATE arb_legs SET order_data = {change} WHERE leg_name = 'leg_a'"
     )
     with pytest.raises(ValueError, match="arb-1.*leg_a"):
         await store.get_trade("arb-1")
