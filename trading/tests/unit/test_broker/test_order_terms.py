@@ -135,6 +135,16 @@ def test_numbers_stored_as_floats_are_read_as_the_decimals_they_show():
     )
 
 
+def test_trailing_distances_stored_as_floats_are_read_the_same_way():
+    stored = json.loads(PINNED["trailing"][1])
+    stored["data"].update(trail_amount=0.07, trail_percent=1.1)
+    order = decode_order(stored)
+    assert (order.trail_amount, order.trail_percent) == (
+        Decimal("0.07"),
+        Decimal("1.1"),
+    )
+
+
 def test_validation_normalises_in_place():
     order = LimitOrder(STOCK, OrderSide.BUY, "2", "PAPER", limit_price=3)
     validate_order_terms("PAPER", order)
