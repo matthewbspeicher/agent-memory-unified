@@ -45,6 +45,7 @@ class DatabaseConnection:
                     self.config.database_url,
                     ssl=ssl_ctx,
                     statement_cache_size=0,
+                    server_settings={"TimeZone": "UTC"},
                 )
                 # Retain the acquisition even if facade construction fails.
                 self._pool = pool

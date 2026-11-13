@@ -70,6 +70,11 @@ class TestDatabaseConnectionConnect:
 
                 mock_create_pool.assert_called_once()
                 assert (
+                    mock_create_pool.call_args.kwargs["server_settings"]["TimeZone"]
+                    == "UTC"
+                )
+                assert mock_create_pool.call_args.kwargs["statement_cache_size"] == 0
+                assert (
                     mock_create_pool.call_args[0][0] == "postgresql://user:pass@host/db"
                 )
                 mock_postgres_cls.assert_called_once_with(mock_pool)

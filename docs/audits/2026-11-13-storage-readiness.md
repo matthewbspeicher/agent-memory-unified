@@ -37,6 +37,10 @@ found existing mutation/schema SQL literals unchanged in database initialization
 ## Verification
 
 Initial base: `58d12e1f1c7eecec9507ef7ea6527d2a3cc6cdf2`.
+Integrated main: `e509abe` (Claude's float decoder and PostgreSQL UTC session fixes).
+The connection conflict was resolved by retaining lifecycle handling and the UTC
+pool setting. The UTC fixture's bootstrap assertion now includes the diagnostics
+collector; its behavior assertions remain unchanged.
 Isolated checkout: `agent-memory-unified-worktrees/storage-readiness-design`.
 The concurrent Claude checkout was left untouched.
 
@@ -44,14 +48,18 @@ The concurrent Claude checkout was left untouched.
 - Reproduced acquisition leak using the original database module: injected
   initialization failure left the acquired SQLite connection open (control exit 1).
   Same check after the fix released it (exit 0); the control cleaned its fixture.
-- Complete local unit/storage suite: 3,499 passed, 1 existing skip and 3 deselections.
-- Complete paper CI selection: 461 passed with disposable PostgreSQL 17 and Redis
+- Complete combined local unit/storage suite: 3,503 passed, 1 existing skip and
+  3 deselections.
+- Complete combined paper CI selection: 469 passed with disposable PostgreSQL 17 and Redis
   7.4.8, including 26 new SQLite/PostgreSQL readiness cases. Failure control exited
   1 as required, and both disposable containers were removed.
 - Source review: Standards 0 remaining findings; Spec 0 remaining findings. The
   cleanup-cancellation finding was corrected and covered by regression tests.
 - Ruff and whitespace checks passed. Local mypy is unavailable; CI retains its
   established nonfatal mypy check.
+- The local unconditional type-generation hook needs unavailable `datamodel-codegen`
+  and `quicktype`. Commits use a single-command hook override; no JSON Schema,
+  generated types or persistent hook configuration is changed.
 
 The first broad checks caught an initialization-log severity regression and a
 ledger-ownership violation. Both were corrected without weakening those tests.
@@ -60,6 +68,7 @@ The final passing runs follow the corrections.
 Task-local logs, collection receipts, failure control, SQL-preservation comparison
 and before/after acquisition control are under
 `/Users/mspeicher/agent-memory-artifacts/storage-readiness-design-20261113/`.
+Combined-main terminal receipts are in its `combined-main/` directory.
 
 ## Limits
 

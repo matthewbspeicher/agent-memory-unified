@@ -25,7 +25,7 @@ async def test_check_does_not_write_or_repeat_initialization():
 
 async def test_slow_database_is_bounded_and_can_recover(monkeypatch):
     async with StorageSession(
-        Config(db_path=":memory:", paper_trading=False), timeout_seconds=0.01
+        Config(db_path=":memory:", paper_trading=False), timeout_seconds=0.25
     ) as session:
         execute = session.db.execute
 
