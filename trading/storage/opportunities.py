@@ -85,6 +85,28 @@ def _utc(value) -> datetime:
     return stamp if stamp.tzinfo else stamp.replace(tzinfo=timezone.utc)
 
 
+@dataclasses.dataclass(frozen=True)
+class CapturedOpportunityOffer:
+    """Two ordered observations, not a claim or proof of continued currentness.
+
+    Keep raw revision values until each caller's existing validation point.
+    The enclosed Opportunity and Order remain mutable for execution sizing.
+    """
+
+    opportunity: Opportunity | None
+    offered_revision: object
+    offered_at: datetime | None
+
+    @property
+    def saved_revision(self) -> object:
+        # Defer access so capture cannot preempt the caller's earlier refusals.
+        return (
+            self.opportunity.data.get(REVISION_KEY)
+            if self.opportunity is not None
+            else None
+        )
+
+
 class OpportunityStore:
     def __init__(self, db: aiosqlite.Connection) -> None:
         self._db = db
@@ -368,6 +390,16 @@ class OpportunityStore:
         except ValueError:
             timestamp = None
         return data.get(REVISION_KEY), timestamp
+
+    async def capture_offer(self, opportunity_id: str) -> CapturedOpportunityOffer:
+        """Read identity before terms, retaining replacement/missing evidence.
+
+        These remain separate reads: a replacement between them must retain
+        mismatched revisions. No validation, claim, renewal or write occurs.
+        """
+        revision, offered_at = await self.offer_identity(opportunity_id)
+        opportunity = await self.load(opportunity_id)
+        return CapturedOpportunityOffer(opportunity, revision, offered_at)
 
     async def offered_at(self, opportunity_id: str) -> datetime | None:
         """When the router offered this Opportunity for approval, if it did."""
