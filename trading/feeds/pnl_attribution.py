@@ -301,34 +301,6 @@ class FeedArbPnLAttribution:
         is_postgres = hasattr(self._db, "fetchall")
         now_param: Any = now if is_postgres else now.isoformat()
 
-        if is_postgres:
-            # Use RETURNING to count affected rows portably (avoids the
-            # cursor.rowcount wrapper inconsistency).
-            sql = (
-                "UPDATE feed_arb_signals "
-                "SET outcome = 'missed', outcome_set_at = ? "
-                "WHERE outcome IS NULL AND expires_at < ? "
-                "RETURNING signal_id"
-            )
-            try:
-                rows = await self._db.fetchall(sql, (now_param, now_param))
-                await self._db.commit()
-                return len(list(rows))
-            except Exception as exc:
-                log_event(
-                    logger,
-                    logging.WARNING,
-                    "error",
-                    "FeedArbPnLAttribution: mark-expired failed: %s" % exc,
-                    data={
-                        "component": "feed_pnl_attribution",
-                        "step": "mark_expired",
-                        "exception_type": type(exc).__name__,
-                    },
-                )
-                return 0
-
-        # SQLite path — no RETURNING on older aiosqlite, use cursor.rowcount
         sql = (
             "UPDATE feed_arb_signals "
             "SET outcome = 'missed', outcome_set_at = ? "
@@ -337,7 +309,7 @@ class FeedArbPnLAttribution:
         try:
             cursor = await self._db.execute(sql, (now_param, now_param))
             await self._db.commit()
-            return int(cursor.rowcount or 0)
+            return max(int(cursor.rowcount or 0), 0)
         except Exception as exc:
             log_event(
                 logger,
@@ -652,17 +624,9 @@ class FeedArbPnLAttribution:
                 "WHERE signal_id = ? AND outcome IS NULL"
             )
             try:
-                if hasattr(self._db, "fetchall"):
-                    cursor_result = await self._db.execute(sql, (now_param, sid))
-                    # On Postgres wrapper, rowcount isn't exposed
-                    # reliably — assume the UPDATE took effect if no
-                    # exception. Count by treating each matched sid
-                    # as incremented; signals with outcome already set
-                    # become no-ops on the WHERE clause.
-                    count += 1
-                else:
-                    cursor = await self._db.execute(sql, (now_param, sid))
-                    count += int(cursor.rowcount or 0)
+                cursor = await self._db.execute(sql, (now_param, sid))
+                # A signal whose outcome is already set matches no row.
+                count += max(int(cursor.rowcount or 0), 0)
             except Exception as exc:
                 log_event(
                     logger,

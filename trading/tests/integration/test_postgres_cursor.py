@@ -10,6 +10,9 @@ from uuid import uuid4
 import asyncpg
 import pytest
 
+from datetime import datetime, timedelta, timezone
+
+from feeds.pnl_attribution import FeedArbPnLAttribution
 from learning.reflection import PredictionTracker
 from learning.tournament import TournamentRunner
 from storage.db import init_db_postgres
@@ -171,3 +174,22 @@ async def test_archiving_lessons_reports_how_many_were_archived(db):
     await tracker.save_lesson("other", "opp-9", "timing", "lesson", ["AAPL"])
     assert await tracker.archive_lessons("agent") == 3
     assert await tracker.archive_lessons("agent") == 0
+
+
+async def test_feed_signal_outcomes_count_only_the_rows_they_set(db):
+    """feeds/pnl_attribution.py counts filled and missed signals by rowcount."""
+    await init_db_postgres(db)
+    now = datetime.now(timezone.utc)
+    for signal_id, expires in (("live", 60), ("old-1", -60), ("old-2", -90)):
+        await db.execute(
+            "INSERT INTO feed_arb_signals (signal_id, ts, pair_kalshi_ticker,"
+            " pair_kalshi_side, pair_poly_token_id, pair_poly_side, edge_cents,"
+            " max_size_at_edge_usd, expires_at, raw_signal)"
+            " VALUES (?, ?, 'K', 'yes', 'P', 'no', 1, 1, ?, '{}')",
+            (signal_id, now, now + timedelta(seconds=expires)),
+        )
+    attribution = FeedArbPnLAttribution(db)
+    filled = await attribution._mark_as_filled({"live", "unknown"}, now)
+    again = await attribution._mark_as_filled({"live"}, now)
+    missed = await attribution._mark_expired_as_missed(now)
+    assert (filled, again, missed) == (1, 0, 2)
