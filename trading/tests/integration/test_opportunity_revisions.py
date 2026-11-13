@@ -10,6 +10,8 @@ import os
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from uuid import uuid4
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import aiosqlite
 import asyncpg
@@ -116,6 +118,76 @@ def opportunity(quantity="5", *, is_exit=False, broker_id="paper"):
 async def offer(store, opp):
     assert await store.save(opp)
     assert await store.mark_approvable(opp.id, revision=opp.data[REVISION_KEY])
+
+
+async def test_capture_is_read_only_and_keeps_loaded_order_mutable(store):
+    original = opportunity()
+    await offer(store, original)
+    row_before = await store.get(original.id)
+    first = await store.capture_offer(original.id)
+    second = await store.capture_offer(original.id)
+    assert first.offered_revision == first.saved_revision == original.data[REVISION_KEY]
+    assert (second.offered_revision, second.offered_at) == (
+        first.offered_revision,
+        first.offered_at,
+    )
+    first.opportunity.suggested_trade.quantity = Decimal("1")
+    assert second.opportunity.suggested_trade.quantity == Decimal("5")
+    assert await store.get(original.id) == row_before
+    assert second.opportunity.status == OpportunityStatus.PENDING
+
+
+async def test_capture_retains_replacement_evidence_between_reads(store, writer):
+    original = opportunity()
+    await offer(store, original)
+    identity = await store.offer_identity(original.id)
+    replacement = opportunity("2")
+    load = store.load
+
+    async def replace_then_load(oid):
+        store.load = load
+        await offer(writer, replacement)
+        return await load(oid)
+
+    store.load = replace_then_load
+    capture = await store.capture_offer(original.id)
+    assert (capture.offered_revision, capture.offered_at) == identity
+    assert capture.saved_revision == replacement.data[REVISION_KEY]
+    assert capture.saved_revision != capture.offered_revision
+    assert capture.opportunity.suggested_trade.quantity == Decimal("2")
+    router = SimpleNamespace(execute=AsyncMock())
+    with pytest.raises(ApprovalRefused) as raised:
+        await OpportunityApprover(store, router, max_age=timedelta(minutes=10)).approve(
+            original.id, shown_offer=identity[1], shown_revision=identity[0]
+        )
+    assert raised.value.reason == "changed"
+    router.execute.assert_not_awaited()
+    assert (await store.load(original.id)).status == OpportunityStatus.PENDING
+
+
+async def test_capture_missing_and_legacy_facts_do_not_become_a_claim(store):
+    missing = await store.capture_offer("missing")
+    assert missing.opportunity is None
+    assert (missing.offered_revision, missing.saved_revision, missing.offered_at) == (
+        None,
+        None,
+        None,
+    )
+    original = opportunity()
+    await offer(store, original)
+    row = await store.get(original.id)
+    data = (
+        json.loads(row["data"]) if isinstance(row["data"], str) else dict(row["data"])
+    )
+    data[REVISION_KEY] = 7  # Fabricate a malformed legacy row, bypassing normal save.
+    await store._db.execute(
+        "UPDATE opportunities SET data=? WHERE id=?", (json.dumps(data), original.id)
+    )
+    await store._db.commit()
+    capture = await store.capture_offer(original.id)
+    assert capture.offered_revision == capture.saved_revision == 7
+    assert capture.opportunity.status == OpportunityStatus.PENDING
+    assert capture.offered_at is not None
 
 
 def after_read(store, callback):

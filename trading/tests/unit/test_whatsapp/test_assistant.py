@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from whatsapp.assistant import WhatsAppAssistant
 from agents.models import Opportunity
-from storage.opportunities import REVISION_KEY
+from storage.opportunities import REVISION_KEY, OpportunityStore
 from broker.models import (
     AccountBalance,
     AssetType,
@@ -59,6 +59,11 @@ def deps():
     runner.list_agents = MagicMock(return_value=[])
     opp_store = AsyncMock()
     opp_store.offer_identity = AsyncMock(return_value=(None, None))
+
+    async def capture_offer(opportunity_id):
+        return await OpportunityStore.capture_offer(opp_store, opportunity_id)
+
+    opp_store.capture_offer = AsyncMock(side_effect=capture_offer)
     opp_store.list = AsyncMock(return_value=[])
     risk_engine = MagicMock()
     risk_engine.set_halted = AsyncMock(return_value=[])
@@ -567,6 +572,60 @@ async def test_approve_prompt_refuses_a_different_saved_revision(assistant, deps
     await assistant.handle('15551234567', '/approve opp-1', 'msg-revision')
     assert not assistant._confirmation.has_pending('15551234567')
     assert 'changed' in client.send_text.call_args[0][1]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "case,expected",
+    [
+        ("terms", "Opportunity opp-1 has no stored order to place."),
+        ("offer", "Opportunity opp-1 was not offered for approval."),
+        (
+            "revision",
+            "Opportunity opp-1 changed or needs a fresh offer. Review it again.",
+        ),
+    ],
+)
+async def test_prompt_refusal_precedence_stays_distinct_from_approval(
+    assistant, deps, case, expected
+):
+    opp = _suggestion(trade=None) if case == "terms" else _suggestion()
+    opp.data[REVISION_KEY] = None
+    deps[3].load = AsyncMock(return_value=opp)
+    deps[3].offer_identity = AsyncMock(
+        return_value=("saved-revision", _OFFERED if case == "revision" else None)
+    )
+    await assistant.handle("15551234567", "/approve opp-1", "precedence")
+    deps[0].send_text.assert_awaited_once_with("15551234567", expected)
+    assert not assistant._confirmation.has_pending("15551234567")
+    assistant._execution.submit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "case", ["nonpending", "expired", "negative_quantity", "legacy_revision"]
+)
+async def test_prompt_keeps_its_existing_limited_checks(assistant, deps, case):
+    from datetime import timedelta
+    from agents.models import OpportunityStatus
+
+    opp = _suggestion()
+    revision = 7 if case == "legacy_revision" else "saved-revision"
+    opp.data[REVISION_KEY] = revision
+    if case == "nonpending":
+        opp.status = OpportunityStatus.REJECTED
+    if case == "expired":
+        opp.expires_at = datetime.now(timezone.utc) - timedelta(days=1)
+    if case == "negative_quantity":
+        opp.suggested_trade.quantity = Decimal("-1")
+    deps[3].load = AsyncMock(return_value=opp)
+    deps[3].offer_identity = AsyncMock(return_value=(revision, _OFFERED))
+    assert assistant._approver is None
+    await assistant.handle("15551234567", "/approve opp-1", "limited-preview")
+    assert "place its order?" in deps[0].send_text.await_args.args[1]
+    pending = assistant._confirmation.confirm("15551234567", "YES")
+    assert pending.data == {"id": "opp-1", "offered_at": _OFFERED, "revision": revision}
+    assistant._execution.submit.assert_not_awaited()
 
 
 @pytest.mark.asyncio
