@@ -7,7 +7,6 @@ if TYPE_CHECKING:
     from whatsapp.proactive import HermesProactiveOps
 
 from agents.models import OpportunityStatus
-from storage.opportunities import REVISION_KEY
 from whatsapp.commands import parse_command
 from whatsapp.confirmation import ConfirmationGate, PendingAction
 
@@ -197,10 +196,9 @@ class WhatsAppAssistant:
             await self._client.send_text(phone, "\n".join(lines))
 
         elif name == "approve" and args:
-            # Read the offer before the order it covers, so an order replaced
-            # in between is refused at confirmation for its newer offer.
-            revision, offered_at = await self._opp_store.offer_identity(args[0])
-            opp = await self._opp_store.load(args[0])
+            capture = await self._opp_store.capture_offer(args[0])
+            revision, offered_at = capture.offered_revision, capture.offered_at
+            opp = capture.opportunity
             if not opp:
                 await self._client.send_text(phone, f"Opportunity {args[0]} not found.")
                 return
@@ -215,7 +213,7 @@ class WhatsAppAssistant:
                     phone, f"Opportunity {args[0]} was not offered for approval."
                 )
                 return
-            if not revision or opp.data.get(REVISION_KEY) != revision:
+            if not revision or capture.saved_revision != revision:
                 await self._client.send_text(
                     phone, f"Opportunity {args[0]} changed or needs a fresh offer. Review it again."
                 )

@@ -90,6 +90,65 @@ async def offered(store, ago, id="opp-1"):
     )
 
 
+@pytest.mark.parametrize(
+    "case,reason,detail",
+    [
+        ("status", "not_pending", "Opportunity is rejected, not pending"),
+        (
+            "offer",
+            "not_approvable",
+            "Opportunity was not offered for approval. Its Agent may only notify, or a gate held it back.",
+        ),
+        (
+            "terms",
+            "not_executable",
+            "Opportunity has no stored order to execute. It proposed no trade, or was saved before approvals placed orders.",
+        ),
+        (
+            "revision",
+            "not_approvable",
+            "Opportunity needs a fresh versioned offer before approval",
+        ),
+        (
+            "mismatch",
+            "changed",
+            "Opportunity changed while it was being approved. Review it again",
+        ),
+        ("quantity", "not_executable", "Opportunity has no usable quantity"),
+    ],
+)
+async def test_multiple_invalid_facts_preserve_approval_refusal_precedence(
+    store, case, reason, detail
+):
+    opp = opportunity(trade=None if case in {"status", "offer", "terms"} else ORDER)
+    if case in {"mismatch", "quantity"}:
+        opp.suggested_trade.quantity = Decimal("-1")
+    await store.save(opp)
+    if case not in {"status", "offer"}:
+        await store.mark_approvable(opp.id, revision=opp.data[REVISION_KEY])
+    if case in {"status", "offer", "terms", "revision"}:
+        row = await store.get(opp.id)
+        data = json.loads(row["data"])
+        data[REVISION_KEY] = None
+        await store._db.execute(
+            "UPDATE opportunities SET data=? WHERE id=?", (json.dumps(data), opp.id)
+        )
+        await store._db.commit()
+    if case == "status":
+        await store.update_status(opp.id, OpportunityStatus.REJECTED)
+    if case == "mismatch":
+        _, when = await store.offer_identity(opp.id)
+        store.offer_identity = AsyncMock(return_value=("replacement", when))
+    router = SimpleNamespace(execute=AsyncMock())
+    with pytest.raises(ApprovalRefused) as raised:
+        await OpportunityApprover(store, router, max_age=timedelta(minutes=10)).approve(
+            opp.id, shown_revision="also-wrong"
+        )
+    assert raised.value.reason == reason
+    assert raised.value.detail == detail
+    router.execute.assert_not_awaited()
+
+
 class FakeRouter:
     """Stands in for the router: records the call and sets the final status."""
 

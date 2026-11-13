@@ -1,10 +1,12 @@
 """Local review qualification: actual paper ledger, Redis admission and tracking."""
 
 import asyncio
+import re
+from copy import deepcopy
 from datetime import timedelta
 from decimal import Decimal as D
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 from agents.approval import ApprovalRefused, OpportunityApprover
@@ -14,6 +16,7 @@ from broker.models import MarketOrder, OrderSide, OrderStatus
 from tests.integration.test_dispatch_recovery import paper, control
 from tests.integration.test_paper_fill_reconciliation import projection, opportunity
 from tests.integration.test_paper_resting_recovery import make_rig, tick
+from whatsapp.assistant import WhatsAppAssistant
 
 pytestmark = pytest.mark.integration
 
@@ -100,6 +103,61 @@ async def test_concurrent_approval_places_one_paper_order(projection, paper, con
     )
     assert sum(isinstance(r, ApprovalRefused) for r in results) == 2
     assert len(await paper.get_order_history("PAPER")) == 1
+
+
+async def test_whatsapp_stale_capture_refuses_then_fresh_concurrent_confirmations_dispatch_once(
+    projection, paper, control
+):
+    _, _, _, store, broker, service, order, router, approve = await rig(
+        projection, paper, control
+    )
+    entry = opportunity(order)
+    await router.route(entry, ActionLevel.SUGGEST_TRADE)
+    client = SimpleNamespace(send_text=AsyncMock(), record_inbound=Mock())
+    assistant = WhatsAppAssistant(
+        client,
+        broker,
+        None,
+        store,
+        service._risk,
+        account_id="PAPER",
+        execution_service=service,
+        approver=approve,
+    )
+
+    async def prompt(phone):
+        await assistant.handle(phone, f"/approve {entry.id}", "prompt-" + phone)
+        message = client.send_text.await_args.args[1]
+        match = re.search(r"Reply \*([^*]+)\* to confirm", message)
+        assert match is not None, message
+        return match.group(1)
+
+    old_revision, _ = await store.offer_identity(entry.id)
+    old_token = await prompt("stale-phone")
+    replacement = deepcopy(entry)
+    replacement.suggested_trade.quantity = D("2")
+    await router.route(replacement, ActionLevel.SUGGEST_TRADE)
+    new_revision, _ = await store.offer_identity(entry.id)
+    assert new_revision != old_revision
+    await assistant.handle("stale-phone", old_token, "stale-confirm")
+    assert "changed" in client.send_text.await_args.args[1]
+    assert await paper.get_order_history("PAPER") == []
+    assert (await store.load(entry.id)).status == OpportunityStatus.PENDING
+    assert await control.get("execution:admission:lock") is None
+
+    first, second = await prompt("first-phone"), await prompt("second-phone")
+    await asyncio.gather(
+        assistant.handle("first-phone", first, "first-confirm"),
+        assistant.handle("second-phone", second, "second-confirm"),
+    )
+    history = await paper.get_order_history("PAPER")
+    assert len(history) == 1
+    assert history[0].status == OrderStatus.SUBMITTED
+    snapshot = await paper.get_order_snapshot(history[0].order_id)
+    assert snapshot.order.quantity == D("2")
+    assert (
+        await store.load(entry.id)
+    ).status == OpportunityStatus.RECONCILIATION_REQUIRED
 
 
 async def test_halt_refuses_approved_paper_order(projection, paper, control):

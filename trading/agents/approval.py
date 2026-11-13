@@ -14,7 +14,6 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
 from agents.models import OpportunityStatus
-from storage.opportunities import REVISION_KEY
 
 logger = logging.getLogger(__name__)
 
@@ -75,10 +74,9 @@ class OpportunityApprover:
         ID-only callers approve the current offer, which stays pinned to its
         saved revision throughout this call.
         """
-        # The offer is read before the Opportunity it covers: if the Agent
-        # replaces it in between, the loaded revision will not match.
-        offered_revision, offered_at = await self._store.offer_identity(opportunity_id)
-        opportunity = await self._store.load(opportunity_id)
+        capture = await self._store.capture_offer(opportunity_id)
+        offered_revision, offered_at = capture.offered_revision, capture.offered_at
+        opportunity = capture.opportunity
         if opportunity is None:
             raise ApprovalRefused("not_found", "Opportunity not found")
         if opportunity.status != OpportunityStatus.PENDING:
@@ -98,7 +96,7 @@ class OpportunityApprover:
                 "Opportunity has no stored order to execute. It proposed no "
                 "trade, or was saved before approvals placed orders.",
             )
-        revision = opportunity.data.get(REVISION_KEY)
+        revision = capture.saved_revision
         if not isinstance(revision, str) or not revision:
             raise ApprovalRefused(
                 "not_approvable",
