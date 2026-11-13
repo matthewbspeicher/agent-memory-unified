@@ -216,7 +216,16 @@ async def readiness_probe(request: Request):
 
     # 1. Database
     db = getattr(request.app.state, "db", None)
-    if db is not None:
+    if getattr(request.app.state, "storage_managed", False):
+        session = getattr(request.app.state, "storage_session", None)
+        if session is None or db is None or session.db is not db:
+            checks["db"] = False
+        else:
+            try:
+                checks["db"] = (await session.check()).ready
+            except Exception:
+                checks["db"] = False
+    elif db is not None:
         try:
             await db.execute("SELECT 1")
             checks["db"] = True

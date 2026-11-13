@@ -19,6 +19,7 @@ from broker.order_terms import decode_order, encode_order, order_payload
 import aiosqlite
 from storage.postgres import PostgresDB
 from storage.unit_of_work import UnitOfWork
+from storage.inspection import CheckIssue, inspect_tables
 
 
 class PaperStore:
@@ -62,6 +63,27 @@ class PaperStore:
 
     async def supports_transactions(self) -> bool:
         return await self._uow.supports_transactions()
+
+    async def check_storage(self) -> tuple[CheckIssue, ...]:
+        """Inspect this ledger's eager schema without initializing or writing it."""
+        if self._uow._db is None or self._uow._closed:
+            return (CheckIssue("paper_store", "Unavailable"),)
+        if not await self.supports_transactions():
+            return (CheckIssue("paper_store", "UnsupportedTransactions"),)
+        return await inspect_tables(
+            await self._get_db(),
+            {
+                "paper_order_terms": "order_id account_id order_payload submitted_at epoch triggered",
+                "paper_fill_events": "fill_id order_id account_id quantity price commission occurred_at",
+                "paper_match_ticks": "tick_id payload",
+                "paper_dispatches": "dispatch_id account_id order_payload epoch result_payload operation original_order_id",
+                "paper_risk_coverage": "account_id complete_from generation",
+                "paper_risk_events": "event_id account_id order_id kind net_pnl occurred_at",
+                "paper_accounts": "account_id net_liquidation buying_power cash maintenance_margin",
+                "paper_positions": "account_id symbol asset_type quantity avg_cost realized_pnl resolved_at",
+                "paper_orders": "order_id account_id symbol side quantity status filled_quantity avg_fill_price created_at",
+            },
+        )
 
     async def account_generation(self, account_id: str) -> str | None:
         """The account's current generation, or None if it has no coverage row."""

@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import os as _os
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 from fastapi import FastAPI
 
 from api.routes import (
@@ -867,100 +867,80 @@ async def _start_redis_streams_consumer(
 
 
 async def _shutdown_app_state(*, app: FastAPI, runner, logger: logging.Logger):
-    streams_consumer = getattr(app.state, "streams_consumer", None)
-    if streams_consumer:
-        await streams_consumer.stop()
-        logger.info("Redis Streams consumer stopped")
+    """Attempt each dependent cleanup before the lifespan closes shared storage."""
+    cancellations = []
 
-    task_manager = getattr(app.state, "task_manager", None)
-    if task_manager:
-        await task_manager.shutdown()
-
-    adapter_runner = getattr(app.state, "adapter_runner", None)
-    if adapter_runner:
-        await adapter_runner.stop()
-
-    intel_layer = getattr(app.state, "intelligence_layer", None)
-    if intel_layer:
-        await intel_layer.stop()
-        logger.info("IntelligenceLayer stopped")
-
-    data_bus = getattr(app.state, "data_bus", None)
-    if data_bus and hasattr(data_bus, "close"):
-        await data_bus.close()
-        logger.info("DataBus closed")
-
-    if runner:
-        logger.info("Stopping agent runner...")
-        await runner.stop_all()
-        logger.info("Agent runner stopped.")
-
-    if hasattr(app.state, "stream_manager"):
-        logger.info("Stopping stream manager...")
-        await app.state.stream_manager.stop()
-        logger.info("Stream manager stopped.")
-
-    for name, broker_obj in getattr(app.state, "brokers", {}).items():
+    async def attempt(name, operation):
         try:
-            logger.info("Disconnecting broker %s...", name)
-            await broker_obj.connection.disconnect()
-            logger.info("Broker %s disconnected.", name)
-        except Exception as exc:
-            logger.warning("Error disconnecting broker %s: %s", name, exc)
+            await operation()
+        except asyncio.CancelledError as error:
+            cancellations.append(error)
+            logger.warning("%s cleanup cancelled", name)
+        except Exception as error:
+            logger.warning("%s cleanup failed (%s)", name, type(error).__name__)
+
+    health_task = getattr(app.state, "_health_cache_task", None)
+    if health_task is not None:
+        health_task.cancel()
+        await asyncio.gather(health_task, return_exceptions=True)
+
+    # Preserve the existing shutdown order; one failure must not skip later owners.
+    for attribute, method, label in (
+        ("streams_consumer", "stop", "streams"),
+        ("task_manager", "shutdown", "tasks"),
+        ("adapter_runner", "stop", "adapter runner"),
+        ("intelligence_layer", "stop", "intelligence layer"),
+        ("data_bus", "close", "data bus"),
+    ):
+        resource = getattr(app.state, attribute, None)
+        if resource is not None and hasattr(resource, method):
+            await attempt(label, getattr(resource, method))
+
+    if runner is not None:
+        await attempt("agent runner", runner.stop_all)
+    stream_manager = getattr(app.state, "stream_manager", None)
+    if stream_manager is not None:
+        await attempt("stream manager", stream_manager.stop)
+    for name, broker in getattr(app.state, "brokers", {}).items():
+        await attempt("broker " + name, broker.connection.disconnect)
 
     exit_manager = getattr(app.state, "exit_manager", None)
-    if exit_manager is not None and getattr(exit_manager, "_store", None) is not None:
-        await exit_manager._store.close()
-
-    pnl_store = getattr(app.state, "pnl_store", None)
-    if pnl_store is not None and hasattr(pnl_store, "close"):
-        await pnl_store.close()
-
-    paper_store = getattr(app.state, "paper_store", None)
-    if paper_store is not None:
-        await paper_store.close()
-
-    journal_indexer = getattr(app.state, "journal_indexer", None)
-    if journal_indexer:
-        logger.info("Stopping journal indexer...")
-        await journal_indexer.stop()
-        logger.info("Journal indexer stopped.")
-
-    bt_adapter = getattr(app.state, "bittensor_adapter", None)
-    if bt_adapter:
-        try:
-            logger.info("Closing bittensor adapter...")
-            await bt_adapter.close()
-            logger.info("Bittensor adapter closed.")
-        except Exception as exc:
-            logger.warning("Bittensor adapter close error: %s", exc)
+    exit_store = getattr(exit_manager, "_store", None)
+    if exit_store is not None:
+        await attempt("exit store", exit_store.close)
+    for attribute, method, label in (
+        ("pnl_store", "close", "tracked positions"),
+        ("paper_store", "close", "paper"),
+        ("journal_indexer", "stop", "journal indexer"),
+        ("bittensor_adapter", "close", "bittensor adapter"),
+    ):
+        resource = getattr(app.state, attribute, None)
+        if resource is not None and hasattr(resource, method):
+            await attempt(label, getattr(resource, method))
 
     obs = getattr(app.state, "observability_emitter", None)
-    if obs:
-        logger.info("Stopping observability emitter...")
-        obs.stop()
-        logger.info("Observability emitter stopped.")
-
-    redis_bridge = getattr(app.state, "redis_bridge", None)
-    if redis_bridge:
-        logger.info("Stopping redis bridge...")
-        await redis_bridge.stop()
-        logger.info("Redis bridge stopped.")
-
-    kg = getattr(app.state, "knowledge_graph", None)
-    if kg:
-        await kg.close()
-        logger.info("TradingKnowledgeGraph closed")
-
-    redis = getattr(app.state, "redis", None)
-    if redis:
-        logger.info("Closing redis...")
-        await redis.aclose()
-        logger.info("Redis closed.")
+    if obs is not None:
+        try:
+            obs.stop()
+        except asyncio.CancelledError as error:
+            cancellations.append(error)
+            logger.warning("Observability cleanup cancelled")
+        except Exception as error:
+            logger.warning("Observability cleanup failed (%s)", type(error).__name__)
+    for attribute, method, label in (
+        ("redis_bridge", "stop", "redis bridge"),
+        ("knowledge_graph", "close", "knowledge graph"),
+        ("redis", "aclose", "redis"),
+    ):
+        resource = getattr(app.state, attribute, None)
+        if resource is not None and hasattr(resource, method):
+            await attempt(label, getattr(resource, method))
+    if cancellations:
+        raise cancellations[0]
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def _startup_lifespan(app: FastAPI):
     broker = getattr(app.state, "broker", None)
     config = getattr(app.state, "config", load_config())
 
@@ -1017,7 +997,7 @@ async def lifespan(app: FastAPI):
         from storage.trades import TradeStore
         from notifications.log_notifier import LogNotifier
 
-        from storage.db import create_db
+        from storage.readiness import StorageSession
         from data.events import EventBus
         from execution.shadow import ShadowExecutor, ShadowOutcomeResolver
 
@@ -1039,7 +1019,11 @@ async def lifespan(app: FastAPI):
 
         await setup_redis(config=config, event_bus=event_bus, app_state=app.state)
 
-        db = await create_db(config)
+        storage = await app.state._storage_stack.enter_async_context(
+            StorageSession(config)
+        )
+        app.state.storage_session = storage
+        db = storage.db
         app.state.db = db
         app.state.learning_config = _learning_cfg
 
@@ -2147,7 +2131,6 @@ async def lifespan(app: FastAPI):
             fill_reconciler = PaperFillReconciler(_paper_store, pnl_store, opp_store, exit_manager, trade_store=trade_store)
             await fill_reconciler.initialize()
             app.state.paper_fill_reconciler = fill_reconciler
-            task_mgr.create_task(fill_reconciler.run(), name="paper_fill_reconciliation")
             if config.paper_matching_enabled:
                 from execution.paper_driver import PaperMatchingDriver
 
@@ -2159,7 +2142,19 @@ async def lifespan(app: FastAPI):
                 )
                 await paper_driver.initialize()
                 app.state.paper_matching_driver = paper_driver
-                task_mgr.create_task(paper_driver.run(), name="paper_matching_driver")
+
+        # Existing owners have now initialized the configured paper schema.
+        # Check readability before starting execution consumers; risk admission
+        # remains with the existing execution module.
+        await storage.certify(paper_store=_paper_store, position_store=pnl_store)
+        if getattr(app.state, "paper_fill_reconciler", None) is not None:
+            task_mgr.create_task(
+                app.state.paper_fill_reconciler.run(), name="paper_fill_reconciliation"
+            )
+        if getattr(app.state, "paper_matching_driver", None) is not None:
+            task_mgr.create_task(
+                app.state.paper_matching_driver.run(), name="paper_matching_driver"
+            )
 
 
         health_engine, router, runner = _setup_agent_runtime(
@@ -2418,7 +2413,47 @@ async def lifespan(app: FastAPI):
 
     yield
 
-    await _shutdown_app_state(app=app, runner=runner, logger=_log)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Own cleanup even when startup never reaches its first yield."""
+    import sys
+
+    app.state.storage_managed = bool(getattr(app.state, "enable_agent_framework", False))
+    stack = AsyncExitStack()
+    app.state._storage_stack = stack
+    try:
+        async with _startup_lifespan(app):
+            yield
+    finally:
+        failure = sys.exc_info()
+
+        async def cleanup():
+            try:
+                await _shutdown_app_state(
+                    app=app, runner=getattr(app.state, "agent_runner", None), logger=_log
+                )
+            finally:
+                # Store-owned handles and workers stop before shared storage.
+                await stack.__aexit__(*failure)
+
+        task = asyncio.create_task(cleanup())
+        try:
+            await asyncio.shield(task)
+        except asyncio.CancelledError:
+            # Do not abandon owned connections if shutdown itself is cancelled.
+            if not task.done():
+                try:
+                    await task
+                except (Exception, asyncio.CancelledError) as error:
+                    _log.warning("Application cleanup failed (%s)", type(error).__name__)
+            if failure[0] is None:
+                raise
+            _log.warning("Application cleanup cancelled; retaining the primary failure")
+        except Exception as error:
+            if failure[0] is None:
+                raise
+            _log.warning("Application cleanup failed (%s)", type(error).__name__)
 
 
 def create_app(

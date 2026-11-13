@@ -25,6 +25,31 @@ async def setup_brokers(
     Returns:
         (primary_broker, all_brokers_dict, paper_store)
     """
+    paper_store = None
+    if config.paper_trading:
+        from storage.paper import PaperStore
+
+        paper_store = PaperStore(db)
+    try:
+        return await _setup_brokers(config, db, broker, paper_store=paper_store)
+    except BaseException:
+        # Until the helper returns, app.state cannot own this store's dedicated
+        # SQLite connection. Cancellation during later broker setup counts too.
+        if paper_store is not None:
+            try:
+                await paper_store.close()
+            except BaseException as error:
+                logger.warning("Paper startup cleanup failed (%s)", type(error).__name__)
+        raise
+
+
+async def _setup_brokers(
+    config: Config,
+    db: Any,
+    broker: Broker | None,
+    *,
+    paper_store: Any,
+) -> tuple[Broker | None, dict[str, Broker], Any]:
     from broker.paper import PaperBroker
 
     # In configured paper mode this broker is replaced below. Do not seed its
@@ -33,12 +58,10 @@ async def setup_brokers(
         await broker.orders.store.init_tables()
 
     # --- Paper trading mode: replace broker with PaperBroker ---
-    _paper_store = None
+    _paper_store = paper_store
     if config.paper_trading:
         from broker.paper import PaperBroker
-        from storage.paper import PaperStore
 
-        _paper_store = PaperStore(db)
         _initial = config.paper_trading_initial_balance
         await _paper_store.init_tables(initial_balance=_initial)
         await db.commit()
