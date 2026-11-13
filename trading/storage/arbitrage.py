@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import logging
 from datetime import datetime, timezone
@@ -10,9 +11,16 @@ from decimal import Decimal
 
 import aiosqlite
 from execution.models import ArbTrade, ArbLeg, ArbState
-from broker.models import OrderBase
+from broker.order_terms import ORDER_TYPES, decode_order
 
 logger = logging.getLogger(__name__)
+
+# order_data holds an order's fields without its type. Each order type has its
+# own set of fields, so the fields say which type was stored.
+_ORDER_TYPE_BY_FIELDS = {
+    frozenset(f.name for f in dataclasses.fields(order_type)): name
+    for name, order_type in ORDER_TYPES.items()
+}
 
 
 class ArbStore:
@@ -50,7 +58,6 @@ class ArbStore:
                 ),
             )
 
-            import dataclasses
             from enum import Enum
 
             def _encoder(obj):
@@ -171,8 +178,13 @@ class ArbStore:
         legs = {}
         for lr in leg_rows:
             order_dict = json.loads(lr["order_data"])
-            # Reconstruct basic order (Note: specialized types might need more care)
-            order = OrderBase(**order_dict)
+            order_type = _ORDER_TYPE_BY_FIELDS.get(frozenset(order_dict))
+            if order_type is None:
+                raise ValueError(
+                    f"Arbitrage trade {trade_id} {lr['leg_name']} has a stored order"
+                    f" of no known type: fields {sorted(order_dict)}"
+                )
+            order = decode_order({"type": order_type, "data": order_dict})
 
             legs[lr["leg_name"]] = ArbLeg(
                 broker_id=lr["broker_id"],

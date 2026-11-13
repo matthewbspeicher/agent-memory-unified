@@ -163,6 +163,8 @@ async def test_core_stores_work_on_the_schema_the_engine_creates(empty):
     stored = await db.fetchone("SELECT state, created_at FROM arb_trades")
     assert stored["state"] == ArbState.FAILED.value
     assert stored_utc(stored["created_at"]) == NOW
+    read = await arbitrage.get_trade("arb-1")
+    assert read.leg_a.order == leg("kalshi_paper").order
 
 
 async def test_a_spread_can_be_recorded_found_and_claimed_once(empty):

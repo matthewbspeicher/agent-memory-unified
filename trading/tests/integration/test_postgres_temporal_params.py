@@ -8,12 +8,16 @@ a session whose time zone is not UTC.
 import os
 import re
 from datetime import date, datetime, timedelta, timezone
+from decimal import Decimal
 from pathlib import Path
 from uuid import uuid4
 
 import asyncpg
 import pytest
 
+from broker.models import TIF, AssetType, LimitOrder, OrderSide, Symbol
+from execution.models import ArbLeg, ArbTrade
+from storage.arbitrage import ArbStore
 from storage.consensus import ConsensusStore
 from storage.performance import PerformanceSnapshot, PerformanceStore
 from storage.postgres import PostgresDB
@@ -61,6 +65,8 @@ async def db():
                 "arb_spread_observations",
                 "strategy_health",
                 "performance_snapshots",
+                "arb_trades",
+                "arb_legs",
             ):
                 await connection.execute(script_table(table))
         yield PostgresDB(pool)
@@ -184,3 +190,30 @@ async def test_a_snapshot_written_as_text_is_read_back_as_the_same_instant(db):
     latest = await store.get_latest("agent")
     assert latest.timestamp == INSTANT
     assert latest.timestamp.tzinfo is not None
+
+
+async def test_an_arbitrage_trade_is_read_back_with_its_limit_orders(db):
+    """order_data is JSONB on this schema and text on the engine's own."""
+    order = LimitOrder(
+        Symbol("KX-1", AssetType.PREDICTION),
+        OrderSide.BUY,
+        Decimal("5"),
+        "PAPER",
+        TIF.GTC,
+        limit_price=Decimal("0.57"),
+    )
+    store = ArbStore(db)
+    await store.save_trade(
+        ArbTrade(
+            id="arb-1",
+            symbol_a="KX-1",
+            symbol_b="POLY-1",
+            leg_a=ArbLeg("kalshi_paper", order),
+            leg_b=ArbLeg("polymarket_paper", order),
+            expected_profit_bps=120,
+            created_at=INSTANT,
+            updated_at=INSTANT,
+        )
+    )
+    read = await store.get_trade("arb-1")
+    assert (type(read.leg_b.order), read.leg_b.order) == (LimitOrder, order)
